@@ -1,0 +1,263 @@
+=== PAGE 1 ===
+Guidelines for a more sandbox approach for
+Four Against Darkness
+Heik
+February 29, 2024
+Introduction
+This document consists of a collection of guidelines designed for playing Four
+Against Darkness in sandbox mode. It relies on several official supplements (see
+Section 1 for an exhaustive list). Remember that none of the rules presented in
+this document are set in stone; feel free to add/remove/adapt any element that
+you wish. Furthermore, I may add in the future additional rules, depending on
+the supplements I end up buying.
+Important initialisms
+CF Chaos Factor - This is a concept borrowed from Mythic GM Emulator. The
+chaos factor (or CF) is an integer between 1 and 9 which translates how
+much your characters are in control of the situation. The higher it is, the
+more likely dichotomous questions (questions whose answer is either yes or
+no) will give a “yes” answer, and the more likely random events will occur.
+Its default value is 5, and it is incremented or decremented by 1 at the end of
+each important scene. You do not need to own the Mythic GM Emulator to
+use this set of rules, but you may assign a CF to your adventure to influence
+the odds of several outcomes.
+xDy This means rolling x, y-sided di(c)e, and adding the score of each die to-
+gether. For instance, 2d6 means rolling two six-sided dice, and sum the
+result of both dice together. Note that, for the sake of clarity, if no number
+appears before the d, it means that only one die is rolled. For example, d6
+means roll one six-sided die.
+1
+
+=== PAGE 2 ===
+2
+
+=== PAGE 3 ===
+Part I
+Wilderness
+1 Hex Map
+Wilderness exploration is performed on an initially empty hexagonal map. Fol-
+lowing Tales from the Adventurers’ Guild suggestions, each hexagon may be of
+one, and only one, of the following types (the text in parenthesis refers to the
+supplement(s) used for that type of hexagon):
+⋆ Plain (Four Against Darkness core rulebook, Fiendish Foes, & Tales from
+the Adventurers’ Guild)
+⋆ Abyss (Four Against the Abyss)
+⋆ Forest (The Crucible of Classic Critters)
+⋆ Hill (Caverns of Chaos)
+⋆ Mountain (More Mountainous Mayhem)
+⋆ Necromantic (Digressions of the Devouring Dead)
+⋆ Ruins (Ravagers of Ruins)
+⋆ Temple (Lost Temples of Qaarra)
+⋆ Settlement (Tales from the Adventurers’ Guild, Treacheries of the Trouble-
+some Towns)
+You start your campaign with a blank hexagonal grid. It will be filled gradually
+with terrains and dungeons while exploring. At the beginning, use the rules pre-
+sented in Tales from the Adventurers’ Guild: draw a settlement roughly at the
+center of your map, and assign it a name as well as a settlement score. Thereafter,
+determine the location of a couple of other settlements, still using Tales from the
+Adventurers’ Guild.
+One hexagon corresponds to one full day of travel. When stepping into an
+unexplored hexagon, roll d6 to determine its type:
+3
+
+=== PAGE 4 ===
+d6 Type
+1−5 Plain
+6 Special
+If a 6 is rolled, this means that there is some other type of terrain or structure
+nearby. Roll on the special terrain table:
+d12 Special Terrain
+1−3 Forest
+4−5 Hill
+6−7 Mountain
+8 Necromantic
+9 Temple
+10 Abyss
+11 Ruins
+12 Settlement
+The table above is an example; feel free to adapt the odds of this table to your
+campaign and to your supplements. You can even use the CF to weight the odds
+of some results:
+Example 1 You own Four Against Darkness base book, the Twisted supplements,
+as well as Four Against the Abyss. Besides, you own Treacheries of the Trouble-
+some Towns, so may want to emphasize the occurrence of settlements. Hence,
+your special terrain table may look like this:
+d8 Adapted Special Terrain
+1−3 Twisted Minions
+4−5 Twisted Final Fights
+6−7 Settlement
+8 Settlement if CF ≤ 7. Otherwise, Abyss
+• If Forest, Hill or Mountain is rolled, then roll another d6: the result will
+give the number of hexagons taken spatially by this terrain type, as a cluster.
+The “explosive six rule” is applicable there, meaning that large portions of the
+mentioned terrains could be present on the map.
+Example 2 You step into an unexplored hexagon: you roll d6 to determine its
+type. You roll a 6, meaning that the terrain is of special type. You roll on the
+Special terrain table and you obtain a 2: Forest. Hence, roll d6 to know how many
+hexagons the forest stretches. You get a 6! The “explosive six rule” is applicable,
+4
+
+=== PAGE 5 ===
+so you reroll and get a 3. Thus, your forest will spread on 9 hexes, one of them
+including the hexagon you just stepped in. Draw forests on 9 hexes such that there
+is no discontinuity in the cluster.
+Why not checking the terrain type hex by hex for Forests, Hills and Mountains?
+⇒ This is because it can lead to wide forest, hill and mountain areas, rather than
+having one hex here and there of these types.
+• If Abyss, Necromantic, Ruins or Temple is rolled, then the hexagon contains
+exactly one dungeon of the rolled type.
+• If Settlement is rolled, determine its name and its score. See Part III for
+more information.
+• If the hexagon is of type Plain, then roll d6 to determine whether dungeon(s)
+is/are present there:
+d6 Type
+1−3 No dungeon
+4−5 1 dungeon
+6 2 dungeons
+For each dungeon in a Plain hexagon, roll d6: if a 6 is rolled, this is a small the-
+matic dungeon, like the ones from Tales from the Adventurers’ Guild. Otherwise,
+use Four Against Darkness core rulebook if your party is level 1 − 2, Fiendish
+Foes if your party is level 3−5. For higher levels, you may use Four Against the
+Abyss and Four Against the Forsaken Depths; replace Four Against the Abyss in
+the Special Terrain table by Digressions of the Devouring Dead.
+After determining the terrain type of an hexagon, and eventually whether it
+contains dungeons, draw on your hexagon illustrations to show that you explored
+that hex, and to recall the terrain type. Be creative! Clusters of trees for forests,
+snowy mountains for moutains, for settlements the drawing may vary from a ham-
+let to a big town depending on the settlement score, cave entrances for dungeons
+(do not forget to draw two if you ended up with two dungeons on that hex), and
+so on. If you feel artistic, use coloured pencil. If you just want to go straight to
+the point, just a tree and a rough cavern entrance will be sufficient.
+5
+
+=== PAGE 6 ===
+2 Survival in a Wilderness Environment
+The wilderness is dangerous, and settlements are a privileged location for your
+party to rest and to resupply. For the sake of immersion, you may keep track of
+your resources to emphasize the exploration and survival aspects.
+Example 3 A non-exhaustive list of resources to track while exploring:
+• Ammunitions (arrows, stones...)
+• Rations
+• Spells
+• Torches / Oil (if you want a more hardcore, OSR experience)
+2.1 Eating
+Since one hexagon corresponds to one full day of travel, one ration should be
+consumed per character, per hexagon. If a character does not consume a ration,
+he/she may receive a small, but cumulative penalty. This could be for example a
+−1 to attack, starting from the day after a ration is not consumed. Each subse-
+quent day, roll d6; if the result is 1, then the penalty is decreased by an additional
+1. Note that the penalty cannot exceed the character level. For example, a level
+3 character cannot have less than a −3 penalty. We recall that from The Crucible
+of Classic Critters, a food ration costs 1 gp, and that a character may carry up
+to 10 at a time.
+2.2 Resting
+The only way to restore all lost hit points and spells at once, is to spend the night
+in a settlement. If the party sleeps in the wilderness, the following rules apply:
+• Check once per hex, at nighttime, for wandering monsters: 1 in 6 chance. You
+may use the monsters from the Tales from the Adventurers’ Guildsupplement.
+• If wandering monsters are checked, they automatically attack and surprise the
+party; do not attack first. Furthermore, no hit point or spell is recovered during
+that night.
+• If no wandering monsters attack the party during the night, each character heals
+one hit point, and casters recover one spell.
+If you find this rule too harsh, you may decrease the odds of having wandering
+6
+
+=== PAGE 7 ===
+monsters (1 in 12 instead), or even have various odds depending on the terrain
+type. The characters could also recover 2 hit points instead of 1.
+Part II
+Dungeons
+3 Twisted Supplements
+• The Twisted Dungeons supplement gives a short description for dungeons, and
+it may be rolled at the beginning of regular dungeons. It adds both narrative
+and mechanical twists when used. I suggest using that supplement for any non-
+thematic dungeon. It will emphasize the narrative, but also, it might influence
+the questions asked to your oracle (if using any) while diving into the dungeon.
+• The Twisted Final Fights gives interesting final bosses in the dungeons. I sug-
+gest rolling d6 when a final boss is about to be faced, and on a 1, use Twisted
+Final Fights instead of the boss table of the current book you are using.
+• The Twisted Hoards supplement gives new interesting treasures. I suggest to
+roll d6 when you loot a magic object; on a 6, use the Twisted Hoards supplement
+instead of the magic table of the current book you are using.
+• The Twisted Minions supplement adds a twist to regular minions. Since min-
+ions are a very common type of monster, I scaled the odds of appearance based
+on the Chaos Factor CF. The Twisted Minions supplement is used only if the
+corresponding Room Content Roll (RCR) pair associated with the current CF is
+rolled. Feel free to ignore the following table if that is too much work:
+CF RCR
+1−3 (1,6), (6,1)
+4−6 (1,6), (6,1), (2,6), (6,2)
+7−9 (1,6), (6,1), (4,4), (2,6), (6,2)
+7
+
+=== PAGE 8 ===
+4 Scrolls
+Many supplements contain additional spells from the base book. When a scroll is
+dropped, roll on the following table to determine which spell it is:
+Spell Table
+Each number corresponds to a spell in the base book
+1−6
+spell table
+7−8 Roll on your Special spell table
+If 7 or 8 is rolled, then roll on a “Special Spell” table you made, containing all
+the spells from the supplements you own.
+Part III
+Settlements
+With the new Treacheries of the Troublesome Towns supplements, you will prob-
+ably have more than enough to handle towns. Otherwise, there exists plenty of
+tools used for solo RPGs that you could use. For example, “UNE” (Universal
+NPC Emulator) is a free resource to shape NPCs. Or you could use the random
+tables from the free TTRPG system entitled “Heroes of Adventure”. The latter
+contains a random mission generator, which is perfect when having a sandbox
+approach. Additionally, Tales from the Adventurers’ Guild contains several ac-
+tivities to do in town, such as looking for rumors, and even some small narrative
+bits!
+• Missions: Many missions are scattered throughout Four Against Darkness
+supplements. Some of them may be used for any adventure type, but some are
+restricted to thematic settings and even characters level.
+• Recruiting: All the classes from the supplements do not have to be avail-
+able anytime and anywhere. I suggest to be able to recruit new party members
+in town only. Moreover, if you want to spice things up, after each adventure,
+while being in town, one can recruit as many “base” classes (from Four Against
+Darkness base rulebook) as we want. An Elder or Wilderness Guide (see Con-
+cise Collection of Classes) could be there. One or more random - non elder,
+8
+
+=== PAGE 9 ===
+non wilderness guide - class(es) from Concise Collection of Classes, subject to an
+availability roll could be recruited as well. But any more “special” classes, such as
+a Necromancer, Crystalmancer... could become available only after having visited
+the related thematic dungeons.
+A Additional House Rules
+The wizard (and any spellcasting class with similar spells than the wizard) starts
+at level one knowing a random combination of spells. To keep it simple, roll d6
+for each one of the 6 base spells; on 1 − 3, your spellcaster will not know that
+spell; on a 4−6, your spellcaster will know that spell. Obviously, the character
+should know at least one spell; reroll if you got 0 spell.
+Thatmethodisinterestingforseveralreasons: thefirstoneistopreparespellsthat
+one would have not prepared. The second one is to create excitement; dropping
+a scroll from a base spell is exciting if your character does not know that spell, as
+he/she can learn it from the spell.
+B Important rules
+⋆ Trolls, goblins and kobolds hate dwarves. Orcs hate elves. Undead hate
+clerics.
+⋆ Ifmonstersrunawayfromreaction, noXPisearned. Butifitisfrommorale
+check, XP is earned.
+⋆ XP rolls is at −1 for minions. Track each group of minions.
+⋆ When using a bow, the character attacks first, even when monsters act
+before the party. Then, the character needs to spend one turn switching
+to close combat (except if corridor). The bow cannot be used afterward
+(except corridor).
+⋆ Spellcasters such as elf, wizard and cleric need one free hand to cast a spell.
+⋆ Corridor: only characters in position 1 and 2 can attack. The same applies
+to monsters.
+⋆ Wandering monsters and bosses do not have treasure (FAQ says the con-
+trary).
+9
+
+=== PAGE 10 ===
+⋆ When withdrawing from a fight, if the room has already been discovered,
+roll for wandering monsters. Otherwise, roll for a new room.
+⋆ Fiendish Foes: vermins count as minions in terms of XP track.
+10
+

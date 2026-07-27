@@ -1,0 +1,3608 @@
+=== PAGE 1 ===
+Tales from the
+Adventurers’ Guild
+A supplement for Four Against Darkness, for All Levels
+Written by Andrea Sfiligoi
+
+=== PAGE 2 ===
+Tales from the
+Adventurers’ Guild
+A supplement for Four Against Darkness, for All Levels
+Written and illustrated by Andrea Sfiligoi
+Additional art: Fat Goblin Games, Warmtail, Mikesilent, Alexandra Petruk, Midjourney.
+Proofreading by Marty Costello.
+With contributions by Scott Bohlmann (guild rules), Tim Cox (things to do
+between adventures) and David Martin (single character rules).
+Playtesting and helpful comments: Daniel Casquilho, Samuele Mariotti, Victor
+Jarmusz, Erick Bouchard, Colin Pattinson, and the dungeoneers on the Four
+Against Darkness Adventurer’s Guild Facebook group.
+www.ganeshagames.net
+
+=== PAGE 3 ===
+Tales from the Adventurers’ Guild
+Contents Gambling House Table 21
+Introduction 1 Rumors 22
+More Dice 1 Red Herring Table 23
+Troupe Play 1
+Rescue Parties 3 Scenes 25
+Hirelings and the Troupe 3
+No Lending of Equipment 3 Thematic Dungeons 38
+Use All Characters 3
+Home Base 4 Following the Treasure Map Table 32
+The Map Leads to... 33
+Settlement Size 4 Riff-Raff Table 34
+Moving to a Different Settlement 4 Outside of Town Ambush Table 35
+Weird Monsters Around Town Table 36
+New Rules 6 Chaos Cult Table 37
+Stealth Rolls 6 Theme Table 38
+Stealth Modifier Summary 6 I Changed My Mind, You Didn’t Tell Me We
+Using Stealth 7 Were Up Against A Dragon! 38
+Who Rolls for Stealth? 8 Dragon’s Lair 39
+New Expert Skill: Stealth Training 8 Dragon Type Table 39
+Ghastly Mine 41
+What To Do With Treasure 9 Ghastly Mine Minions Table 41
+Banks 9 Ghastly Mine Major Foe Table 42
+Other Characters Inheriting Bank Savings 9 Giant’s Lair 43
+Magic Lockers 10 Fiendish Abyss 45
+Platinum Coins 10 Minotaur Maze 46
+Hidden Treasure Troves 11 Prisoner Table 45
+Resurrection Tags 11 Room Shapes 46
+Blessing Tags 11 Vermin 46
+Gems and Jewelry 13
+Minions 46
+Bag of Carrying 13
+Major Foes 46
+Useful Equipment 14
+Final Boss 46
+10’ Pole 14
+Lantern Hook 14 Searching 46
+Very Nutritious Food 14
+Wandering Monsters 46
+Poison Resistance Training 15
+Martial Arts Training 15 Getting Lost in the Maze 47
+Gambling House 15
+Special Events 47
+Treasure Maps 16
+Moneylenders 16 Minotaur Maze Special Event Table (d6) 47
+Good Boots 17 Bandit Hideout 48
+Flask of Flammable Oil 17 Take No Prisoners 49
+Horn 18 Mushrooms in the Megadungeon 50
+Wineskin 18 Delving Deeper and Deeper 51
+Flail-Axe 18
+Aspergillum 19 The Adventurers Guild 52
+Guild Job Table 54
+Availability Rolls 19 Minor Unique Quest Table 54
+Streetwise Rules 20 Clean Up My Castle 55
+Streetwise Save Modifiers 20 Gorungar the Mighty 55
+Griffin Omelets, Anyone? 56
+A Portrait in Red 57
+
+=== PAGE 4 ===
+Tales from the Adventurers’ Guild
+Sewers Search 58
+Monoceros Hunt 59
+Sewers Vermin Table 58
+Sewers Minions Table 58
+Solo Mission Rules 60
+Trinkets 61
+Trinkets List 61
+Scroll 61
+Potion of Healing 61
+Power Cookie 61
+Enchanted Sling Bullet 62
+Mist Sphere 62
+Darkness Sphere 62
+Candy of Hyperactivity 62
+Enchanted Bauble 62
+Using Trinkets in Your Campaigns 64
+Trinkets Table 64
+Adventurers Guild Spells 65
+Speedy Recovery 65
+Temporary Weapon Enchantment 65
+Troupe Switch 65
+Random Guild Spell Table 65
+Look Tough 66
+Silence of the Mouse 66
+Wizard’s Luck 66
+Experience Tiers Rules Summary 67
+Tier Number 67
+Guild Rules Summary 68
+Hex Sheet 69
+Sample Campaign setting: Varian Adventurers
+Guild 70
+The Passage of Time 70
+Random Encounters 71
+
+=== PAGE 5 ===
+Tales from the Adventurers’ Guild
+Introduction Troupe Play
+This book can be used as a spring-
+This supplement for Four Against
+board for a Troupe Play campaign.
+Darkness describes town/village
+This is a special play style in which,
+activities that the party may perform
+instead of creating a party of four
+between dungeon adventures, and
+adventurers, you create a cast of
+rules for joining an adventurers’
+many, and then pick “the best men
+guild. Characters can look for rumors,
+and women for a job” for every mis-
+pick up local legends, find jobs, start
+sion. We recommend creating 12
+quests, buy treasure maps, and so on.
+characters, so you have the equivalent
+The book also has plenty of new
+of three parties ready, but the exact
+adventuring options, thematic dun-
+number is up to you. These characters
+geons and guidelines for troupe play.
+are created using the normal Four
+This book is NOT a full system for Against the Darkness rules, and may
+town adventuring or guilds. For town belong to all the character classes
+adventuring, check the Treacheries published for the game, using any
+of the Troublesome Towns series of supplements you own. All characters
+books which give more detailed rules begin at Level 1, roll for their initial
+for some things like banks that are gp, and are equipped buying any
+treated more abstractly in this book. equipment available, plus their free
+If you want more information about starting equipment. All additional
+guilds and other organizations, check classes described in future books are
+out Greedy Gifts of the Guildmasters. allowed in troupe play. You may
+decide that certain classes (e.g., the
+More Dice demonic or undead ones) have no
+place in a guild environment, or
+Tables in this book do not use only
+simply decide that the guild has
+d6. You will need a d10 and d12 as
+created enough loopholes to allow
+well. These dice are used by most
+“evil” or monstrous creatures to join
+traditional roleplaying games so you
+the guild. It’s up to you.
+may already have a set somewhere. If
+Whenever one of the troupe charac-
+you are new to adventure gaming,
+ters dies, just create a new L1 charac-
+these dice can be easily obtained in
+ter at your earliest opportunity. You
+game stores and from online vendors.
+may find it convenient to number
+There are also a lot of dice-rolling
+your characters, so that if you want to
+apps that can easily emulate any type
+select a random character from the
+of dice and are readily available for
+troupe, you roll the corresponding die
+all tablets and smartphones.
+to select him or her. For example, if
+you have a total of 12 characters
+1
+
+=== PAGE 6 ===
+Tales from the Adventurers’ Guild
+2
+
+=== PAGE 7 ===
+Tales from the Adventurers’ Guild
+numbered 1 to 12, roll d12 to select you. You could have them rest or have
+one. You may also decide to randomly them go looking for adventuring jobs,
+roll a party composition every time. roll for rumors, purchase treasure
+This will make the game more diffi- maps, gamble at the gambling house,
+cult and unpredictable, but may lead drink at the inn, or perform some of
+to more fun as you discover peculiar the other activities described in this
+synergies between different character book. You may play these little adven-
+types. tures simultaneously with the
+dungeon exploration of the main
+Rescue Parties party.
+When one or more of your characters
+No Lending of Equipment
+has to be rescued from a dungeon (for
+example because they have been Troupe members know each other
+turned to stone by a medusa), you and cooperate, and in some cases may
+may form a rescue party with other be friends, partner in crime, siblings
+troupe members. The idea is that all or lovers, but they should NOT lend
+of these characters belong to a guild out equipment or money to each
+of adventurers that they joined for other. Dungeoneers are always on the
+food, lodging, magic healing and lookout for adventure, and it is not
+mutual support, so they would go to possible to have your fireball wand or
+help their stranded colleagues. your purse of gold in two places at the
+same time.
+Hirelings and the Troupe
+Use All Characters
+If one of your characters buys the
+service of a hireling or a professional You should ROTATE duties so that
+(as detailed in Four Against the the largest number of characters get
+Abyss or in additional supplements a chance of leveling up. In other
+like Audacious Adversaries), the words, you should use all the charac-
+service stays with the character that ters in a troupe. There are no hard
+paid for it, NOT with the group. In and fast rules on how to do that: just
+other words, if Melkar the wizard make sure that no character is left too
+pays for a porter's services, and then far behind as the other members of
+you leave Melkar home using another the troupe advance in levels.
+character in the operative party, the
+Remember that, because of the HCL
+porter stays home too.
+rule that many monsters and dangers
+Characters who remain home during use, it is a wise idea to keep all char-
+a dungeon adventure do not need to acters roughly at the same level.
+be inoperative. What they do is up to Otherwise, low level characters in a
+3
+
+=== PAGE 8 ===
+Tales from the Adventurers’ Guild
+party with a high level leader may be Moving to a Different
+at a tremendous disadvantage when Settlement
+they meet a HCL danger.
+At a certain point of your campaign,
+you may want to move away from the
+Home Base
+current settlement and generate a
+The party is assumed to have a base new one. You may roll 3d6-3 (with a
+of operations in a civilized settlement. minimum result of 1) to determine
+This is most likely a village or a small how many days of travel are between
+town where the characters go to lick the current settlement and the next.
+their wounds and rest between their
+The size of the next settlement is
+bouts of dragon-slaying and treasure
+always random. Give it a name and
+hunting.
+draw it on a map. You do not need any
+fancy art: a circle or a dot with the
+Settlement Size
+settlement’s name and size is enough.
+At the beginning of the campaign, Make sure the map shows how many
+give the settlement a name and deter- days of travel separate it from the
+mine its size. Size is indicated by a previous settlement. At any moment,
+number. You can choose a number you may decide to move between one
+from -3 to +3, or determine it ran- settlement and the other.
+domly (roll d6, counting a 1 as a -2, a You can start using a hex map. Place
+2 as a -1, a 3 as a 0, a 4 as a +1, a 5 as your first settlement roughly at the
+a +2, and a 6 as a +3). center of the map. Assume that every
+Larger settlements have more equip- hex represents one day of travel. If
+ment available for purchase. In you want to add a new settlement,
+smaller settlements, there will be less number the hexsides 1 to 6 and roll
+magic available, some services may d6 to determine in which direction
+be missing and some equipment may the new village is found (relative to
+be unavailable. the current settlement) and roll 3d6-2
+for a distance in hexes (with a
+minimum distance of 1 hex). Then
+roll 3d6. If the result of this roll is
+higher than the distance in hexes, a
+road exists between the two settle-
+ments.
+Example: You place your
+village, Varian, at the center
+of your hex sheet. You roll for
+direction, getting a 1, so the
+4
+
+=== PAGE 9 ===
+Tales from the Adventurers’ Guild
+new settlement is North. You when traveling in the wilderness,
+choose the name Diram for where you would roll a 1 in 6 chance
+the new village and roll 3d6 of an encounter for every hex trav-
+-2. The total is 6, so Diram is eled. If you are using a different book
+6 hexes North of Varian. You for adventure/hex content generation
+roll 3d6, and roll a 10. This and that book has a different method
+is higher than the distance in for generating random encounters,
+hexes, so a road exists that book’s rules override this rule.
+between Varian and Diram.
+If you want, you can use this method
+to generate a map with a handful of
+settlements. When the roll of the dice
+If there is a road, you can choose to
+pushes you off the current hex sheet,
+pay a tithe when moving between the
+just add a new sheet of paper and
+two settlements. The tithe is 1 gp for
+more hexes. Feel free to expand your
+every 3 hexes traveled, for the whole
+world in all directions and on multi-
+party. Traveling on a road is safer:
+ple sheets of paper. Only you, as the
+you roll for a 1 in 6 chance of having
+game’s Play Master, can decide when
+an encounter every 3 hexes, unlike
+to stop.
+5
+
+=== PAGE 10 ===
+Tales from the Adventurers’ Guild
+New Rules shield and -1 from the
+armor), so you perform a
+single roll for both using the
+Stealth Rolls warrior’s modifier, -2.
+Some situations in this book call for Sometimes it makes sense to send in
+a Stealth roll. This is a Save per- only the most stealthy character, but
+formed to determine whether a char- in some situations this also means he
+acter can move without being seen or might be caught alone by the enemy.
+heard.
+Stealth Modifier Summary
+The rules will tell you the level of the
+Save, but if this is not shown, simply ● Rogues, assassins: +L
+use the L of the monster upon which
+● Halflings: +½ L
+you are trying to skulk. Rogues add
++L due to their training, halflings add ● Rangers, wilderness scouts: +½
++1/2 L due to their small size, and L only outdoors
+elves add a flat +1 bonus due to their
+● Elves: +1
+innate agility. All characters roll at -1
+● Wood elves: +1, +½ L in forests
+if wearing shields and at -1 if wearing
+and jungles
+heavy armor. Remember that a roll of
+1 is always a failure, and use the ● Shield-carrying character: -1
+normal rules for exploding dice.
+● Heavy Armor: -1
+The rules for the encounter will tell
+● Group roll: use the WORST mod-
+you what happens in case of success
+ifier in the group.
+or failure, but in general a successful
+Stealth Save will let the character or ● Setting modifier. The setting
+the party go unnoticed. where the Stealth roll is
+attempted will give a modifier.
+If multiple characters are trying to
+Use your common sense to deter-
+pass the same Stealth Save, roll for all
+mine what the setting is – if your
+of them together (with just one roll)
+party is adventuring in a cata-
+using the WORST possible modifier
+comb located in a jungle, use the
+in the group.
+jungle modifier outside of the
+catacomb, but use the catacomb
+For example, a L3 rogue and
+modifier once the party has
+a warrior wearing shield
+entered the building.
+and heavy armor try to skulk
+unnoticed into an orcish ● Plains or desert: -2
+camp. The rogue would roll
+● Valley: 0
+at +3 (because she is L3) and
+the warrior at -2 (-1 from the ● Light forest: +1
+6
+
+=== PAGE 11 ===
+Tales from the Adventurers’ Guild
+● Dense forest +2 Using Stealth
+● Jungle: +3 When you go into an unexplored area
+● Cave: +1 and generate the room or corridor,
+roll for contents using a table from
+● Tomb, catacomb: +1
+any book appropriate to your party’s
+● Ruins: 0 level. If you encounter monsters, you
+may make a Stealth Roll vs. the mon-
+● Tower: -1
+ster’s Level.
+● Sewer: +2
+If you succeed you have two options:
+● On a large ship: +1
+1) Quietly exit the room before the
+● Fortress: 0
+monsters can spot you. You travel
+● Labyrinth: +1 into either a connected, unexplored
+space in your current location or back
+● Prison: 0
+into an already explored space con-
+● Halls: +1 nected to your current location (roll-
+ing the usual chance of a Wandering
+● Temple: 0
+Monsters encounter as you do so). As
+● City streets: +1
+the monsters haven’t spotted you, you
+must NOT perform any Defense rolls
+and you may NOT cast any spells
+Other terrain types will be described
+except Escape or some other Telepor-
+in specific adventures or supple-
+tation-type spell.
+ments. In some cases, lighting condi-
+tions or magical surveillance systems 2) Ambush the foes, gaining sur-
+will make stealth impossible. prise (reduce the foes’ L by 1, to a
+minimum of 1, during the first turn
+In some situations, skulking past
+of the ensuing combat, and if they
+guards will require you to split the
+have ranged attacks, they do not get
+party. For example, you could send
+to shoot before the combat). Alterna-
+the party’s two rogues past a couple
+tively, you may slowly creep out and
+of guards, hide in the shadows and
+check their Reactions.
+attack them by surprise. The other
+party members are assumed to be one If you fail the Stealth roll, the mon-
+turn away, and will be able to join the sters gain the initiative and (your
+fight later (they will skip their first choice) either attack the party imme-
+round of combat). diately or roll for their Reactions.
+Assassins just use the normal rules for
+their class.
+Note: You cannot perform Stealth
+Saves against Wandering Monsters,
+7
+
+=== PAGE 12 ===
+Tales from the Adventurers’ Guild
+Special Events or Traps. Also, in with a better than average chance of
+general you cannot use Stealth performing a successful Stealth Save.
+against any monster that has no Level The disadvantage of sending a single
+or combat statistics shown. Use your character is that, if the Stealth roll
+common sense: an acidic ooze that fails, the character will be alone with
+“attacks” characters by seeping the foes encountered for 1 full turn,
+through their shoes and eating their and any enemy attacks will have to be
+flesh may not be surprised by stealth. directed at the scout.
+Who Rolls for Stealth? New Expert Skill: Stealth
+Training
+If the whole party is advancing, you
+must roll once for all the party, using This expert skill is available for all
+the character with the worst Stealth characters that do not add any Level
+ability, including all modifiers. bonuses to Stealth roll. Once this skill
+As you can imagine, it is much easier is known, the character will be able
+to send a lone scout ahead of the to add +½ L to his/her Stealth rolls.
+party. Generally this will be a hal-
+fling, wilderness scout, assassin or
+rogue – in other words, a character
+8
+
+=== PAGE 13 ===
+Tales from the Adventurers’ Guild
+What To Do With ment. The bank account must be in
+the name of a single character.
+Treasure
+After every dungeon adventure in
+which at least one of your characters
+The official, admittedly simplistic
+leveled up, roll 3d6. If you roll a 3,
+encumbrance rule is that a character
+the bank is robbed and you lose all
+can carry his/her weapons, armor,
+your money. If you roll an 18, you
+food and up to 200 gp of treasure in
+gain 10%. Nothing happens on any
+coins. If more than that is carried, the
+other result. All the money in the
+character will be encumbered and
+bank is available when you need it.
+will be at -1 on his/her Defense rolls.
+Banks are available in any settlement
+This works for the first few adven-
+size (in small villages, there will not
+tures. Once characters start to have
+be a bank but the banking service will
+plenty of gold, they will want to keep
+be provided by a rich merchant or by
+it somewhere, or convert it into more
+the village’s elders/treasury).
+portable goods, like potions, scrolls,
+and gems, or to pre-paid resurrection Other Characters Inheriting
+rituals. You can find here a few addi- Bank Savings
+tional options. This is a list of special Banked money will be in the name of
+equipment and services to buy. All of a specific character, but the party or
+this is optional: if these options com- troupe may make sure that all charac-
+plicate the game too much, ignore ters are set up to inherit the gold from
+them, and just assume that the char- the bank if the original account owner
+acters have some safe place where dies. Characters with 1 or more
+they can store their treasure. These Madness points will not accept this
+banking rules are abstract and simple. deal (they will suspect that their
+More detailed banking rules will friends will betray them and stab
+appear in Treacheries of the Trouble- them in the back to inherit their
+some Towns. gold). In any case, receiving an inher-
+itance incurs in a 20% taxation,
+Banks rounded up. The tax is paid when the
+money is passed onto another
+The easiest solution for a party that
+account holder.
+has more treasure than they can easily
+Chasing Bank Robbers
+carry is to put part of their riches into
+a bank. You may put in a bank coins, If your money gets stolen from a bank
+gems, jewelry and magic treasure. or hidden treasure, you may search
+However, this comes with a cost: you for the culprits and take it back. You
+lose 10% of the total in bank fees, must spend 3 Clues to learn who stole
+rounded up. This is a one time pay- the money. You may generate Clues
+9
+
+=== PAGE 14 ===
+Tales from the Adventurers’ Guild
+with a successful Streetwise roll, use or less. You may have as many
+unspent Clues from previous adven- magical lockers as you wish, but each
+tures, or both. Once you spend the of them requires a separate roll to
+Clues, you learn about the hideout of “summon” the goods stored in the
+the bank robbers. Play the Bandit locker. If you are in combat or in any
+hideout scenario (result 6 on the situation where time is of the essence,
+Thematic Dungeons Table). You will using the magic locker requires 1
+find your stolen money as part of the turn. The item appears in the charac-
+treasure of the Final Boss encounter ter’s hands or at the character’s feet,
+in the hideout. as desired. It is assumed that the
+characters use this turn to speak the
+Magic Lockers power word and to free their hands
+from any carried items, so if desired
+In size 0+ settlements, a few banks
+the object held in the magic locker
+run by wizards offer a service called
+can appear in their hands and be
+magic locker. Basically, for a single
+ready for use.
+payment of 50 gp, a character may
+place a single item or up to 5000 gp
+Platinum Coins
+in coins in an enchanted locker. The
+bank gives you a secret power word. In size +3 settlements, gold may be
+At any moment during an adventure, converted to platinum coins. These
+should you need what is in the locker, rare coins are worth 20 GP each, and
+you speak the power word and roll are used by high ranking nobles and
+3d6. If you roll a total of 6 or less, a governments and high level mer-
+magical mishap occurs, and you may chants. One platinum piece, or PP,
+not retrieve the object until you go weighs the same as one GP.
+back to town and visit the bank. On a
+In size +2 settlements, PP will be
+total of 7 or more, however, the
+accepted as currency but will not be
+object or bag of valuables/coins
+available to buy. In other words, you
+appear in your hands wherever you
+can still pay with PP, but not change
+are, ready to be used. This could be
+your gp to PP.
+of help to keep a rare object safe, or
+In settlements smaller than size +2,
+even some funds, until the right
+platinum pieces will be accepted only
+moment to use them comes, for
+for church donations (for example to
+example to bribe some greedy mon-
+buy a resurrection ritual or a Bless-
+ster. Barbarians, beastmasters, trolls
+ing). Commoners have probably
+and other characters that save like
+never seen a PP in their life and will
+barbarians or can’t use magic at all
+not accept them for payment.
+may not use magic lockers. Wizards
+who use a magic locker have a mishap Monsters that can be bribed with
+only if the total of the 3d6 roll is a 5 money will gladly accept PP.
+10
+
+=== PAGE 15 ===
+Tales from the Adventurers’ Guild
+If you do not want to complicate your clerics of the local temple, that shows
+game with currency, ignore PP. that the character has already paid
+500 gp for a resurrection ritual. If the
+Hidden Treasure Troves body of a dead adventurer is carried
+to a temple, the resurrection tag is
+Adventurers may want to skip taxa-
+removed and the ritual performed.
+tion and bank fees. In this case, the
+You may purchase as many resurrec-
+easiest way to keep money is to hide
+tion tags as desired with all charac-
+it in a cache/hidden treasure chest
+ters, including barbarians and other
+somewhere. Only characters knowing
+characters who cannot use magic. You
+the location of the cache may access
+may not buy a Resurrection Tag for a
+it. Characters with 1 or more
+character that, for any reason, may
+Madness points will keep their money
+not be resurrected.
+separate from the money of others,
+while sane characters are allowed to
+Blessing Tags
+keep everything in a single communal
+cache. Between every adventure, roll Likewise, you can have a pendant
+3d6 and add the results. On a 3, 4 or with a pre-paid Blessing (80 gp) on a
+5, the cache is discovered by a trea- character. This is useful to break a
+sure hunter and all the money is curse. Basically, this is just a voucher
+stolen. To recover the stolen money, for a Blessing which costs less than
+the party must generate 4 Clues with buying a scroll, but is tied to a specific
+Streetwise rolls, and then intimidate person. You still have to carry the
+the treasure hunter with a successful character back to town, but the Bless-
+Interrogation Save vs. L6. On a suc- ing was already paid for, so even if
+cess, all the money is recovered. On you are robbed or return from the
+a failure, the character performing dungeon empty-handed, your charac-
+the Interrogation Save runs into an ter will be returned to full health.
+encounter with petty criminals (roll
+A Blessing tag is cheaper than buying
+on the Riff-Raff Table) and treasure
+a Blessing scroll (100 gp) but can be
+cannot be recovered.
+used only to Bless the wearer of the
+In troupe play, you can assume that tag. You can assume that all charac-
+all characters in the troupe know ters in a troupe know which charac-
+where the cache is hidden. ters have blessing tags on them.
+Resurrection and blessing tags are
+Resurrection Tags
+not magical items and they will not be
+stolen by invisible gremlins unless
+Characters can invest money in a
+you choose to let them. They are not
+“resurrection tag”. This is a small
+subject to an availability roll, as it is
+golden pendant, issued by the good
+11
+
+=== PAGE 16 ===
+Tales from the Adventurers’ Guild
+12
+
+=== PAGE 17 ===
+Tales from the Adventurers’ Guild
+assumed that the characters have weight amount inside it, including
+chosen a village with a church and a large objects like swords or bows, as
+good cleric for their base of opera- long as the object can fit into the bag’s
+tions. opening (characters turned to stone
+do not fit into the opening, unless the
+Gems and Jewelry character is a small fairy, a bog fly, a
+lutin, or the like). Bags of carrying are
+It is also possible to make gold coins
+subject to a L6 availability roll.
+more portable by converting them
+If a Bag of Carrying is lost or stolen,
+into gems and jewelry. This causes
+all of the contents are lost or stolen.
+the character to lose 10% of the net
+It counts as a magic item, so charac-
+value, unless the buyer is a dwarf.
+ters who cannot use magic will not
+Example: if your wizard carry one, and invisible gremlins or
+spends 100 gp on a ruby, he other creatures that steal magic items
+receives a 90 gp gem. If your may steal the Bag.
+dwarf does the same, he gets
+a 100 gp ruby.
+Gems and jewelry are considered of
+negligible weight. However, if your
+party is wearing a total of more than
+2000 gp worth of jewelry, the gp cost
+of any bribing reaction by a monster
+will increase by 50%: the monsters
+think you can afford to pay a higher
+bribe or are just made greedier by all
+the bling.
+Single pieces of jewelry with a value
+above 500 gp are subject to a L6
+availability roll.
+Bag of Carrying - 200 gp
+Some magic academies sell a magic
+bag called a Bag of Carrying for 200
+gp. This can be a knapsack, backpack,
+or even a small pouch. The magic
+inside the Bag of Carrying distorts
+space, so the wearer may carry ANY
+13
+
+=== PAGE 18 ===
+Tales from the Adventurers’ Guild
+Useful Equipment
+Lantern Hook - 2 gp
+10’ Pole - 2 gp
+This metal hook is applied on a shield
+This requires two hands to use, and
+to hang a lantern. A character with a
+counts as a light crushing weapon if
+shield and a lantern hook may carry
+used in melee by rogues and wizards
+a lantern without using a hand to hold
+and other classes limited to light
+it, as long as the character is wielding
+weapons; it counts as a hand weapon
+the shield. During an encounter, the
+if used by classes without such a
+character may also spend one action
+limitation, and as a two-handed
+to detach the lantern from the shield
+crushing weapon with the customary
+and put it on the floor. If the lantern
++1 to Attack rolls if used by a monk,
+is hanging from the shield and the
+barbarian, or martial mystic. Carry-
+shield is destroyed, roll a 3 in 6
+ing a pole in the character’s hands
+chance that the lantern is destroyed
+gives +1 to saves vs. all traps that
+too. If it is not destroyed, the lantern
+target the first person to enter a room
+falls on the floor and remains there
+or the first person in the party’s
+until a character picks it up. If the
+marching order (if that person is the
+lantern is destroyed, its flames will
+one carrying the pole in their hands).
+continue to light the room for d3
+The bonus does not apply vs. traps
+turns, after which the party will be in
+that hit all the party members at the
+darkness.
+same time or that target a random
+character. If a lantern is on the floor and the
+party flees from a combat, the lantern
+A character holding a 10-foot pole
+remains on the floor unless a charac-
+may reroll a result of 2-4 on a Search
+ter stays for one additional turn
+roll, and gets a +1 on Trap Saves
+(taking an additional attack from all
+against mechanical traps (if the trap
+enemies in the room) and spends 1
+shoots gas, darts or a ranged attack of
+action to pick up the lantern before
+any type, the pole gives no bonus to
+fleeing.
+the user). A 10-foot pole may be
+purchased in any settlement for 2 gp.
+Very Nutritious Food (20
+A character may automatically create
+gp)
+a 10-foot pole from local trees in any
+forested area.
+By paying 20 gp per person, charac-
+In dungeons, only one character at a ters may eat specially nutritious food
+time may carry a 10-foot pole in that will give them an edge. Charac-
+his/her hands. ters who eat this may reroll their first
+14
+
+=== PAGE 19 ===
+Tales from the Adventurers’ Guild
+failed die roll (on any Save, Attack or missing Life point can be healed by
+Defense roll) in their first combat magic during the course of the adven-
+encounter after eating the specially ture, but may not be healed by ban-
+nutritious food. No character may daging.
+benefit from more than one reroll of
+this type per adventure. 20 gp buys Martial Arts Training (25
+enough specially nutritious food for
+gp)
+4 characters and any 5th character or
+henchman in the party. Characters may pay 25 gp between
+adventures to train in a martial arts
+A halfling cooking a Nutritious Meal
+academy. They may fight barehanded
+for the party may use Very Nutritious
+at -1 instead of -2 during their next
+food for the meal, cumulating both
+adventure. The advantage disappears
+effects.
+if they do not train constantly.
+Very Nutritious Food is subject to a
+Martial mystics and characters that
+L4 availability roll in desert and
+already reduce or ignore their bare-
+frozen/Arctic environments.
+handed combat modifier do not gain
+any additional advantage from this
+Poison Resistance
+training. They are already doing
+Training (20 gp) something similar as part of their
+normal class abilities and training.
+By drinking a small amount of poison
+at regular intervals, the characters The Adventurers’ Guild offers free
+strengthen their bodies against the martial arts training for members,
+venom of monsters, gases, and other but this comes with a little risk of an
+toxic substances. Characters who accident right before an adventure.
+spend 20 gp doing this may reroll the Before each game, characters who
+first failed Save vs. poison in their train must roll their Tier die (d6 if
+next adventure. Only one reroll of they are L1-4, d8 if they are L5-9, and
+this type may be performed in any so on). On a roll of a 1, the character
+adventure. begins play with 1 less Life point than
+normal due to a strained muscle or
+However, this training is dangerous.
+other gym accident.
+Before each game, characters who
+underwent poison resistance training
+Gambling House (variable
+must roll their Tier die (d6 if they are
+L1-4, d8 if they are L5-9, and so on). cost)
+On a roll of a 1, the character begins
+All characters may visit the gambling
+play with 1 less Life point than
+house between adventures. To deter-
+normal due to self-poisoning. This
+mine their luck at gambling, decide
+15
+
+=== PAGE 20 ===
+Tales from the Adventurers’ Guild
+your total budget (how many gp you If the party chooses to follow the
+are going to gamble) and roll d10 on map, roll d6 on the Following the
+the Gambling House Table. The more Treasure Map Table and play out the
+money you bet, the more money you event outlined there. Add +1 if your
+could possibly win, but remember: party is with the adventurers’ guild —
+the games are rigged against you. the guild’s expert cartographers help
+Halflings, rogues, swashbucklers, adventurers to weed out fake maps.
+harlequins and assassins roll at +1. A
+halfling may reroll a gambling roll Moneylenders (variable
+once, using up 1 Luck point, but this
+cost)
+means the halfling will start the next
+adventure with 1 less Luck point. The If you are short on cash, you can
+halfling will recover the missing Luck borrow up to 1000 gp with an inter-
+point between adventures, or using est rate of 20%. All characters can get
+any game mechanic that lets the char- a loan, but the maximum amount of
+acter recover 1 Luck point during the money that will be lent out at the
+adventure. same time equals 2000 gp, plus or
+minus 200 gp times the size of your
+town.
+Treasure Maps (5d6 gp)
+Where there are treasure seekers, For example, in a town with
+there is someone willing to sell them a size modifier of -2, the
+a map that supposedly leads to maximum that your troupe
+hidden riches. Most of these maps are can borrow is 1600 gp. In a
+fake, some lead into deathtraps, but +3 size town, the maximum
+enough authentic ones keep popping that you can borrow is 2600
+up here and there to keep adventurers gp.
+hoping. Sometimes, the seller does
+You must pay back at least half the
+not know that the map he is selling is
+sum you borrowed after your next
+authentic! A treasure map will cost
+adventure (or one month of game
+5d6 gp. Use the exploding six rule for
+time, if you use a calendar). If you
+this roll, so that a map may poten-
+don’t, the character will have to fight,
+tially have ANY price. The price is just
+single handedly and in a dark alley
+an indication of the skill of the seller,
+(you will need one hand to carry a
+not of the reliability of the informa-
+torch or lantern, unless the character
+tion on the map. Even if a map is
+has an ability that lets him/her see in
+expensive, there is no guarantee that
+the dark), an encounter with enforc-
+it’s genuine.
+ers (roll on the Riff-Raff Table but
+double all numbers encountered).
+16
+
+=== PAGE 21 ===
+Tales from the Adventurers’ Guild
+You may at any moment during this Good Boots (6 gp)
+encounter decide to pay up, if you
+All characters, if appropriate, are
+have enough valuables or coins with
+assumed to have shoes of some kind,
+you to cover your debt. This will stop
+but characters may invest in good,
+the combat, but ALL the valuables
+solid boots that offer extra protection.
+you carry including all of your equip-
+A pair of good boots gives +2 to Saves
+ment, magical or mundane, will be
+vs. caltrops and other traps/dangers
+taken.
+that specifically affect the character's
+Alternatively you can try to run away feet. If a monster's description explic-
+from the ruffians. If you flee, you itly says that the monster attacks the
+receive one attack from all the riff-raff character's feet, the boots give a +1
+present. These attacks will ignore to the character's Defense roll.
+your shield, if any. If you survive,
+Use your common sense based on the
+attempt a Stealth Save vs. the riff-
+character’s shape– in some cases,
+raff’s L. If the Stealth Save fails, the
+boots make no sense. A centaur or
+criminals will catch up with you and
+satyr have hooves and can’t wear
+you will have to fight them again (they
+boots. Very large creatures like giants
+may still run away if they fail a morale
+and trolls can wear boots that are
+roll). If the Save succeeds, you run
+specially made for them, but these
+away and you either move to another
+will cost 20 gp per pair. If you are a
+village, or will have to pay up after
+fan of book-keeping (boot-keeping?),
+your next adventure. Until you
+Assume that boots will have to be
+remain in the village and until you
+replaced after 20 adventures.
+pay up, you will have to play this
+encounter with street “enforcers”
+Flask of Flammable Oil (5
+between every adventure. If you move
+to another village, there is a 1 in 6 gp)
+chance that the criminals will follow
+To use a flask of flammable oil, you
+you per every 100 gp or fraction of
+must use one hand to keep a live
+100 gp of debt you have.
+flame (a torch, which counts as a
+lantern) and hold the flask in the
+other hand. You then spend 1 action
+Example: You owe 310 gp to
+to light a rag or piece of string coming
+the mob and decide to put
+out of the flask's neck and throw the
+some distance between you
+flask (lighting it and throwing it
+and the enforcers. If you
+happens in a single action). Roll d6.
+move to another settlement,
+On a 1, the flask sprays flaming oil on
+there is a 4 in 6 chance the
+a friend, who takes 2 points of fire-
+criminals will follow you to
+based damage. On a 2, the flask
+your new location.
+doesn't break or doesn't catch fire,
+17
+
+=== PAGE 22 ===
+Tales from the Adventurers’ Guild
+resulting in no damage (the oil is minotaur) and resell them for 1 gp
+wasted anyway). On a 3 or better, the each. The horns of immature mino-
+flask inflicts 2 damage on a major foe taurs aren’t good enough to be used
+or 3 damage on a horde or group of for this purpose.
+minor foes. Add +1 damage against
+mummies, and +3 against scarecrows Wineskin (free, +4 gp per
+and hay golems. A flask of flammable
+refill)
+oil can be purchased for 5 gp. Each
+character can carry only one. Foes Characters may carry a wineskin and
+that are immune to fire-based drink from time to time, keeping
+damage will be unaffected by oil. themselves tipsy. Characters who
+keep drinking enjoy a +1 on all
+wooing rolls and on Saves vs. fear and
+Horn (2 gp)
+terror, but a -1 on spellcasting rolls,
+Some characters may want to carry a -2 on puzzles and -1 and all other
+horn to galvanize their friends in Saves. A character may have their
+battle. Sounding the horn takes 1 first wineskin for free, but refilling it
+turn. All party members of the char- with wine that is strong enough to get
+acter sounding the horn gain +1 to these game effects costs 4 gp per
+their next Attack roll in melee. How- adventure.
+ever, at the end of an encounter in
+which a character has sounded the
+Flail-Axe (8 gp)
+horn, roll a 2 in 6 chance that the
+sound attracts wandering monsters. A flail-axe is a dangerous slashing
+If the wandering monsters arrive, weapon composed of a heavy axe-
+they will appear before the party head attached to a long handle with a
+moves to another room or area. Any length of chain. It has the advantage
+character may sound the horn, but of a two-handed weapon (+1 to
+the sound of multiple horns is not Attack rolls) but can be used only
+cumulative, and a horn may be used with one hand (ideally while the other
+only once per encounter. hand wields a shield). However, if the
+Attack roll is a natural 1, the flail-axe
+A horn may be purchased for 2 gp or
+hits the user, who automatically loses
+created in one hour from the horn of
+1 Life (no Defense roll is allowed). A
+a unicorn, horned demon, minotaur,
+flail-axe can be used by any character
+or from any other horned creature
+who can use two-handed weapons.
+that you deem of appropriate size. If
+you play the Minotaur Maze adven-
+ture in this book, you may create lots
+of horns (2 per every slain adult
+18
+
+=== PAGE 23 ===
+Tales from the Adventurers’ Guild
+Aspergillum (20 gp) Availability Rolls
+An aspergillum is a light crushing Special equipment items described in
+weapon (-1 on Attack rolls). It is a rod this book are not always available. To
+with a silver ball at its end. It affects determine if something can be found
+creatures that are vulnerable to silver. in the market, you must perform an
+It has an internal reservoir that dis- availability roll. This is rolled like a
+perses holy water when the weapon Save vs. a difficulty of 6 (or lower, if
+the description of the item says so).
+hits, adding the effect of the holy
+This Save is always rolled on a d6,
+water vial to the damage of the
+regardless of the party’s Tier.
+weapon IF the target is vulnerable to
+holy water. The user controls when Roll for each specific item sought, and
+the holy water is used and may thus add the settlement’s size modifier (-3
+prevent the holy water from being to +3).
+wasted if the target is not vulnerable
+● On a success, the item is available
+to holy water, or if the blow does not
+and may be purchased for its
+hit.
+standard asking price.
+The aspergillum is not sturdy: it has
+● On a failure by 1, the item is
+a 2 in 6 chance of breaking on any
+available but scarcity drives its
+Attack roll of 1. If it breaks, it may be
+price up: apply a 20% surcharge
+repaired in town, at a silversmith’s
+(round up) to the item’s gp cost.
+workshop, by spending 8 gp. If it
+● If the roll fails, the party may try
+breaks, all holy water contained
+again after one adventure
+within is wasted.
+(random dungeon or planned
+The cost of the aspergillum does NOT
+adventure or an adventure gener-
+include the vial of holy water. The
+ated from the tables in this
+character may carry a vial of holy
+booklet or from any other Four
+water in the aspergillum in addition
+Against Darkness supplement).
+to a vial carried in a pouch or belt, to
+a total of 2 vials carried.
+Roll only for items that require an
+The aspergillum may be used by any
+availability roll, as per their descrip-
+character who can use light melee
+tion. General equipment described in
+weapons.
+Four Against Darkness and Four
+Against The Abyss does not require
+a roll.
+19
+
+=== PAGE 24 ===
+Tales from the Adventurers’ Guild
+Streetwise Rules Here are the most common uses of
+Streetwise. In the text of adventures,
+Characters may go looking for trouble other Streetwise Saves may be
+in the least respectable parts of town. required.
+There they could find valuable infor-
+mation on new adventuring gigs, or a
+Look for Clues: The Streetwise roll
+swift death by knife in a dark alley. In
+is against L6. Each attempt costs d6
+all situations where a character is
+gp in bribes (drinks, tips, favors, etc.)
+asked to be on the lookout, the char-
+On a failure, the search is unfruitful
+acter will have to perform a Street-
+and nothing happens. On a 1, if the
+wise Save. Modifiers to the Save are
+character had at least 1 Clue, s/he
+given by the character’s class. The
+LOSES 1 clue as some information
+level of the Save depends on the type
+the character believed to be true is
+of action attempted (see below).
+revealed a red herring. If the charac-
+ter has no Clue, s/he either loses 3d6
+Streetwise Save Modifiers gp or d3 Life in a street brawl (your
+● Fighting classes (classes that add choice – lose automatically d3 Life if
++L to all Attack rolls): +1 you have no coins or other valuables).
+On a success, the character gains 1
+● Large creatures like trolls, ogres,
+Clue. You may use any character of
+minotaurs and the like: +2
+your choice to perform this roll. One
+● Halflings: -1, may use Luck to typical use of this action is when you
+reroll (the -1 does NOT apply to are looking for some specific target –
+rerolls) for example, when you are trying to
+track down a wanted criminal.
+● Rogues, swashbucklers, assassins
+and other classes that Save as
+rogues: +L
+Interrogate: To perform this roll,
+● Witch-hunters, cambions, atroc- you must have a low-level criminal
+ities, sleuths, investigators, that you can interrogate. Any
+inquisitors: +L ONLY when per- subdued foe from the Riff-Raff Table
+forming interrogation or any minor foe described as a ruf-
+fian, reaver, pirate, hoodlum, crimi-
+● All others: no modifier.
+nal, thief, thug or street enforcer is
+perfect for this.
+Characters rolling a 1, no matter what
+Perform a Streetwise Save vs. the L
+the modifier, have done something
+of the captured riff-raff +1. The cap-
+wrong and will suffer some conse-
+tured villain is roughed up and inter-
+quences (see the actions listed below).
+20
+
+=== PAGE 25 ===
+Tales from the Adventurers’ Guild
+Gambling House Table (d10)
+The character gets involved in a fight/brawl. He will have to start the
+next adventure with 1 wound (you may use bandages or
+magical/clerical healing to heal him if you wish). The character is not
+1-2 welcome to gamble again (he must skip the next gambling activity) and
+further gambling rolls on this Table are at -1 (this modifier is cumula-
+tive if this result is rolled again) until he scores a major victory (10+
+on this Table).
+3-4 The character loses all money gambled.
+The character loses all money gambled. However, during play the
+5-6 character hears some interesting information (choose: roll d12 on the
+Rumors Table or roll a 3 in 6 chance of gaining 1 Clue).
+7-8 The character wins +10% of the money gambled, rounded up.
+9 The character wins +20% of the money gambled, rounded up.
+10 The character wins +50% of the money gambled, rounded up.
+The character wins +100% of the money gambled but must resist the
+temptation to gamble again. Roll a Save vs. L6 temptation (clerics and
+paladins add +L, wizards add +½ L, rogues and swashbucklers roll at
+-1). On a success, the character can move away from the gambling table
+with no ill effects. On a failure, the character must roll again, gambling
+all the money gambled on the initial roll plus all the money won. On a
+11+
+natural 1, the character develops a gambling habit and must gamble,
+at a minimum, half the treasure found after each adventure, including
+magic items, scrolls etc. A character with a gambling habit will be at -1
+to roll on this table until the gambling obsession is removed by a
+Blessing. Clerics with this compulsive gambling habit may NOT cast a
+Blessing on themselves.
+Escolat (”snakebite”),
+a dice game similar to
+Craps, is a popular
+pastime all over
+Norindaal.
+21
+
+=== PAGE 26 ===
+Tales from the Adventurers’ Guild
+rogated. On a success, the character Rumors (d12)
+performing the interrogation receives
+1 Clue. During the next encounter Roll on the rumors list to determine
+with foes of the same type, the foes the information you gain with a suc-
+enemies will hate the character who cessful Streetwise roll.
+conducted the interrogation. On a
+Rumors may be true or false, but the
+failure, no information is gained. A
+only way to discover the truth is to
+roll of natural 1 means the interroga-
+investigate. You may write down the
+tor gains no information AND is
+rumor and act on it later, or start
+hated by all foes from the Riff Raff
+investigating immediately.
+table during the next encounter with
+any of them. Each rumor will send you to a corre-
+sponding numbered paragraph in the
+Scenes list. Read the corresponding
+Listen to rumors: Perform a L4 paragraph if you decide to investi-
+Streetwise Save. On a failure, the gate. Once you have played through
+character finds nothing of interest, one of the paragraphs and the corre-
+and may try again after one adven- sponding Scene, cross the Rumor off
+ture. On a success, the character rolls the table with a pencil mark. Reroll it
+on the Rumors list below. On a if you roll it again, as these are all
+natural 1, the character must roll on unique events that will happen only
+the Red Herring Table. once over the course of a campaign.
+1
+Look Tough: Perform a L6 Street-
+wise Save. On a failure, the character Bofto the halfling vine dresser has
+is beaten in a street brawl, or hurts found a strange star-shaped object in
+himself during a chase, and loses d3 his vineyard and has been behaving
+Life. On a success, the character gains strangely. If you investigate, go to
+reputation as a tough guy and all Scene 9.
+encounters with riff-raff, the morale
+rolls will always have an additional -1 2
+modifier. This bonus lasts until the
+A medusa has taken residence in an
+character is captured, killed (even if
+old hunter’s cabin in the nearby
+s/he is resurrected later), or pays a
+woods. She is said to wear an emerald
+bribe to any riff-raff.
+necklace worth a fortune, and to be
+extremely easy to bribe, to the point
+that some members of an assassins’
+guild are trying to hire her for her
+22
+
+=== PAGE 27 ===
+Tales from the Adventurers’ Guild
+services. If you want to investigate, Red Herring Table (d6)
+go to Scene 10.
+Trap. Roll on the Riff-Raff Table
+3
+to determine the nature of the
+In the well at the old miller’s farm, opposition. The single character is
+just two hours outside of town, a ambushed. This happens in a loca-
+tion that is distant enough from the
+bunch of thieves have hidden a magic
+settlement to be out of sight of the
+sword that they stole from a paladin.
+authorities. You have the option to
+If you want to investigate, go to Scene
+surrender all equipment and
+11. 1-2)
+money carried (including gems and
+magical items) or fight. If you fight,
+4 you go first. Treat as a normal
+combat encounter with no option
+Children have spotted mutant fish in
+to withdraw. The foes may fail their
+a small shallow pool under a bridge.
+Morale roll and decide to flee.
+They said the fish were chanting and
+Other party members may not
+calling them, trying to convince them intervene.
+to dive in the dirty water. To investi-
+gate, go to Scene 12.
+Waste of time. You follow some
+false track. After some time, you
+5 3-4)
+realize it will lead to nowhere. You
+waste d3 days doing so.
+Darr the dwarf was drunk last night,
+like most nights. He spoke about a False information. If you have
+dragon living among us in disguise. any Clues, you discover that infor-
+He seems to know for sure that this mation is false – lose 1 Clue. If you
+5)
+shapeshifted dragon is up to no good, do not have any Clues at the
+moment, lose d6 gp or d3 days as
+but then again, when have you met a
+3-4 above (your choice).
+dwarf who liked a dragon? Go to
+Scene 13 if you want to investigate. You hear about some hidden
+treasure in some abandoned ruins
+and convince the rest of the party
+6
+to go looking for it. Play a random
+The twisted old oak on Blackbird Hill dungeon of d6 rooms, using any
+is the house of a couple of lepre- book in your possession that is
+6)
+chauns who hide a pot of gold coins. appropriate to your party’s experi-
+They say they are willing to sell shoes ence Tier. This dungeon will NOT
+have a Final Boss – do not roll for
+and teach a few of their tricks to the
+it. Increase by 1 the number of all
+magically inclined. Go to Scene 2 to
+minions and vermin encountered
+investigate.
+in this dungeon.
+23
+
+=== PAGE 28 ===
+Tales from the Adventurers’ Guild
+7 11
+You know the small temple of Tamas Deoldyn the elf is willing to teach the
+Zeya next to the fishmongers’ square? secrets of elven archery to anyone, elf
+If you remove the third brick from the or not, as long as the would-be
+right on the facade of the temple, you archer’s pockets are deep enough. Go
+will find a ramp of stairs that lead into to Scene 3 if you are interested.
+an underground dungeon.
+12
+Go to Scene 15 if you want to investi-
+gate.
+Since she lost her husband in a battle
+with dark elves, Shinta the paladin
+8 has lost the will to adventure. She will
+give her magic sword Agaratha to a
+Erol, the innkeeper of the Drunk
+person of good will (not necessarily a
+Goat, has a teenage daughter named
+paladin or a questing knight) who
+Shaura who has recently gone miss-
+seems worthy of it.
+ing. The girl was rumored to flirt with
+chaos cultists. Go to Scene 16 if you If you are interested, go to Scene 4.
+want to investigate.
+9
+Daroc the wizard has lost his cat
+familiar and has put up a 200 gp
+reward for anyone who brings her
+back. Go to Scene 5 if you choose to
+investigate.
+10
+Strange winged things have been
+spotted at night over the roof of the
+burgomaster's house. He seems
+unconcerned and says that it’s just a
+bunch of drunkards seeing things in
+cups of wine. Go to Scene 8 to inves-
+tigate.
+24
+
+=== PAGE 29 ===
+Tales from the Adventurers’ Guild
+Scenes a L4 gaze attack or be turned to stone.
+Petrified characters are out of the
+The following Scenes are mini-adven- game until a Blessing spell is cast on
+tures. Some can be resolved with a them. Rogues add +½ L to this Save.
+simple choice and a few die rolls.
+Reactions (d6): 1 bribe (6d6
+These adventures are generated by
+gp or 1 jewel or gem worth
+Rumors. You may play one of these
+at least 15 gp), 2 quest, 3–5
+entries ONLY if you were sent here
+fight, 6 fight to the death.
+by a Rumor. You may reach some
+paragraphs only if you are directed Xasartha has an emerald pendant
+there by another paragraph. worth 260 gp and a crate containing
+2d6 necros (the currency of the Neth-
+DO NOT READ THE SCENES IN
+erworld). If you want to try on the
+ADVANCE, as this will spoil the fun
+pendant, choose a character to do so
+of discovery and attract the wrath of
+and then read Scene 6. You may also
+chaos!
+decide to sell the pendant without
+trying it on.
+Scene 1
+Xasartha counts as a major foe for XP
+You reach the hunter’s cabin. Perform
+purposes (1 XP roll).
+a L6 Stealth roll with a character of
+your choice if you want to have a
+Scene 2
+chance to surprise the medusa. If this
+roll is successful, you get to attack the The leprechaun rumor is real. You
+medusa ONCE with all characters may purchase a pair of Shoes of Fast
+BEFORE she has a chance to use her Walk for 200 gp. You may purchase
+gaze weapon. If the character fails the up to one pair per character. The
+Stealth roll, however, the character is wearer of these shoes adds +Tier
+automatically turned to stone, with number to Defense rolls when with-
+no Save allowed, and the rest of the drawing or fleeing from a melee. The
+party must fight the medusa using the shoes will magically adapt to fit any
+standard rules (and must Save vs. her character and will always look appro-
+stone-turning gaze before they can priate to other clothes worn by the
+attack her). character. Only characters who can
+use magic items may wear the shoes.
+You may also shout to the medusa
+Hirelings may also be assigned these
+from outside the hunter’s cabin. If
+shoes. Animal companions may not.
+you do so, roll Reactions for her.
+The leprechauns may also teach a
+Xasartha the medusa, L4 Boss mon-
+single Illusion type spell (any spell
+ster, 4 Life. All characters at the
+with the word illusion in its name, or
+beginning of the battle must Save vs.
+described as an illusion of some type)
+25
+
+=== PAGE 30 ===
+Tales from the Adventurers’ Guild
+to a single character. Choose any Note that these skills, unlike the
+illusion spell from any Four Against expert skills of the same name found
+Darkness book you have. This will be in Four Against the Abyss, may be
+for a price of 100 gp, or free if you taught to any character who can wield
+bought at least three pairs of magical a bow.
+shoes. The character learns the spell
+automatically, as if s/he was learning Scene 4
+it from a scroll.
+You may accept a quest from the
+paladin with a single character. This
+Scene 3
+must be a character who is allowed to
+You may spend money to train with use a sword (edged hand weapon)
+the master archer between sessions. and is not a demon or undead. The
+You may train each character in your quest is dangerous but, if the charac-
+party once between adventures. The ter completes it, the paladin will give
+cost for training is 60 gp x the charac- her sword to your character and
+ter’s current level, e.g., a L5 character retire. The paladin’s sword is a mas-
+would pay 300 gp for a training ses- terwork magical sword. If you are still
+sion. At the end of the training ses- interested in the quest, choose a char-
+sion, the character may attempt 1 XP acter and go to Scene 7.
+roll. The XP roll may, as normal, be
+used to attempt to level up if the Scene 5
+character is an elf (not a wood elf or
+To find the lost cat, you must find 2
+fire elf), or attempt to learn one of
+Clues. You may NOT use Clues gen-
+these two expert skills:
+erated in previous adventures: all the
+Deadly Accuracy
+Clues must be generated in town with
+The character has +1 to Attack rolls
+Streetwise rolls. Your Clues cost is
+when using a bow.
+reduced to 1 if you have a beastmas-
+Dead Shot ter, a druid or any cat-like character
+The character may reroll all failed or a cat animal companion in the
+Attack rolls performed with a ranged party. Once you generate enough
+weapon. Clues, you find the cat and receive a
+reward of 100 gp and 1 XP roll.
+The money is spent even if the roll
+fails. If you are training multiple
+Scene 6
+characters, you must first spend
+money for all of them and then The pendant is magical. At the begin-
+perform all of their XP rolls at the ning of any adventure, the pendant
+same time. recharges. During the adventure, the
+wearer of this pendant may use 1
+26
+
+=== PAGE 31 ===
+Tales from the Adventurers’ Guild
+Luck point, like the halfling ability of gives the final blow (depletes the last
+the same name. If the wearer is a Life point) of any major foe. Agaratha
+halfling, the character gains 2 Luck may not be wielded by any character
+points instead. who is chaos-tainted (see the rules for
+chaos in Caverns of Chaos) or by any
+Scene 7 character who is a demon or undead.
+The sword may be sold for 450 gp.
+You must single-handedly eradicate
+a criminal organization that has
+Scene 8
+caused the demise of the paladin’s
+husband, selling him to a band of You have discovered the lair of d6+2
+dark elves. The other members of white gargoyles, L5 minions, morale
+your party may NOT interfere or help -1, no treasure. The gargoyles are
+you in any way, but they may lend you immune to Sleep. Due to their cam-
+their magic items, scrolls, potions, etc. ouflage abilities, there is a 3 in 6
+chance that the gargoyles will sur-
+You must play a random dungeon of
+prise the party. If this happens,
+10 rooms, using the tiles from Four
+perform a Reaction roll to determine
+Against Darkness and the rules for a
+what they will do. If you fight them,
+Bandit Hideout dungeon in this book.
+there’s a 2 in 6 chance that any hit
+Reduce by 1 all the numbers of
+from a mundane weapon will bounce
+minions met, to a minimum of 1 per
+off their stone-hard skin with no ill
+encounter. For the Final Boss, roll on
+effects. Magic and masterwork
+the Riff Raff Table without reducing
+weapons are immune to this effect.
+the number of foes encountered (for
+purposes of this adventure, the Final If the gargoyles fight, you may NOT
+Boss can be a group of minions). If escape from this combat until you
+you defeat the Final Boss, you can outnumber the gargoyles, or unless
+safely return to the paladin who will all your party members can fly or have
+give you Agaratha, her sword. access to magic means of transporta-
+tion like teleportation or flight.
+Agaratha, masterwork magic edged Reactions (d6): 1 flee, 2-4
+hand weapon +1. Being a masterwork bribe (20 gp each or a single
+weapon, Agaratha increases the gem of any value for all the
+chance of explosion on Attack rolls by group), 5-6 fight.
+1. In addition, the sword has a
+magical Attack bonus of +1 and
+The gargoyles have no treasure but if
+magical Defense bonus of +1. The
+you defeat them, you may claim a
+wielder receives 1 Luck point (with
+reward of 15 gp for each gargoyle
+the same use as the halfling ability of
+head you bring to the burgomaster.
+the same name) every time the sword
+27
+
+=== PAGE 32 ===
+Tales from the Adventurers’ Guild
+Scene 9 Scene 10
+Bofto the halfling looks after a large As you come closer to the hunter’s
+vineyard together with his wife and cabin, have all the characters perform
+his two sons. His produce is in good a Stealth Save vs. L6. If all characters
+demand with the local nobles and he are successful, the party reaches the
+has been able to make a nice living hunter’s cabin undisturbed. If at least
+and save quite a bit recently. A few one character fails, d3+2 agents of
+days ago, however, while tending to the guild of assassins will ambush the
+his plants, he found a star-shaped party. You must either convince them
+object in the ground. He brought it you are not from a competing guild
+home and he’s been behaving trying to hire the medusa, or fight
+strangely since then, looking absent- them. To convince them, perform a
+minded and staring at the clouds all L5 Streetwise Save. If you succeed,
+day while his family takes care of the they let you go back to town. If you
+vineyard. fail, they will attack and act first.
+As you arrive on his farm, you see the If you decide to fight, you go first.
+halfling sitting morosely in the yard.
+The agents are HCL+2 minions
+He barely notices you. You try to start
+armed with daggers. They have a total
+some conversation, but he just
+treasure of 4d6 gp. They count as a
+mutters to himself that “the clouds
+minion encounter for XP purposes.
+show They are coming today”. A star-
+Once this encounter is over, you may
+shaped object, not unlike a small, red
+reach the cabin by playing Scene 1 or
+starfish, hangs from a thin cord from
+decide to go back to town.
+his neck. Will you:
+Try to steal the star shaped object? If
+Scene 11
+so, choose one of your characters to
+do so and go to Scene 14. You reach the old miller’s farm, but
+there is no well. It seems the story
+Try to talk to Bofto’s family? Go to
+about the paladin's sword was just a
+Scene 17.
+red herring. Disappointed, you return
+You may decide that you have nothing
+to town. As you do so, roll a 2 in 6
+to do here. In this case, go back to
+chance of an encounter on the Riff
+your standard activities using any
+Raff Table or on the Outside of Town
+section of this book or leaving for a
+Ambush Table, your choice.
+random dungeon or a planned adven-
+ture in any Four Against Darkness
+book in your possession.
+28
+
+=== PAGE 33 ===
+Tales from the Adventurers’ Guild
+Scene 12 Dragon’s Lair Thematic Dungeon
+Table to determine which kind of
+As you get near the pond, eerie voices
+dragon you will have to fight.
+speaking in an alien tongue call you
+to the water. All the characters must If you want, you may generate the
+Save vs. L5 hypnosis or be dragged in three Clues with 3 successful Street-
+the water by chaos-infected fish. All wise rolls at L6. On any roll of 1 or 2,
+hypnotized characters will take 1 you end up in the wrong neighbor-
+damage per turn until another char- hood and must play a combat encoun-
+acter spends 1 turn moving them out ter against a random foe from the Riff
+of the water. Any character helping Raff Table or the Outside of Town
+another out of the water must roll the Ambush Table, your choice. On a
+Save again. If all the characters fail failure, you may roll again later. On a
+the Save, the party is destroyed. success, you generate 1 Dragon Clue
+that you may use ONLY to find the
+Any characters with chaos taint auto-
+dragon.
+matically fail the Save.
+If all characters pass the Save or are Scene 14
+rescued, the hypnotic mutant fish
+To steal the star-shaped object,
+may be caught and dried. This turns
+perform a thievery Save vs. L6.
+them into the equivalent of d6+3
+Rogues and halflings add +L. Swash-
+Food rations that may be kept or sold
+bucklers and assassins Save at +½ L.
+for 2 gp each (as rare, tasty fish with
+Elves Save at +1. You can try only
+unusual colors and shapes – if the
+once. If you fail, go to Scene 18. If you
+party is on friendly terms with any
+succeed, go to Scene 19.
+chaos cultists, you may sell each Food
+ration for 5 gp). This Scene counts as
+2 encounters with minions for XP Scene 15
+purposes, even if the fish have no
+Create and play a small dungeon of 7
+combat stats.
+rooms, using the room tiles found in
+Four Against Darkness. If you have
+Scene 13
+Lost Temples of Qaarra, use that
+book instead. The small temple of
+You decide if the story is real or not.
+Tamas Zeya is actually a cover for a
+If it is not real, just cross it off the
+secret temple hidden in its basement.
+table. If it is real, you may, at any
+moment of the campaign, spend 3
+Clues to find the dragon. This is NOT Scene 16
+a Secret and you gain no XP roll for
+You must spend 2 Clues to find the
+this, but you will gain XP as normal
+location of the cult. These may be
+for defeating the dragon. Roll on the
+Clues that your party has kept from
+29
+
+=== PAGE 34 ===
+Tales from the Adventurers’ Guild
+previous adventures or Clues that you Freeing the girl from the cult gives
+generate in your current location with you access to 1 XP roll and a reward
+Streetwise rolls. Once you do so, you of 150 gp.
+find the entrance to a small dungeon.
+Create and play a small dungeon of Scene 17
+10 rooms, using the room tiles found
+You talk to Bofto’s wife and two
+in Four Against Darkness. If you
+young sons, who are working some-
+have Lost Temples of Qaarra, use
+where else in the vineyard. They
+that book instead. As you meet this
+confirm that Bofto is behaving
+dungeon’s Final Boss, you actually
+strangely and they kindly ask you to
+meet the local branch of the Silent
+leave. If you insist, you may continue
+Scream chaos worshippers, who are
+investigating by playing Scene 9.
+indeed keeping the girl as a prisoner
+and are trying to convert her.
+Scene 18
+The Silent Scream: 9 L3 minions
+led by a HCL+2 priestess (a Boss with You fail to steal the star-shaped
+HCL+3 Life) who will use her power object. The halfling screams for the
+of Silence against the party with her attempted theft and you quickly
+first action. If this happens, for the leave. Return to your investigations,
+remainder of the fight all casters but delete Rumor 1 from the Rumors
+(including clerics trying to use their Table.
+prayers like Blessing and Healing)
+must Save vs. her L+2 every time they Scene 19
+try to cast spells. Casters add +L to
+As you steal the star-shaped object,
+the Save. If the Save fails, the spell is
+the halfling collapses to the ground.
+wasted and has no effect.
+The star-shaped object writhes in
+Cultists and priestess have normal your hands. The character who
+morale, but roll independently: it picked it up must perform a L8 Will
+may happen that the priestess flees Save or gain 1 Madness. Spellcasters
+and the cultist remain to fight, or vice and clerics add +L to this Save. Hal-
+versa. Treasure: three treasure rolls flings can reroll a failed Save.
+at -1, using any book appropriate to
+This is a cursed item, and you may get
+your party’s adventuring Tier.
+rid of it only by meeting invisible
+Reactions: 1-3 bribe (500 gp to let gremlins and letting them take this
+the girl free), 4-6 fight. object. If this happens, you will break
+If you flee, the next time you meet the the curse and be free. No amount of
+Silent Scream, the girl will be a full- magic or blessing will destroy the
+fledged cultist and you will have to curse – only invisible gremlins will
+capture her with non-lethal means. take it away. As long as the curse is
+30
+
+=== PAGE 35 ===
+Tales from the Adventurers’ Guild
+operative, every time the party meets If you suffer a total party kill (all your
+a major foe (Boss or Weird Monster), characters die), the star-shaped
+you must roll a 2 in 6 chance that, object will NOT disappear from the
+instead of that monster, you encoun- campaign. Whenever you find a trea-
+ter a Star-slayer from Beyond. sure with your next party, no matter
+what is the entity of that treasure, you
+Star-slayer from Beyond, HCL+6
+must roll a 1 in 6 chance of finding
+Weird Monster demon, HCL+5 Life,
+this cursed item. If this happens, you
+4 attacks (tentacles, each inflicting
+must assign the star-shaped object to
+Tier damage), no treasure. Upon
+one of your characters. Again, the
+seeing the Star-slayer, all characters
+only way to break the curse will be to
+must perform a HCL+1 Save or gain
+have the star-shaped object stolen by
+1 Madness and lose 2 Life. Any char-
+invisible gremlins.
+acter gaining 1 or more Madness will
+be unable to flee from the encounter
+(in this case, you may split the party,
+fleeing with those characters who
+succeed the Save).
+If the monster is encountered instead
+of an adventure’s Final Boss, the
+Star-Slayer will have the treasure of
+that Final Boss. In all other cases, the
+Star-Slayer will have no treasure.
+Defeating the Star-Slayer gives 2 XP
+rolls but does NOT break the curse.
+If the character carrying the star-
+shaped object dies, another character
+in the party will automatically pick up
+the star-shaped object and the curse
+will continue to affect the party.
+Reactions: always fights to
+the death.
+The Star-Slayer From Beyond
+31
+
+=== PAGE 36 ===
+Tales from the Adventurers’ Guild
+Following the Treasure Map Table (d6)
+Deathtrap. Enemies of the party have set up an ambush to steal their
+gold and equipment. Roll on the Riff-Raff Table to determine the
+nature of the opposition. The party is ambushed. This happens in a
+location that is distant enough from the settlement to be out of sight
+1-2 of the authorities. You have the option to surrender all equipment
+and money carried (including gems and magical items) or fight. If
+you fight, the foes go first. Treat as a normal combat encounter with
+no option to withdraw. The foes may fail their Morale roll and decide
+to flee.
+Waste of time. The map is useless and leads nowhere. During the
+trip, however, roll a 3 in 6 chance that the party is attacked by
+3
+enemies. Roll on the Outside of Town Opposition Table to determine
+the nature of the encounter.
+The map contain accurate but incomplete information. The
+next time the party buys another map, the info from this map will give
+a one time +1 bonus when rolling on this Table. However, even if you
+4 apply the bonus, a roll of a natural 1 still counts as a Deathtrap (result
+1 above). If you roll up this result multiple times, you may use the
+various +1 bonuses cumulatively on a single roll, or on separate rolls,
+as desired.
+The Real Deal. The map leads to a true treasure. Roll d6 on the
+5+
+Maps Leads To... Table and play out the result.
+32
+
+=== PAGE 37 ===
+Tales from the Adventurers’ Guild
+The Map Leads to... (D6)
+A complex of underground caves. Generate a random dungeon using the standard 4AD tables
+and rules. Do not roll for content in the entrance room. The dungeon ends after d6+3 rooms. From
+that point, all unopened doors and passages are considered dead ends. The last room automatically
+1
+contains a Boss monster with double the maximum treasure available and 2 additional Life points.
+If you have Twisted Dungeons, roll twice on the table there and choose the result that seems more
+appropriate.
+A forgotten temple hidden in the wilderness. Chaos cultists have taken residence here. You
+must fight them, with no possibility of withdrawal. Roll on the Chaos Cult Table to determine the
+2 abilities of the cultists. Upon defeating them, you will find a golden idol worth 1d3x100 GP in
+addition to any treasure carried by the cultists. Their leader is a L4 Boss with 4 Life and 2 attacks.
+He has 3d6 gp and a 3 in 6 chance of carrying a random scroll (roll on any spell list of your choice).
+A small camp of hostile humanoids (orcs, etc). You may ignore the camp, return to your
+settlement and report to the authorities, who will send a small military expedition to deal with the
+menace. You receive 4d6 gp for the information but your adventure ends here. You gain no XP
+rolls. Alternatively, you may enter the camp during the day, while the orcs are sleepy. You must
+pass a L4 Stealth Save with the characters to enter the village. If the roll is successful, you steal the
+orcs’ loot (roll on the 4AD Treasure Table, with a minimum loot of 25 gp) and no fight will be
+necessary. If you fail the roll, the orcs will detect you and attack. There are 2d6+3 orcs in the village
+3
+(L3 minions, morale-1, treasure as described above), 1d3 Orc Bosses (L3 Boss, 3 Life each) and
+there is a 2 in 6 chance of a black ogre (L5 Boss, 4 Life, inflicts 2 damage with each strike, morale
++1). If you skulk into the village, you may send in some characters and leave some other characters
+outside of the village. Decide which characters are attempting the roll BEFORE rolling a Stealth
+Save for the whole group, using the worst modifier. If the Save fails, the orcs will attack only the
+characters who entered the camp, gaining the initiative. PCs out of the camp may join the fray 2
+turns later (assassins entering later do not get a chance to use their sneak attack ability).
+An underground structure. Generate it like a standard 4AD dungeon of 2d6 rooms/corridors.
+Roll for content in the first room too. When you have generated the required number of rooms,
+the dungeon is complete and any door opening into another room is automatically a dead end. If
+4
+you roll any treasure, you do not find it, but keep track of it. The Boss will be in the last room and
+will have ALL the treasure generated in this dungeon, plus its own treasure. Use a Boss from any
+book appropriate to your party’s Tier.
+As 4 above, but all monsters encountered are Bosses! There will be no Vermin or minions.
+5 There will be no dragon — reroll if you meet a dragon —the treasure of the Final Boss will be a
+minimum of 200 gp and 2 random magic items.
+A lich’s sepulchral chamber. This is a dungeon of 1 room.As they enter, all PCs must Save vs.
+L7 death magic or lose 1 Life. Necromancers add +L to this Save. Undead and artificial characters
+are immune. The lich (HCL+4 undead Boss) has a number of Life points equal to all the Life points
+lost by the party to death magic, +4. It is defended by 7 dark skeletons (HCL+2 minions, undead,
+crushing weapons hit them at +1, immune to ranged attacks). The PCs may not attack the lich until
+all the skeletons are destroyed or engaged. An unengaged character may use 1 attack to try
+destroying the Lich’s phylactery (a container where the lich keeps its heart) by performing a
+6
+successful ranged attack vs. L6. You may try as many times as you like – each attempt costs 1
+action. If the phylactery is destroyed, the lich is immediately reduced to 1 Life point, or destroyed
+if it has already 1 Life point. The lich’s treasure is 10d6 gp, 1 treasure map (see rules for treasure
+maps) and 3 scrolls, each with a random spell from any book you own (choose on which table to
+roll; you may roll on tables from different books if you want). The lich is immune to Sleep, poison
+and disease, and never rolls for morale. It always fights to the death. If you have Warlike Woes,
+roll on the Boss Lair Feature Table, and add 2d6 gp to the lich’s treasure.
+33
+
+=== PAGE 38 ===
+Tales from the Adventurers’ Guild
+Riff-Raff Table (d10)
+Select a random character. A personal enemy (love rival, church or guild rival, etc. –
+come up with some interesting story!) of that character confronts the party. The foe is
+a Boss, 1 level lower than the hero (minimum L1), 3 Life, accompanied by d3 L2
+1
+scoundrels (minions). They carry 2d6 GP in total and roll morale at -1. They must be
+fought. If the Boss is killed, that character may disregard this result if it comes up again
+in another situation (but this result may still happen to another character).
+2d6 Brigands, L d3+1 minions. Morale -1. Treasure is 1 GP each. They have a 1 in
+2
+6 chance of surprising the party. You may bribe them with 20 gp per brigand.
+d6+4 Street thugs, L2 minions, Morale -1, Treasure: d6 gp total. You may bribe
+3
+them with 45 gp total or fight.
+d6 Half-orc thugs, HCL+2 minions. Normal morale. Treasure is 2d6 gp in total.
+4
+They can be bribed with 20 gp each.
+d6+2 Half-goblin ruffians, L3 minions. The half-goblins are armed with poisoned
+knives. Any character losing 1 or more Life to their attacks must Save vs. L4 Poison or
+5
+be at -1 to all Defense rolls until the end of the encounter. Halflings and barbarians
+add +½ L to this Save. Morale -1, Treasure -1. They can be bribed with 25 gp each.
+d3 Half-ogre reavers, L4 Bosses with d3+1 Life each. Normal morale, treasure -1.
+6 They can be bribed with a single magic item, a soul cube (from Four Against the
+Netherworld) or 50 gp each.
+Minotaur enforcer/brawler, L5 Boss with HCL Life (minimum 4), morale +1, no
+7 Treasure. Counts as +2 L on his first attack due to his charge. May be bribed with 80
+gp. Hates halflings.
+d6+1 Hoodlums, HCL+1 minions (mimimum L3) armed with sticks, treasure: d6
+gp in total. If any party member is already wounded when the hoodlums are encoun-
+8 tered, that character has -1 to Defense rolls vs. the hoodlums. They can be bribed with
+25 gp each. You may also choose to bribe only a few of them: those who are bribed will
+leave and the others will remain to fight you.
+d6+2 Gangsters, HCL+1 minions armed with knives, treasure: 2d6+1 gp in total.
+9 They can be bribed with 30 gp each. You may also choose to bribe only a few of them:
+those who are bribed will leave and the others will remain to fight you.
+d3 minor Philtre Wraiths, HCL+3 minions that attack with claws. No treasure.
+10 These are humans or half-humans addicted to alchemical compounds. They can be
+bribed with 1 potion each.
+Roll on this table when the party meets oppositions from their own home-
+town. While monsters in dungeons may be bribed ONLY if the result of the
+reaction roll so allows, these street ruffians have no reaction rolls and may
+be bribed automatically. XP is assigned as per the categories the enemies
+belong to (Boss, minions etc). If the party is expert Tier (L5 to 9) increase L
+by 2 and number of minor foes encountered by 50%, rounding up. If the
+party is of heroic Tier (L10 to 14), increase L by 4 and double numbers of
+minor foes encountered. If the party is L15+, increase L by 8, triple the
+numbers of minor foes, and double the Life points of all major foes.
+34
+
+=== PAGE 39 ===
+Tales from the Adventurers’ Guild
+Outside of Town Ambush Table (d6)
+2d6 Orc ambushers: L4 minions, 1 in 6 chance of surprise, treasure 1d6 gp
+each. Armed with hand weapons. They must roll Morale at -1 every time the
+1 party casts a spell.
+Reactions: Fight
+d6 Half-troll ambushers: L4 minions, morale 0, 1 in 6 chance of surprise,
+total treasure 3d6 gp. Armed with non-metallic, crushing two-handed weapons
+2 (war clubs and wooden mallets) that can be sold for 1 gp each.
+Reactions: Fight
+d6+1 operatives from the local thieves guild: Ld3+2 minions (roll d3+2
+to determine their L), morale 0, total treasure 5d6 gp, 2 in 6 chance of surprise.
+The party’s Defense rolls on the first turn are at -1 if the operatives attack with
+surprise, and characters may not use the bonus from their shields against this
+3
+first attack. Characters with the Danger Sense skill will defend normally and
+may use the bonus from shields.
+Reactions: Fight
+d6+3 Savage beastmen: L4 minions (normal morale, no treasure) led by a
+shaman (L5 Boss, 6 Life, normal morale, 1 treasure roll at +1). Every turn that
+he is not attacked, the shaman has a 2 in 6 chance of summoning a bearwolf
+(L6 animal Boss, 5 Life, no treasure, normal morale, 2 damage, hates dwarves).
+4
+In any turn in which at least one attack is assigned to the shaman, no matter
+whether the attack hits or not, do NOT roll for his chance of summoning the
+bearwolf. A single bearwolf per encounter may be summoned.
+Reactions: Fight
+d6 Lizardmen reavers: HCL+1 minions, led by a a HCL +2 Boss with 4 Life.
+Armed with javelins that they will throw as a HCL+2 surprise ranged attack
+5 before the melee. Their total treasure is 6d6 gp.
+Reactions: Fight
+d6+1 Dwarven highwaymen: HCL+2 minions. Armed with shortswords
+and crossbows, the highwaymen will shoot 1 ranged attack (HCL+2) each
+before the melee. Morale -1. Treasure: 2d6 GP per highwayman. The cross-
+6
+bows are good quality and may be sold for 30 gp each.
+Reactions: Fight
+These are all basic level minions. Each encounter counts for XP purposes
+(you get 1 XP roll every 10 encounters). If they have a fixed L instead of
+HCL, increase their L by 1 and their numbers by +3 for every Tier above
+basic your party is. For example, instead of d6 L4 half troll ambushers, a
+heroic party (L10-14) will meet d6+6 L6 half troll ambushers.
+35
+
+=== PAGE 40 ===
+Tales from the Adventurers’ Guild
+Weird Monsters Around Town Table (d6)
+Armored land shark: HCL+5 Weird Monster, HCL+3 Life (minimum 4), damage 2. If
+encountered in the open, 2 in 6 chance of surprise as it emerges from the ground. In a dungeon,
+it loses this ability. In its first turn, it will perform a single L7 attack on a random target. In the
+1 following turns, it will perform 2 L6 attacks per turn against random targets. Every time it is hit
+by mundane attacks, roll d6. It ignores the hit on a roll of 5 or 6. Morale +1. Treasure: 2d6 gems
+worth 1d6 x 5 GP each.
+Reactions: 1-2 Bribe (1 gem of any value or 6 food), 3-6 Fight.
+Vampire Hound: HCL+3 Weird Monster, 5 Life. Undead. Any target hit by the hound must
+Save vs Magic 5 (wizards and clerics add +½ L) or lose their next action. It takes 3 damage from
+2 a vial of holy water. Vampire hounds will not cross running water so if the party retreat behind
+a river or stream they receive no attack by the hound. Treasure +1, normal morale.
+Reactions: 1 Flee, 2-4 Fight, 5-6 Fight to the death.
+Shargaroth: HCL+3 Weird Monster, 2 Life x character, 1 attack per character. Immune to
+Sleep spells. You may not retreat from a combat with a Shargaroth -- a protoplasmic mass of
+writhing tentacles stretching to touch any target in range and hit with their caustic touch. Any
+hero hit must Save vs. L5 magic or gain 1 Madness. When the shargaroth manifests, it will have
+2 Life per every character present (include any NPCs, hirelings but not animals), and will always
+3 have 1 attack per target. A hero who is taken over by Madness is killed and rises as a Shargaroth
+after 1 turn, attacking the party. Treasure: when the Shargaroth is killed, its body dissolves, but
+there is a 3 in 6 chance of finding a lump of crystallized matter where its internal organs were (5
+in 6 if you have a wandering alchemist). This organ stores the creature’s bio-electricity. A wizard
+may use it to perform a one time casting of the Lightning spell. You may also sell it to the
+alchemists’ guild for 200 gp.
+Bonnacon: HCL+2 Weird Monster, 4 Life, Morale -1. No treasure. This large, antelope-like
+four legged grazing animal is hunted for its meat and its curved horns, and is sometimes kept in
+dungeons as a source of meat and fire. When the bonnacon flees, as a result of a failed Morale
+4 roll or reaction, it sprays flaming feces. All characters must Save vs. L5 fire, at +1 if they wield
+a shield, or take 2 damage. The flaming excrements may be sold to alchemists for 1d6 gp, or used
+as the equivalent of a lantern until the end of the adventure.
+Reaction (d6): 1-4 flee, 5-6 Fight.
+Scissorhead Beetle: HCL+2 Weird Monster, 8 Life.Treasure -1. Morale -1. If a character rolls
+a 1 when defending from this giant beetle, his shield is destroyed. If the hero has no shield, the
+character must roll to defend again. On a failure, the hero loses half of its current Life, rounded
+5 up, and lose the use of a random arm (roll d6, 1-3 shield arm, 4-6 weapon arm) until all the
+character’s Life points have been healed.
+Reactions (d6): 1 Flee, 2-3 Fight, 4-6 Fight to the death.
+Lightning Elemental: HCL+4 Weird Monster, 10 Life, elemental. Immune to all spells. Hitting
+it with the Lightning spell increases its L by 2. Non-magical armor and shields give no Defense
+bonus against its electrical attacks. Rogue still receive their +L Defense bonus, but no bonus
+6 from armor. Treasure: none, but if it is defeated, any spellcaster in the party gains 1 free Lightning
+spell that must be used before the end of the adventure (if the spell is not used, it disappears).
+Reactions (d6): 1Flee, 2 Peaceful, 3 Bribe (1 Lightning spell), 4 Fight, 5-6 Fight to the Death.
+36
+
+=== PAGE 41 ===
+Tales from the Adventurers’ Guild
+Chaos Cult Table (d6)
+Xichtul’s Children: d6+1 L3 minions, Morale +1. Roll a 2 in 6 chance
+that they are led by a champion of Xichtul (L5 Boss, 5 Life, d3 attacks
+1 each turn, immune to Sleep and Lightning, 1 Treasure roll at +1).
+Reactions: 1 Bribe (15 gp each or 1 scroll), 2-3 Fight, 4-6 Fight to the
+death.
+The Silent Scream: d6+3 L3 minions led by a HCL+2 priestess (a
+Boss with HCL+3 Life) who will use her power of Silence against the
+party with her first action. If this happens, for the remainder of the fight
+2 all casters must Save vs. her L+2 every time they try to cast spells. They
+add +L to the Save. If the Save fails, the spell is wasted. Cultists and
+priestess have normal morale. Treasure: 3 rolls at -1.
+Reactions: 1-3 peaceful, 4-6 fight.
+The Brotherhood of Change: d4+3 L4 minions. They are armed
+with large chaotic knives called changeblades. Every character wounded
+by a changeblade must Save vs. L3 magic or lose the use of an arm (the
+first time this happens will prevent the character from using two handed
+weapons or force him to drop one object held in his hand. If this happens
+twice, the character will only be able to fight at -2 in unarmed combat,
+3-4 using legs to kick. Normal morale. Treasure: 1 roll at +1. Each change-
+blade can be sold for 20 gp. Non-chaotic characters may not use
+changeblades, as this would quickly turn them into chaos worshippers.
+Characters who are already aligned with chaos (e.g., blasphemous ones,
+clerics of Ter Za Necht) may use them (they count as light Masterwork
+slashing weapons in their hands).
+Reactions: 1-3 Bribe (20 gp per cultist), 4-6 Fight.
+The Dark Blood Sisterhood: d3 L6 minions. These fanatic women
+will use their first action to spray their blood against the party. All
+characters must Save vs. L5 poison (elves Save at -1, dwarves and
+barbarians at +1) or be infected by a terrible skin condition that will
+5-6 give them -1 to attack, and make ranged attacks and spell casting
+impossible. The effect of the dark blood disappears after 3 encounters,
+or immediately if a Blessing is used per each character affected. Morale
++2. Every Sister wears a ruby pendant worth 15 gp.
+Reactions: 1-2 Bribe, 3-4 Fight, 5-6 Fight to the death.
+37
+
+=== PAGE 42 ===
+Tales from the Adventurers’ Guild
+Thematic For all thematic dungeons, if you have
+the Warlike Woes supplement, roll
+Dungeons on the Final Boss Lair Feature Table
+for additional variation. Feel free to
+The average dungeon in 4AD is a reroll a result that doesn’t make sense
+mixture of many common elements with your current theme.
+that may be found nearly everywhere.
+If you have Twisted Dungeons, roll
+If you prefer, you may generate a
+on that supplement to make the
+theme for the dungeon before enter-
+dungeon unique.
+ing, to create an internal logic that
+will dictate the types of monsters and Additional thematic dungeons are
+treasure found, or just for the sake of published in separate supplements
+variety. Some of these themes create (e.g., Caverns of Chaos describes
+smaller but deadlier dungeons. These dungeons infested by chaos worship-
+are just perfect for guild missions. pers, the Crucible of Classic Critters
+describes woodland dungeons, and
+Digressions of the Devouring Dead
+describes necromantic dungeons).
+I Changed My Mind, You
+Twisted Dungeons and Twisted
+Didn’t Tell Me We Were
+Minions may be used to create addi-
+Up Against A Dragon!
+tional random variations and sur-
+As soon as you have generated the prises.
+entrance room on your dungeon and
+have stepped in, you will realize what
+you have gotten into. Claw marks on Theme Table (d10)
+the stone floors, for example, may
+1 Dragon’s Lair
+reveal the presence of a dragon. You
+may choose to backtrack at this point 2 Ghastly Mine
+and exit the dungeon: but if you do, 3 Giant’s Lair
+the entrance to the dungeon will be
+4 Fiendish Abyss
+lost forever, and the party's morale
+will be so low that all your Attack rolls 5 Minotaur Maze
+during your next combat encounter 6 Bandit Hideout
+will be at -1 (this does not apply to
+7 Take no Prisoners
+any artificial or elemental charac-
+8 Mushrooms in the Megadungeon
+ters). If you decide to stay in the
+dungeon, follow the guidelines in the 9 Delving Deeper and Deeper
+table below to create the thematic 10 Choose one of the above
+dungeon.
+38
+
+=== PAGE 43 ===
+Tales from the Adventurers’ Guild
+Dragon’s Lair chance to reconsider – maybe taking
+on a dragon is too much for your
+Generate this as a normal 4AD party’s current level?
+random dungeon, but the dungeon Even if the dragon is considered the
+layout will be complete after only four Final Boss of this dungeon, its stats
+rooms, and the last room will auto- and treasure are NOT increased as
+matically contain a dragon of some per the Final Boss rules. The dragon
+kind. You MUST roll for the dragon’s will NOT automatically fight to the
+reactions. The dragon’s stats are death and you may perform a Reac-
+detailed below. tion roll for the dragon if you want.
+Dragon Type Table (d6)
+1-3 Small Dragon
+4-5 Young Red Dragon
+Roll d6: on a 1-3 you encoun-
+ter a Darkness Dragon, on a
+6
+4-6 you encounter a Ghoul
+Dragon
+Once you step into the dungeon, you
+will understand that it is a dragon’s
+lair and you may spend 2 Clues, if
+desired, to determine the type of
+dragon BEFORE encountering it in
+the final room. This will give you a
+39
+
+=== PAGE 44 ===
+Tales from the Adventurers’ Guild
+Small Dragon. HCL+5 Boss Darkness Dragon. HCL+8 Boss
+monster (maximum L10), dragon, 5 monster, dragon, 12 Life, 4 attacks,
+Life, 2 attacks, 3 treasure rolls at +1. treasure +1. The darkness dragon
+On each turn of the dragon’s, roll d6 loses 4 Life if hit by a Lightning spell.
+to determine what it does. On a 1 or The darkness dragon counts as TWO
+2, the dragon breathes fire, inflicting major foes for XP purposes.
+1 damage to all characters who fail to
+Reactions (d6): 1–2 bribe
+Save vs. HCL+4 dragon breath (each
+(1d3x 100 gp), 3 Quest, 4–6
+character adds +½ L, rounded
+fight.
+down). On a 3 to 6, the Dragon does
+not breathe and bites 2 random char-
+acters instead. Small dragons are Ghoul Dragon. HCL+9 undead
+never met as random monsters. Boss monster, dragon, 8 Life, 2
+attacks, treasure +1. A character
+Reactions (d6): 1 Sleeping
+wounded by a ghoul dragon must
+(all characters can attack at
+Save vs. L4 poison or be paralyzed.
++2 on their first Attack roll),
+Elves add +L to this Save. A paralyzed
+2–3 bribe (all the gold of the
+character is automatically hit if
+party, with a minimum of
+attacked. The Blessing spell removes
+100 gp or 1 magic item), 4–5
+paralysis on one character. This
+fight, 6 quest.
+dragon counts as TWO major foes for
+XP purposes. If you have Four
+Against the Abyss, use its Treasure
+Young red dragon. HCL+8 Boss
+Table for this dragon.
+monster, dragon, 8 Life, 2 attacks, 4
+treasure rolls at +1. As its first attack,
+Reactions: always fight to
+the dragon will breathe fire, all char-
+the death.
+acters must Save vs. HCL+6 dragon
+If any dragon encountered in this
+breath (all characters add +½ L), or
+thematic dungeon gives a Quest
+take d3 damage. Thereafter, the
+(remember, even if the dragon is the
+dragon will perform 2 claw attacks
+Final Boss you may still roll for its
+per turn (1 damage each).
+Reactions), you may extend the map
+Reactions (d6): 1 Sleeping beyond the initial number of rooms
+(all characters can attack at described in the theme. Assume that
++2 on their first Attack roll), the dragon will show you a secret
+2–3 bribe (300 gp), 4–5 door/passage into a different section
+fight, 6 quest. of the dungeon. Use any Quest Table
+from any book you own to generate
+the dragon’s quest.
+40
+
+=== PAGE 45 ===
+Tales from the Adventurers’ Guild
+Ghastly Mine In the mine, any treasure in gp you
+find has a 3 in 6 chance of being a
+This theme generates an under- single gem or nugget of the same
+ground mine that has been run over value.
+by undead. Generate it as a standard All traps found will be a collapsing
+random dungeon of 9 rooms. Use the section of the mine (all characters in
+normal vermin generated by the the party must Save vs. L5 trap or
+Vermin Table in Four Against Dark- take 1 wound; dwarves and rogues
+ness. For every room with minions, add +L, gnomes add +½ L). If more
+roll a 4 in 6 chance of disregarding than 3 sections of the mine collapse,
+whatever minions you have rolled and the structure of the mine is compro-
+roll on the Ghastly Mine Minions mised. Any further cave-in trap will
+Table instead. Each time you meet a be L6 and inflict 2 damage on a failed
+Boss or a Weird Monster, roll a 4 in Save, and the mine will collapse after
+6 chance of meeting a major undead. the party exits the dungeon, trapping
+If this happens, roll on the Ghastly forever any character left for dead,
+Mine Major Foe Table. paralyzed or turned to stone.
+Ghastly Mine Minions Table (d6)
+d6+1 Skeletons, HCL+2 undead minions, No treasure. Immune to
+Sleep and poison. Crushing weapons attack Skeletons at +1. Arrows
+1-3
+are at -1. Skeletons never test morale.
+Reactions: Always fight to the death.
+d6 +2 Zombies, HCL+2 undead minions, no treasure. Immune to
+Sleep and poison. Arrows are at -1 against zombies. Zombies never
+4-5
+test morale.
+Reactions: Always fight to the death.
+2d6+1 minor ghouls, HCL+3 undead, normal treasure. Immune to
+Sleep and poison. A character wounded by a ghoul must Save vs.
+HCL+1 poison or be paralyzed. Elves add +L to this Save. A paralyzed
+character is automatically hit if attacked. The Blessing spell removes
+6
+paralysis. A paralyzed character must be carried out of the dungeon
+by his comrades, and is killed by wandering monsters if left alone in
+a room.
+Reactions: 1 flee, 2-4 fight, 5 trial of champions, 6 fight to the death.
+41
+
+=== PAGE 46 ===
+Tales from the Adventurers’ Guild
+Ghastly Mine Major Foe Table (d6)
+Minor Mummy, HCL+3 undead Boss, 4 Life, 2 attacks, treasure +2,
+never test morale, immune to sleep and poison. Any character killed by
+a mummy has a 3 in 6 chance of becoming another mummy. If this
+1-2
+happens, it will rise one turn later and attack the party. Minor mummies
+are attacked at +2 by all Fire-based spells.
+Reactions: always fight.
+Minor Skeletal Demon, HCL+5 undead, 7 Life, 2 attacks, 3 treasure
+rolls, morale +1. For every wound inflicted on a characters, their spilt
+blood spawns 1 armored skeleton, arriving in your attack turn. The
+3 armored skeletons are HCL+3 undead minions, no treasure. Immune
+to sleep and poison. Arrows hit them at -1. They never test morale.
+Reactions (d6): 1-2 magic challenge, 3-5 fight, 6 quest (you may roll
+on the Minor Unique Quest Table in this book if you want).
+Minor Wraith, HCL+5 undead, 6 Life, 2 treasure rolls. Before the fight
+starts, there is a 1 in 6 chance that all lanterns are extinguished till the
+end of the fight. Characters hit by the wraith must Save vs. L3 magic or
+lose 1 level. A wraith can only be hit by magic or silvered weapons,
+4 spells, holy water (they lose 2 Life per vial thrown), or attacks from
+masterwork weapons.
+Reactions (d6): 1-2 bribe (1 magic or masterwork item), 3 quest (you
+may roll on the Minor Unique Quest Table in this book if you want),
+4–6 fight.
+Minor Vampire, HCL+6 undead, 6 Life. Any character damaged by a
+vampire must Save vs. L4 magic or lose 1 level. Vampires are affected
+only by magic weapons, spells, characters with the Vampire hunter skill,
+5 holy water (1 Life per vial), or attacks that inflict 2 wounds with a single
+blow. See vampirism in Four Against the Abyss for additional details.
+Reactions (d6): 1–3 bribe (200 gp), 4–5 fight, 6 quest (you may roll
+on the Minor Unique Quest Table in this book if you want).
+Minor Ghoul King, HCL+4 undead, 7 Life, 4 attacks, treasure +1 OR
+a secret document that counts as 3 Clues (choose). A character wounded
+by the ghoul king must Save vs. HCL+4 poison or be paralyzed. Elves
+6
+Save at +L. Halflings reroll a failed Save. A paralyzed character is
+automatically hit if attacked. The Blessing spell removes paralysis.
+Reactions: always fight to the death.
+42
+
+=== PAGE 47 ===
+Tales from the Adventurers’ Guild
+Giant’s Lair fails a Defense roll). Ignore bonus for
+shields and armor; halflings and
+Generate this dungeon as a standard goblins defend at +L against the
+dungeon, but do not use the usual thrown boulder. Lutins, satyrs,
+system to determine when you meet dwarves and elves defend at +1.
+the Final Boss. The dungeon layout All spells hit the giant at +2.
+ends immediately when you have
+For its treasure, roll 3 times on a
+generated a number of rooms equal
+treasure table from a book appropri-
+to HCL+5. If your party is high level,
+ate to the party’s level, and double all
+you may need more than one sheet of
+gp treasure rolled.
+paper to complete the adventure. The
+Final Boss, a hill giant, will automat- Reactions: Always fights to the
+ically be encountered in the last death.
+room. The final room may not
+be a corridor and may not be
+small: draw a room of your
+choice of at least 9 squares.
+All doors and openings you
+did not visit when you draw
+your final room will be dead
+ends.
+Hill giant, HCL+2 Boss mon-
+ster, 8 Life, 2 attacks per turn
+(2 damage each), always
+attacks random targets unless
+the party includes dwarves (in
+that case, one attack will
+always be directed at a dwarf,
+and the other attack will be
+directed at a random target -
+but include the dwarf when
+rolling to select the random
+target).
+On its first turn, there is a 4
+in 6 chance that the giant will
+throw a boulder at a random
+target (3 damage if the target
+43
+
+=== PAGE 48 ===
+Tales from the Adventurers’ Guild
+44
+
+=== PAGE 49 ===
+Tales from the Adventurers’ Guild
+Fiendish Abyss
+Generate this as a standard dungeon
+Prisoner Table (d6)
+using the Four Against Darkness, but
+use only monsters and content from
+Fiendish Foes (or Four Against the The prisoner is a noble who went
+on adventure but failed miserably,
+Abyss if your party is of Expert level
+ending up in a monster’s clutches.
+or above). If you do not have these 1-3
+The noble has a mission for you, if
+books, increase all Levels by 2
+you want. Roll on the Minor
+(including the Save level of traps) and
+Unique Quest Table in this book.
+all number of encountered minions
+by 2. As you step into this dungeon,
+The prisoner is a merchant who
+you immediately recognize its dan-
+followed a wrong lead about a trea-
+gerous nature. You may spend 2 Clues
+sure. The merchant will pay you 50
+to reveal the nature of the Final Boss
+gp if you accompany him home
+before encountering it.
+(this will cost the party a 2 in 6
+Do not use the usual system to deter- chance of an encounter on the Riff
+4-5
+mine when you meet the Final Boss. Raff Table). As soon as you get to
+town, the merchant will share
+The dungeon layout ends immedi-
+some information with the party.
+ately when you have generated a
+Roll on the Rumors table, or on the
+number of rooms equal to HCL+5.
+Minor Unique Quest Table if all the
+The Final Boss will automatically be
+rumors have been played.
+encountered in the last room. For
+example, if the highest level character
+in your party is 4, the dungeon will be The prisoner has no money to
+completed when you draw 9 rooms. reward you, but he can give you a
+All doors and openings you did not silver knife (silver light edged
+visit when you draw your 9th room weapon), a vial of holy water and a
+will be dead ends. map that will lead to a treasure.
+For the Final Boss, roll a random Boss If you follow the map (you can do
+so immediately or after resting
+from the Weird Monsters Around
+your party, as you see fit), you must
+Town Table in this book, and increase 6
+play a standard random dungeon
+its L by 1. In the lair of the Final Boss,
+using 4AD and/or other books as
+you will find a prisoner who, upon
+appropriate to your tier, or roll on
+being freed, will share with the party
+the Thematic Dungeon Table in
+some precious information. Roll on this book, your choice, but also roll
+the Prisoner Table to determine the on The Map Leads To… Table in
+game effects. this book to determine details
+about the dungeon.
+45
+
+=== PAGE 50 ===
+Tales from the Adventurers’ Guild
+Minotaur Maze turn is at -1. Halflings may not use
+Luck in an encounter with a Minotaur.
+Generate this as a normal dungeon of Reactions (d6): 1-2 bribe (60 gp),
+d6+5 rooms using the standard rules 3–4 fight, 5-6 fight to the death.
+in Four Against Darkness, with the
+variations described below.
+Final Boss
+The Final Boss will be a minotaur
+Room Shapes lord: HCL+5 Weird Monster, 6 Life,
+Use the room shapes from any 4AD 2 attacks, treasure +1. Due to the
+book you own but every time lack of power of his bull-rush charge, the
+space on the sheet forces you to trun- Defense roll against a minotaur’s very
+cate a room, the room has no first attack in the beast's first turn is
+exits/doors and you must backtrack, at -1 and he inflicts Tier damage if he
+rolling a 3 in 6 chance of getting lost. hits. Halflings may not use Luck in an
+encounter with a Minotaur.
+Vermin Reactions: fight to the death.
+Use the Vermin Table from Four
+Against Darkness.
+Searching
+Successfully searching an empty
+Minions room or corridor in the minotaur
+All minions encounters will be with maze will let the party find a shortcut
+d6 young minotaurs, HCL+3 min- to the minotaur lord's chamber, if
+ions, morale +1, treasure -1. Mino- desired. You are allowed to add one
+taurs charge and count as HCL+4 on passageway, door or corridor, as you
+their first attack. If you have any see fit, leading to a 6x6 square cham-
+halflings in the party, you must assign ber.
+at least 1 attack per turn to a halfling.
+Reactions (d6): 1-2 Bribe (10 gp Wandering Monsters
+each), 3-6 fight. The chance of meeting wandering
+monsters is 1 in 6, as per standard
+rules. To determine which wandering
+Major Foes
+monsters are met, roll d6:
+Each major foe found will be an adult
+minotaur: HCL+4 Weird Monster, 4 1-3: d6 immature goatmen, HCL+2
+Life, 2 attacks, normal treasure. Due minions (maximum L5), morale +1,
+to the power of his bull-rush charge, treat them as HCL+3 on their first
+the Defense roll against a minotaur’s attack);
+very first attack in the beast's first
+46
+
+=== PAGE 51 ===
+Tales from the Adventurers’ Guild
+4,5: 1d6 immature minotaurs, in 6 if the party has a dungeon guide
+HCL+3 minions (maximum L6) hireling, as detailed in Four Against
+morale +1, treasure -1. Minotaurs the Abyss.
+charge and they count as HCL+4 on
+If the party gets lost, you must move
+their first attack;
+into another room – any other room
+6: 1 greedy minotaur. Same stats as connected to the one from which you
+an adult minotaur. Even if met as a are coming can be selected. If the
+wandering monster, this minotaur room from which you are coming has
+has d6xd6 gp in treasure, and a 1 in only one exit, you remain in the room
+6 chance of having 1 gem worth 4d6 and must test for wandering monsters
+gp, and may be bribed with any gem as if you had moved into another
+worth 150 gp or more. room.
+Special Events
+Getting Lost in the Maze
+Getting out of the maze is not auto- Roll on the table below every time
+matic. Every time the party back- you roll a Special Event in the Room
+tracks into an already visited room, Content Table in Four Against Dark-
+there is a 3 in 6 chance that the party ness.
+will get lost. Reduce this chance to 2
+Minotaur Maze Special Event Table (d6)
+A ghost passes through the party. All characters must Save vs. L4 fear
+1
+or lose 1 Life. A cleric adds +L to this Save.
+Wandering monsters attack the party. Roll d6: 1-2 roll on the vermin
+2
+Table in 4AD, 3-4 d6 young minotaurs, 5-6 one adult minotaur.
+A Lady in Orange appears and asks the party to complete a quest. If
+you accept, roll on the Quest Table. If you refuse, she disappears.
+3
+Ignore any further appearances of the Lady in the game. If you
+complete her quest, you will never get lost in the minotaur maze.
+Trap! Roll on the traps table of any book appropriate to your party’s
+4
+experience Tier.
+You may choose to meet an alchemist or healer (see the special event
+table in 4AD) or to meet a dungeon guide who will join the party for
+payment of HCLx 5 gp. A dungeon guide in the party will warn the
+5 or 6
+characters about minotaur attacks and minotaurs will NOT have their
+charge bonus on their first attack. With a dungeon guide the chance
+of getting lost when backtracking is 2 in 6 instead of 3 in 6.
+47
+
+=== PAGE 52 ===
+Tales from the Adventurers’ Guild
+Bandit Hideout bandits (L4 minions, normal morale,
+treasure: d6 gp each, armed with light
+Generate this as a normal Four edged weapons).
+Against Darkness dungeon, but use If you capture the bandit chieftain
+the Riff-Raff Table for Minion alive and spend 1 Clue, you have
+encounters and for wandering mon- captured a wanted criminal and the
+sters. Use the Weird Monster authorities will pay you a 100 gp
+Around Town Table for weird Mon- bounty upon delivery of the ruffian.
+sters and Boss encounters. The
+Alternatively, you may leave the
+dungeon layout is complete after you
+bandit free in exchange of informa-
+have drawn a number of rooms equal
+tion (you gain no reward, but gain 1
+to HCL+3 (for example, if your
+roll on the Rumors Table).
+highest level character is L5, it is
+complete when you have drawn 8
+rooms). In every room, including the
+first, roll a 1 in 6 chance of finding
+stolen goods. If you find any, these
+will be in addition to any treasure
+found on monsters. Each pile of
+stolen goods will be worth 8d6 gp and
+contain any item you could normally
+buy in town with that amount of
+money (you choose what is found).
+Each pile of stolen goods has a 3 in 6
+chance of being protected by a trap (2
+in 6 if you send a halfling to check).
+It's a L4 trapdoor. Any character that
+fails to Save falls into a chamber with
+a random Weird Monster from the
+Fiendish Foes Table or a random
+Weird Monster from Four Against
+Darkness with +2 Life points. Rogues
+and swashbucklers Save at +L, elves
+and halflings Save at +1.
+The Final Boss of this dungeon will
+always be a bandit chieftain (HCL+4,
+6 Life, 4 attacks, treasure: 8d6 gp and
+1 random magic item from a table of
+your choice) protected by d6+2 L4
+48
+
+=== PAGE 53 ===
+Tales from the Adventurers’ Guild
+Take No When playing this variant, you get no
+XP for revealing Secrets.
+Prisoners
+To generate the content and shape of
+rooms, you can use the core book
+You play this random dungeon like a
+Four Against Darkness or any other
+standard dungeon exploration, but
+book with Room Content Generation
+you get NO XP rolls for major foes
+Tables appropriate to your party’s
+who run away (in the standard game,
+adventuring Tier.
+you would, as you have defeated
+them, but in this game you must
+SLAY them).
+When a foe runs due to a failed
+morale roll or for any other reason,
+all the party members have still one
+turn to try and kill the foe, and all
+attacks performed on a fleeing foe,
+including spellcasting rolls, are at +1.
+49
+
+=== PAGE 54 ===
+Tales from the Adventurers’ Guild
+Mushrooms in the described as a fungus found in sup-
+plements) will be of the same type as
+Megadungeon the rare mushrooms sought by the
+party (add +1 mushroom to your
+The party is tasked with collecting stash for every mushroom man slain).
+some rare mushrooms that grow in a
+Each character can carry an unlimited
+huge dungeon. Use the standard
+number of mushrooms. The mission
+room generation system from the
+ends when you think you have col-
+core book. In any room that is not a
+lected enough mushrooms and exit
+corridor, there is 2 in 6 chance of
+the dungeon. As they reach the town,
+finding 1 mushroom. In corridors,
+the characters will receive HCL gp per
+there is a 1 in 6 chance. The dungeon
+every mushroom, +2 gp per mush-
+has no space limits: when you reach
+room if you have a halfling in the
+an edge of the paper, just add another
+party. You may keep, as in a normal
+sheet of paper and continue rolling
+dungeon, any trea-
+additional rooms as desired. You may
+sure found
+also find a ramp of stairs descending
+during the
+to a lower level. In the lower level,
+exploration.
+increase the L of all monsters and
+traps by 1, but also increase by 1 the
+chance to find mushrooms (so 3 in 6
+in rooms and 2 in 6 in corridors).
+The mission does not have a Final
+Boss, although you have the normal
+chances of meeting monsters, wan-
+dering monsters and so on. Every
+time you roll a special event, if you
+have collected any mushrooms, a
+random character must Save vs.
+HCL+3 spores or lose 1 Life due
+to intense coughing. Undead,
+elemental and artificial charac-
+ters are immune. Halflings,
+wood elves, wilderness scouts,
+conservationists, druids and
+barbarians add +L to this
+Save. Gnomes add +½ L to
+this Save.
+Every encountered mushroom
+man (or any similar creature
+50
+
+=== PAGE 55 ===
+Tales from the Adventurers’ Guild
+Delving Deeper no matter if the room is occupied or
+not. Roll even if the room has some
+and Deeper other unusual feature.
+In this dungeon, the deeper you go,
+Play this mission as a standard
+the more dangerous it becomes.
+random dungeon using the tables
+Increase by 1 the L of all dangers
+from the core book, Four Against the
+(foes, traps and Saves) and by 2 the
+Abyss or from any other books appro-
+number of all minor foes encountered
+priate to your party's experience Tier.
+per each level of the dungeon after the
+In any room including corridors, you
+first.
+have a 1 in 6 chance of finding stairs
+that go to a lower, more dangerous For example, a group of 5 L4
+level of the dungeon. This chance is minions found on the second level of
+rolled as soon as you draw the room, the dungeon would mean that you
+meet 7 L5 minions.
+Start rolling for a Final Boss only
+after delving at least 2 levels
+deep. Do not count the +1 bonus
+to the Final Boss roll (that is, the
+d6 roll you perform to determine
+whether an encountered major
+foe is the dungeon’s Final Boss
+or not) until you are on the dun-
+geon’s second level. Increase the
+gp value of the Final Boss's trea-
+sure by 25% for each level of
+dungeon deeper than the first
+(for example, if the Final Boss is
+encountered on the third level of
+the dungeon, increase its trea-
+sure by 50%). This increase is IN
+ADDITION to the normal
+increase for the treasure of a
+Final Boss. Likewise, increase
+the minimum monetary value of
+the treasure of Final Boss by
+25% per extra level.
+51
+
+=== PAGE 56 ===
+Tales from the Adventurers’ Guild
+The Adventurers equipment upkeep. Blades are sharp-
+ened and oiled, armor is repaired,
+Guild and plenty of writing implements and
+books on a variety of subjects are
+By their own nature, adventurers available for scholarly types or
+tend to stick together and give mutual wizards who need to copy spells from
+support to others in the same line of scrolls. The days are filled with
+business. You can assume that your swordplay in the yard, study and
+home town has an Adventurers Guild. scientific debate between wizards,
+According to the size of the settle- games of chance, and easing out
+ment, this can be anything from a muscle aches in the bathhouse. Char-
+couple of ramshackle barracks where acters with little martial prowess can
+adventurers can find basic services get some basic unarmed combat
+and lodging, to a luxurious villa with training. After sundown, all manner
+large, well furnished locales, com- of characters gather around the
+plete with room service, servants and hearth to tell stories, listen to bard
+a large restaurant — a proper adven- music, and recall fallen comrades, as
+turers’ club. Well-known guilds are the ale and mead flow.
+the League of Dungeoneers in Doran-
+When the Guild hears of a new
+tia (that once a year opens its doors
+dungeon discovered (or is hired to do
+to non-adventuring patrons as well,
+a job of some kind), it will post on the
+to ensure a bit of extra cash flow in a
+bulletin board. Once four adventur-
+month-long extravaganza called Dil-
+ers (plus any hireling or animal com-
+ettante Dungeoneers), the Sword
+panion required) volunteer, the job is
+and Grimoire Society in Kirala, and
+considered “filled” and they may
+the Torchbearers' House in Dussan
+depart when ready. This is, basically,
+Dur. For more rules and plenty of
+what happens when you roll up a new
+sample, ready-to-run organizations,
+party to start a random dungeon or a
+see Greedy Gifts of the Guildmasters.
+scripted adventure.
+If you create your own guild, give it
+The Guild does not supply adventur-
+an evocative name and add some
+ers with basic items like ropes, sacks
+quirky characteristics. These do not
+and poles. Each adventurer is
+have to translate into gaming bonuses
+required to see to their own needs.
+but they may inform your narrative
+However, the local merchants will
+when you are looking for ideas.
+offer a 10% discount to Guild
+Maybe the Guild allows only females
+members for all common items. As
+members, or only dwarves.
+the merchants try to keep the rarest
+The Guild attracts adventurers of all equipment for Guild members, you
+types. Every member is granted a may repeat ONE failed availability
+room and is provided meals and
+52
+
+=== PAGE 57 ===
+Tales from the Adventurers’ Guild
+roll per adventure if your characters none of the risks associated with
+are Guild members. banks or hidden treasure chests.
+Upon completion of the job, any The simple fact of resting in the
+remaining survivors pool all their Guild’s locales help characters keep
+gold and gems/jewelry looted from their high morale and fight the gloom
+the dungeon. Any magical items can of the evil they face in the dungeons.
+be kept - the Guild is only interested Any guild member is allowed to
+in currency. The Guild’s gem apprais- deduct 1 Madness point (see Four
+ers will work with the local merchants Against the Abyss, Madness)
+to get fair prices. between adventures.
+After totaling everything, the Guild Most guilds will have an expert car-
+takes 50%, and the remaining adven- tographer. If you buy a map and show
+turers are free to distribute the other it to the cartographer, you can alter
+50% among themselves. the map roll by 1 in either direction
+(but a roll of 1 must remain a 1).
+Cheating the Guild is never a good
+idea; their wizards seem to know if The camaraderie between members
+you try. The last person who did try is very close. If several members
+got turned into a frog, and now hops succumb to the gaze or a Medusa, for
+around the premises happily looking example, a rescue attempt may be
+for flies. made by other members, if it’s
+deemed feasible.
+Members enjoy several advantages.
+Besides the aforementioned ameni- Every month (every adventure),
+ties, the Guild will also pay (deduct deduct 10% from the Guilds account.
+the cost from from Guild coffers) for This is to pay for food, ale, hall main-
+an attempted resurrection for tenance, maid services, etc. A starting
+any fallen members (dead guild Guild has 5,000 gp in its coffers. If
+members generate no income, after you play in Troupe style, all your
+all). They maintain priests on staff Troupe members are assumed to
+who will perform the ritual at cost, for belong to the same Guild.
+500 gp. The ritual requires many rare
+You may roll on the Guild Job Table
+material components, and is quite a
+to determine what kind of work is
+strain on the caster. However, they
+available.
+will not make the attempt on a novice
+All benefits are suspended if at any
+(L1) adventurer.
+moment the Guild has no gold in its
+Any member may also keep any
+coffers. The benefits are reinstated as
+excess personal gold in a Ledger
+soon as the Guild account is positive.
+account with the Guild (or in their
+The characters may NOT leave the
+room, your choice), free of charge.
+Guild until the coffers are brought
+Keeping gold in guild coffers has
+back to 5000 gp.
+53
+
+=== PAGE 58 ===
+Tales from the Adventurers’ Guild
+Guild Job Table (d6)
+1-3 Roll on the Minor Unique Quest Table.
+Roll on the Rumors table, or on the Minor Unique Quest Table if
+4-5
+all the rumors have been played.
+Play a standard random dungeon using 4AD and/or other books
+6 as appropriate to your tier, or roll on the Theme Table in this book,
+your choice.
+Minor Unique Quest Table (d6)
+1 Clean Up My Castle
+2 Gorungar the Mighty
+3 Griffin Omelette Anyone?
+4 A Portrait in Red
+5 Sewers Search
+6 Monoceros Hunt
+In small settlements (size lower than 0) roll the d6 twice and pick the result
+you prefer on both Tables. There are fewer adventurers around and you are
+more likely to be assigned the jobs you want.
+54
+
+=== PAGE 59 ===
+Tales from the Adventurers’ Guild
+Clean Up My Castle Gorungar the Mighty
+A noblewoman has found the An orc boss has put together a
+entrance to some underground warband of goblins and is harassing
+locales under an area of an ill-kept a nearby village. The town militia will
+castle she just inherited. She doesn’t pay 50 gp for the head of the orc, and
+have a map of the place, and servants 100 gp if he is taken alive (for exam-
+she sent down to inspect the place ple, with a Sleep spell). Play this as
+have not returned. Ominous sounds single combat encounter. The foes are
+are coming from the place, and it’s expert ambushers are have a 2 in 6
+obvious that some creatures have chance of surprising your party. If
+taken residence there. Before spend- they surprise your party, all goblins
+ing money to renovate the place, the will get a chance to shoot envenomed
+lady asks the guild to clean up the arrows from their short-bows before
+underground chambers. She will pay the combat begins, and the orc will
+a basic fee of 25 gp per character, plus get two attacks per turn until he is
+2 gp per every slain minion or vermin, wounded down to 4 or fewer Life
+and 20 gp for every Boss or Weird points.
+Monster slain.
+There are 2d6 goblin archers, HCL+1
+Generate a random dungeon of minions that count as HCL+3 when
+exactly 10 rooms. You may keep any shooting. Any target wounded by
+treasure you find, and you may spend their arrows must Save vs. L4 poison
+1 Clue to find a hidden cache with a or lose their next action. The goblins
+portrait of the noblewoman’s ances- have -1 to Morale.
+tors, for which she will be ready to
+Gorungar is an HCL+5 Boss with 8
+pay an additional 100 gp. The job
+Life, and performs 2 attacks per turn
+must be a quick one so you may not
+if his side surprises the party. He has
+exit the dungeon and re-enter it later:
+a two-handed axe, a bag with 2d6 gp
+you must complete the cleaning up in
+and wears a golden armband with a
+a single session, or you won’t get paid.
+ruby that can be sold for 100+3d6 gp.
+55
+
+=== PAGE 60 ===
+Tales from the Adventurers’ Guild
+Griffin Omelets, Anyone?
+An alchemist needs a group of brave When you find the nest, there will be
+adventurers to climb up a mountain d3+1 eggs in it. Each character can
+peak and retrieve some black-feath- carry a maximum of 2 eggs. Elves may
+ered griffin eggs. The alchemist will carry a maximum of 3 thanks to their
+pay 70 gp for every egg delivered. The grace. Ogres cannot carry any
+characters are given special padded because they would eat them. If you
+baskets to carry the eggs without didn’t meet the griffins already, they
+breaking them. On the way up, you will be there, defending the nest.
+must roll a d6 five times, meeting a
+wandering monster (use the standard
+Black feathered griffins, L6 Weird
+wandering monster rules from Four
+Monsters, 5 Life. 2 attacks per turn
+Against Darkness) on the roll of a 1
+(2 damage per hit). They hate hal-
+or 2, or only on the roll of a 1 if you
+flings. You may flee from this encoun-
+have two dwarves, satyrs or moose
+ter ONLY by using teleportation
+men in the front two position of the
+spells like Escape.
+marching order. Then, your party will
+need to Search the peaks for the grif- Reactions: They fight to the death
+fin’s nest. Roll d6 as many times as when their eggs are at risk.
+needed, until you roll a 6 and find the
+nest. On any 1 rolled, however, you
+Descending the mountain will be as
+are attacked by a couple of black-
+dangerous as ascending it. Again you
+feathered griffins unless you pass a
+must perform 5 wandering monsters
+L7 Stealth roll (if you succeed the
+rolls using the same rules as above.
+Stealth roll, the griffins will fly by but
+won’t notice the party). Perform the If any character carrying eggs is killed
+Stealth roll with the character with in a battle, each egg carried by that
+the worst modifier. character has a 2 in 6 chance of break-
+ing (a broken egg will still be worth
+Stealth Modifiers
+2d6 gp to the alchemist).
+● Rogues, assassins: +L
+If you have More Mountainous
+● Halflings: +½ L
+Mayhem, you can treat this adven-
+● Rangers, wilderness scouts, vag-
+ture as a crag dungeon of 6 areas
+abonds: +½ L
+instead, using the normal rules for
+● Elves, wood elves, fae, lutin: +1 generating mountain adventures
+found in that book, and finding the
+● Shield-carrying character: -1
+griffins as explained above.
+● Heavy Armor: -1
+56
+
+=== PAGE 61 ===
+Tales from the Adventurers’ Guild
+A Portrait in Red cambion, atrocity or swashbuckler.
+Other character types will not affect
+The characters are hired to escort a
+the roll (if in your campaign any
+famous artist tasked to paint the por-
+character has been considered
+trait of a nobleman who has taken
+extremely popular or unpopular due
+religious vows and now lives in a far
+to his/her deeds, feel free to add or
+away hermitage. Upon bringing back
+subtract a +1/-1 modifier). Every
+the artist and the painting, each sur-
+time you roll a 1 on one of these
+viving member of the party will be
+attempts, one of your characters (you
+paid 200 gp.
+choose whom) will be kicked out of
+Reaching the place means going the hermitage. If all of your charac-
+through monster-infested wilderness. ters are kicked out of the hermitage,
+You must roll 6 chances of meeting you must bribe the monks (a 20 gp
+wandering monsters on the way to the donation will suffice) to let you in
+hermitage. If you roll a 1 or a 2 on any again or the mission fails.
+the first four rolls, you will meet foes
+from the Outside of Town Ambush
+Table in this book. On the last two Once you have the portrait, you will
+rolls, on a result of 1 or 2 (or only 1 if have to perform 5 wandering monster
+you have an Elf leading the marching rolls on the way home. Use the same
+order) you will meet a random Weird rules as above (the foes will be from
+Monster from the Weird Monsters the Outside of Town Ambush Table)
+Out of Town Table. Unlike wandering but now, if a foe surprises you, there
+monsters met in dungeons, the mon- is a 1 in 6 chance that a foe will grab
+sters you meet will be carrying trea- the painting and run away! If this
+sure, if any, as per their descriptions. happens, you have ONE TURN to kill
+the snatcher with a ranged weapon or
+Once you reach the hermitage, there
+Sleep spell (Fireball or Lightning may
+will be a problem: the newly-con-
+not be used because they are too
+verted nobleman doesn’t want to pose
+likely to damage the painting) or the
+for the portrait, judging it a silly thing
+painting will be lost and you will have
+which does not fit with his newfound
+to climb back to the hermitage and
+spirituality. To persuade him, you
+start the process again… You may at
+must roll a L6 persuasion Save. You
+this moment decide to abort this
+may roll as many times as you want.
+mission and go back home.
+You get a +1 to the roll for every
+cleric, bard, questing knight or
+paladin present in your party, and -1
+for every barbarian, rogue, assassin,
+undead, necromancer, succubus,
+57
+
+=== PAGE 62 ===
+Tales from the Adventurers’ Guild
+Sewers Search For Bosses: HCL+2 thieves, 4 Life,
+armed with a shortword, 1 treasure
+A local rogue is hiding in the sewers
+roll at +1, 3 in 6 chance of surprising
+after a successful hit on a merchant.
+the party. Reactions (d6):1 flee, 2-5
+The merchant will pay each character
+bribe (50 gp), 6 fight.
+50 gp if they retrieve his stolen goods
+(large rolls of precious silk), plus a For Weird Monsters: Two-headed
+bonus of 100 gp if they bring back the huge rat (HCL+3 animal Weird Mon-
+thief alive to be interrogated. Gener- ster, 4 Life, 2 attacks per turn, no
+ate a small area of the sewers as a treasure, 1 in 6 that each wound
+standard random dungeon using the inflicted infects the character with a
+tables in Four Against Darkness. disease that gives -1 on Attack rolls
+Ignore any result that is not an until all damage is healed or a Bless-
+encounter or a trap, and treat every ing is cast on the character). Reac-
+special feature as an empty room. If tion: always fight to the death.
+you have Thieves of Dorantia, you The thief with the rolls of silk will be
+may use the Tunnel Generator on the Final Boss of the adventure. The
+p.39 instead. For encounters with characters are allowed to keep all the
+vermin or minions, roll on the Sewer treasure found. In addition, any char-
+Vermin and Minions Tables below. acter wounded down to less than half
+All empty rooms may be searched for Life will have to pass a Save vs. L4
+Clues. 3 Clues will let you automati- Disease (barbarians and halflings roll
+cally find the thief with the silk rolls at +1) or develop an infection that
+in the next room. will give a -1 on Defense rolls until
+healed by a Blessing or until the end
+of the adventure.
+Sewers Vermin Table (d6)
+2d6 rats (HCL animal vermin, morale -1, no treasure).
+1-3
+Reactions (d6): 1 flee, 2-4 bribe (2 food for all rats), 5-6 fight.
+Horde of sewer rats, L4 Animal horde, 4 Life, no treasure, automatically
+4-6 destroyed if a fire-based spell hits it.
+Reactions (d6): 1-3 bribe (4 food for all rats), 4-6 fight to the death
+Sewers Minions Table (d6)
+2d6 ratmen (HCL+1 minions, morale -1, treasure -1)
+1-3
+Reactions (d6): 1 flee, 2-3 bribe (5 gp each), 4-6 fight.
+1d6 crocodile men (HCL+2 minions, no treasure).
+4-6
+Reactions (d6): 1-2 bribe (6 gp each), 3-6 fight.
+58
+
+=== PAGE 63 ===
+Tales from the Adventurers’ Guild
+Monoceros Hunt -1. The Lightning or Fireball spells
+may not be used.
+A large monoceros has been sighted
+just outside of town. A local noble Monoceros: HCL+5 animal Boss
+hires the party to capture it alive to monster, 7 Life, counts as HCL+7 on
+add it to his personal zoo. its first attack due to its ferocious
+charge. No treasure, normal morale.
+Each hunting attempt will first
+Every time the monoceros is hit by a
+require a roll to locate the beast. The
+non-magical attack, roll d6. On a 1-4,
+characters must split up and track the
+the attack strikes as normal. On a 5
+beast from different paths.
+or 6, the creature's thick hide turns
+the blow (ignore the wound inflicted).
+Roll one die per character, using the If the monoceros is captured, the
+character’s Tier die and adding ½ noble will pay 200 gp to the party.
+that character's L. Rangers, wood
+elves, druids and wilderness scouts
+add +L. On a roll of 1, the character Hunters may also spend 3 Clues to
+is involved in a hunting accident and find the monoceros right away and
+must Save vs. a L5 danger (rogues skip the hunting procedure described
+and barbarians add +1, wood elves above. If Clues are used, the party
+and elves add +½ L, rangers and members will all be able to meet the
+wilderness scouts add +L) or lose monocerous at the same time. How-
+Tier Life. Feel free to come up with a ever, if they use Clues, they must first
+reason for the damage – maybe the roll a 2 in 6 chance of a random
+character slipped and fell or was hit encounter from the Weird Monsters
+by a branch, stepped on a scorpion or Around Town Table.
+snake, etc.
+On a result of 6 or better, the charac-
+ter finds the monoceros. If two or
+more characters roll a success, they
+will find the monoceros at the same
+time and can cooperate in its capture.
+Characters who rolled a 1 are out of
+the hunt. Characters who failed the
+roll will join those who found the
+monoceros after 3 turns have elapsed.
+The monoceros must be subdued with
+a Sleep spell or with melee attacks at
+59
+
+=== PAGE 64 ===
+Tales from the Adventurers’ Guild
+Solo Mission 2 as 1, any roll of 3 or 4 as 2, and any
+roll of 5 or 6 as 3.
+Rules
+If you are playing a scripted adven-
+ture where the number of foes indi-
+This is a system for playing 4AD
+cated is not random (such as “there
+either in a GMed game or in a stan-
+are 4 goblins in the room”), just halve
+dard game without a GM, solo or
+it, rounding down (to a minimum of
+multiplayer, with every player assum-
+1 foe encountered).
+ing the role of one character. This
+system allows for true solo gaming Major Monsters and Dangers -1
+with the core book, making adventur- L= Subtract 1 L from the Level of all
+ing possible with only one character. Weird Monsters, Bosses and all
+This system does not alter any rules. Saves, to a minimum of 2.
+It merely tweaks the Levels of major
+Minor monsters -1 /-2 = this will
+dangers (Bosses/Weird Monsters and
+apply to the number of Minions and
+Saves), and the number of minor
+Vermin encountered. After rolling
+monsters (Minions or Vermin)
+the designated number of d6(s) or
+encountered.
+d3(s) and adding any modifiers for a
+The numbers are tweaked based on specific encounter, simply subtract 1
+the highest character level, or HCL. or 2 from the final number of crea-
+tures encountered, always to a
+This system uses a few notations:
+minimum of 1 foe encountered.
+d3= This means that the roll of a d6
+Night Vision= When you see this
+for the number of foes encountered
+notation, the party will have no need
+will be substituted with a d3.
+for a lantern carrier. There can be
+For example, if by the adven- many reasons: you may assume the
+ture’s description you are dungeon is well lit by torches on the
+supposed to meet 2d6 Fungi walls or candles, is an open-sky ruin
+Folk, you will encounter 2d3 and the adventure takes place during
+Fungi Folk instead. Instead the day, or the party has a magical
+of d6+3 goblins, you will source of light.
+encounter d3+3 goblins. If you don't see the Night Vision
+notation, your party WILL NEED A
+LANTERN. Also, if a character using
+To roll a d3, either use a blank d6
+this system later plays in a solo or
+marking two sides as 1, two sides as
+multiplayer game with a total party of
+2, and two sides as 3, or you roll a
+3 or more characters (not including
+normal d6 and count each roll of 1 or
+60
+
+=== PAGE 65 ===
+Tales from the Adventurers’ Guild
+Hirelings), this rule no longer Trinkets List
+applies.
+When your party is composed of 3 or
+fewer characters, you may have access
+Trinkets
+to trinkets. Here is the list of what you
+If this notation applies, the can choose.
+character/s have inherited a number
+of minor magic items at the beginning
+Scroll
+of the game, or the adventurers guild
+This is just a scroll containing one of
+give them a little help to start their
+the basic 6 spells from the Four
+career. You may choose them as
+Against Darkness core book. If you
+desired from the list on the following
+have a wizard that played the Ordeal
+pages. Scrolls can contain any of the
+of the Magic Tower 0-level adven-
+basic 6 spells; potions of healing
+ture, or if you have Ominous Opus of
+bring the character back to full Life
+the Occult & Obscure, you may select
+points. If the notation says Minor
+TWO cantrips from the lists in those
+Magic x 3, the character can take 3
+books instead of a basic spell.
+items. They must not be the same
+type. You can mix them as appropri-
+ate. If the character is a barbarian or
+Potion of Healing
+any other class that cannot use magic,
+This potion takes 1 action to drink.
+you may take the same number of
+The imbiber is brought back to full
+Herbal Remedies instead.
+health, recovering all wounds and
+effects of poison or disease, but not
+from the dark plague.This is a one-
+Leveling Restriction is Lifted
+use alchemical magic item.
+If you play with 1 or 2 characters, the
+XP rule that says you can't level up
+the same character twice in a row is Power Cookie
+ignored. Ingesting this alchemically-laced
+biscuit takes 1 action and allows a
+gnome, halfling, goblin or lutin to
+fight as a warrior of the same Level
+(adding +L to all ranged and melee
+Attack rolls) for 3 rooms/areas or the
+equivalent of 30 minutes of game
+time. Only one cookie per character
+can be eaten per game. This is a
+one-use food magic item.
+61
+
+=== PAGE 66 ===
+Tales from the Adventurers’ Guild
+Enchanted Sling Bullet Candy of Hyperactivity
+This one use bullet adds +2 to a single Upon ingesting this candy (an action
+sling Attack roll. The bullet is wasted which requires 1 full turn), the char-
+even if it misses its target. acter becomes able to perform 2
+melee attacks per turn for 3 turns.
+This is a one-use magic item.
+Upon the 4th turn, or at the end of
+combat if the combat encounter lasts
+Mist Sphere less than 4 full turns, the character
+This glass sphere can be thrown to the who ate the candy loses 1 Life, or 2
+ground as a free action (no need to Life if it belonged to a fighting class
+spend a turn doing so). The sphere like warriors, dwarves, elves and all
+creates a hazy mist around the char- characters who, because of a class
+acters, giving +3 to all Defense rolls ability, special skill or a magic item
+performed when withdrawing or are able to add +L to their Attack rolls
+fleeing from a combat engagement. or are able to perform multiple
+attacks (for example, harlequins and
+This is a one-use alchemical item.
+marksmen).
+The candy of hyperactivity is a one-
+Darkness Sphere use a food magic item.
+This glass sphere can be dropped as
+a free action (no need to spend an
+action doing so). It will give +3 to a Enchanted Bauble
+single Stealth roll. You may apply this This small amulet gives a single char-
+bonus to a Stealth roll performed by acter a +2 to any single Save of your
+an individual. This power does not choice. It burns when used, even if
+work against monsters that have the the Save is unsuccessful.
+word “dark” in their name (dark
+This amulet is a magic item with a
+elves, dark gremlins, dark hobgob-
+one-use charge. It may be recharged
+lins, dark gnomes, etc.), creatures
+by using a soul cube (described in
+that are described as being able to see
+Four Against the Netherworld).
+invisible creatures, creatures that are
+made of living darkness or are able to
+generate darkness.
+This is a one-use magic item.
+62
+
+=== PAGE 67 ===
+Tales from the Adventurers’ Guild
+HCL 1 Character 2 Characters 3 Characters
+Night vision, major Night vision, major
+Major dangers -1 L,
+dangers -1 L, -2 dangers -1 L, -1
+1 -2 minor monsters,
+minor monsters, d3, minor monsters, d3,
+1 trinket
+3 trinkets 2 trinkets
+Night vision, major
+Night vision, major
+dangers -1 L, -1 Major dangers -1 L,
+2 dangers -1 L, d3, 1
+minor monster, d3, 2 -1 minor monsters
+trinket
+trinkets
+Night vision, d3, 1
+3 Night vision No modifiers
+trinket
+4 Night Vision No modifiers No modifiers
+Example. If you play with a single L2 character, you have the following
+advantages:
+● You don’t need a lantern;
+● All Levels of major foes and Saves are reduced by 1;
+● When you encounter minions or vermin, roll d3 instead of d6 to
+determine the number of foes encountered;
+● Deduct 1 from the number of minions and vermin encountered;
+● You begin play with 2 trinkets.
+63
+
+=== PAGE 68 ===
+Tales from the Adventurers’ Guild
+Using Trinkets in Your When assigning them to characters,
+Campaigns the characters DO NOT get a full
+quota of new trinkets at the beginning
+Trinkets may be assigned to low-level
+of every adventure. If they used some
+characters when adventuring in
+in the previous adventure, they get to
+parties of 1-3 characters or found as
+replenish the ones they have used.
+loot. They may not be bought. Every
+You may select different ones each
+time you find a minor magic item
+time. As the characters progress in
+(potion or scroll), you may roll on the
+level and lose the requirement to have
+Trinkets Table instead.
+some “extra help” at the beginning of
+their career, they will no longer be
+handed trinkets by their guild.
+Trinkets Table (d6)
+1 Power cookie
+2 Enchanted Sling Bullet
+3 Mist Sphere
+4 Darkness Sphere
+5 Candy of Hyperactivity
+6 Enchanted Bauble
+64
+
+=== PAGE 69 ===
+Tales from the Adventurers’ Guild
+Adventurers Guild while resting in a settlement, the
+bonus from the Speedy Recovery
+Spells spell is cumulative. Casting multiple
+Speedy Recovery spells upon the
+These spells are available to study for same recipient has no additional
+all wizards, elves and other casters effect.
+that Save as wizards and belong to an
+Adventurers Guild. They all are con-
+Temporary Weapon
+sidered basic spells and take up 1
+Enchantment
+spellcasting slot. If you want, when
+you find a scroll you may roll a d6 to This spell may be cast on a single
+find one of these as part of the trea- weapon, making it enchanted for the
+sure (this may be useful for parties duration of a week, or until the end
+that are NOT part of an adventurers of an encounter during which the
+guild). party uses the weapon against a crea-
+ture that may only be hit by magic
+weapons. The spell gives no bonus to
+Random Guild Spell Table the weapon, but lets the weapon
+(d6) affect foes that normally wouldn’t be
+affected by mundane weapon. While
+1 Speedy Recovery
+the enchantment lasts, the weapons
+Temporary Weapon Enchant- feels and looks magical – if invisible
+2
+ment gremlins or other foes that steal or
+3 Troupe Switch destroy magic items are encountered,
+you decide whether the temporarily
+4 Look Tough
+enchanted weapon is stolen or
+5 Silence of the Mouse
+destroyed or not.
+6 Wizard’s Luck
+Troupe Switch
+Speedy Recovery
+You may use this spell only once per
+This spell may be cast on any single adventure, and only if you play with
+living creature other than the caster. the troupe rules. It works as an
+That creature heals 2 Life points per Escape spell, but lets the caster trade
+day, not 1 per day, when resting in a place with another character from the
+settlement. This spell does not affect Troupe. The caster disappears and
+the character’s healing rate during another character (who must be
+rest periods in a dungeon or during chosen BEFORE the adventure as the
+an adventure. If other circumstances recipient of the Troupe Switch spell
+increase the character’s healing rate effect) appears in his/her stead. The
+summoned character will be stunned
+65
+
+=== PAGE 70 ===
+Tales from the Adventurers’ Guild
+by the sudden teleportation, and will Silence of the Mouse
+be at -1 to all Attack, Defense and
+When this spell is cast, the caster
+Save rolls until the end of the current
+switches the Stealth skill and modifier
+encounter if this happens during a
+of two characters and may ignore
+combat encounter. In addition, there
+negative Stealth modifier given by
+is a 2 in 6 chance that the character is
+surroundings (any negative modifier
+summoned without armor (if s/he is
+given by the setting of the adventure).
+normally wearing any) as most adven-
+This applies to all the Stealth roll the
+turers would take off their armor
+recipient of the spell will perform in
+while resting at the Guild headquar-
+the next hour (6 rooms).
+ters. If the summoned character is a
+spellcaster, you must also roll a 2 in
+Wizard’s Luck
+6 chance that s/he will appear
+without one spell slot (you choose
+Elves may not cast this spell. This
+what spell is “forgotten”). This simu-
+spell is used to cheat at the gambling
+lates the fact that the character was
+house. Whenever the caster rolls on
+summoned while preparing, resting
+the Gambling House Table, the caster
+or meditating, and may not have had
+chooses a result from the table and
+the time to fully prepare for the
+performs a spellcasting roll, adding
+adventure yet.
++L, against that number. On a failure,
+You may not use this spell multiple the caster does not manage to cast the
+times during the same adventure, not spell accurately and must roll on the
+even from different casters. Obvi- Gambling House Table at -2. On a
+ously this includes the summoned success, the caster gets the desired
+character – if you summon a charac- result. On a natural roll of 1, the
+ter who has this spell, s/he may not caster is caught cheating and is jailed.
+use it. The character can be bailed out by
+paying a fine equal to 50 x L, plus
+three times the sum gambled.
+Look Tough
+The spell may also be used on other
+When this spell is cast, the caster gets
+gambling mechanics found in other
+the ability to add +L to their next
+Four Against Darkness books, but in
+Streetwise roll. If the target already
+those other cases, using the spell
+adds +L, add a Tier number bonus
+simply grants a reroll of a gambling
+instead.
+Save or a reroll on any
+gambling/game/davlok table. The
+spell has no effects on solving puzzles
+or riddles, only on games of chance
+or games that have a strong luck com-
+ponent.
+66
+
+=== PAGE 71 ===
+Tales from the Adventurers’ Guild
+Experience Tiers Rules a corresponding number that is often
+Summary used to calculate a creature’s damage,
+Life points or other game effects.
+Some entries in recent books (for
+Some monsters will inflict Tier
+example, Twisted Final Fights) refer-
+damage. This means they will inflict
+ence your party's "Tier". This is just
+1 point of damage if the party is Basic,
+a quick way to determine your party's
+2 if Expert, 3 if Heroic, 4 if Legend-
+overall power level based on the char-
+ary, and 5 if Epic. Monsters may have
+acter levels.
+a further bonus to damage, inflicting
+The Tiers are as follows:
+Tier+1, Tier +2 damage, etc.
+Character Levels Tier
+Tier Number Table
+1-4 Basic
+Basic 1
+5-9 Expert
+Expert 2
+10-14 Heroic
+Heroic 3
+15-20 Legendary
+Legendary 4
+21+ Epic
+Epic 5
+Characters of different Tiers use dif-
+ferent dice for their Attack, Defense,
+For example, a creature with Tier+1
+Save and Spellcasting rolls. The die
+damage will inflict 2 damage if
+used is d6 for Basic, d8 for Expert,
+encountered at Basic Tier, 3 at
+d10 for Heroic, d12 for Legendary,
+Expert, etc. A creature with Tier +1
+and d20 for Epic. In addition, charac-
+Life will have a variable number of
+ters of Expert Tier or higher have
+Life points, based on the Tier: 2 Life
+access to special skills. These are
+if encountered at Basic Tier, 3 at
+detailed in the appropriate supple-
+Expert Tier, etc.
+ments, such as Four Against the
+Abyss and others. Some creature’s Life points are calcu-
+lated as a multiple of the Tier
+Tier Number number. For example, a creature
+with (2x Tier)+5 Life will have 7 Life
+High level adventuring parties will
+at Basic Tier, 9 at Expert, 11 at
+tend to meet more powerful foes as
+Heroic, 13 at Legendary and 15 at
+they venture into deeper dungeons or
+Epic.
+wander into more remote wilderness
+locations. Each adventuring Tier has
+67
+
+=== PAGE 72 ===
+Tales from the Adventurers’ Guild
+Guild Rules Summary
+● Guild starts with 5000 gp in its coffers.
+● Guild pays for resurrection attempts for characters of L2+. Each attempt
+costs the Guild 500 gp.
+● Guild takes 50% of all monetary loot from all characters (coins, gems,
+jewelry only). Magic items are kept by the characters.
+● Guild members get 10% discount on all mundane equipment items.
+● A Guild member may repeat ONE failed Availability roll per adventure.
+● Members may store excess coins in a ledger account in the Guild, for free.
+● Guild members remove 1 extra Madness between adventures. If no
+adventuring is done, no Madness is removed (you can’t remove all
+Madness from characters by simply keeping them inactive in the Guild).
+● The Guild cartographer helps you weed out fake maps. Alter by 1 upwards
+or downwards any roll on the Following the Treasure Map Table or on the
+Map Leads To… Table, but a roll of 1 remains a 1.
+● Each month/adventure, deduct 10% from Guild coffers to pay for expenses.
+● Guild casters may learn Guild spells as basic spells.
+● Guild members may find jobs by rolling on the Guild Job Table.
+● There will be one adventure per month. Keep track of the passage of time
+in a planner/diary. Replace dead characters with new L1 characters.
+● All Guild benefits are suspended if at any moment the Guild has no gold
+in its coffers. The benefits are reinstated as soon as the Guild account is
+positive. The characters may NOT leave the Guild until the coffers are
+brought back to the initial condition of 5000 gp.
+68
+
+=== PAGE 73 ===
+Hexpaper - permission granted to reproduce for personal use.
+
+=== PAGE 74 ===
+Tales from the Adventurers’ Guild
+Sample Campaign setting: This map can be expanded, but we
+Varian Adventurers Guild kept the generation system simple by
+not including all terrain types – there
+are no rivers or lakes or sea shores.
+This is a simple map for a ready-to- They obviously exist in the game-
+run campaign using the rules in this world, but you can assume the ones
+book. You start by creating a troupe in this area aren’t large or do not
+of 12 characters based in Varian, a affect play much. Assume that all
+size 0 village in the center of the map. settlements have some stream or
+Your troupe belongs to an adventur- minor river crossing them.
+ers’ guild with 5000 gp in its coffers.
+If you want to spice things up and see The Passage of Time
+life from both sides of the barricade,
+Keep track of the passage of time in
+you could create TWO troupes, one
+the campaign. You can use a planner,
+of guild members and another of
+writing down a short note detailing
+non-guild members, and run them at
+what happened each day (for exam-
+the same time. There should be no
+ple, ”All heal 1 Life point, Dargo the
+interaction between the two groups,
+rogue visits the gambling house and
+other than information about adven-
+loses 25 gold crowns, Merga takes
+turing exploits (e.g., the guild
+on martial training in the guild”) or
+members will know if the non-guild
+just keep track of the current date in
+members have vanquished a danger-
+your adventuring records. It takes
+ous dragon or the like). The two
+one day to travel 1 hexagon on the
+groups should be considered rivals or
+map, or half that time if the charac-
+enemies, and should not help each
+ters are traveling on horseback or
+other.
+have similar faster means of transpor-
+The map is designed to let you use a tation.
+lot of Four Against Darkness books
+In forest or mountain hexes, double
+if you have them, but be prepared to
+all travel time – it will take TWO days
+use your common sense to seam
+to travel through one hex of such
+everything together, as the books
+harsh terrain, unless all characters
+have been written over a period of
+have flying mounts.
+many years and some parts may fit
+better than others. Remember that it Characters will need 1 Food ration
+is your prerogative as the Play Master per day per character while traveling
+to ignore things that do not work long distance.
+from a narrative or logical point of
+Healing and recovering spent spells
+view. Adjust the results so that your
+and daily abilities, Luck points etc. is
+heroes are always challenged.
+70
+
+=== PAGE 75 ===
+Tales from the Adventurers’ Guild
+possible only when the characters are Forests (Troll Wood, Goran
+resting at any settlement. Clerics and Forest, other unmarked forest
+other healers may of course use up areas): Use content from The Cruci-
+their abilities (an ability that can be ble of Classic Critters when exploring
+used once per adventure can now be these hexes. This lets you “zoom in”
+used once per day) to accelerate heal- on the map. Treat each hex as a whole
+ing, and potions may be imbibed as “forest dungeon” generated with the
+usual – it’s just a matter of deciding tiles in The Crucible of Classic Crit-
+when to use resources. ters. Draw the forest map on a sepa-
+rate sheet of paper and name it
+Random Encounters appropriately, numbering the hexes
+you have explored. When you move
+The chance to have random encoun-
+out of a sheet of paper, you are also
+ters is 1 in 6 for each hex traveled, or
+moving onto another forest hex on
+once every 3 hexes if you are traveling
+the larger map.
+on a road.
+If you have The Three Rings or Man-
+Feel free to use whatever supple-
+Eater!, you may play these adven-
+ments you feel appropriate for the
+tures as soon as you reach a forest
+random encounters – here are our
+hex. You may play the Fortress of the
+“official” suggestions, but feel free to
+Warlord campaign when you visit the
+alter them if you do not have the
+Goran Forest or Troll Wood – just
+appropriate books.
+assume the rainforest in Fortress of
+Plains (all unmarked hexes): Use the Warlord is part of these large
+tables from Tales of the Adventurers forested areas.
+Guild.
+The Lost Temple: Once you reach
+Hills: Use Four Against Darkness this hex, you may explore a random
+or Warlike Woes for random encoun- temple using Lost Temples of
+ters. You may at any moment spend Qaarra.
+1 Clue in any hill hex to find the
+Ruins of Calamo: To represent this
+entrance to a cave where chaos crea-
+ruined town, use Ravagers of Ruins.
+tures hide, and roll up a random
+Entrance to the Abyss: Once you
+dungeon generated with Caverns of
+reach one of these hexes, play a
+Chaos. You may create 1 dungeon per
+random dungeon using the core Four
+hill hex.
+Against Darkness book. As soon as
+Mountains (the Ridge, the East
+you find a staircase leading down-
+Wall): Use More Mountainous
+stairs in any of the dungeons, you can
+Mayhem. You may play the Caves of
+start using content tables from Four
+the Kobold Slave-Masters adventure
+Against the Abyss.
+as soon as you reach any mountainous
+hex.
+71
+
+=== PAGE 76 ===
+Tales from the Adventurers’ Guild
+When you move from one hex to the Balai: Size +3
+other, use Fiendish Foes for your
+Dol: Size +1
+random encounters.
+Duri: Size -2
+The Cursed Town: Use Ravagers
+Kel: Size +1
+of Ruins to generate the cursed town.
+By spending 2 Clues in any location Koo: Size +2
+of the ruins, you may find the
+Maas: Size +1
+entrance of a necromantic dungeon
+that you can generate using the Situr: Size 0
+Ghastly Mine theme in this book or, Vaal: Size -1
+if you have it, Digressions of the
+Varian: Size 0
+Devouring Dead.
+Zimharsa: Size +3
+Dalomai Hills: These hills are said
+to be the nesting grounds of a couple
+of dragons. If you are asked to play
+In settlements you can play adven-
+the Dragon’s Lair dungeon theme
+tures generated with Affairs of the
+from this book, make sure you head
+Heart, or you can rename a town to
+to one of these hexes.
+play any published town adventure.
+Settlements: Settlements represent
+named villages, hamlets and so on. Expanding the Map
+You may further expand these settle-
+Once your party moves off the
+ments using the random generation
+borders of the sheet, you may print
+rules found in The Lantern issue 2
+another hex sheet and generate a new
+(The Uncharted Settlement), or using
+map. Start by placing Settlements
+the full system for generating towns
+using the system in this book. For all
+found in Treacheries of the Trouble-
+other hexes, roll d6. On a 1-4, the hex
+some Towns.
+is plain. On a 5 or 6, it has some
+Only in Settlements is it possible to feature. Roll d6 again:
+heal, rest, recover Madness and daily
+1) Large body of water
+abilities, and purchase new equip-
+ment, performing appropriate Avail- 2) Mountain hex
+ability rolls where needed. The sizes
+3) Hill hex
+of settlements are as follows:
+4) Forest hex
+5,6) Unusual feature such as ruined
+town or necromantic dungeon – you
+choose, based on which books you
+have available.
+72
+
+=== PAGE 77 ===
+
+
+=== PAGE 78 ===
+Adventure calls.
+This supplement for Four Against Darkness adds plenty of optional rules:
+Guidelines for Troupe play;
+Rules for stealth, streetwise, banking, magic lockers, gam-
+bling and hidden treasure troves;
+New equipment and spells;
+New monster tables (riff-raff, ambushers, weird mon-
+sters, chaos cultists);
+Rumors, Scenes and Red Herrings;
+Nine new thematic dungeons;
+Rules for joining an Adventurers Guild;
+Tables for Guild Jobs and
+unique minor quests;
+Rules allowing you to play with
+1 to 3 characters;
+Trinkets – six new minor
+magic items;
+A ready-to-Run hex-crawl
+campaign.
+This book requires only
+Four Against Darkness
+but also provides many
+interactions with other
+titles. D6, d10 and d12
+are required to play.
+

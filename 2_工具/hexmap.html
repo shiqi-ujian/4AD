@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>四战黑 - 六角格沙盒地图</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
+#app { display: flex; height: 100vh; }
+
+/* Toolbar */
+#toolbar {
+  width: 300px; min-width: 300px;
+  background: #16213e;
+  padding: 14px 12px;
+  display: flex; flex-direction: column; gap: 4px;
+  overflow-y: auto; border-right: 1px solid #0f3460;
+  z-index: 10;
+}
+#toolbar h2 { font-size: 17px; text-align: center; color: #e94560; margin-bottom: 4px; border-bottom: 1px solid #0f3460; padding-bottom: 8px; letter-spacing: 2px; }
+#toolbar h3 { font-size: 13px; color: #aaa; margin: 8px 0 4px; font-weight: 600; letter-spacing: 1px; }
+#toolbar label { font-size: 12px; color: #ccc; display: block; margin: 2px 0; }
+.tool-group { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; }
+.tool-btn {
+  height: 36px; border: 2px solid transparent; border-radius: 6px;
+  cursor: pointer; font-size: 15px; display: flex; align-items: center; justify-content: center;
+  transition: all 0.1s; position: relative; flex-shrink: 0;
+}
+.tool-btn:hover { transform: scale(1.08); z-index: 2; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+.tool-btn.active { border-color: #fff; box-shadow: 0 0 8px rgba(255,255,255,0.4); }
+/* Main tool buttons with text */
+.tool-btn[data-tool] {
+  width: auto; padding: 0 10px; gap: 4px; min-width: 44px;
+  background: #1a1a2e; color: #e0e0e0; font-size: 13px;
+}
+.tool-btn[data-tool] .icon { font-size: 17px; }
+.tool-btn[data-tool] .label { font-size: 12px; white-space: nowrap; }
+/* Terrain buttons */
+.tool-btn[data-terrain] {
+  width: auto; padding: 0 8px; gap: 3px; min-width: 36px; height: 32px; font-size: 13px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+.tool-btn[data-terrain] .icon { font-size: 14px; }
+
+#canvas-container { flex: 1; position: relative; overflow: hidden; background: #2d2d44; cursor: grab; }
+#canvas-container:active { cursor: grabbing; }
+canvas { display: block; }
+
+/* Selection Info */
+#info-panel {
+  position: absolute; bottom: 12px; left: 12px; right: 12px;
+  background: rgba(22, 33, 62, 0.92); border: 1px solid #0f3460; border-radius: 8px;
+  padding: 10px 14px; font-size: 13px; pointer-events: none;
+  backdrop-filter: blur(4px); max-height: 120px; overflow-y: auto;
+}
+#info-panel .row { display: flex; gap: 16px; flex-wrap: wrap; }
+#info-panel .label { color: #888; }
+#info-panel .val { color: #fff; }
+
+/* (modal styles removed — using browser dialogs instead) */
+
+/* Dice modal */
+.dice-result { font-size: 24px; text-align: center; padding: 12px; margin: 8px 0; background: #1a1a2e; border-radius: 8px; }
+.dice-detail { text-align: center; color: #aaa; font-size: 13px; }
+
+/* Scrollbar */
+#toolbar::-webkit-scrollbar { width: 4px; }
+#toolbar::-webkit-scrollbar-thumb { background: #0f3460; border-radius: 2px; }
+
+/* Responsive */
+@media (max-width: 800px) {
+  #toolbar { width: 48px; min-width: 48px; }
+  #toolbar h3 span { display: none; }
+  #toolbar h2, #toolbar h3, #toolbar label, .tool-btn .label, #tool-hint { display: none; }
+}
+
+/* Zoom indicator */
+#zoom-indicator {
+  position: absolute; top: 12px; right: 12px;
+  background: rgba(22,33,62,0.85); border: 1px solid #0f3460; border-radius: 6px;
+  padding: 4px 10px; font-size: 12px; color: #aaa; pointer-events: none;
+}
+#coord-indicator {
+  position: absolute; top: 12px; left: 12px;
+  background: rgba(22,33,62,0.85); border: 1px solid #0f3460; border-radius: 6px;
+  padding: 4px 10px; font-size: 12px; color: #aaa; pointer-events: none;
+}
+
+input[type="range"] { width: 100%; margin: 2px 0; cursor: pointer; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="toolbar">
+    <h2>🗺️ 六角格沙盒</h2>
+
+    <h3>🔧 工具 <span style="font-weight:normal;font-size:11px;color:#888;float:right;">(快捷键)</span></h3>
+    <div class="tool-group">
+      <button class="tool-btn active" data-tool="select" title="选择/查看 (V)"><span class="icon">👆</span><span class="label">选择(V)</span></button>
+      <button class="tool-btn" data-tool="paint" title="地形笔刷 (B)"><span class="icon">🖌️</span><span class="label">笔刷(B)</span></button>
+      <button class="tool-btn" data-tool="settlement" title="放置定居点 (S)"><span class="icon">🏘️</span><span class="label">定居(S)</span></button>
+      <button class="tool-btn" data-tool="road" title="画道路 (R)"><span class="icon">🛤️</span><span class="label">道路(R)</span></button>
+      <button class="tool-btn" data-tool="label" title="标文字 (L)"><span class="icon">🏷️</span><span class="label">标签(L)</span></button>
+      <button class="tool-btn" data-tool="erase" title="擦除 (E)"><span class="icon">🧹</span><span class="label">擦除(E)</span></button>
+    </div>
+    <div id="tool-hint" style="font-size:11px;color:#e94560;padding:2px 4px;background:rgba(233,69,96,0.1);border-radius:4px;min-height:18px;">👆 点击六角格进行操作</div>
+
+    <h3>🏞️ 地形 <span style="font-weight:normal;font-size:11px;color:#888;float:right;">选笔刷后涂</span></h3>
+    <div class="tool-group" id="terrain-palette">
+      <button class="tool-btn" data-terrain="plain" style="background:#7ec850" title="平原"><span class="icon">⬟</span><span class="label">平原</span></button>
+      <button class="tool-btn" data-terrain="forest" style="background:#2d6a2e" title="森林"><span class="icon">🌲</span><span class="label">森林</span></button>
+      <button class="tool-btn" data-terrain="hill" style="background:#8b7a3a" title="丘陵"><span class="icon">⛰️</span><span class="label">丘陵</span></button>
+      <button class="tool-btn" data-terrain="mountain" style="background:#6b5b4f" title="山地"><span class="icon">🏔️</span><span class="label">山地</span></button>
+      <button class="tool-btn" data-terrain="abyss" style="background:#3d1f2e" title="深渊"><span class="icon">🕳️</span><span class="label">深渊</span></button>
+      <button class="tool-btn" data-terrain="necromantic" style="background:#4a2c5a" title="死灵之地"><span class="icon">💀</span><span class="label">死灵</span></button>
+      <button class="tool-btn" data-terrain="ruins" style="background:#7a5a3a" title="废墟"><span class="icon">🏚️</span><span class="label">废墟</span></button>
+      <button class="tool-btn" data-terrain="temple" style="background:#c9a84c" title="神庙"><span class="icon">🛕</span><span class="label">神庙</span></button>
+      <button class="tool-btn" data-terrain="water" style="background:#3a7abd" title="水域"><span class="icon">🌊</span><span class="label">水域</span></button>
+      <button class="tool-btn" data-terrain="desert" style="background:#d4b872" title="沙漠"><span class="icon">🏜️</span><span class="label">沙漠</span></button>
+      <button class="tool-btn" data-terrain="swamp" style="background:#5a7a4a" title="沼泽"><span class="icon">🌿</span><span class="label">沼泽</span></button>
+      <button class="tool-btn" data-terrain="snow" style="background:#c8d8e8;color:#333" title="雪地"><span class="icon">❄️</span><span class="label">雪地</span></button>
+    </div>
+
+    <h3>🎲 生成工具</h3>
+    <label style="display:flex;align-items:center;gap:6px;margin:2px 0;">
+      <span style="white-space:nowrap;">骰子:</span>
+      <select id="dice-select" style="flex:1;padding:3px 6px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;">
+        <option value="d6">d6</option>
+        <option value="2d6">2d6</option>
+        <option value="d10">d10</option>
+        <option value="d12">d12</option>
+        <option value="3d6">3d6</option>
+        <option value="d20">d20</option>
+        <option value="d100">d100</option>
+      </select>
+    </label>
+    <div style="display:flex;gap:4px;">
+      <button id="btn-roll" style="flex:1;padding:6px;background:#e94560;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">🎲 掷骰</button>
+      <button id="btn-gen-terrain" style="flex:1;padding:6px;background:#0f3460;color:#ccc;border:none;border-radius:4px;cursor:pointer;font-size:13px;" title="选中格子后点此">🏞️ 随机地形</button>
+    </div>
+    <div style="display:flex;gap:4px;">
+      <button id="btn-gen-settlement" style="flex:1;padding:6px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;" title="选中格子后点此">🏘️ 生成定居点</button>
+      <button id="btn-gen-road" style="flex:1;padding:6px;background:#8b7a3a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;" title="自动探测选中定居点与其他定居点的道路">🛤️ 探测道路</button>
+    </div>
+    <div style="margin:2px 0;font-size:11px;color:#888;text-align:center;">💡 先生成定居点，再探测道路</div>
+
+    <h3>💾 数据</h3>
+    <div style="display:flex;gap:4px;">
+      <button id="btn-save" style="flex:1;padding:4px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;">💾 保存</button>
+      <button id="btn-load" style="flex:1;padding:4px;background:#c9a84c;color:#000;border:none;border-radius:4px;cursor:pointer;">📂 加载</button>
+    </div>
+    <div style="display:flex;gap:4px;">
+      <button id="btn-export-img" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;">🖼️ 导出PNG</button>
+      <button id="btn-clear" style="flex:1;padding:4px;background:#6b5b4f;color:#ccc;border:none;border-radius:4px;cursor:pointer;">🗑️ 清空</button>
+    </div>
+    <label style="margin-top:4px;font-size:12px;">
+      <input type="checkbox" id="chk-grid" checked> 显示网格
+    </label>
+    <label style="font-size:12px;">
+      <input type="checkbox" id="chk-coords" checked> 显示坐标
+    </label>
+    <div style="margin-top:auto;font-size:11px;color:#666;text-align:center;padding-top:8px;">
+      四战黑 · 沙盒六角格地图 v1.0<br>
+      滚轮缩放 · 拖拽平移 · 右键菜单
+    </div>
+  </div>
+
+  <div id="canvas-container">
+    <div id="coord-indicator">⚪ (0, 0)</div>
+    <div id="zoom-indicator">🔍 100%</div>
+    <canvas id="hex-canvas"></canvas>
+    <div id="info-panel"><div class="row"><span class="label">点击六角格查看信息</span></div></div>
+  </div>
+</div>
+
+<!-- Context Menu -->
+<canvas id="ctx-menu" style="display:none;position:fixed;z-index:50;background:#16213e;border:1px solid #0f3460;border-radius:6px;padding:4px 0;width:180px;box-shadow:0 4px 12px rgba(0,0,0,0.4);"></canvas>
+
+<!-- Modals placeholder -->
+<!-- (modals removed — using browser dialogs instead) -->
+
+<script>
+// ======== Configuration ========
+const TERRAIN = {
+  plain:     { name: '平原', color: '#7ec850', icon: '⬟', travel: 1 },
+  forest:    { name: '森林', color: '#2d6a2e', icon: '🌲', travel: 1 },
+  hill:      { name: '丘陵', color: '#8b7a3a', icon: '⛰️', travel: 1 },
+  mountain:  { name: '山地', color: '#6b5b4f', icon: '🏔️', travel: 2 },
+  abyss:     { name: '深渊', color: '#3d1f2e', icon: '🕳️', travel: 2 },
+  necromantic:{name: '死灵之地', color: '#4a2c5a', icon: '💀', travel: 1 },
+  ruins:     { name: '废墟', color: '#7a5a3a', icon: '🏚️', travel: 1 },
+  temple:    { name: '神庙', color: '#c9a84c', icon: '🛕', travel: 1 },
+  water:     { name: '水域', color: '#3a7abd', icon: '🌊', travel: 3 },
+  desert:    { name: '沙漠', color: '#d4b872', icon: '🏜️', travel: 2 },
+  swamp:     { name: '沼泽', color: '#5a7a4a', icon: '🌿', travel: 2 },
+  snow:      { name: '雪地', color: '#c8d8e8', icon: '❄️', travel: 2 },
+};
+const TERRAIN_LIST = Object.keys(TERRAIN);
+
+// Special terrain table (d12) per sandbox rules
+const SPECIAL_TABLE = [
+  'forest','forest','forest','hill','hill','mountain','mountain',
+  'necromantic','temple','abyss','ruins','settlement'
+];
+
+// ======== State ========
+let hexData = {}; // key: "q,r" → { terrain, label, settlement, road, color }
+let selectedTool = 'select';
+let selectedTerrain = 'plain';
+let selectedHex = null; // { q, r }
+let viewX = 0, viewY = 0;
+let zoom = 1;
+let isDragging = false, dragStartX, dragStartY, viewStartX, viewStartY;
+let showGrid = true, showCoords = true;
+let roadStart = null; // { q, r } for road drawing
+
+const HEX_SIZE = 36;
+const SQRT3 = Math.sqrt(3);
+
+// Canvas
+const container = document.getElementById('canvas-container');
+const canvas = document.getElementById('hex-canvas');
+const ctx = canvas.getContext('2d');
+
+// ======== Hex math (odd-r offset, flat-top) ========
+function hexToPixel(q, r) {
+  const w = HEX_SIZE * 2;
+  const h = HEX_SIZE * SQRT3;
+  const x = w * 3/4 * q;
+  const y = h * (r + 0.5 * (q & 1));
+  return { x, y };
+}
+
+function pixelToHex(px, py) {
+  const size = HEX_SIZE;
+  const q = (2/3 * px) / size;
+  const r = (-1/3 * px + SQRT3/3 * py) / size;
+  return cubeRound(q, r, -q - r);
+}
+
+function cubeRound(q, r, s) {
+  let rq = Math.round(q), rr = Math.round(r), rs = Math.round(s);
+  const dq = Math.abs(rq - q), dr = Math.abs(rr - r), ds = Math.abs(rs - s);
+  if (dq > dr && dq > ds) rq = -rr - rs;
+  else if (dr > ds) rr = -rq - rs;
+  // convert to odd-r offset
+  const col = rq;
+  const row = rr + (rq - (rq & 1)) / 2;
+  return { q: Math.round(col), r: Math.round(row) };
+}
+
+function hexCorners(cx, cy, size) {
+  const corners = [];
+  for (let i = 0; i < 6; i++) {
+    const angle = Math.PI / 180 * (60 * i - 30);
+    corners.push({
+      x: cx + size * Math.cos(angle),
+      y: cy + size * Math.sin(angle)
+    });
+  }
+  return corners;
+}
+
+function hexKey(q, r) { return `${q},${r}`; }
+
+function getHex(q, r) {
+  const k = hexKey(q, r);
+  if (!hexData[k]) hexData[k] = { terrain: null, label: '', settlement: null, roads: [] };
+  return hexData[k];
+}
+
+function setHex(q, r, data) {
+  hexData[hexKey(q, r)] = { ...getHex(q, r), ...data };
+}
+
+function hasRoad(q1, r1, q2, r2) {
+  return getHex(q1, r1).roads?.some(rr => rr.q === q2 && rr.r === r2) ?? false;
+}
+
+function addRoad(q1, r1, q2, r2) {
+  const h1 = getHex(q1, r1);
+  if (!h1.roads) h1.roads = [];
+  if (!h1.roads.some(r => r.q === q2 && r.r === r2)) h1.roads.push({ q: q2, r: r2 });
+  const h2 = getHex(q2, r2);
+  if (!h2.roads) h2.roads = [];
+  if (!h2.roads.some(r => r.q === q1 && r.r === r1)) h2.roads.push({ q: q1, r: r1 });
+}
+
+function removeRoad(q1, r1, q2, r2) {
+  const h1 = getHex(q1, r1);
+  if (h1.roads) h1.roads = h1.roads.filter(r => !(r.q === q2 && r.r === r1));
+  const h2 = getHex(q2, r2);
+  if (h2.roads) h2.roads = h2.roads.filter(r => !(r.q === q1 && r.r === r2));
+}
+
+function neighbors(q, r) {
+  const parity = q & 1;
+  const dirs = parity ? [
+    [1,0],[0,-1],[-1,0],[-1,1],[0,1],[1,1]
+  ] : [
+    [1,0],[1,-1],[0,-1],[-1,0],[0,1],[1,1]
+  ];
+  return dirs.map(([dq, dr]) => ({ q: q + dq, r: r + dr }));
+}
+
+// ======== Rendering ========
+function resizeCanvas() {
+  canvas.width = container.clientWidth;
+  canvas.height = container.clientHeight;
+  render();
+}
+
+function render() {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.fillStyle = '#2d2d44';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.save();
+  ctx.translate(viewX, viewY);
+  ctx.scale(zoom, zoom);
+
+  // Determine visible hex range
+  const margin = HEX_SIZE * 2;
+  const topLeft = pixelToHex((-viewX - margin) / zoom, (-viewY - margin) / zoom);
+  const botRight = pixelToHex((W - viewX + margin) / zoom, (H - viewY + margin) / zoom);
+
+  const qMin = Math.floor(topLeft.q) - 1, qMax = Math.ceil(botRight.q) + 1;
+  const rMin = Math.floor(topLeft.r) - 1, rMax = Math.ceil(botRight.r) + 1;
+
+  // Draw hexes
+  for (let q = qMin; q <= qMax; q++) {
+    for (let r = rMin; r <= rMax; r++) {
+      drawHex(q, r);
+    }
+  }
+
+  // Draw roads
+  ctx.strokeStyle = '#8B4513';
+  ctx.lineWidth = 3;
+  for (let q = qMin; q <= qMax; q++) {
+    for (let r = rMin; r <= rMax; r++) {
+      const h = getHex(q, r);
+      if (h.roads) {
+        const p1 = hexToPixel(q, r);
+        for (const rd of h.roads) {
+          // Draw each road once (only if q,r < rd in some ordering)
+          if (rd.q > q || (rd.q === q && rd.r > r)) {
+            const p2 = hexToPixel(rd.q, rd.r);
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+          }
+        }
+      }
+    }
+  }
+
+  // Draw selection outline
+  if (selectedHex) {
+    const p = hexToPixel(selectedHex.q, selectedHex.r);
+    const corners = hexCorners(p.x, p.y, HEX_SIZE);
+    ctx.beginPath();
+    corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
+    ctx.closePath();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([4, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Draw road start indicator
+  if (roadStart) {
+    const p = hexToPixel(roadStart.q, roadStart.r);
+    const corners = hexCorners(p.x, p.y, HEX_SIZE + 4);
+    ctx.beginPath();
+    corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
+    ctx.closePath();
+    ctx.strokeStyle = '#ff6600';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function drawHex(q, r) {
+  const p = hexToPixel(q, r);
+  const h = getHex(q, r);
+  const corners = hexCorners(p.x, p.y, HEX_SIZE);
+
+  // Fill
+  ctx.beginPath();
+  corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
+  ctx.closePath();
+
+  let fillColor = '#3a3a52';
+  if (h.terrain && TERRAIN[h.terrain]) fillColor = TERRAIN[h.terrain].color;
+  ctx.fillStyle = fillColor;
+  ctx.fill();
+
+  // Grid stroke
+  if (showGrid) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // Coordinates
+  if (showCoords) {
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.font = `${Math.max(8, HEX_SIZE * 0.32)}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${q},${r}`, p.x, p.y + HEX_SIZE * 0.4);
+  }
+
+  // Terrain icon
+  if (h.terrain && TERRAIN[h.terrain]) {
+    ctx.font = `${HEX_SIZE * 0.5}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.fillText(TERRAIN[h.terrain].icon, p.x, p.y - (h.label || h.settlement ? HEX_SIZE * 0.15 : 0));
+  }
+
+  // Label
+  if (h.label) {
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${Math.max(9, HEX_SIZE * 0.38)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    // Background
+    const tw = ctx.measureText(h.label).width;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.roundRect ? ctx.roundRect(p.x - tw/2 - 3, p.y - HEX_SIZE * 0.65, tw + 6, HEX_SIZE * 0.55, 3) : null;
+    // Simple bg
+    ctx.fillRect(p.x - tw/2 - 3, p.y - HEX_SIZE * 0.65, tw + 6, HEX_SIZE * 0.55);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(h.label, p.x, p.y - HEX_SIZE * 0.2);
+  }
+
+  // Settlement marker
+  if (h.settlement) {
+    ctx.font = `${HEX_SIZE * 0.6}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('🏘️', p.x, p.y + HEX_SIZE * 0.45);
+
+    // Settlement name & rating
+    ctx.fillStyle = '#ffd700';
+    ctx.font = `bold ${Math.max(9, HEX_SIZE * 0.3)}px sans-serif`;
+    ctx.textBaseline = 'top';
+    const sname = h.settlement.name || '?';
+    const srating = h.settlement.rating ?? 0;
+    const stext = `${sname} (${srating >= 0 ? '+' : ''}${srating})`;
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    const sw = ctx.measureText(stext).width;
+    ctx.fillRect(p.x - sw/2 - 3, p.y + HEX_SIZE * 0.3, sw + 6, HEX_SIZE * 0.38);
+    ctx.fillStyle = '#ffd700';
+    ctx.fillText(stext, p.x, p.y + HEX_SIZE * 0.35);
+  }
+}
+
+// ======== Hit testing ========
+function hexAtPixel(px, py) {
+  // Transform screen → world
+  const wx = (px - viewX) / zoom;
+  const wy = (py - viewY) / zoom;
+  const h = pixelToHex(wx, wy);
+  // Verify distance
+  const p = hexToPixel(h.q, h.r);
+  const corners = hexCorners(p.x, p.y, HEX_SIZE);
+  // Point-in-polygon test
+  let inside = false;
+  for (let i = 0, j = 5; i < 6; j = i++) {
+    const xi = corners[i].x, yi = corners[i].y;
+    const xj = corners[j].x, yj = corners[j].y;
+    if ((yi > wy) !== (yj > wy) && wx < (xj - xi) * (wy - yi) / (yj - yi) + xi)
+      inside = !inside;
+  }
+  return inside ? h : null;
+}
+
+// ======== Input Handling ========
+canvas.addEventListener('mousedown', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+
+  if (e.button === 2) { // Right click
+    e.preventDefault();
+    showContextMenu(e.clientX, e.clientY, mx, my);
+    return;
+  }
+
+  if (e.button === 0) {
+    const hex = hexAtPixel(mx, my);
+
+    if (hex) {
+      handleHexClick(hex.q, hex.r, e);
+      // Paint mode: still enable drag for continuous painting across hexes
+      if (selectedTool === 'paint') {
+        isDragging = true;
+        dragStartX = mx;
+        dragStartY = my;
+        // Don't save viewStart - we don't want to pan
+      }
+      return;
+    }
+
+    // Only start drag-pan mode when clicking on empty space
+    isDragging = true;
+    dragStartX = mx;
+    dragStartY = my;
+    viewStartX = viewX;
+    viewStartY = viewY;
+  }
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+
+  if (isDragging) {
+    // Paint tool: drag across hexes to paint continuously
+    if (selectedTool === 'paint') {
+      const hex = hexAtPixel(mx, my);
+      if (hex) {
+        const k = hexKey(hex.q, hex.r);
+        const h = getHex(hex.q, hex.r);
+        if (h.terrain !== selectedTerrain) {
+          setHex(hex.q, hex.r, { terrain: selectedTerrain });
+          render();
+        }
+      }
+    } else {
+      // Pan the view
+      viewX = viewStartX + (mx - dragStartX);
+      viewY = viewStartY + (my - dragStartY);
+      render();
+      updateCoordDisplay();
+    }
+  }
+});
+
+canvas.addEventListener('mouseup', () => { isDragging = false; });
+canvas.addEventListener('mouseleave', () => { isDragging = false; });
+
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+
+  const delta = e.deltaY > 0 ? 0.9 : 1.1;
+  const newZoom = Math.max(0.15, Math.min(5, zoom * delta));
+
+  // Zoom toward mouse position
+  viewX = mx - (mx - viewX) * (newZoom / zoom);
+  viewY = my - (my - viewY) * (newZoom / zoom);
+  zoom = newZoom;
+
+  document.getElementById('zoom-indicator').textContent = `🔍 ${Math.round(zoom * 100)}%`;
+  render();
+  updateCoordDisplay();
+});
+
+// Touch support
+let touchDist = 0;
+canvas.addEventListener('touchstart', (e) => {
+  if (e.touches.length === 1) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.touches[0].clientX - rect.left;
+    const my = e.touches[0].clientY - rect.top;
+
+    const hex = hexAtPixel(mx, my);
+    if (hex) {
+      handleHexClick(hex.q, hex.r, { shiftKey: false, ctrlKey: false });
+      isDragging = false;
+      return;
+    }
+
+    isDragging = true;
+    dragStartX = mx; dragStartY = my;
+    viewStartX = viewX; viewStartY = viewY;
+  } else if (e.touches.length === 2) {
+    touchDist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  if (e.touches.length === 1 && isDragging) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.touches[0].clientX - rect.left;
+    const my = e.touches[0].clientY - rect.top;
+    viewX = viewStartX + (mx - dragStartX);
+    viewY = viewStartY + (my - dragStartY);
+    render();
+    updateCoordDisplay();
+  } else if (e.touches.length === 2) {
+    const dist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    const scale = dist / touchDist;
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+    const my = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+    const newZoom = Math.max(0.15, Math.min(5, zoom * scale));
+    viewX = mx - (mx - viewX) * (newZoom / zoom);
+    viewY = my - (my - viewY) * (newZoom / zoom);
+    zoom = newZoom;
+    document.getElementById('zoom-indicator').textContent = `🔍 ${Math.round(zoom * 100)}%`;
+    touchDist = dist;
+    render();
+    updateCoordDisplay();
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', () => { isDragging = false; });
+
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+// ======== Hex Click Handler ========
+function handleHexClick(q, r, e) {
+  selectedHex = { q, r };
+
+  if (selectedTool === 'paint') {
+    setHex(q, r, { terrain: selectedTerrain });
+    render();
+    updateInfo();
+  } else if (selectedTool === 'settlement') {
+    showSettlementDialog(q, r);
+  } else if (selectedTool === 'road') {
+    const hint = document.getElementById('tool-hint');
+    if (!roadStart) {
+      roadStart = { q, r };
+      hint.innerHTML = `🛤️ 起点已选 <b>(${q}, ${r})</b>，点击相邻六角格连线。再次点击起点可取消`;
+      document.getElementById('coord-indicator').textContent = `🛤️ 起点 (${q}, ${r})`;
+    } else {
+      if (roadStart.q === q && roadStart.r === r) {
+        roadStart = null;
+        hint.innerHTML = '🛤️ <b>点击第一个六角格</b>设为起点(橙色高亮)，再<b>点击相邻格</b>连线';
+        document.getElementById('coord-indicator').textContent = '🛤️ 点击选择道路起点';
+      } else {
+        // Check if adjacent
+        const nbrs = neighbors(q, r);
+        if (nbrs.some(n => n.q === roadStart.q && n.r === roadStart.r)) {
+          // Toggle road
+          if (hasRoad(q, r, roadStart.q, roadStart.r)) {
+            removeRoad(q, r, roadStart.q, roadStart.r);
+            hint.innerHTML = `🛤️ 已移除道路 [(${roadStart.q},${roadStart.r}) ⇄ (${q},${r})]`;
+          } else {
+            addRoad(q, r, roadStart.q, roadStart.r);
+            hint.innerHTML = `🛤️ ✅ 已建立道路 [(${roadStart.q},${roadStart.r}) ⇄ (${q},${r})]`;
+          }
+          roadStart = null;
+          document.getElementById('coord-indicator').textContent = '🛤️ 点击选择道路起点';
+        } else {
+          // Not adjacent — move start
+          roadStart = { q, r };
+          hint.innerHTML = `🛤️ ⚠️ 不相邻！重新设起点为 <b>(${q}, ${r})</b>，点击相邻格连线`;
+          document.getElementById('coord-indicator').textContent = `🛤️ 起点 (${q}, ${r})`;
+        }
+      }
+      render();
+      updateInfo();
+      return; // skip extra render below
+    }
+  } else if (selectedTool === 'label') {
+    showLabelDialog(q, r);
+  } else if (selectedTool === 'erase') {
+    const h = getHex(q, r);
+    setHex(q, r, { terrain: null, label: '', settlement: null, roads: [] });
+    render();
+    updateInfo();
+  } else {
+    // Select — just update info
+    updateInfo();
+    render();
+  }
+}
+
+// ======== Context Menu ========
+function showContextMenu(cx, cy, mx, my) {
+  const hex = hexAtPixel(mx, my);
+  if (!hex) return;
+
+  const menu = document.getElementById('ctx-menu');
+  const closeMenu = () => { menu.style.display = 'none'; };
+
+  menu.innerHTML = '';
+  menu.style.display = 'block';
+  menu.style.left = cx + 'px';
+  menu.style.top = cy + 'px';
+
+  const items = [
+    { text: `📍 选中 (${hex.q}, ${hex.r})`, action: () => { selectedHex = hex; updateInfo(); render(); } },
+    { text: '—' },
+  ];
+
+  // Terrain submenu
+  TERRAIN_LIST.forEach(t => {
+    items.push({
+      text: `${TERRAIN[t].icon} ${TERRAIN[t].name}`,
+      action: () => { setHex(hex.q, hex.r, { terrain: t }); render(); updateInfo(); }
+    });
+  });
+
+  items.push({ text: '—' });
+  items.push({
+    text: '🏘️ 设置定居点',
+    action: () => { selectedHex = hex; showSettlementDialog(hex.q, hex.r); render(); }
+  });
+  items.push({
+    text: '🏷️ 设置标签',
+    action: () => { selectedHex = hex; showLabelDialog(hex.q, hex.r); render(); }
+  });
+  items.push({
+    text: '🛤️ 切换道路',
+    action: () => { selectedHex = hex; roadStart = hex; }
+  });
+  items.push({ text: '—' });
+  items.push({
+    text: '🧹 清除',
+    action: () => { setHex(hex.q, hex.r, { terrain: null, label: '', settlement: null, roads: [] }); render(); updateInfo(); }
+  });
+
+  items.forEach(item => {
+    if (item.text === '—') {
+      const div = document.createElement('div');
+      div.style.cssText = 'height:1px;background:#0f3460;margin:3px 8px;';
+      menu.appendChild(div);
+    } else {
+      const btn = document.createElement('button');
+      btn.textContent = item.text;
+      btn.style.cssText = 'display:block;width:100%;padding:6px 12px;background:none;border:none;color:#e0e0e0;cursor:pointer;font-size:13px;text-align:left;';
+      btn.addEventListener('mouseenter', () => btn.style.background = '#0f3460');
+      btn.addEventListener('mouseleave', () => btn.style.background = 'none');
+      btn.addEventListener('click', () => { item.action(); closeMenu(); });
+      menu.appendChild(btn);
+    }
+  });
+
+  // Click anywhere to close
+  const closeHandler = (e) => {
+    if (!menu.contains(e.target)) {
+      menu.style.display = 'none';
+      document.removeEventListener('click', closeHandler);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', closeHandler), 10);
+}
+
+// ======== Dialogs ========
+// (modal functions removed — settlement/label now use browser dialogs)
+
+function showSettlementDialog(q, r) {
+  const h = getHex(q, r);
+  const existing = h.settlement;
+
+  // Use browser-native prompt for name
+  const defaultName = existing?.name || '';
+  const name = prompt(`输入定居点名称 (${q}, ${r})`, defaultName || randomName());
+  if (name === null) return; // cancelled
+
+  // Use browser-native prompt for rating
+  const defaultRating = existing?.rating ?? 0;
+  const ratingStr = prompt(`输入评分 (-3 ~ +3)`, `${defaultRating}`);
+  if (ratingStr === null) return; // cancelled
+  const rating = Math.max(-3, Math.min(3, parseInt(ratingStr) || 0));
+
+  setHex(q, r, { settlement: { name: name.trim() || '无名定居点', rating } });
+  render();
+  updateInfo();
+  showDiceResult('🏘️ 已保存', `${name} (${rating >= 0 ? '+' : ''}${rating})`);
+}
+
+function showLabelDialog(q, r) {
+  const h = getHex(q, r);
+  const defaultLabel = h.label || '';
+  const label = prompt(`输入地标/标签文字 (${q}, ${r})`, defaultLabel);
+  if (label === null) return; // cancelled
+  setHex(q, r, { label: label.trim() });
+  render();
+  updateInfo();
+  showDiceResult('🏷️ 已保存', label.trim());
+}
+
+// ======== Dice ========
+function rollDice(formula) {
+  const counts = { d4: 0, d6: 0, d8: 0, d10: 0, d12: 0, d20: 0, d100: 0 };
+  const match = formula.match(/^(\d*)d(\d+)$/i);
+  if (!match) return { total: 0, rolls: [] };
+  const n = parseInt(match[1]) || 1;
+  const sides = parseInt(match[2]);
+  const rolls = [];
+  for (let i = 0; i < n; i++) {
+    rolls.push(Math.floor(Math.random() * sides) + 1);
+  }
+  const total = rolls.reduce((a, b) => a + b, 0);
+  return { total, rolls, sides, n };
+}
+
+function showDiceResult(line1, line2) {
+  const panel = document.getElementById('info-panel');
+  panel.innerHTML = `<div class="row"><span style="font-size:20px;font-weight:bold;color:#e94560;">${line1}</span></div>
+    <div class="row"><span style="color:#aaa;">${line2 || ''}</span></div>`;
+}
+
+// ======== Random Generation Tools ========
+const SURNAMES = ['风谷','铁砧','石桥','橡木','银溪','黑沼','金崖','霜峰','红柳','白杨','鹿角','鹰巢','狼牙','龙鳞','鸦羽'];
+const PREFIXES = ['北','南','东','西','上','下','大','小','新','旧','高','低'];
+const NAMES = ['维里安','迪拉姆','艾尔多','布雷顿','卡斯托','法尔文','格林','哈肯','伊斯塔','加罗','凯尔','洛瑞','米兰达','诺温','奥瑞克'];
+
+function randomName() {
+  const use = Math.random() > 0.5;
+  if (use) return PREFIXES[Math.floor(Math.random() * PREFIXES.length)] + SURNAMES[Math.floor(Math.random() * SURNAMES.length)] + '镇';
+  return NAMES[Math.floor(Math.random() * NAMES.length)];
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  const keyMap = { 'v': 'select', 'b': 'paint', 's': 'settlement', 'r': 'road', 'l': 'label', 'e': 'erase' };
+  if (keyMap[e.key?.toLowerCase()]) {
+    setTool(keyMap[e.key.toLowerCase()]);
+    e.preventDefault();
+  }
+});
+
+// ======== UI Setup ========
+function setTool(tool) {
+  selectedTool = tool;
+  document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === tool));
+  if (tool !== 'road') roadStart = null;
+  const hint = document.getElementById('tool-hint');
+  const coord = document.getElementById('coord-indicator');
+  switch (tool) {
+    case 'select':
+      hint.innerHTML = '👆 点击六角格查看信息';
+      coord.textContent = '⚪ 选择模式';
+      break;
+    case 'paint':
+      hint.innerHTML = `🖌️ 点击格子涂上 <b>${TERRAIN[selectedTerrain]?.name || ''}</b>，或按住拖拽连续涂色`;
+      coord.textContent = `🖌️ ${TERRAIN[selectedTerrain]?.name || ''} 笔刷`;
+      break;
+    case 'settlement':
+      hint.innerHTML = '🏘️ 点击六角格 → 弹出浏览器对话框填写名称和评分';
+      coord.textContent = '🏘️ 点击放置定居点';
+      break;
+    case 'road':
+      hint.innerHTML = '🛤️ <b>点击第一个六角格</b>设为起点(橙色高亮)，再<b>点击相邻格</b>连线。再次点击起点可取消';
+      coord.textContent = roadStart ? `🛤️ 起点 (${roadStart.q}, ${roadStart.r})` : '🛤️ 点击选择道路起点';
+      break;
+    case 'label':
+      hint.innerHTML = '🏷️ 点击六角格 → 弹出浏览器对话框输入地标名称（如：古墓、龙巢）';
+      coord.textContent = '🏷️ 点击添加标签';
+      break;
+    case 'erase':
+      hint.innerHTML = '🧹 点击六角格清除所有数据（地形/标签/定居点/道路）';
+      coord.textContent = '🧹 擦除模式';
+      break;
+  }
+  render();
+}
+
+document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
+  btn.addEventListener('click', () => setTool(btn.dataset.tool));
+});
+
+document.querySelectorAll('.tool-btn[data-terrain]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    selectedTerrain = btn.dataset.terrain;
+    document.querySelectorAll('.tool-btn[data-terrain]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (selectedTool !== 'paint') setTool('paint');
+    else document.getElementById('coord-indicator').textContent = `🖌️ ${TERRAIN[selectedTerrain]?.name || ''} 笔刷`;
+  });
+});
+
+// Set default terrain
+document.querySelector('.tool-btn[data-terrain="plain"]').classList.add('active');
+
+// Dice
+document.getElementById('btn-roll').addEventListener('click', () => {
+  const formula = document.getElementById('dice-select').value;
+  const result = rollDice(formula);
+  const detail = result.rolls.length > 1 ? `[${result.rolls.join(' + ')}]` : '';
+  showDiceResult(`🎲 ${formula} → ${result.total} ${detail}`, '');
+});
+
+// Random terrain per sandbox rules
+document.getElementById('btn-gen-terrain').addEventListener('click', () => {
+  if (!selectedHex) { showDiceResult('⚠️', '请先点击选择一个六角格'); return; }
+  const d6 = Math.floor(Math.random() * 6) + 1;
+  let terrain;
+  if (d6 >= 1 && d6 <= 5) {
+    terrain = 'plain';
+    showDiceResult(`🏞️ d6 → ${d6}`, '平原');
+  } else {
+    const d12 = Math.floor(Math.random() * 12);
+    terrain = SPECIAL_TABLE[d12];
+    showDiceResult(`🏞️ d6 → 6 (特殊), d12 → ${d12 + 1}`, `${TERRAIN[terrain]?.name || terrain}`);
+  }
+  setHex(selectedHex.q, selectedHex.r, { terrain });
+  render();
+  updateInfo();
+});
+
+// Generate settlement (per 冒险者公会传说 rules)
+document.getElementById('btn-gen-settlement').addEventListener('click', () => {
+  if (!selectedHex) { showDiceResult('⚠️', '请先点击选择一个六角格'); return; }
+  const d6 = Math.floor(Math.random() * 6) + 1;
+  const ratingMap = { 1: -2, 2: -1, 3: 0, 4: 1, 5: 2, 6: 3 };
+  const rating = ratingMap[d6];
+  const name = randomName();
+  setHex(selectedHex.q, selectedHex.r, { terrain: 'plain', settlement: { name, rating } });
+  showDiceResult(`🏘️ d6 → ${d6}`, `${name} 评分: ${rating >= 0 ? '+' : ''}${rating}`);
+  render();
+  updateInfo();
+});
+
+// Road detection (per 冒险者公会传说: 3d6 > distance → road exists)
+document.getElementById('btn-gen-road').addEventListener('click', () => {
+  if (!selectedHex) { showDiceResult('⚠️', '请先选中一个定居点六角格'); return; }
+  const h = getHex(selectedHex.q, selectedHex.r);
+  if (!h.settlement) { showDiceResult('⚠️', '当前六角格没有定居点'); return; }
+
+  // Find nearby settlements
+  let roadsBuilt = 0;
+  for (const [key, data] of Object.entries(hexData)) {
+    if (!data.settlement) continue;
+    const [oq, or] = key.split(',').map(Number);
+    if (oq === selectedHex.q && or === selectedHex.r) continue;
+    const dist = hexDistance(selectedHex.q, selectedHex.r, oq, or);
+    const roll3d6 = Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1;
+    if (roll3d6 > dist) {
+      // Build road — need to find path; just connect if adjacent or straight line
+      addRoad(selectedHex.q, selectedHex.r, oq, or);
+      roadsBuilt++;
+    }
+  }
+  showDiceResult(`🛤️ 探测完成`, roadsBuilt > 0 ? `发现 ${roadsBuilt} 条道路连接` : '未发现道路');
+  render();
+  updateInfo();
+});
+
+function hexDistance(q1, r1, q2, r2) {
+  // Convert to cube
+  const x1 = q1, z1 = r1 - (q1 - (q1 & 1)) / 2, y1 = -x1 - z1;
+  const x2 = q2, z2 = r2 - (q2 - (q2 & 1)) / 2, y2 = -x2 - z2;
+  return Math.max(Math.abs(x1 - x2), Math.abs(y1 - y2), Math.abs(z1 - z2));
+}
+
+// Save/Load
+document.getElementById('btn-save').addEventListener('click', () => {
+  const data = { hexData, viewX, viewY, zoom };
+  const json = JSON.stringify(data);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `hexmap_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showDiceResult('💾 已保存', `共 ${Object.keys(hexData).length} 个六角格数据`);
+});
+
+document.getElementById('btn-load').addEventListener('click', () => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        hexData = data.hexData || {};
+        viewX = data.viewX || 0;
+        viewY = data.viewY || 0;
+        zoom = data.zoom || 1;
+        document.getElementById('zoom-indicator').textContent = `🔍 ${Math.round(zoom * 100)}%`;
+        render();
+        updateInfo();
+        showDiceResult('📂 已加载', `共 ${Object.keys(hexData).length} 个六角格`);
+      } catch(e) {
+        showDiceResult('⚠️ 加载失败', '文件格式错误');
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+});
+
+// Export PNG
+document.getElementById('btn-export-img').addEventListener('click', () => {
+  // Render full map at current view
+  const link = document.createElement('a');
+  link.download = `hexmap_${new Date().toISOString().slice(0,10)}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+  showDiceResult('🖼️ 已导出', '截图已保存');
+});
+
+// Clear
+document.getElementById('btn-clear').addEventListener('click', () => {
+  if (!confirm('⚠️ 确认清空所有六角格数据？此操作不可撤销！')) return;
+  hexData = {};
+  selectedHex = null;
+  roadStart = null;
+  render();
+  updateInfo();
+  showDiceResult('🗑️ 已清空', '');
+});
+
+// Grid/Coords toggles
+document.getElementById('chk-grid').addEventListener('change', (e) => { showGrid = e.target.checked; render(); });
+document.getElementById('chk-coords').addEventListener('change', (e) => { showCoords = e.target.checked; render(); });
+
+// Info panel
+function updateInfo() {
+  const panel = document.getElementById('info-panel');
+  if (!selectedHex) {
+    panel.innerHTML = '<div class="row"><span class="label">💡 选工具 → 看上方提示 → 点六角格操作</span></div>';
+    return;
+  }
+  const { q, r } = selectedHex;
+  const h = getHex(q, r);
+  const t = h.terrain ? `${TERRAIN[h.terrain]?.icon || ''} ${TERRAIN[h.terrain]?.name || h.terrain}` : '未探索';
+  const settle = h.settlement ? `${h.settlement.name} (${h.settlement.rating >= 0 ? '+' : ''}${h.settlement.rating})` : '—';
+  const roads = h.roads?.length || 0;
+  const nbrs = neighbors(q, r);
+  panel.innerHTML = `<div class="row">
+    <span><span class="label">坐标:</span> <span class="val">(${q}, ${r})</span></span>
+    <span><span class="label">地形:</span> <span class="val">${t}</span></span>
+    <span><span class="label">定居点:</span> <span class="val">${settle}</span></span>
+    <span><span class="label">标签:</span> <span class="val">${h.label || '—'}</span></span>
+    <span><span class="label">道路:</span> <span class="val">${roads} 条连接</span></span>
+  </div>`;
+}
+
+function updateCoordDisplay() {
+  // coord-indicator is now updated by setTool()
+}
+
+// ======== Init ========
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+// Set initial view to center
+viewX = canvas.width / 2;
+viewY = canvas.height / 2;
+
+// Set initial tool — shows hints and updates coord display
+setTool('select');
+render();
+updateInfo();
+
+console.log('🏗️ 四战黑六角格地图已加载');
+console.log('快捷键: V=选择 B=笔刷 S=定居点 R=道路 L=标签 E=擦除');
+</script>
+</body>
+</html>
