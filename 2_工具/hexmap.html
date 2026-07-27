@@ -928,6 +928,27 @@ document.getElementById('btn-gen-settlement').addEventListener('click', () => {
   updateInfo();
 });
 
+// BFS pathfinding along hex grid — returns array of {q,r} from start to goal (inclusive)
+function hexPathfind(q1, r1, q2, r2) {
+  if (q1 === q2 && r1 === r2) return [{ q: q1, r: r1 }];
+  const startKey = hexKey(q1, r1);
+  const goalKey = hexKey(q2, r2);
+  const visited = new Set([startKey]);
+  const queue = [{ q: q1, r: r1, path: [{ q: q1, r: r1 }] }];
+  while (queue.length > 0) {
+    const cur = queue.shift();
+    for (const n of neighbors(cur.q, cur.r)) {
+      const nk = hexKey(n.q, n.r);
+      if (nk === goalKey) return [...cur.path, { q: n.q, r: n.r }];
+      if (!visited.has(nk)) {
+        visited.add(nk);
+        queue.push({ q: n.q, r: n.r, path: [...cur.path, { q: n.q, r: n.r }] });
+      }
+    }
+  }
+  return null; // no path found
+}
+
 // Road detection (per 冒险者公会传说: 3d6 > distance → road exists)
 document.getElementById('btn-gen-road').addEventListener('click', () => {
   if (!selectedHex) { showDiceResult('⚠️', '请先选中一个定居点六角格'); return; }
@@ -943,9 +964,14 @@ document.getElementById('btn-gen-road').addEventListener('click', () => {
     const dist = hexDistance(selectedHex.q, selectedHex.r, oq, or);
     const roll3d6 = Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1;
     if (roll3d6 > dist) {
-      // Build road — need to find path; just connect if adjacent or straight line
-      addRoad(selectedHex.q, selectedHex.r, oq, or);
-      roadsBuilt++;
+      // Find a path along adjacent hexes and build roads segment by segment
+      const path = hexPathfind(selectedHex.q, selectedHex.r, oq, or);
+      if (path && path.length > 1) {
+        for (let i = 0; i < path.length - 1; i++) {
+          addRoad(path[i].q, path[i].r, path[i + 1].q, path[i + 1].r);
+        }
+        roadsBuilt++;
+      }
     }
   }
   showDiceResult(`🛤️ 探测完成`, roadsBuilt > 0 ? `发现 ${roadsBuilt} 条道路连接` : '未发现道路');
