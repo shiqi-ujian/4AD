@@ -103,6 +103,15 @@ input[type="range"] { width: 100%; margin: 2px 0; cursor: pointer; }
       <button class="tool-btn" data-tool="label" title="标文字 (L)"><span class="icon">🏷️</span><span class="label">标签(L)</span></button>
       <button class="tool-btn" data-tool="erase" title="擦除 (E)"><span class="icon">🧹</span><span class="label">擦除(E)</span></button>
     </div>
+    <div id="erase-options" style="display:none;margin:2px 0 0 2px;font-size:12px;">
+      <select id="erase-mode" style="width:100%;padding:3px 6px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:12px;">
+        <option value="all">🧹 全部清除</option>
+        <option value="terrain">仅地形</option>
+        <option value="settlement">仅定居点</option>
+        <option value="label">仅标签</option>
+        <option value="roads">仅道路</option>
+      </select>
+    </div>
     <div id="tool-hint" style="font-size:11px;color:#e94560;padding:2px 4px;background:rgba(233,69,96,0.1);border-radius:4px;min-height:18px;">👆 点击六角格进行操作</div>
 
     <h3>🏞️ 地形 <span style="font-weight:normal;font-size:11px;color:#888;float:right;">选笔刷后涂</span></h3>
@@ -159,6 +168,9 @@ input[type="range"] { width: 100%; margin: 2px 0; cursor: pointer; }
     <label style="font-size:12px;">
       <input type="checkbox" id="chk-coords" checked> 显示坐标
     </label>
+    <label style="font-size:12px;border-top:1px solid #0f3460;padding-top:4px;margin-top:2px;">
+      <input type="checkbox" id="chk-lock"> 🔒 锁定（已编辑格子不受笔刷/擦除影响）
+    </label>
     <div style="margin-top:auto;font-size:11px;color:#666;text-align:center;padding-top:8px;">
       四战黑 · 沙盒六角格地图 v1.0<br>
       滚轮缩放 · 拖拽平移 · 右键菜单
@@ -208,6 +220,7 @@ let hexData = {}; // key: "q,r" → { terrain, label, settlement, road, color }
 let selectedTool = 'select';
 let selectedTerrain = 'plain';
 let selectedHex = null; // { q, r }
+let isLocked = false;
 let viewX = 0, viewY = 0;
 let zoom = 1;
 let isDragging = false, dragStartX, dragStartY, viewStartX, viewStartY;
@@ -330,14 +343,14 @@ function render() {
   const qMin = Math.floor(topLeft.q) - 1, qMax = Math.ceil(botRight.q) + 1;
   const rMin = Math.floor(topLeft.r) - 1, rMax = Math.ceil(botRight.r) + 1;
 
-  // Draw hexes
+  // Pass 1: Draw hex fills and grid only
   for (let q = qMin; q <= qMax; q++) {
     for (let r = rMin; r <= rMax; r++) {
-      drawHex(q, r);
+      drawHexBase(q, r);
     }
   }
 
-  // Draw roads
+  // Pass 2: Draw roads (between hexes)
   ctx.strokeStyle = '#8B4513';
   ctx.lineWidth = 3;
   for (let q = qMin; q <= qMax; q++) {
@@ -356,6 +369,13 @@ function render() {
           }
         }
       }
+    }
+  }
+
+  // Pass 3: Draw overlays (icons, labels, settlements) — on top of everything
+  for (let q = qMin; q <= qMax; q++) {
+    for (let r = rMin; r <= rMax; r++) {
+      drawHexOverlay(q, r);
     }
   }
 
@@ -388,7 +408,7 @@ function render() {
   ctx.restore();
 }
 
-function drawHex(q, r) {
+function drawHexBase(q, r) {
   const p = hexToPixel(q, r);
   const h = getHex(q, r);
   const corners = hexCorners(p.x, p.y, HEX_SIZE);
@@ -409,6 +429,11 @@ function drawHex(q, r) {
     ctx.lineWidth = 1;
     ctx.stroke();
   }
+}
+
+function drawHexOverlay(q, r) {
+  const p = hexToPixel(q, r);
+  const h = getHex(q, r);
 
   // Coordinates
   if (showCoords) {
@@ -434,11 +459,8 @@ function drawHex(q, r) {
     ctx.font = `bold ${Math.max(9, HEX_SIZE * 0.38)}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    // Background
     const tw = ctx.measureText(h.label).width;
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.roundRect ? ctx.roundRect(p.x - tw/2 - 3, p.y - HEX_SIZE * 0.65, tw + 6, HEX_SIZE * 0.55, 3) : null;
-    // Simple bg
     ctx.fillRect(p.x - tw/2 - 3, p.y - HEX_SIZE * 0.65, tw + 6, HEX_SIZE * 0.55);
     ctx.fillStyle = '#fff';
     ctx.fillText(h.label, p.x, p.y - HEX_SIZE * 0.2);
@@ -502,6 +524,14 @@ canvas.addEventListener('mousedown', (e) => {
 
     if (hex) {
       handleHexClick(hex.q, hex.r, e);
+      // Select 模式下点击格子后仍可拖拽平移地图
+      if (selectedTool === 'select') {
+        isDragging = true;
+        dragStartX = mx;
+        dragStartY = my;
+        viewStartX = viewX;
+        viewStartY = viewY;
+      }
       // Paint mode: still enable drag for continuous painting across hexes
       if (selectedTool === 'paint') {
         isDragging = true;
@@ -532,7 +562,8 @@ canvas.addEventListener('mousemove', (e) => {
       if (hex) {
         const k = hexKey(hex.q, hex.r);
         const h = getHex(hex.q, hex.r);
-        if (h.terrain !== selectedTerrain) {
+        // Skip if locked and hex already has terrain
+        if (h.terrain !== selectedTerrain && !(isLocked && h.terrain)) {
           setHex(hex.q, hex.r, { terrain: selectedTerrain });
           render();
         }
@@ -633,9 +664,11 @@ function handleHexClick(q, r, e) {
   selectedHex = { q, r };
 
   if (selectedTool === 'paint') {
-    setHex(q, r, { terrain: selectedTerrain });
-    render();
-    updateInfo();
+    if (isLocked && getHex(q, r).terrain) { /* locked, skip */ } else {
+      setHex(q, r, { terrain: selectedTerrain });
+      render();
+      updateInfo();
+    }
   } else if (selectedTool === 'settlement') {
     showSettlementDialog(q, r);
   } else if (selectedTool === 'road') {
@@ -677,8 +710,32 @@ function handleHexClick(q, r, e) {
   } else if (selectedTool === 'label') {
     showLabelDialog(q, r);
   } else if (selectedTool === 'erase') {
+    const mode = document.getElementById('erase-mode').value;
     const h = getHex(q, r);
-    setHex(q, r, { terrain: null, label: '', settlement: null, roads: [] });
+    // Locked: don't erase hexes with any content
+    if (isLocked && (h.terrain || h.settlement || h.label || h.roads?.length)) {
+      showDiceResult('🔒', '已锁定，取消勾选锁定后擦除');
+      return;
+    }
+    if (mode === 'all') {
+      setHex(q, r, { terrain: null, label: '', settlement: null, roads: [] });
+    } else if (mode === 'terrain') {
+      setHex(q, r, { terrain: null });
+    } else if (mode === 'settlement') {
+      // Keep roads to/from this hex when removing settlement
+      setHex(q, r, { settlement: null });
+    } else if (mode === 'label') {
+      setHex(q, r, { label: '' });
+    } else if (mode === 'roads') {
+      // Remove all roads from this hex and corresponding roads from neighbors
+      if (h.roads) {
+        for (const rd of h.roads) {
+          const nh = getHex(rd.q, rd.r);
+          if (nh.roads) nh.roads = nh.roads.filter(r => !(r.q === q && r.r === r));
+        }
+      }
+      setHex(q, r, { roads: [] });
+    }
     render();
     updateInfo();
   } else {
@@ -794,21 +851,6 @@ function showLabelDialog(q, r) {
   showDiceResult('🏷️ 已保存', label.trim());
 }
 
-// ======== Dice ========
-function rollDice(formula) {
-  const counts = { d4: 0, d6: 0, d8: 0, d10: 0, d12: 0, d20: 0, d100: 0 };
-  const match = formula.match(/^(\d*)d(\d+)$/i);
-  if (!match) return { total: 0, rolls: [] };
-  const n = parseInt(match[1]) || 1;
-  const sides = parseInt(match[2]);
-  const rolls = [];
-  for (let i = 0; i < n; i++) {
-    rolls.push(Math.floor(Math.random() * sides) + 1);
-  }
-  const total = rolls.reduce((a, b) => a + b, 0);
-  return { total, rolls, sides, n };
-}
-
 function showDiceResult(line1, line2) {
   const panel = document.getElementById('info-panel');
   panel.innerHTML = `<div class="row"><span style="font-size:20px;font-weight:bold;color:#e94560;">${line1}</span></div>
@@ -840,6 +882,8 @@ document.addEventListener('keydown', (e) => {
 function setTool(tool) {
   selectedTool = tool;
   document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === tool));
+  // Show erase mode picker only when erase tool is active
+  document.getElementById('erase-options').style.display = tool === 'erase' ? 'block' : 'none';
   if (tool !== 'road') roadStart = null;
   const hint = document.getElementById('tool-hint');
   const coord = document.getElementById('coord-indicator');
@@ -865,7 +909,7 @@ function setTool(tool) {
       coord.textContent = '🏷️ 点击添加标签';
       break;
     case 'erase':
-      hint.innerHTML = '🧹 点击六角格清除所有数据（地形/标签/定居点/道路）';
+      hint.innerHTML = '🧹 点击擦除，从下拉菜单选择擦除内容：全部/仅地形/仅定居点/仅标签/仅道路';
       coord.textContent = '🧹 擦除模式';
       break;
   }
@@ -889,43 +933,117 @@ document.querySelectorAll('.tool-btn[data-terrain]').forEach(btn => {
 // Set default terrain
 document.querySelector('.tool-btn[data-terrain="plain"]').classList.add('active');
 
-// Dice
+// Roll dice — with animation
 document.getElementById('btn-roll').addEventListener('click', () => {
   const formula = document.getElementById('dice-select').value;
-  const result = rollDice(formula);
-  const detail = result.rolls.length > 1 ? `[${result.rolls.join(' + ')}]` : '';
-  showDiceResult(`🎲 ${formula} → ${result.total} ${detail}`, '');
+  animateDiceRoll(formula, 500, (result) => {
+    const detail = result.rolls.length > 1 ? `[${result.rolls.join(' + ')}]` : '';
+    const label = result.n > 1 ? `${result.n}颗d${result.sides}` : `d${result.sides}`;
+    showStepResult('🎲', `${label} →`, result.total, detail);
+  });
 });
 
-// Random terrain per sandbox rules
+// ======== Dice Roll Animation ========
+function animateDiceRoll(formula, duration, onComplete) {
+  const panel = document.getElementById('info-panel');
+  const matches = formula.match(/^(\d*)d(\d+)$/i);
+  const n = parseInt(matches[1]) || 1;
+  const sides = parseInt(matches[2]);
+  const start = performance.now();
+
+  function tick(now) {
+    const elapsed = now - start;
+    if (elapsed < duration) {
+      const currentN = [];
+      for (let i = 0; i < n; i++) {
+        currentN.push(Math.floor(Math.random() * sides) + 1);
+      }
+      const display = currentN.join(' ');
+      const label = n > 1 ? `${n}颗d${sides}` : `d${sides}`;
+      panel.innerHTML = `
+        <div class="row" style="justify-content:center;">
+          <span style="font-size:32px;font-weight:bold;color:#e94560;font-family:monospace,monospace;letter-spacing:4px;min-width:80px;text-align:center;">
+            ${display}
+          </span>
+        </div>
+        <div class="row" style="justify-content:center;">
+          <span style="color:#aaa;font-size:13px;">🎲 投${label}中⋯</span>
+        </div>`;
+      requestAnimationFrame(tick);
+    } else {
+      const finalRolls = [];
+      for (let i = 0; i < n; i++) {
+        finalRolls.push(Math.floor(Math.random() * sides) + 1);
+      }
+      const finalTotal = finalRolls.reduce((a, b) => a + b, 0);
+      onComplete({ rolls: finalRolls, total: finalTotal, sides, n });
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
+function showStepResult(icon, label, value, extra) {
+  const panel = document.getElementById('info-panel');
+  panel.innerHTML = `
+    <div class="row" style="justify-content:center;">
+      <span style="font-size:22px;font-weight:bold;color:#e94560;">
+        ${icon} ${label} <span style="color:#fff;">${value}</span>
+      </span>
+    </div>
+    ${extra ? `<div class="row" style="justify-content:center;margin-top:4px;"><span style="color:#aaa;font-size:15px;">${extra}</span></div>` : ''}`;
+}
+
+// Random terrain per sandbox rules — with roll animation
 document.getElementById('btn-gen-terrain').addEventListener('click', () => {
   if (!selectedHex) { showDiceResult('⚠️', '请先点击选择一个六角格'); return; }
-  const d6 = Math.floor(Math.random() * 6) + 1;
-  let terrain;
-  if (d6 >= 1 && d6 <= 5) {
-    terrain = 'plain';
-    showDiceResult(`🏞️ d6 → ${d6}`, '平原');
-  } else {
-    const d12 = Math.floor(Math.random() * 12);
-    terrain = SPECIAL_TABLE[d12];
-    showDiceResult(`🏞️ d6 → 6 (特殊), d12 → ${d12 + 1}`, `${TERRAIN[terrain]?.name || terrain}`);
+  if (isLocked && getHex(selectedHex.q, selectedHex.r).terrain) {
+    showDiceResult('🔒', '已锁定，取消勾选锁定后生成');
+    return;
   }
-  setHex(selectedHex.q, selectedHex.r, { terrain });
-  render();
-  updateInfo();
+
+  animateDiceRoll('d6', 500, (result) => {
+    const d6 = result.total;
+    if (d6 >= 1 && d6 <= 5) {
+      // Plain — done
+      showStepResult('🎲', '投d6 →', d6, '🏞️ 地图 → ⬟ 平原');
+      setHex(selectedHex.q, selectedHex.r, { terrain: 'plain' });
+      render();
+    } else {
+      // Special — roll d12
+      showStepResult('🎲', '投d6 →', '6 🎯', '再投d12决定特殊地形⋯');
+      setTimeout(() => {
+        animateDiceRoll('d12', 500, (result2) => {
+          const d12val = result2.total;
+          const terrain = SPECIAL_TABLE[d12val - 1];
+          const ticon = TERRAIN[terrain]?.icon || '';
+          const tname = TERRAIN[terrain]?.name || terrain;
+          showStepResult('🎲', `d6→6 → d12→${d12val}`, '', `🏞️ 地图 → ${ticon} ${tname}`);
+          setHex(selectedHex.q, selectedHex.r, { terrain });
+          render();
+        });
+      }, 600);
+    }
+  });
 });
 
-// Generate settlement (per 冒险者公会传说 rules)
+// Generate settlement (per 冒险者公会传说 rules) — with roll animation
 document.getElementById('btn-gen-settlement').addEventListener('click', () => {
   if (!selectedHex) { showDiceResult('⚠️', '请先点击选择一个六角格'); return; }
-  const d6 = Math.floor(Math.random() * 6) + 1;
-  const ratingMap = { 1: -2, 2: -1, 3: 0, 4: 1, 5: 2, 6: 3 };
-  const rating = ratingMap[d6];
-  const name = randomName();
-  setHex(selectedHex.q, selectedHex.r, { terrain: 'plain', settlement: { name, rating } });
-  showDiceResult(`🏘️ d6 → ${d6}`, `${name} 评分: ${rating >= 0 ? '+' : ''}${rating}`);
-  render();
-  updateInfo();
+  if (isLocked && getHex(selectedHex.q, selectedHex.r).settlement) {
+    showDiceResult('🔒', '已有定居点，取消勾选锁定后生成');
+    return;
+  }
+
+  animateDiceRoll('d6', 500, (result) => {
+    const d6 = result.total;
+    const ratingMap = { 1: -2, 2: -1, 3: 0, 4: 1, 5: 2, 6: 3 };
+    const rating = ratingMap[d6];
+    const name = randomName();
+    const sign = rating >= 0 ? '+' : '';
+    showStepResult('🏘️', '投d6 →', d6, `${name} 评分: ${sign}${rating}`);
+    setHex(selectedHex.q, selectedHex.r, { terrain: 'plain', settlement: { name, rating } });
+    render();
+  });
 });
 
 // BFS pathfinding along hex grid — returns array of {q,r} from start to goal (inclusive)
@@ -949,34 +1067,40 @@ function hexPathfind(q1, r1, q2, r2) {
   return null; // no path found
 }
 
-// Road detection (per 冒险者公会传说: 3d6 > distance → road exists)
+// Road detection (per 冒险者公会传说: 3d6 > distance → road exists) — with roll animation
 document.getElementById('btn-gen-road').addEventListener('click', () => {
   if (!selectedHex) { showDiceResult('⚠️', '请先选中一个定居点六角格'); return; }
   const h = getHex(selectedHex.q, selectedHex.r);
   if (!h.settlement) { showDiceResult('⚠️', '当前六角格没有定居点'); return; }
 
-  // Find nearby settlements
-  let roadsBuilt = 0;
-  for (const [key, data] of Object.entries(hexData)) {
-    if (!data.settlement) continue;
-    const [oq, or] = key.split(',').map(Number);
-    if (oq === selectedHex.q && or === selectedHex.r) continue;
-    const dist = hexDistance(selectedHex.q, selectedHex.r, oq, or);
-    const roll3d6 = Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1 + Math.floor(Math.random() * 6) + 1;
-    if (roll3d6 > dist) {
-      // Find a path along adjacent hexes and build roads segment by segment
-      const path = hexPathfind(selectedHex.q, selectedHex.r, oq, or);
-      if (path && path.length > 1) {
-        for (let i = 0; i < path.length - 1; i++) {
-          addRoad(path[i].q, path[i].r, path[i + 1].q, path[i + 1].r);
+  animateDiceRoll('3d6', 700, (result) => {
+    // Find nearby settlements — each compared with independent 3d6 roll
+    let roadsBuilt = 0;
+    let checked = 0;
+    for (const [key, data] of Object.entries(hexData)) {
+      if (!data.settlement) continue;
+      const [oq, or] = key.split(',').map(Number);
+      if (oq === selectedHex.q && or === selectedHex.r) continue;
+      checked++;
+      const dist = hexDistance(selectedHex.q, selectedHex.r, oq, or);
+      // Each settlement rolls its own 3d6
+      const roll3d6 = Math.floor(Math.random() * 6) + 1
+                    + Math.floor(Math.random() * 6) + 1
+                    + Math.floor(Math.random() * 6) + 1;
+      if (roll3d6 > dist) {
+        // Find a path along adjacent hexes and build roads segment by segment
+        const path = hexPathfind(selectedHex.q, selectedHex.r, oq, or);
+        if (path && path.length > 1) {
+          for (let i = 0; i < path.length - 1; i++) {
+            addRoad(path[i].q, path[i].r, path[i + 1].q, path[i + 1].r);
+          }
+          roadsBuilt++;
         }
-        roadsBuilt++;
       }
     }
-  }
-  showDiceResult(`🛤️ 探测完成`, roadsBuilt > 0 ? `发现 ${roadsBuilt} 条道路连接` : '未发现道路');
-  render();
-  updateInfo();
+    showStepResult('🛤️', `3d6投完`, `检查了${checked}个定居点`, roadsBuilt > 0 ? `发现 ${roadsBuilt} 条道路连接` : '未发现道路');
+    render();
+  });
 });
 
 function hexDistance(q1, r1, q2, r2) {
@@ -1049,9 +1173,10 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   showDiceResult('🗑️ 已清空', '');
 });
 
-// Grid/Coords toggles
+// Grid/Coords/Lock toggles
 document.getElementById('chk-grid').addEventListener('change', (e) => { showGrid = e.target.checked; render(); });
 document.getElementById('chk-coords').addEventListener('change', (e) => { showCoords = e.target.checked; render(); });
+document.getElementById('chk-lock').addEventListener('change', (e) => { isLocked = e.target.checked; });
 
 // Info panel
 function updateInfo() {
