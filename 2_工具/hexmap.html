@@ -115,38 +115,29 @@ input[type="range"] { width: 100%; margin: 2px 0; cursor: pointer; }
     <div id="tool-hint" style="font-size:11px;color:#e94560;padding:2px 4px;background:rgba(233,69,96,0.1);border-radius:4px;min-height:18px;">👆 点击六角格进行操作</div>
 
     <h3>🏞️ 地形 <span style="font-weight:normal;font-size:11px;color:#888;float:right;">选笔刷后涂</span></h3>
-    <div class="tool-group" id="terrain-palette">
-      <button class="tool-btn" data-terrain="plain" style="background:#7ec850" title="平原"><span class="icon">⬟</span><span class="label">平原</span></button>
-      <button class="tool-btn" data-terrain="forest" style="background:#2d6a2e" title="森林"><span class="icon">🌲</span><span class="label">森林</span></button>
-      <button class="tool-btn" data-terrain="hill" style="background:#8b7a3a" title="丘陵"><span class="icon">⛰️</span><span class="label">丘陵</span></button>
-      <button class="tool-btn" data-terrain="mountain" style="background:#6b5b4f" title="山地"><span class="icon">🏔️</span><span class="label">山地</span></button>
-      <button class="tool-btn" data-terrain="abyss" style="background:#3d1f2e" title="深渊"><span class="icon">🕳️</span><span class="label">深渊</span></button>
-      <button class="tool-btn" data-terrain="necromantic" style="background:#4a2c5a" title="死灵之地"><span class="icon">💀</span><span class="label">死灵</span></button>
-      <button class="tool-btn" data-terrain="ruins" style="background:#7a5a3a" title="废墟"><span class="icon">🏚️</span><span class="label">废墟</span></button>
-      <button class="tool-btn" data-terrain="temple" style="background:#c9a84c" title="神庙"><span class="icon">🛕</span><span class="label">神庙</span></button>
-      <button class="tool-btn" data-terrain="water" style="background:#3a7abd" title="水域"><span class="icon">🌊</span><span class="label">水域</span></button>
-      <button class="tool-btn" data-terrain="desert" style="background:#d4b872" title="沙漠"><span class="icon">🏜️</span><span class="label">沙漠</span></button>
-      <button class="tool-btn" data-terrain="swamp" style="background:#5a7a4a" title="沼泽"><span class="icon">🌿</span><span class="label">沼泽</span></button>
-      <button class="tool-btn" data-terrain="snow" style="background:#c8d8e8;color:#333" title="雪地"><span class="icon">❄️</span><span class="label">雪地</span></button>
-    </div>
+    <div class="tool-group" id="terrain-palette"></div>
+      <div style="display:flex;gap:4px;margin-top:2px;">
+        <button id="btn-manage-terrains" style="flex:1;padding:3px;background:#0f3460;color:#ccc;border:none;border-radius:4px;cursor:pointer;font-size:11px;">🎨 管理地形</button>
+        <button id="btn-gen-rules" style="flex:1;padding:3px;background:#0f3460;color:#ccc;border:none;border-radius:4px;cursor:pointer;font-size:11px;">🎲 生成规则</button>
+      </div>
 
-    <h3>🎲 生成工具</h3>
-    <label style="display:flex;align-items:center;gap:6px;margin:2px 0;">
-      <span style="white-space:nowrap;">骰子:</span>
-      <select id="dice-select" style="flex:1;padding:3px 6px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;">
-        <option value="d6">d6</option>
-        <option value="2d6">2d6</option>
-        <option value="d10">d10</option>
-        <option value="d12">d12</option>
-        <option value="3d6">3d6</option>
-        <option value="d20">d20</option>
-        <option value="d100">d100</option>
-      </select>
-    </label>
-    <div style="display:flex;gap:4px;">
-      <button id="btn-roll" style="flex:1;padding:6px;background:#e94560;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">🎲 掷骰</button>
-      <button id="btn-gen-terrain" style="flex:1;padding:6px;background:#0f3460;color:#ccc;border:none;border-radius:4px;cursor:pointer;font-size:13px;" title="选中格子后点此">🏞️ 随机地形</button>
-    </div>
+	    <h3>🎲 生成工具</h3>
+	    <label style="display:flex;align-items:center;gap:6px;margin:2px 0;">
+	      <span style="white-space:nowrap;">骰子:</span>
+	      <select id="dice-select" style="flex:1;padding:3px 6px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;">
+	        <option value="d6">d6</option>
+	        <option value="2d6">2d6</option>
+	        <option value="d10">d10</option>
+	        <option value="d12">d12</option>
+	        <option value="3d6">3d6</option>
+	        <option value="d20">d20</option>
+	        <option value="d100">d100</option>
+	      </select>
+	    </label>
+	    <div style="display:flex;gap:4px;">
+	      <button id="btn-roll" style="flex:1;padding:6px;background:#e94560;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">🎲 掷骰</button>
+	      <button id="btn-gen-terrain" style="flex:1;padding:6px;background:#0f3460;color:#ccc;border:none;border-radius:4px;cursor:pointer;font-size:13px;" title="选中格子后点此">🏞️ 随机地形</button>
+	    </div>
     <div style="display:flex;gap:4px;">
       <button id="btn-gen-settlement" style="flex:1;padding:6px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;" title="选中格子后点此">🏘️ 生成定居点</button>
       <button id="btn-gen-road" style="flex:1;padding:6px;background:#8b7a3a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;" title="自动探测选中定居点与其他定居点的道路">🛤️ 探测道路</button>
@@ -188,8 +179,55 @@ input[type="range"] { width: 100%; margin: 2px 0; cursor: pointer; }
 <!-- Context Menu -->
 <canvas id="ctx-menu" style="display:none;position:fixed;z-index:50;background:#16213e;border:1px solid #0f3460;border-radius:6px;padding:4px 0;width:180px;box-shadow:0 4px 12px rgba(0,0,0,0.4);"></canvas>
 
+<!-- Terrain Editor Modal -->
+<div id="terrain-editor-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:520px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">🎨 管理地形</h3>
+    <div id="terrain-editor-list" style="max-height:300px;overflow-y:auto;margin-bottom:10px;"></div>
+    <div style="border-top:1px solid #0f3460;padding-top:10px;margin-bottom:10px;">
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <input id="te-new-id" placeholder="地形ID (英文)" style="width:100px;padding:4px 6px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:12px;">
+        <input id="te-new-name" placeholder="名称" style="width:80px;padding:4px 6px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:12px;">
+        <input id="te-new-icon" placeholder="图标(emoji)" style="width:80px;padding:4px 6px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:12px;">
+        <input id="te-new-color" type="color" value="#7ec850" style="width:40px;height:28px;padding:0;border:1px solid #0f3460;border-radius:4px;cursor:pointer;">
+        <input id="te-new-travel" type="number" value="1" min="1" max="10" style="width:50px;padding:4px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:12px;">
+        <button id="te-btn-add" style="padding:4px 10px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">➕ 添加</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;justify-content:flex-end;">
+      <button id="te-btn-reset" style="padding:5px 12px;background:#6b5b4f;color:#ccc;border:none;border-radius:4px;cursor:pointer;font-size:12px;">↺ 恢复默认</button>
+      <button id="te-btn-close" style="padding:5px 12px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">✓ 完成</button>
+    </div>
+  </div>
+</div>
+
+<!-- Generation Rules Modal -->
+<div id="gen-rules-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:440px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">🎲 随机生成规则</h3>
+    <div style="margin-bottom:10px;">
+      <label style="font-size:12px;color:#ccc;display:block;margin-bottom:4px;">d6 触发特殊地形的阈值 (d6 ≥ ?)：</label>
+      <select id="gr-threshold" style="width:80px;padding:4px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;">
+        <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+        <option value="4">4</option><option value="5">5</option><option value="6" selected>6</option>
+      </select>
+    </div>
+    <div style="margin-bottom:10px;">
+      <label style="font-size:12px;color:#ccc;display:block;margin-bottom:4px;">默认地形 (d6 < 阈值时)：</label>
+      <select id="gr-default-terrain" style="width:120px;padding:4px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;"></select>
+    </div>
+    <div style="margin-bottom:6px;">
+      <label style="font-size:12px;color:#ccc;display:block;margin-bottom:4px;">特殊地形权重表 (抽中时按权重随机)：</label>
+      <div id="gr-weight-list" style="max-height:200px;overflow-y:auto;border:1px solid #0f3460;border-radius:4px;padding:4px;"></div>
+    </div>
+    <div style="display:flex;gap:6px;justify-content:flex-end;">
+      <button id="gr-btn-reset" style="padding:5px 12px;background:#6b5b4f;color:#ccc;border:none;border-radius:4px;cursor:pointer;font-size:12px;">↺ 默认</button>
+      <button id="gr-btn-close" style="padding:5px 12px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">✓ 完成</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modals placeholder -->
-<!-- (modals removed — using browser dialogs instead) -->
 
 <script>
 // ======== Configuration ========
@@ -209,14 +247,128 @@ const TERRAIN = {
 };
 const TERRAIN_LIST = Object.keys(TERRAIN);
 
-// Special terrain table (d12) per sandbox rules
-const SPECIAL_TABLE = [
-  'forest','forest','forest','hill','hill','mountain','mountain',
-  'necromantic','temple','abyss','ruins','settlement'
-];
+// ======== Custom Terrain & Generation Rules Storage ========
+let customTerrains = {};      // key: terrainId → { name, color, icon, travel } (overrides or new)
+let deletedTerrains = {};     // key: terrainId → true (mark built-in as deleted)
+let terrainOrder = null;      // array of terrain IDs in display order, null = default
+
+// Default generation rules
+const DEFAULT_GEN_RULES = {
+  d6Threshold: 6,
+  defaultTerrain: 'plain',
+  specialTable: [
+    { terrainId: 'forest', weight: 3 },
+    { terrainId: 'hill', weight: 2 },
+    { terrainId: 'mountain', weight: 2 },
+    { terrainId: 'necromantic', weight: 1 },
+    { terrainId: 'temple', weight: 1 },
+    { terrainId: 'abyss', weight: 1 },
+    { terrainId: 'ruins', weight: 1 },
+    { terrainId: 'plain', weight: 1 },
+  ]
+};
+let generationRules = JSON.parse(JSON.stringify(DEFAULT_GEN_RULES));
+
+function getAllTerrainIds() {
+  let ids = terrainOrder ? [...terrainOrder] : [...TERRAIN_LIST];
+  // Add custom terrains not already in list
+  for (const id of Object.keys(customTerrains)) {
+    if (!ids.includes(id)) ids.push(id);
+  }
+  // Remove deleted
+  ids = ids.filter(id => !deletedTerrains[id]);
+  return ids;
+}
+
+function getAllTerrains() {
+  const result = {};
+  // Built-in
+  for (const [id, t] of Object.entries(TERRAIN)) {
+    if (!deletedTerrains[id]) {
+      result[id] = { ...t };
+    }
+  }
+  // Custom overrides
+  for (const [id, t] of Object.entries(customTerrains)) {
+    result[id] = { ...t };
+  }
+  return result;
+}
+
+function getTerrainInfo(id) {
+  if (customTerrains[id]) return customTerrains[id];
+  if (!deletedTerrains[id] && TERRAIN[id]) return TERRAIN[id];
+  return null;
+}
+
+// localStorage persistence
+function saveTerrainConfig() {
+  try {
+    localStorage.setItem('hexmap_terrainConfig', JSON.stringify({
+      customTerrains, deletedTerrains, terrainOrder, generationRules
+    }));
+  } catch(e) { /* ignore quota errors */ }
+}
+
+function loadTerrainConfig() {
+  try {
+    const raw = localStorage.getItem('hexmap_terrainConfig');
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (data.customTerrains) customTerrains = data.customTerrains;
+      if (data.deletedTerrains) deletedTerrains = data.deletedTerrains;
+      if (data.terrainOrder) terrainOrder = data.terrainOrder;
+      if (data.generationRules) generationRules = { ...DEFAULT_GEN_RULES, ...data.generationRules };
+    }
+  } catch(e) { /* ignore */ }
+}
+
+function resetAllTerrains() {
+  customTerrains = {};
+  deletedTerrains = {};
+  terrainOrder = null;
+  generationRules = JSON.parse(JSON.stringify(DEFAULT_GEN_RULES));
+  saveTerrainConfig();
+}
+
+// ======== Dynamic Terrain Palette ========
+function rebuildTerrainPalette() {
+  const palette = document.getElementById('terrain-palette');
+  if (!palette) return;
+  palette.innerHTML = '';
+  const ids = getAllTerrainIds();
+  const allTerrains = getAllTerrains();
+  ids.forEach(id => {
+    const t = allTerrains[id];
+    if (!t) return;
+    const btn = document.createElement('button');
+    btn.className = 'tool-btn' + (id === selectedTerrain ? ' active' : '');
+    btn.dataset.terrain = id;
+    btn.title = t.name;
+    const textColor = isLightColor(t.color) ? '#333' : '#fff';
+    btn.style.cssText = `background:${t.color};color:${textColor};text-shadow:${textColor === '#fff' ? '0 1px 3px rgba(0,0,0,0.5)' : 'none'}`;
+    btn.innerHTML = `<span class="icon">${t.icon}</span><span class="label">${t.name}</span>`;
+    btn.addEventListener('click', () => {
+      selectedTerrain = id;
+      document.querySelectorAll('.tool-btn[data-terrain]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (selectedTool !== 'paint') setTool('paint');
+      else document.getElementById('coord-indicator').textContent = `🖌️ ${t.name} 笔刷`;
+    });
+    palette.appendChild(btn);
+  });
+}
+
+function isLightColor(hex) {
+  const c = hex.replace('#','');
+  const r = parseInt(c.substr(0,2),16);
+  const g = parseInt(c.substr(2,2),16);
+  const b = parseInt(c.substr(4,2),16);
+  return (r * 299 + g * 587 + b * 114) / 1000 > 160;
+}
 
 // ======== State ========
-let hexData = {}; // key: "q,r" → { terrain, label, settlement, road, color }
+let hexData = {}; // key: "q,r" -> { terrain, label, settlement, road, color }
 let selectedTool = 'select';
 let selectedTerrain = 'plain';
 let selectedHex = null; // { q, r }
@@ -265,7 +417,7 @@ function cubeRound(q, r, s) {
 function hexCorners(cx, cy, size) {
   const corners = [];
   for (let i = 0; i < 6; i++) {
-    const angle = Math.PI / 180 * (60 * i - 30);
+    const angle = Math.PI / 180 * (60 * i);
     corners.push({
       x: cx + size * Math.cos(angle),
       y: cy + size * Math.sin(angle)
@@ -419,7 +571,8 @@ function drawHexBase(q, r) {
   ctx.closePath();
 
   let fillColor = '#3a3a52';
-  if (h.terrain && TERRAIN[h.terrain]) fillColor = TERRAIN[h.terrain].color;
+  const hTerrainInfo = h.terrain ? getAllTerrains()[h.terrain] : null;
+  if (hTerrainInfo) fillColor = hTerrainInfo.color;
   ctx.fillStyle = fillColor;
   ctx.fill();
 
@@ -445,12 +598,13 @@ function drawHexOverlay(q, r) {
   }
 
   // Terrain icon
-  if (h.terrain && TERRAIN[h.terrain]) {
+  const hOverlayTI = h.terrain ? getAllTerrains()[h.terrain] : null;
+  if (hOverlayTI) {
     ctx.font = `${HEX_SIZE * 0.5}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = 'rgba(255,255,255,0.85)';
-    ctx.fillText(TERRAIN[h.terrain].icon, p.x, p.y - (h.label || h.settlement ? HEX_SIZE * 0.15 : 0));
+    ctx.fillText(hOverlayTI.icon, p.x, p.y - (h.label || h.settlement ? HEX_SIZE * 0.15 : 0));
   }
 
   // Label
@@ -764,10 +918,13 @@ function showContextMenu(cx, cy, mx, my) {
   ];
 
   // Terrain submenu
-  TERRAIN_LIST.forEach(t => {
+  const terrainCtxList = getAllTerrainIds();
+  terrainCtxList.forEach(id => {
+    const ctxTInfo = getTerrainInfo(id);
+    if (!ctxTInfo) return;
     items.push({
-      text: `${TERRAIN[t].icon} ${TERRAIN[t].name}`,
-      action: () => { setHex(hex.q, hex.r, { terrain: t }); render(); updateInfo(); }
+      text: `${ctxTInfo.icon} ${ctxTInfo.name}`,
+      action: () => { setHex(hex.q, hex.r, { terrain: id }); render(); updateInfo(); }
     });
   });
 
@@ -893,8 +1050,9 @@ function setTool(tool) {
       coord.textContent = '⚪ 选择模式';
       break;
     case 'paint':
-      hint.innerHTML = `🖌️ 点击格子涂上 <b>${TERRAIN[selectedTerrain]?.name || ''}</b>，或按住拖拽连续涂色`;
-      coord.textContent = `🖌️ ${TERRAIN[selectedTerrain]?.name || ''} 笔刷`;
+      const paintT = getTerrainInfo(selectedTerrain);
+      hint.innerHTML = `🖌️ 点击格子涂上 <b>${paintT?.name || ''}</b>，或按住拖拽连续涂色`;
+      coord.textContent = `🖌️ ${paintT?.name || ''} 笔刷`;
       break;
     case 'settlement':
       hint.innerHTML = '🏘️ 点击六角格 → 弹出浏览器对话框填写名称和评分';
@@ -920,18 +1078,255 @@ document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
   btn.addEventListener('click', () => setTool(btn.dataset.tool));
 });
 
-document.querySelectorAll('.tool-btn[data-terrain]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    selectedTerrain = btn.dataset.terrain;
-    document.querySelectorAll('.tool-btn[data-terrain]').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    if (selectedTool !== 'paint') setTool('paint');
-    else document.getElementById('coord-indicator').textContent = `🖌️ ${TERRAIN[selectedTerrain]?.name || ''} 笔刷`;
+// ======== Terrain Editor ========
+function openTerrainEditor() {
+  const modal = document.getElementById('terrain-editor-modal');
+  rebuildTerrainEditorList();
+  modal.style.display = 'block';
+}
+
+function rebuildTerrainEditorList() {
+  const list = document.getElementById('terrain-editor-list');
+  list.innerHTML = '';
+  const allTerrains = getAllTerrains();
+  const ids = getAllTerrainIds();
+  ids.forEach(id => {
+    const t = allTerrains[id];
+    if (!t) return;
+    const isBuiltin = !!TERRAIN[id] && !customTerrains[id];
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 6px;margin:2px 0;background:#1a1a2e;border-radius:4px;font-size:12px;';
+    const cpreview = document.createElement('span');
+    cpreview.style.cssText = 'display:inline-block;width:20px;height:20px;border-radius:3px;background:' + t.color + ';border:1px solid rgba(255,255,255,0.2);flex-shrink:0;';
+    row.appendChild(cpreview);
+    const nameSpan = document.createElement('span');
+    nameSpan.style.cssText = 'flex:1;color:#fff;';
+    nameSpan.textContent = t.icon + ' ' + t.name + ' (' + id + ')';
+    if (isBuiltin) {
+      const badge = document.createElement('span');
+      badge.style.cssText = 'color:#888;font-size:10px;margin-left:4px;';
+      badge.textContent = '\u5185\u7f6e';
+      nameSpan.appendChild(badge);
+    }
+    row.appendChild(nameSpan);
+    const travelSpan = document.createElement('span');
+    travelSpan.style.cssText = 'color:#aaa;font-size:11px;margin-right:4px;';
+    travelSpan.textContent = String.fromCodePoint(0x1F6B6) + t.travel;
+    row.appendChild(travelSpan);
+    const editBtn = document.createElement('button');
+    editBtn.textContent = String.fromCodePoint(0x270F, 0xFE0F);
+    editBtn.style.cssText = 'padding:2px 6px;background:#0f3460;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
+    editBtn.title = '\u7f16\u8f91';
+    editBtn.addEventListener('click', function() { editTerrain(id); });
+    row.appendChild(editBtn);
+    if (!isBuiltin || customTerrains[id]) {
+      const delBtn = document.createElement('button');
+      delBtn.textContent = String.fromCodePoint(0x1F5D1, 0xFE0F);
+      delBtn.style.cssText = 'padding:2px 6px;background:#5a1a2e;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
+      delBtn.title = '\u5220\u9664';
+      delBtn.addEventListener('click', function() {
+        var tname = t.name;
+        if (confirm('\u786e\u8ba4\u5220\u9664\u5730\u5f62\u300c' + tname + '\u300d\uff1f\u5df2\u4f7f\u7528\u8be5\u5730\u5f62\u7684\u683c\u5b50\u4f1a\u663e\u793a\u4e3a\u672a\u77e5\u3002')) {
+          if (TERRAIN[id]) {
+            deletedTerrains[id] = true;
+            delete customTerrains[id];
+          } else {
+            delete customTerrains[id];
+          }
+          if (selectedTerrain === id) selectedTerrain = getAllTerrainIds()[0] || 'plain';
+          saveTerrainConfig();
+          rebuildTerrainPalette();
+          rebuildTerrainEditorList();
+          render();
+        }
+      });
+      row.appendChild(delBtn);
+    }
+    list.appendChild(row);
+  });
+}
+
+function editTerrain(id) {
+  var t = getTerrainInfo(id);
+  if (!t) return;
+  var name = prompt('\u7f16\u8f91\u5730\u5f62\u300c' + id + '\u300d\u7684\u540d\u79f0\uff1a', t.name);
+  if (name === null) return;
+  var icon = prompt('\u7f16\u8f91\u5730\u5f62\u300c' + id + '\u300d\u7684\u56fe\u6807 (emoji)\uff1a', t.icon);
+  if (icon === null) return;
+  var color = prompt('\u7f16\u8f91\u5730\u5f62\u300c' + id + '\u300d\u7684\u989c\u8272 (hex)\uff1a', t.color);
+  if (color === null) return;
+  var travelStr = prompt('\u7f16\u8f91\u5730\u5f62\u300c' + id + '\u300d\u7684\u65c5\u884c\u6d88\u8017 (1-10)\uff1a', String(t.travel));
+  if (travelStr === null) return;
+  var travel = Math.max(1, Math.min(10, parseInt(travelStr) || 1));
+  customTerrains[id] = { name: name.trim() || t.name, icon: icon.trim() || t.icon, color: color.trim() || t.color, travel: travel };
+  saveTerrainConfig();
+  rebuildTerrainPalette();
+  rebuildTerrainEditorList();
+  render();
+}
+
+document.getElementById('btn-manage-terrains').addEventListener('click', openTerrainEditor);
+
+document.getElementById('te-btn-add').addEventListener('click', function() {
+  var id = document.getElementById('te-new-id').value.trim();
+  var name = document.getElementById('te-new-name').value.trim();
+  var icon = document.getElementById('te-new-icon').value.trim();
+  var color = document.getElementById('te-new-color').value;
+  var travel = parseInt(document.getElementById('te-new-travel').value) || 1;
+  if (!id || !name || !icon) { alert('\u8bf7\u586b\u5199\u5730\u5f62ID\u3001\u540d\u79f0\u548c\u56fe\u6807'); return; }
+  if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(id)) { alert('\u5730\u5f62ID\u53ea\u80fd\u5305\u542b\u82f1\u6587\u5b57\u6bcd\u3001\u6570\u5b57\u548c\u4e0b\u5212\u7ebf\uff0c\u4e14\u5fc5\u987b\u4ee5\u5b57\u6bcd\u5f00\u5934'); return; }
+  if (deletedTerrains[id]) delete deletedTerrains[id];
+  customTerrains[id] = { name: name, icon: icon, color: color, travel: Math.max(1, Math.min(10, travel)) };
+  saveTerrainConfig();
+  document.getElementById('te-new-id').value = '';
+  document.getElementById('te-new-name').value = '';
+  document.getElementById('te-new-icon').value = '';
+  rebuildTerrainPalette();
+  rebuildTerrainEditorList();
+});
+
+document.getElementById('te-btn-reset').addEventListener('click', function() {
+  if (!confirm('\u786e\u8ba4\u6062\u590d\u6240\u6709\u5730\u5f62\u5230\u9ed8\u8ba4\u8bbe\u7f6e\uff1f\u5c06\u5220\u9664\u6240\u6709\u81ea\u5b9a\u4e49\u5730\u5f62\u548c\u4fee\u6539\u3002')) return;
+  resetAllTerrains();
+  if (!getTerrainInfo(selectedTerrain)) selectedTerrain = getAllTerrainIds()[0] || 'plain';
+  rebuildTerrainPalette();
+  rebuildTerrainEditorList();
+  render();
+});
+
+document.getElementById('te-btn-close').addEventListener('click', function() {
+  document.getElementById('terrain-editor-modal').style.display = 'none';
+});
+
+// ======== Generation Rules Editor ========
+function openGenRulesEditor() {
+  var modal = document.getElementById('gen-rules-modal');
+  document.getElementById('gr-threshold').value = String(generationRules.d6Threshold);
+  var defaultSelect = document.getElementById('gr-default-terrain');
+  defaultSelect.innerHTML = '';
+  var ids = getAllTerrainIds();
+  var allTerrains = getAllTerrains();
+  ids.forEach(function(id) {
+    var t = allTerrains[id];
+    if (!t) return;
+    var opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = t.icon + ' ' + t.name;
+    if (id === generationRules.defaultTerrain) opt.selected = true;
+    defaultSelect.appendChild(opt);
+  });
+  rebuildWeightTable();
+  modal.style.display = 'block';
+}
+
+function rebuildWeightTable() {
+  var container = document.getElementById('gr-weight-list');
+  container.innerHTML = '';
+  var allTerrains = getAllTerrains();
+  var ids = getAllTerrainIds();
+  generationRules.specialTable.forEach(function(entry, idx) {
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:4px;padding:3px 4px;margin:1px 0;background:#1a1a2e;border-radius:3px;font-size:12px;';
+    var sel = document.createElement('select');
+    sel.style.cssText = 'flex:1;padding:2px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:3px;font-size:11px;';
+    ids.forEach(function(id) {
+      var t = allTerrains[id];
+      if (!t) return;
+      var opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = t.icon + ' ' + t.name;
+      if (id === entry.terrainId) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    sel.addEventListener('change', function() {
+      generationRules.specialTable[idx].terrainId = sel.value;
+      saveTerrainConfig();
+    });
+    row.appendChild(sel);
+    var wInput = document.createElement('input');
+    wInput.type = 'number';
+    wInput.min = 0;
+    wInput.max = 20;
+    wInput.value = entry.weight;
+    wInput.style.cssText = 'width:45px;padding:2px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:3px;font-size:11px;text-align:center;';
+    wInput.addEventListener('change', function() {
+      generationRules.specialTable[idx].weight = Math.max(0, parseInt(wInput.value) || 0);
+      saveTerrainConfig();
+      updateWeightTotal();
+    });
+    row.appendChild(wInput);
+    var delBtn = document.createElement('button');
+    delBtn.textContent = '\u2715';
+    delBtn.style.cssText = 'padding:2px 6px;background:#5a1a2e;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
+    delBtn.addEventListener('click', function() {
+      generationRules.specialTable.splice(idx, 1);
+      rebuildWeightTable();
+      saveTerrainConfig();
+    });
+    row.appendChild(delBtn);
+    container.appendChild(row);
+  });
+  var addRow = document.createElement('div');
+  addRow.style.cssText = 'display:flex;align-items:center;gap:4px;padding:3px 4px;';
+  var addBtn = document.createElement('button');
+  addBtn.textContent = String.fromCodePoint(0x2795) + ' \u6dfb\u52a0\u6761\u76ee';
+  addBtn.style.cssText = 'padding:3px 8px;background:#2d6a2e;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
+  addBtn.addEventListener('click', function() {
+    generationRules.specialTable.push({ terrainId: ids[0] || 'plain', weight: 1 });
+    rebuildWeightTable();
+    saveTerrainConfig();
+  });
+  addRow.appendChild(addBtn);
+  var totalSpan = document.createElement('span');
+  totalSpan.id = 'gr-weight-total';
+  totalSpan.style.cssText = 'color:#aaa;font-size:11px;margin-left:8px;';
+  addRow.appendChild(totalSpan);
+  container.appendChild(addRow);
+  updateWeightTotal();
+}
+
+function updateWeightTotal() {
+  var total = generationRules.specialTable.reduce(function(s, e) { return s + e.weight; }, 0);
+  var el = document.getElementById('gr-weight-total');
+  if (el) el.textContent = '\u603b\u6743\u91cd: ' + total;
+}
+
+document.getElementById('btn-gen-rules').addEventListener('click', openGenRulesEditor);
+
+document.getElementById('gr-threshold').addEventListener('change', function(e) {
+  generationRules.d6Threshold = parseInt(e.target.value);
+  saveTerrainConfig();
+});
+
+document.getElementById('gr-default-terrain').addEventListener('change', function(e) {
+  generationRules.defaultTerrain = e.target.value;
+  saveTerrainConfig();
+});
+
+document.getElementById('gr-btn-reset').addEventListener('click', function() {
+  generationRules = JSON.parse(JSON.stringify(DEFAULT_GEN_RULES));
+  saveTerrainConfig();
+  rebuildWeightTable();
+  document.getElementById('gr-threshold').value = generationRules.d6Threshold;
+  var defaultSelect = document.getElementById('gr-default-terrain');
+  [].slice.call(defaultSelect.options).forEach(function(opt) {
+    opt.selected = opt.value === generationRules.defaultTerrain;
   });
 });
 
-// Set default terrain
-document.querySelector('.tool-btn[data-terrain="plain"]').classList.add('active');
+document.getElementById('gr-btn-close').addEventListener('click', function() {
+  document.getElementById('gen-rules-modal').style.display = 'none';
+});
+
+// Close modals on background click
+document.getElementById('terrain-editor-modal').addEventListener('click', function(e) {
+  if (e.target === e.currentTarget) e.currentTarget.style.display = 'none';
+});
+document.getElementById('gen-rules-modal').addEventListener('click', function(e) {
+  if (e.target === e.currentTarget) e.currentTarget.style.display = 'none';
+});
+
+
 
 // Roll dice — with animation
 document.getElementById('btn-roll').addEventListener('click', () => {
@@ -993,7 +1388,7 @@ function showStepResult(icon, label, value, extra) {
     ${extra ? `<div class="row" style="justify-content:center;margin-top:4px;"><span style="color:#aaa;font-size:15px;">${extra}</span></div>` : ''}`;
 }
 
-// Random terrain per sandbox rules — with roll animation
+// Random terrain — with roll animation (uses customizable rules)
 document.getElementById('btn-gen-terrain').addEventListener('click', () => {
   if (!selectedHex) { showDiceResult('⚠️', '请先点击选择一个六角格'); return; }
   if (isLocked && getHex(selectedHex.q, selectedHex.r).terrain) {
@@ -1003,22 +1398,35 @@ document.getElementById('btn-gen-terrain').addEventListener('click', () => {
 
   animateDiceRoll('d6', 500, (result) => {
     const d6 = result.total;
-    if (d6 >= 1 && d6 <= 5) {
-      // Plain — done
-      showStepResult('🎲', '投d6 →', d6, '🏞️ 地图 → ⬟ 平原');
-      setHex(selectedHex.q, selectedHex.r, { terrain: 'plain' });
+    const threshold = generationRules.d6Threshold;
+    const defaultId = generationRules.defaultTerrain;
+    const defaultT = getTerrainInfo(defaultId);
+    const defaultName = defaultT?.name || defaultId;
+    const defaultIcon = defaultT?.icon || '';
+
+    if (d6 < threshold) {
+      showStepResult('🎲', `投d6 → ${d6}`, '', `🏞️ ${defaultIcon} ${defaultName}`);
+      setHex(selectedHex.q, selectedHex.r, { terrain: defaultId });
       render();
     } else {
-      // Special — roll d12
-      showStepResult('🎲', '投d6 →', '6 🎯', '再投d12决定特殊地形⋯');
+      showStepResult('🎲', `投d6 → ${d6} 🎯`, '', '按权重表随机特殊地形⋯');
+      const table = generationRules.specialTable;
+      const totalWeight = table.reduce((s, e) => s + e.weight, 0);
+      const dieFormula = 'd' + totalWeight;
       setTimeout(() => {
-        animateDiceRoll('d12', 500, (result2) => {
-          const d12val = result2.total;
-          const terrain = SPECIAL_TABLE[d12val - 1];
-          const ticon = TERRAIN[terrain]?.icon || '';
-          const tname = TERRAIN[terrain]?.name || terrain;
-          showStepResult('🎲', `d6→6 → d12→${d12val}`, '', `🏞️ 地图 → ${ticon} ${tname}`);
-          setHex(selectedHex.q, selectedHex.r, { terrain });
+        animateDiceRoll(dieFormula, 500, (result2) => {
+          const roll = result2.total - 1;
+          let cumulative = 0;
+          let chosen = table[0]?.terrainId || 'plain';
+          for (const entry of table) {
+            cumulative += entry.weight;
+            if (roll < cumulative) { chosen = entry.terrainId; break; }
+          }
+          const t = getTerrainInfo(chosen);
+          const ticon = t?.icon || '';
+          const tname = t?.name || chosen;
+          showStepResult('🎲', `抽中 → ${ticon} ${tname}`, '', `${dieFormula}示数:${result2.total}`);
+          setHex(selectedHex.q, selectedHex.r, { terrain: chosen });
           render();
         });
       }, 600);
@@ -1041,7 +1449,7 @@ document.getElementById('btn-gen-settlement').addEventListener('click', () => {
     const name = randomName();
     const sign = rating >= 0 ? '+' : '';
     showStepResult('🏘️', '投d6 →', d6, `${name} 评分: ${sign}${rating}`);
-    setHex(selectedHex.q, selectedHex.r, { terrain: 'plain', settlement: { name, rating } });
+    setHex(selectedHex.q, selectedHex.r, { terrain: generationRules.defaultTerrain, settlement: { name, rating } });
     render();
   });
 });
@@ -1112,7 +1520,7 @@ function hexDistance(q1, r1, q2, r2) {
 
 // Save/Load
 document.getElementById('btn-save').addEventListener('click', () => {
-  const data = { hexData, viewX, viewY, zoom };
+  const data = { hexData, viewX, viewY, zoom, customTerrains, deletedTerrains, terrainOrder, generationRules };
   const json = JSON.stringify(data);
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -1139,6 +1547,12 @@ document.getElementById('btn-load').addEventListener('click', () => {
         viewX = data.viewX || 0;
         viewY = data.viewY || 0;
         zoom = data.zoom || 1;
+        if (data.customTerrains) customTerrains = data.customTerrains;
+        if (data.deletedTerrains) deletedTerrains = data.deletedTerrains;
+        if (data.terrainOrder) terrainOrder = data.terrainOrder;
+        if (data.generationRules) generationRules = { ...DEFAULT_GEN_RULES, ...data.generationRules };
+        saveTerrainConfig();
+        rebuildTerrainPalette();
         document.getElementById('zoom-indicator').textContent = `🔍 ${Math.round(zoom * 100)}%`;
         render();
         updateInfo();
@@ -1187,7 +1601,8 @@ function updateInfo() {
   }
   const { q, r } = selectedHex;
   const h = getHex(q, r);
-  const t = h.terrain ? `${TERRAIN[h.terrain]?.icon || ''} ${TERRAIN[h.terrain]?.name || h.terrain}` : '未探索';
+  const hInfoTI = h.terrain ? getAllTerrains()[h.terrain] : null;
+  const t = h.terrain ? `${hInfoTI?.icon || ''} ${hInfoTI?.name || h.terrain}` : '未探索';
   const settle = h.settlement ? `${h.settlement.name} (${h.settlement.rating >= 0 ? '+' : ''}${h.settlement.rating})` : '—';
   const roads = h.roads?.length || 0;
   const nbrs = neighbors(q, r);
@@ -1211,6 +1626,12 @@ resizeCanvas();
 // Set initial view to center
 viewX = canvas.width / 2;
 viewY = canvas.height / 2;
+
+// Load terrain config and rebuild dynamic palette
+loadTerrainConfig();
+rebuildTerrainPalette();
+const allIds = getAllTerrainIds();
+if (!getTerrainInfo(selectedTerrain) && allIds.length > 0) selectedTerrain = allIds[0];
 
 // Set initial tool — shows hints and updates coord display
 setTool('select');

@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(node --check \"c:\\\\Users\\\\qiujian.shi\\\\Desktop\\\\test-skill\\\\4AD\\\\2_工具\\\\hexmap.html\")",
-      "Bash(node -e ':*)"
+      "Bash(node -e ':*)",
+      "Bash(python ../fix_d12.py)"
     ]
   }
 }
