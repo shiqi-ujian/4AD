@@ -1,4 +1,5 @@
 {
+  "_comment": "远程 commit da33efd 删除了此文件，本地保留修改版本",
   "permissions": {
     "allow": [
       "Bash(node --check \"c:\\\\Users\\\\qiujian.shi\\\\Desktop\\\\test-skill\\\\4AD\\\\2_工具\\\\hexmap.html\")",
