@@ -87,6 +87,7 @@ canvas { display: block; }
 }
 
 input[type="range"] { width: 100%; margin: 2px 0; cursor: pointer; }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -152,6 +153,10 @@ input[type="range"] { width: 100%; margin: 2px 0; cursor: pointer; }
     <div style="display:flex;gap:4px;">
       <button id="btn-export-img" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;">🖼️ 导出PNG</button>
       <button id="btn-clear" style="flex:1;padding:4px;background:#6b5b4f;color:#ccc;border:none;border-radius:4px;cursor:pointer;">🗑️ 清空</button>
+    </div>
+    <div style="display:flex;gap:4px;margin-top:2px;">
+      <button id="btn-undo" style="flex:1;padding:4px;background:#3a3a5e;color:#fff;border:none;border-radius:4px;cursor:pointer;opacity:0.4;" disabled>↩️ 撤销</button>
+      <button id="btn-redo" style="flex:1;padding:4px;background:#3a3a5e;color:#fff;border:none;border-radius:4px;cursor:pointer;opacity:0.4;" disabled>↪️ 重做</button>
     </div>
     <label style="margin-top:4px;font-size:12px;">
       <input type="checkbox" id="chk-grid" checked> 显示网格
@@ -227,7 +232,40 @@ input[type="range"] { width: 100%; margin: 2px 0; cursor: pointer; }
   </div>
 </div>
 
-<!-- Modals placeholder -->
+<!-- Settlement Modal -->
+<div id="settlement-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:360px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">🏘️ 定居点 <span id="settlement-modal-coord" style="font-size:13px;color:#888;font-weight:normal;"></span></h3>
+    <label style="font-size:12px;color:#ccc;display:block;margin-bottom:4px;">名称</label>
+    <input id="settlement-modal-name" type="text" style="width:100%;padding:6px 8px;margin-bottom:10px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:14px;">
+    <label style="font-size:12px;color:#ccc;display:block;margin-bottom:4px;">评分 (-3 ~ +3)</label>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+      <input id="settlement-modal-rating" type="range" min="-3" max="3" step="1" value="0" style="flex:1;">
+      <span id="settlement-modal-rating-val" style="font-size:18px;font-weight:bold;color:#ffd700;min-width:30px;text-align:center;">+0</span>
+    </div>
+    <div style="display:flex;gap:6px;justify-content:flex-end;">
+      <button id="settlement-modal-cancel" style="padding:6px 16px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">取消</button>
+      <button id="settlement-modal-confirm" style="padding:6px 16px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">✓ 确认</button>
+    </div>
+    <input id="settlement-modal-q" type="hidden">
+    <input id="settlement-modal-r" type="hidden">
+  </div>
+</div>
+
+<!-- Label Modal -->
+<div id="label-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:360px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">🏷️ 地标/标签 <span id="label-modal-coord" style="font-size:13px;color:#888;font-weight:normal;"></span></h3>
+    <label style="font-size:12px;color:#ccc;display:block;margin-bottom:4px;">文字</label>
+    <input id="label-modal-text" type="text" style="width:100%;padding:6px 8px;margin-bottom:14px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:14px;" placeholder="例：古墓、龙巢、传送门">
+    <div style="display:flex;gap:6px;justify-content:flex-end;">
+      <button id="label-modal-cancel" style="padding:6px 16px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">取消</button>
+      <button id="label-modal-confirm" style="padding:6px 16px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">✓ 确认</button>
+    </div>
+    <input id="label-modal-q" type="hidden">
+    <input id="label-modal-r" type="hidden">
+    </div>
+</div>
 
 <script>
 // ======== Configuration ========
@@ -376,8 +414,89 @@ let isLocked = false;
 let viewX = 0, viewY = 0;
 let zoom = 1;
 let isDragging = false, dragStartX, dragStartY, viewStartX, viewStartY;
+
+// Undo/Redo
+const MAX_UNDO = 50;
+let undoStack = [];
+let redoStack = [];
+let undoBatch = null;
+
+function snapshotHex(key) {
+  return hexData[key] ? JSON.parse(JSON.stringify(hexData[key])) : null;
+}
+
+function updateUndoButtons() {
+  const btnU = document.getElementById('btn-undo');
+  const btnR = document.getElementById('btn-redo');
+  if (btnU) { btnU.disabled = undoStack.length === 0; btnU.style.opacity = undoStack.length === 0 ? '0.4' : '1'; }
+  if (btnR) { btnR.disabled = redoStack.length === 0; btnR.style.opacity = redoStack.length === 0 ? '0.4' : '1'; }
+}
+
+function pushUndo(key) {
+  const entry = { key, before: snapshotHex(key) };
+  if (undoBatch !== null) {
+    undoBatch.push(entry);
+  } else {
+    undoStack.push([entry]); // wrapped in array for uniform batch handling
+    if (undoStack.length > MAX_UNDO) undoStack.shift();
+    redoStack = [];
+    updateUndoButtons();
+  }
+}
+
+function beginBatch() { undoBatch = []; }
+
+function endBatch() {
+  if (undoBatch && undoBatch.length) {
+    // Merge consecutive entries for the same key into one (last write wins)
+    const latest = new Map();
+    for (const e of undoBatch) {
+      latest.set(e.key, e);
+    }
+    const merged = [...latest.values()];
+    undoStack.push(merged);
+    if (undoStack.length > MAX_UNDO) undoStack.shift();
+    redoStack = [];
+  }
+  undoBatch = null;
+  updateUndoButtons();
+}
+
+function applyUndoEntry(entries) {
+  const redoEntries = [];
+  for (const { key, before } of entries) {
+    redoEntries.push({ key, before: snapshotHex(key) });
+    if (before) {
+      hexData[key] = before;
+    } else {
+      delete hexData[key];
+    }
+  }
+  return redoEntries;
+}
+
+function undo() {
+  const entry = undoStack.pop();
+  if (!entry) return;
+  const redoEntries = applyUndoEntry(entry);
+  redoStack.push(redoEntries);
+  render();
+  updateInfo();
+  updateUndoButtons();
+}
+
+function redo() {
+  const entry = redoStack.pop();
+  if (!entry) return;
+  const undoEntries = applyUndoEntry(entry);
+  undoStack.push(undoEntries);
+  render();
+  updateInfo();
+  updateUndoButtons();
+}
 let showGrid = true, showCoords = true;
 let roadStart = null; // { q, r } for road drawing
+let isGenerating = false; // lock for generation buttons
 
 const HEX_SIZE = 36;
 const SQRT3 = Math.sqrt(3);
@@ -430,12 +549,29 @@ function hexKey(q, r) { return `${q},${r}`; }
 
 function getHex(q, r) {
   const k = hexKey(q, r);
-  if (!hexData[k]) hexData[k] = { terrain: null, label: '', settlement: null, roads: [] };
-  return hexData[k];
+  return hexData[k] || { terrain: null, label: '', settlement: null, roads: [] };
 }
 
 function setHex(q, r, data) {
-  hexData[hexKey(q, r)] = { ...getHex(q, r), ...data };
+  const key = hexKey(q, r);
+  pushUndo(key);
+  const merged = { ...getHex(q, r), ...data };
+  // Auto-clean empty hexes (all fields are default)
+  if (!merged.terrain && !merged.label && !merged.settlement && (!merged.roads || merged.roads.length === 0)) {
+    delete hexData[key];
+  } else {
+    hexData[key] = merged;
+  }
+}
+
+// Remove hexes with no terrain, label, settlement, or roads
+function cleanHexData() {
+  for (const key of Object.keys(hexData)) {
+    const h = hexData[key];
+    if (!h.terrain && !h.label && !h.settlement && (!h.roads || h.roads.length === 0)) {
+      delete hexData[key];
+    }
+  }
 }
 
 function hasRoad(q1, r1, q2, r2) {
@@ -443,19 +579,33 @@ function hasRoad(q1, r1, q2, r2) {
 }
 
 function addRoad(q1, r1, q2, r2) {
-  const h1 = getHex(q1, r1);
+  const k1 = hexKey(q1, r1);
+  const k2 = hexKey(q2, r2);
+  if (!hexData[k1]) hexData[k1] = { terrain: null, label: '', settlement: null, roads: [] };
+  if (!hexData[k2]) hexData[k2] = { terrain: null, label: '', settlement: null, roads: [] };
+  pushUndo(k1);
+  pushUndo(k2);
+  const h1 = hexData[k1];
+  const h2 = hexData[k2];
   if (!h1.roads) h1.roads = [];
   if (!h1.roads.some(r => r.q === q2 && r.r === r2)) h1.roads.push({ q: q2, r: r2 });
-  const h2 = getHex(q2, r2);
   if (!h2.roads) h2.roads = [];
   if (!h2.roads.some(r => r.q === q1 && r.r === r1)) h2.roads.push({ q: q1, r: r1 });
 }
 
 function removeRoad(q1, r1, q2, r2) {
+  const k1 = hexKey(q1, r1);
+  const k2 = hexKey(q2, r2);
   const h1 = getHex(q1, r1);
-  if (h1.roads) h1.roads = h1.roads.filter(r => !(r.q === q2 && r.r === r1));
+  if (h1.roads) {
+    pushUndo(k1);
+    h1.roads = h1.roads.filter(r => !(r.q === q2 && r.r === r2));
+  }
   const h2 = getHex(q2, r2);
-  if (h2.roads) h2.roads = h2.roads.filter(r => !(r.q === q1 && r.r === r2));
+  if (h2.roads) {
+    pushUndo(k2);
+    h2.roads = h2.roads.filter(r => !(r.q === q1 && r.r === r1));
+  }
 }
 
 function neighbors(q, r) {
@@ -494,11 +644,12 @@ function render() {
 
   const qMin = Math.floor(topLeft.q) - 1, qMax = Math.ceil(botRight.q) + 1;
   const rMin = Math.floor(topLeft.r) - 1, rMax = Math.ceil(botRight.r) + 1;
+  const allTerrains = getAllTerrains();
 
   // Pass 1: Draw hex fills and grid only
   for (let q = qMin; q <= qMax; q++) {
     for (let r = rMin; r <= rMax; r++) {
-      drawHexBase(q, r);
+      drawHexBase(q, r, allTerrains);
     }
   }
 
@@ -527,7 +678,7 @@ function render() {
   // Pass 3: Draw overlays (icons, labels, settlements) — on top of everything
   for (let q = qMin; q <= qMax; q++) {
     for (let r = rMin; r <= rMax; r++) {
-      drawHexOverlay(q, r);
+      drawHexOverlay(q, r, allTerrains);
     }
   }
 
@@ -560,7 +711,7 @@ function render() {
   ctx.restore();
 }
 
-function drawHexBase(q, r) {
+function drawHexBase(q, r, allTerrains) {
   const p = hexToPixel(q, r);
   const h = getHex(q, r);
   const corners = hexCorners(p.x, p.y, HEX_SIZE);
@@ -571,7 +722,7 @@ function drawHexBase(q, r) {
   ctx.closePath();
 
   let fillColor = '#3a3a52';
-  const hTerrainInfo = h.terrain ? getAllTerrains()[h.terrain] : null;
+  const hTerrainInfo = h.terrain ? allTerrains[h.terrain] : null;
   if (hTerrainInfo) fillColor = hTerrainInfo.color;
   ctx.fillStyle = fillColor;
   ctx.fill();
@@ -584,7 +735,7 @@ function drawHexBase(q, r) {
   }
 }
 
-function drawHexOverlay(q, r) {
+function drawHexOverlay(q, r, allTerrains) {
   const p = hexToPixel(q, r);
   const h = getHex(q, r);
 
@@ -598,7 +749,7 @@ function drawHexOverlay(q, r) {
   }
 
   // Terrain icon
-  const hOverlayTI = h.terrain ? getAllTerrains()[h.terrain] : null;
+  const hOverlayTI = h.terrain ? allTerrains[h.terrain] : null;
   if (hOverlayTI) {
     ctx.font = `${HEX_SIZE * 0.5}px sans-serif`;
     ctx.textAlign = 'center';
@@ -727,7 +878,6 @@ canvas.addEventListener('mousemove', (e) => {
       viewX = viewStartX + (mx - dragStartX);
       viewY = viewStartY + (my - dragStartY);
       render();
-      updateCoordDisplay();
     }
   }
 });
@@ -750,7 +900,6 @@ canvas.addEventListener('wheel', (e) => {
 
   document.getElementById('zoom-indicator').textContent = `🔍 ${Math.round(zoom * 100)}%`;
   render();
-  updateCoordDisplay();
 });
 
 // Touch support
@@ -788,7 +937,6 @@ canvas.addEventListener('touchmove', (e) => {
     viewX = viewStartX + (mx - dragStartX);
     viewY = viewStartY + (my - dragStartY);
     render();
-    updateCoordDisplay();
   } else if (e.touches.length === 2) {
     const dist = Math.hypot(
       e.touches[0].clientX - e.touches[1].clientX,
@@ -805,7 +953,6 @@ canvas.addEventListener('touchmove', (e) => {
     document.getElementById('zoom-indicator').textContent = `🔍 ${Math.round(zoom * 100)}%`;
     touchDist = dist;
     render();
-    updateCoordDisplay();
   }
 }, { passive: false });
 
@@ -882,13 +1029,18 @@ function handleHexClick(q, r, e) {
       setHex(q, r, { label: '' });
     } else if (mode === 'roads') {
       // Remove all roads from this hex and corresponding roads from neighbors
+      beginBatch();
       if (h.roads) {
         for (const rd of h.roads) {
           const nh = getHex(rd.q, rd.r);
-          if (nh.roads) nh.roads = nh.roads.filter(r => !(r.q === q && r.r === r));
+          if (nh.roads) {
+            const filtered = nh.roads.filter(r => !(r.q === q && r.r === r));
+            setHex(rd.q, rd.r, { roads: filtered });
+          }
         }
       }
       setHex(q, r, { roads: [] });
+      endBatch();
     }
     render();
     updateInfo();
@@ -979,39 +1131,39 @@ function showContextMenu(cx, cy, mx, my) {
 function showSettlementDialog(q, r) {
   const h = getHex(q, r);
   const existing = h.settlement;
-
-  // Use browser-native prompt for name
-  const defaultName = existing?.name || '';
-  const name = prompt(`输入定居点名称 (${q}, ${r})`, defaultName || randomName());
-  if (name === null) return; // cancelled
-
-  // Use browser-native prompt for rating
-  const defaultRating = existing?.rating ?? 0;
-  const ratingStr = prompt(`输入评分 (-3 ~ +3)`, `${defaultRating}`);
-  if (ratingStr === null) return; // cancelled
-  const rating = Math.max(-3, Math.min(3, parseInt(ratingStr) || 0));
-
-  setHex(q, r, { settlement: { name: name.trim() || '无名定居点', rating } });
-  render();
-  updateInfo();
-  showDiceResult('🏘️ 已保存', `${name} (${rating >= 0 ? '+' : ''}${rating})`);
+  document.getElementById('settlement-modal-q').value = q;
+  document.getElementById('settlement-modal-r').value = r;
+  document.getElementById('settlement-modal-coord').textContent = `(${q}, ${r})`;
+  document.getElementById('settlement-modal-name').value = existing?.name || randomName();
+  const rating = existing?.rating ?? 0;
+  document.getElementById('settlement-modal-rating').value = rating;
+  document.getElementById('settlement-modal-rating-val').textContent = `${rating >= 0 ? '+' : ''}${rating}`;
+  document.getElementById('settlement-modal').style.display = 'block';
+  setTimeout(() => document.getElementById('settlement-modal-name').focus(), 50);
 }
 
 function showLabelDialog(q, r) {
   const h = getHex(q, r);
-  const defaultLabel = h.label || '';
-  const label = prompt(`输入地标/标签文字 (${q}, ${r})`, defaultLabel);
-  if (label === null) return; // cancelled
-  setHex(q, r, { label: label.trim() });
-  render();
-  updateInfo();
-  showDiceResult('🏷️ 已保存', label.trim());
+  document.getElementById('label-modal-q').value = q;
+  document.getElementById('label-modal-r').value = r;
+  document.getElementById('label-modal-coord').textContent = `(${q}, ${r})`;
+  document.getElementById('label-modal-text').value = h.label || '';
+  document.getElementById('label-modal').style.display = 'block';
+  setTimeout(() => document.getElementById('label-modal-text').focus(), 50);
 }
 
 function showDiceResult(line1, line2) {
   const panel = document.getElementById('info-panel');
   panel.innerHTML = `<div class="row"><span style="font-size:20px;font-weight:bold;color:#e94560;">${line1}</span></div>
     <div class="row"><span style="color:#aaa;">${line2 || ''}</span></div>`;
+}
+
+function setGenButtonsDisabled(disabled) {
+  const btns = ['btn-roll', 'btn-gen-terrain', 'btn-gen-settlement', 'btn-gen-road'];
+  btns.forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.disabled = disabled;
+  });
 }
 
 // ======== Random Generation Tools ========
@@ -1028,6 +1180,13 @@ function randomName() {
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  // Undo/Redo
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+    if (e.shiftKey) { redo(); } else { undo(); }
+    e.preventDefault();
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'y') { redo(); e.preventDefault(); return; }
   const keyMap = { 'v': 'select', 'b': 'paint', 's': 'settlement', 'r': 'road', 'l': 'label', 'e': 'erase' };
   if (keyMap[e.key?.toLowerCase()]) {
     setTool(keyMap[e.key.toLowerCase()]);
@@ -1055,7 +1214,7 @@ function setTool(tool) {
       coord.textContent = `🖌️ ${paintT?.name || ''} 笔刷`;
       break;
     case 'settlement':
-      hint.innerHTML = '🏘️ 点击六角格 → 弹出浏览器对话框填写名称和评分';
+      hint.innerHTML = '🏘️ 点击六角格 → 弹出窗口填写名称和评分';
       coord.textContent = '🏘️ 点击放置定居点';
       break;
     case 'road':
@@ -1063,7 +1222,7 @@ function setTool(tool) {
       coord.textContent = roadStart ? `🛤️ 起点 (${roadStart.q}, ${roadStart.r})` : '🛤️ 点击选择道路起点';
       break;
     case 'label':
-      hint.innerHTML = '🏷️ 点击六角格 → 弹出浏览器对话框输入地标名称（如：古墓、龙巢）';
+      hint.innerHTML = '🏷️ 点击六角格 → 弹出窗口输入地标名称（如：古墓、龙巢）';
       coord.textContent = '🏷️ 点击添加标签';
       break;
     case 'erase':
@@ -1125,7 +1284,7 @@ function rebuildTerrainEditorList() {
       delBtn.style.cssText = 'padding:2px 6px;background:#5a1a2e;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
       delBtn.title = '\u5220\u9664';
       delBtn.addEventListener('click', function() {
-        var tname = t.name;
+        let tname = t.name;
         if (confirm('\u786e\u8ba4\u5220\u9664\u5730\u5f62\u300c' + tname + '\u300d\uff1f\u5df2\u4f7f\u7528\u8be5\u5730\u5f62\u7684\u683c\u5b50\u4f1a\u663e\u793a\u4e3a\u672a\u77e5\u3002')) {
           if (TERRAIN[id]) {
             deletedTerrains[id] = true;
@@ -1147,17 +1306,17 @@ function rebuildTerrainEditorList() {
 }
 
 function editTerrain(id) {
-  var t = getTerrainInfo(id);
+  let t = getTerrainInfo(id);
   if (!t) return;
-  var name = prompt('\u7f16\u8f91\u5730\u5f62\u300c' + id + '\u300d\u7684\u540d\u79f0\uff1a', t.name);
+  let name = prompt('\u7f16\u8f91\u5730\u5f62\u300c' + id + '\u300d\u7684\u540d\u79f0\uff1a', t.name);
   if (name === null) return;
-  var icon = prompt('\u7f16\u8f91\u5730\u5f62\u300c' + id + '\u300d\u7684\u56fe\u6807 (emoji)\uff1a', t.icon);
+  let icon = prompt('\u7f16\u8f91\u5730\u5f62\u300c' + id + '\u300d\u7684\u56fe\u6807 (emoji)\uff1a', t.icon);
   if (icon === null) return;
-  var color = prompt('\u7f16\u8f91\u5730\u5f62\u300c' + id + '\u300d\u7684\u989c\u8272 (hex)\uff1a', t.color);
+  let color = prompt('\u7f16\u8f91\u5730\u5f62\u300c' + id + '\u300d\u7684\u989c\u8272 (hex)\uff1a', t.color);
   if (color === null) return;
-  var travelStr = prompt('\u7f16\u8f91\u5730\u5f62\u300c' + id + '\u300d\u7684\u65c5\u884c\u6d88\u8017 (1-10)\uff1a', String(t.travel));
+  let travelStr = prompt('\u7f16\u8f91\u5730\u5f62\u300c' + id + '\u300d\u7684\u65c5\u884c\u6d88\u8017 (1-10)\uff1a', String(t.travel));
   if (travelStr === null) return;
-  var travel = Math.max(1, Math.min(10, parseInt(travelStr) || 1));
+  let travel = Math.max(1, Math.min(10, parseInt(travelStr) || 1));
   customTerrains[id] = { name: name.trim() || t.name, icon: icon.trim() || t.icon, color: color.trim() || t.color, travel: travel };
   saveTerrainConfig();
   rebuildTerrainPalette();
@@ -1168,11 +1327,11 @@ function editTerrain(id) {
 document.getElementById('btn-manage-terrains').addEventListener('click', openTerrainEditor);
 
 document.getElementById('te-btn-add').addEventListener('click', function() {
-  var id = document.getElementById('te-new-id').value.trim();
-  var name = document.getElementById('te-new-name').value.trim();
-  var icon = document.getElementById('te-new-icon').value.trim();
-  var color = document.getElementById('te-new-color').value;
-  var travel = parseInt(document.getElementById('te-new-travel').value) || 1;
+  let id = document.getElementById('te-new-id').value.trim();
+  let name = document.getElementById('te-new-name').value.trim();
+  let icon = document.getElementById('te-new-icon').value.trim();
+  let color = document.getElementById('te-new-color').value;
+  let travel = parseInt(document.getElementById('te-new-travel').value) || 1;
   if (!id || !name || !icon) { alert('\u8bf7\u586b\u5199\u5730\u5f62ID\u3001\u540d\u79f0\u548c\u56fe\u6807'); return; }
   if (!/^[a-zA-Z][a-zA-Z0-9_]*$/.test(id)) { alert('\u5730\u5f62ID\u53ea\u80fd\u5305\u542b\u82f1\u6587\u5b57\u6bcd\u3001\u6570\u5b57\u548c\u4e0b\u5212\u7ebf\uff0c\u4e14\u5fc5\u987b\u4ee5\u5b57\u6bcd\u5f00\u5934'); return; }
   if (deletedTerrains[id]) delete deletedTerrains[id];
@@ -1200,16 +1359,16 @@ document.getElementById('te-btn-close').addEventListener('click', function() {
 
 // ======== Generation Rules Editor ========
 function openGenRulesEditor() {
-  var modal = document.getElementById('gen-rules-modal');
+  let modal = document.getElementById('gen-rules-modal');
   document.getElementById('gr-threshold').value = String(generationRules.d6Threshold);
-  var defaultSelect = document.getElementById('gr-default-terrain');
+  let defaultSelect = document.getElementById('gr-default-terrain');
   defaultSelect.innerHTML = '';
-  var ids = getAllTerrainIds();
-  var allTerrains = getAllTerrains();
+  let ids = getAllTerrainIds();
+  let allTerrains = getAllTerrains();
   ids.forEach(function(id) {
-    var t = allTerrains[id];
+    let t = allTerrains[id];
     if (!t) return;
-    var opt = document.createElement('option');
+    let opt = document.createElement('option');
     opt.value = id;
     opt.textContent = t.icon + ' ' + t.name;
     if (id === generationRules.defaultTerrain) opt.selected = true;
@@ -1220,19 +1379,19 @@ function openGenRulesEditor() {
 }
 
 function rebuildWeightTable() {
-  var container = document.getElementById('gr-weight-list');
+  let container = document.getElementById('gr-weight-list');
   container.innerHTML = '';
-  var allTerrains = getAllTerrains();
-  var ids = getAllTerrainIds();
+  let allTerrains = getAllTerrains();
+  let ids = getAllTerrainIds();
   generationRules.specialTable.forEach(function(entry, idx) {
-    var row = document.createElement('div');
+    let row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:4px;padding:3px 4px;margin:1px 0;background:#1a1a2e;border-radius:3px;font-size:12px;';
-    var sel = document.createElement('select');
+    let sel = document.createElement('select');
     sel.style.cssText = 'flex:1;padding:2px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:3px;font-size:11px;';
     ids.forEach(function(id) {
-      var t = allTerrains[id];
+      let t = allTerrains[id];
       if (!t) return;
-      var opt = document.createElement('option');
+      let opt = document.createElement('option');
       opt.value = id;
       opt.textContent = t.icon + ' ' + t.name;
       if (id === entry.terrainId) opt.selected = true;
@@ -1243,7 +1402,7 @@ function rebuildWeightTable() {
       saveTerrainConfig();
     });
     row.appendChild(sel);
-    var wInput = document.createElement('input');
+    let wInput = document.createElement('input');
     wInput.type = 'number';
     wInput.min = 0;
     wInput.max = 20;
@@ -1255,7 +1414,7 @@ function rebuildWeightTable() {
       updateWeightTotal();
     });
     row.appendChild(wInput);
-    var delBtn = document.createElement('button');
+    let delBtn = document.createElement('button');
     delBtn.textContent = '\u2715';
     delBtn.style.cssText = 'padding:2px 6px;background:#5a1a2e;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
     delBtn.addEventListener('click', function() {
@@ -1266,9 +1425,9 @@ function rebuildWeightTable() {
     row.appendChild(delBtn);
     container.appendChild(row);
   });
-  var addRow = document.createElement('div');
+  let addRow = document.createElement('div');
   addRow.style.cssText = 'display:flex;align-items:center;gap:4px;padding:3px 4px;';
-  var addBtn = document.createElement('button');
+  let addBtn = document.createElement('button');
   addBtn.textContent = String.fromCodePoint(0x2795) + ' \u6dfb\u52a0\u6761\u76ee';
   addBtn.style.cssText = 'padding:3px 8px;background:#2d6a2e;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
   addBtn.addEventListener('click', function() {
@@ -1277,7 +1436,7 @@ function rebuildWeightTable() {
     saveTerrainConfig();
   });
   addRow.appendChild(addBtn);
-  var totalSpan = document.createElement('span');
+  let totalSpan = document.createElement('span');
   totalSpan.id = 'gr-weight-total';
   totalSpan.style.cssText = 'color:#aaa;font-size:11px;margin-left:8px;';
   addRow.appendChild(totalSpan);
@@ -1286,8 +1445,8 @@ function rebuildWeightTable() {
 }
 
 function updateWeightTotal() {
-  var total = generationRules.specialTable.reduce(function(s, e) { return s + e.weight; }, 0);
-  var el = document.getElementById('gr-weight-total');
+  let total = generationRules.specialTable.reduce(function(s, e) { return s + e.weight; }, 0);
+  let el = document.getElementById('gr-weight-total');
   if (el) el.textContent = '\u603b\u6743\u91cd: ' + total;
 }
 
@@ -1308,7 +1467,7 @@ document.getElementById('gr-btn-reset').addEventListener('click', function() {
   saveTerrainConfig();
   rebuildWeightTable();
   document.getElementById('gr-threshold').value = generationRules.d6Threshold;
-  var defaultSelect = document.getElementById('gr-default-terrain');
+  let defaultSelect = document.getElementById('gr-default-terrain');
   [].slice.call(defaultSelect.options).forEach(function(opt) {
     opt.selected = opt.value === generationRules.defaultTerrain;
   });
@@ -1326,12 +1485,75 @@ document.getElementById('gen-rules-modal').addEventListener('click', function(e)
   if (e.target === e.currentTarget) e.currentTarget.style.display = 'none';
 });
 
+// ======== Settlement Modal ========
+document.getElementById('settlement-modal-rating').addEventListener('input', function(e) {
+  const val = parseInt(e.target.value);
+  document.getElementById('settlement-modal-rating-val').textContent = `${val >= 0 ? '+' : ''}${val}`;
+});
+
+function settlementModalConfirm() {
+  const q = parseInt(document.getElementById('settlement-modal-q').value);
+  const r = parseInt(document.getElementById('settlement-modal-r').value);
+  const name = document.getElementById('settlement-modal-name').value.trim() || '无名定居点';
+  const rating = parseInt(document.getElementById('settlement-modal-rating').value);
+  setHex(q, r, { settlement: { name, rating } });
+  document.getElementById('settlement-modal').style.display = 'none';
+  render();
+  updateInfo();
+  showDiceResult('🏘️ 已保存', `${name} (${rating >= 0 ? '+' : ''}${rating})`);
+}
+
+document.getElementById('settlement-modal-confirm').addEventListener('click', settlementModalConfirm);
+document.getElementById('settlement-modal-cancel').addEventListener('click', function() {
+  document.getElementById('settlement-modal').style.display = 'none';
+});
+document.getElementById('settlement-modal').addEventListener('click', function(e) {
+  if (e.target === e.currentTarget) e.currentTarget.style.display = 'none';
+});
+document.getElementById('settlement-modal-name').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') settlementModalConfirm();
+  if (e.key === 'Escape') document.getElementById('settlement-modal').style.display = 'none';
+});
+document.getElementById('settlement-modal-rating').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') settlementModalConfirm();
+  if (e.key === 'Escape') document.getElementById('settlement-modal').style.display = 'none';
+});
+
+// ======== Label Modal ========
+function labelModalConfirm() {
+  const q = parseInt(document.getElementById('label-modal-q').value);
+  const r = parseInt(document.getElementById('label-modal-r').value);
+  const text = document.getElementById('label-modal-text').value.trim();
+  setHex(q, r, { label: text });
+  document.getElementById('label-modal').style.display = 'none';
+  render();
+  updateInfo();
+  showDiceResult('🏷️ 已保存', text || '(空)');
+}
+
+document.getElementById('label-modal-confirm').addEventListener('click', labelModalConfirm);
+document.getElementById('label-modal-cancel').addEventListener('click', function() {
+  document.getElementById('label-modal').style.display = 'none';
+});
+document.getElementById('label-modal').addEventListener('click', function(e) {
+  if (e.target === e.currentTarget) e.currentTarget.style.display = 'none';
+});
+document.getElementById('label-modal-text').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') labelModalConfirm();
+  if (e.key === 'Escape') document.getElementById('label-modal').style.display = 'none';
+});
+
 
 
 // Roll dice — with animation
 document.getElementById('btn-roll').addEventListener('click', () => {
+  if (isGenerating) return;
+  isGenerating = true;
+  setGenButtonsDisabled(true);
   const formula = document.getElementById('dice-select').value;
   animateDiceRoll(formula, 500, (result) => {
+    isGenerating = false;
+    setGenButtonsDisabled(false);
     const detail = result.rolls.length > 1 ? `[${result.rolls.join(' + ')}]` : '';
     const label = result.n > 1 ? `${result.n}颗d${result.sides}` : `d${result.sides}`;
     showStepResult('🎲', `${label} →`, result.total, detail);
@@ -1390,11 +1612,14 @@ function showStepResult(icon, label, value, extra) {
 
 // Random terrain — with roll animation (uses customizable rules)
 document.getElementById('btn-gen-terrain').addEventListener('click', () => {
+  if (isGenerating) return;
   if (!selectedHex) { showDiceResult('⚠️', '请先点击选择一个六角格'); return; }
   if (isLocked && getHex(selectedHex.q, selectedHex.r).terrain) {
     showDiceResult('🔒', '已锁定，取消勾选锁定后生成');
     return;
   }
+  isGenerating = true;
+  setGenButtonsDisabled(true);
 
   animateDiceRoll('d6', 500, (result) => {
     const d6 = result.total;
@@ -1408,6 +1633,8 @@ document.getElementById('btn-gen-terrain').addEventListener('click', () => {
       showStepResult('🎲', `投d6 → ${d6}`, '', `🏞️ ${defaultIcon} ${defaultName}`);
       setHex(selectedHex.q, selectedHex.r, { terrain: defaultId });
       render();
+      isGenerating = false;
+      setGenButtonsDisabled(false);
     } else {
       showStepResult('🎲', `投d6 → ${d6} 🎯`, '', '按权重表随机特殊地形⋯');
       const table = generationRules.specialTable;
@@ -1428,6 +1655,8 @@ document.getElementById('btn-gen-terrain').addEventListener('click', () => {
           showStepResult('🎲', `抽中 → ${ticon} ${tname}`, '', `${dieFormula}示数:${result2.total}`);
           setHex(selectedHex.q, selectedHex.r, { terrain: chosen });
           render();
+          isGenerating = false;
+          setGenButtonsDisabled(false);
         });
       }, 600);
     }
@@ -1436,11 +1665,14 @@ document.getElementById('btn-gen-terrain').addEventListener('click', () => {
 
 // Generate settlement (per 冒险者公会传说 rules) — with roll animation
 document.getElementById('btn-gen-settlement').addEventListener('click', () => {
+  if (isGenerating) return;
   if (!selectedHex) { showDiceResult('⚠️', '请先点击选择一个六角格'); return; }
   if (isLocked && getHex(selectedHex.q, selectedHex.r).settlement) {
     showDiceResult('🔒', '已有定居点，取消勾选锁定后生成');
     return;
   }
+  isGenerating = true;
+  setGenButtonsDisabled(true);
 
   animateDiceRoll('d6', 500, (result) => {
     const d6 = result.total;
@@ -1451,6 +1683,8 @@ document.getElementById('btn-gen-settlement').addEventListener('click', () => {
     showStepResult('🏘️', '投d6 →', d6, `${name} 评分: ${sign}${rating}`);
     setHex(selectedHex.q, selectedHex.r, { terrain: generationRules.defaultTerrain, settlement: { name, rating } });
     render();
+    isGenerating = false;
+    setGenButtonsDisabled(false);
   });
 });
 
@@ -1477,14 +1711,18 @@ function hexPathfind(q1, r1, q2, r2) {
 
 // Road detection (per 冒险者公会传说: 3d6 > distance → road exists) — with roll animation
 document.getElementById('btn-gen-road').addEventListener('click', () => {
+  if (isGenerating) return;
   if (!selectedHex) { showDiceResult('⚠️', '请先选中一个定居点六角格'); return; }
   const h = getHex(selectedHex.q, selectedHex.r);
   if (!h.settlement) { showDiceResult('⚠️', '当前六角格没有定居点'); return; }
+  isGenerating = true;
+  setGenButtonsDisabled(true);
 
   animateDiceRoll('3d6', 700, (result) => {
     // Find nearby settlements — each compared with independent 3d6 roll
     let roadsBuilt = 0;
     let checked = 0;
+    beginBatch();
     for (const [key, data] of Object.entries(hexData)) {
       if (!data.settlement) continue;
       const [oq, or] = key.split(',').map(Number);
@@ -1506,8 +1744,11 @@ document.getElementById('btn-gen-road').addEventListener('click', () => {
         }
       }
     }
+    endBatch();
     showStepResult('🛤️', `3d6投完`, `检查了${checked}个定居点`, roadsBuilt > 0 ? `发现 ${roadsBuilt} 条道路连接` : '未发现道路');
     render();
+    isGenerating = false;
+    setGenButtonsDisabled(false);
   });
 });
 
@@ -1518,8 +1759,13 @@ function hexDistance(q1, r1, q2, r2) {
   return Math.max(Math.abs(x1 - x2), Math.abs(y1 - y2), Math.abs(z1 - z2));
 }
 
+// Undo/Redo buttons
+document.getElementById('btn-undo').addEventListener('click', undo);
+document.getElementById('btn-redo').addEventListener('click', redo);
+
 // Save/Load
 document.getElementById('btn-save').addEventListener('click', () => {
+  cleanHexData();
   const data = { hexData, viewX, viewY, zoom, customTerrains, deletedTerrains, terrainOrder, generationRules };
   const json = JSON.stringify(data);
   const blob = new Blob([json], { type: 'application/json' });
@@ -1544,6 +1790,7 @@ document.getElementById('btn-load').addEventListener('click', () => {
       try {
         const data = JSON.parse(ev.target.result);
         hexData = data.hexData || {};
+	        undoStack = []; redoStack = []; updateUndoButtons();
         viewX = data.viewX || 0;
         viewY = data.viewY || 0;
         zoom = data.zoom || 1;
@@ -1568,18 +1815,133 @@ document.getElementById('btn-load').addEventListener('click', () => {
 
 // Export PNG
 document.getElementById('btn-export-img').addEventListener('click', () => {
-  // Render full map at current view
-  const link = document.createElement('a');
-  link.download = `hexmap_${new Date().toISOString().slice(0,10)}.png`;
-  link.href = canvas.toDataURL('image/png');
+  cleanHexData();
+  const keys = Object.keys(hexData);
+  if (keys.length === 0) { showDiceResult('⚠️', '没有数据可导出'); return; }
+  // Compute bounding box
+  let minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
+  keys.forEach(k => {
+    const [q, r] = k.split(',').map(Number);
+    if (q < minQ) minQ = q;
+    if (q > maxQ) maxQ = q;
+    if (r < minR) minR = r;
+    if (r > maxR) maxR = r;
+  });
+  const topLeft = hexToPixel(minQ, minR);
+  const botRight = hexToPixel(maxQ, maxR);
+  const size = HEX_SIZE;
+  const padding = size * 2;
+  const w = Math.ceil(botRight.x - topLeft.x + size * 2 + padding * 2);
+  const h = Math.ceil(botRight.y - topLeft.y + size * 1.5 + padding * 2);
+  const MAX_EXPORT = 10000;
+  if (w > MAX_EXPORT || h > MAX_EXPORT) { showDiceResult('⚠️', '地图太大，缩小后导出'); return; }
+  const exportCanvas = document.createElement('canvas');
+  exportCanvas.width = Math.max(w, 640);
+  exportCanvas.height = Math.max(h, 480);
+  const exportCtx = exportCanvas.getContext('2d');
+  exportCtx.fillStyle = '#2d2d44';
+  exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+  const offsetX = (exportCanvas.width - w) / 2 - topLeft.x + padding;
+  const offsetY = (exportCanvas.height - h) / 2 - topLeft.y + padding;
+  exportCtx.save();
+  exportCtx.translate(offsetX, offsetY);
+  const allTerrains = getAllTerrains();
+  // Draw hex fills + grid (Pass 1)
+  for (const key of keys) {
+    const [q, r] = key.split(',').map(Number);
+    const p = hexToPixel(q, r);
+    const corners = hexCorners(p.x, p.y, HEX_SIZE);
+    const h = hexData[key];
+    exportCtx.beginPath();
+    corners.forEach((c, i) => i === 0 ? exportCtx.moveTo(c.x, c.y) : exportCtx.lineTo(c.x, c.y));
+    exportCtx.closePath();
+    let fillColor = '#3a3a52';
+    if (h.terrain && allTerrains[h.terrain]) fillColor = allTerrains[h.terrain].color;
+    exportCtx.fillStyle = fillColor;
+    exportCtx.fill();
+    exportCtx.strokeStyle = 'rgba(255,255,255,0.12)';
+    exportCtx.lineWidth = 1;
+    exportCtx.stroke();
+  }
+  // Draw roads (Pass 2)
+  exportCtx.strokeStyle = '#8B4513';
+  exportCtx.lineWidth = 3;
+  for (const key of keys) {
+    const h = hexData[key];
+    if (h.roads && h.roads.length) {
+      const [q1, r1] = key.split(',').map(Number);
+      const p1 = hexToPixel(q1, r1);
+      for (const rd of h.roads) {
+        if (rd.q > q1 || (rd.q === q1 && rd.r > r1)) {
+          const p2 = hexToPixel(rd.q, rd.r);
+          exportCtx.beginPath();
+          exportCtx.moveTo(p1.x, p1.y);
+          exportCtx.lineTo(p2.x, p2.y);
+          exportCtx.stroke();
+        }
+      }
+    }
+  }
+  // Draw overlays (Pass 3)
+  for (const key of keys) {
+    const [q, r] = key.split(',').map(Number);
+    const h = hexData[key];
+    const p = hexToPixel(q, r);
+    // Terrain icon
+    const hOTI = h.terrain ? allTerrains[h.terrain] : null;
+    if (hOTI) {
+      exportCtx.font = `${HEX_SIZE * 0.5}px sans-serif`;
+      exportCtx.textAlign = 'center';
+      exportCtx.textBaseline = 'middle';
+      exportCtx.fillStyle = 'rgba(255,255,255,0.85)';
+      exportCtx.fillText(hOTI.icon, p.x, p.y - (h.label || h.settlement ? HEX_SIZE * 0.15 : 0));
+    }
+    // Label
+    if (h.label) {
+      exportCtx.fillStyle = '#fff';
+      exportCtx.font = `bold ${Math.max(9, HEX_SIZE * 0.38)}px sans-serif`;
+      exportCtx.textAlign = 'center';
+      exportCtx.textBaseline = 'bottom';
+      const tw = exportCtx.measureText(h.label).width;
+      exportCtx.fillStyle = 'rgba(0,0,0,0.55)';
+      exportCtx.fillRect(p.x - tw/2 - 3, p.y - HEX_SIZE * 0.65, tw + 6, HEX_SIZE * 0.55);
+      exportCtx.fillStyle = '#fff';
+      exportCtx.fillText(h.label, p.x, p.y - HEX_SIZE * 0.2);
+    }
+    // Settlement
+    if (h.settlement) {
+      exportCtx.font = `${HEX_SIZE * 0.6}px sans-serif`;
+      exportCtx.textAlign = 'center';
+      exportCtx.textBaseline = 'bottom';
+      exportCtx.fillText('🏘️', p.x, p.y + HEX_SIZE * 0.45);
+      exportCtx.fillStyle = '#ffd700';
+      exportCtx.font = `bold ${Math.max(9, HEX_SIZE * 0.3)}px sans-serif`;
+      exportCtx.textBaseline = 'top';
+      const sname = h.settlement.name || '?';
+      const srating = h.settlement.rating ?? 0;
+      const stext = `${sname} (${srating >= 0 ? '+' : ''}${srating})`;
+      exportCtx.fillStyle = 'rgba(0,0,0,0.5)';
+      const sw = exportCtx.measureText(stext).width;
+      exportCtx.fillRect(p.x - sw/2 - 3, p.y + HEX_SIZE * 0.3, sw + 6, HEX_SIZE * 0.38);
+      exportCtx.fillStyle = '#ffd700';
+      exportCtx.fillText(stext, p.x, p.y + HEX_SIZE * 0.35);
+    }
+  }
+  exportCtx.restore();
+  const link = document.createElement("a");
+  link.download = "hexmap_" + new Date().toISOString().slice(0,10) + ".png";
+  link.href = exportCanvas.toDataURL("image/png");
   link.click();
-  showDiceResult('🖼️ 已导出', '截图已保存');
+  showDiceResult("🖼️ 已导出", "全地图 " + exportCanvas.width + "x" + exportCanvas.height + " (" + keys.length + " 格)");
 });
 
 // Clear
 document.getElementById('btn-clear').addEventListener('click', () => {
-  if (!confirm('⚠️ 确认清空所有六角格数据？此操作不可撤销！')) return;
+  if (!confirm('⚠️ 确认清空所有六角格数据？')) return;
+  beginBatch();
+  for (const key of Object.keys(hexData)) pushUndo(key);
   hexData = {};
+  endBatch();
   selectedHex = null;
   roadStart = null;
   render();
@@ -1615,11 +1977,8 @@ function updateInfo() {
   </div>`;
 }
 
-function updateCoordDisplay() {
-  // coord-indicator is now updated by setTool()
-}
-
 // ======== Init ========
+cleanHexData();
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
