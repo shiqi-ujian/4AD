@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>四战黑 - 六角格沙盒地图</title>
+<title>四战黑 - 方格沙盒地图</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -93,7 +93,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 <body>
 <div id="app">
   <div id="toolbar">
-    <h2>🗺️ 六角格沙盒</h2>
+    <h2>🗺️ 方格沙盒</h2>
 
     <h3>🔧 工具 <span style="font-weight:normal;font-size:11px;color:#888;float:right;">(快捷键)</span></h3>
     <div class="tool-group">
@@ -125,7 +125,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
         <button id="btn-batch-road" style="flex:1;min-width:60px;padding:4px 6px;background:#8b7a3a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;">🛤️ 批量道路</button>
       </div>
     </div>
-    <div id="tool-hint" style="font-size:11px;color:#e94560;padding:2px 4px;background:rgba(233,69,96,0.1);border-radius:4px;min-height:18px;">👆 点击六角格进行操作</div>
+    <div id="tool-hint" style="font-size:11px;color:#e94560;padding:2px 4px;background:rgba(233,69,96,0.1);border-radius:4px;min-height:18px;">👆 点击格子进行操作</div>
 
     <h3>🏞️ 地形 <span style="font-weight:normal;font-size:11px;color:#888;float:right;">选笔刷后涂</span></h3>
     <div class="tool-group" id="terrain-palette"></div>
@@ -180,7 +180,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
       <input type="checkbox" id="chk-lock"> 🔒 锁定（已编辑格子不受笔刷/擦除影响）
     </label>
     <div style="margin-top:auto;font-size:11px;color:#666;text-align:center;padding-top:8px;">
-      四战黑 · 沙盒六角格地图 v1.0<br>
+      四战黑 · 沙盒方格地图 v1.0<br>
       滚轮缩放 · 拖拽平移 · 右键菜单
     </div>
   </div>
@@ -188,8 +188,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   <div id="canvas-container">
     <div id="coord-indicator">⚪ (0, 0)</div>
     <div id="zoom-indicator">🔍 100%</div>
-    <canvas id="hex-canvas"></canvas>
-    <div id="info-panel"><div class="row"><span class="label">点击六角格查看信息</span></div></div>
+    <canvas id="grid-canvas"></canvas>
+    <div id="info-panel"><div class="row"><span class="label">点击格子查看信息</span></div></div>
   </div>
 </div>
 
@@ -362,7 +362,7 @@ function getTerrainInfo(id) {
 // localStorage persistence
 function saveTerrainConfig() {
   try {
-    localStorage.setItem('hexmap_terrainConfig', JSON.stringify({
+    localStorage.setItem('squaremap_terrainConfig', JSON.stringify({
       customTerrains, deletedTerrains, terrainOrder, generationRules
     }));
   } catch(e) { /* ignore quota errors */ }
@@ -370,7 +370,7 @@ function saveTerrainConfig() {
 
 function loadTerrainConfig() {
   try {
-    const raw = localStorage.getItem('hexmap_terrainConfig');
+    const raw = localStorage.getItem('squaremap_terrainConfig');
     if (raw) {
       const data = JSON.parse(raw);
       if (data.customTerrains) customTerrains = data.customTerrains;
@@ -426,10 +426,10 @@ function isLightColor(hex) {
 }
 
 // ======== State ========
-let hexData = {}; // key: "q,r" -> { terrain, label, settlement, road, color }
+let gridData = {}; // key: "q,r" -> { terrain, label, settlement, road, color }
 let selectedTool = 'select';
 let selectedTerrain = 'plain';
-let selectedHex = null; // { q, r }
+let selectedCell = null; // { q, r }
 let isLocked = false;
 let viewX = 0, viewY = 0;
 let zoom = 1;
@@ -442,7 +442,7 @@ let redoStack = [];
 let undoBatch = null;
 
 function snapshotHex(key) {
-  return hexData[key] ? JSON.parse(JSON.stringify(hexData[key])) : null;
+  return gridData[key] ? JSON.parse(JSON.stringify(gridData[key])) : null;
 }
 
 function updateUndoButtons() {
@@ -487,9 +487,9 @@ function applyUndoEntry(entries) {
   for (const { key, before } of entries) {
     redoEntries.push({ key, before: snapshotHex(key) });
     if (before) {
-      hexData[key] = before;
+      gridData[key] = before;
     } else {
-      delete hexData[key];
+      delete gridData[key];
     }
   }
   return redoEntries;
@@ -518,7 +518,7 @@ let showGrid = true, showCoords = true;
 let roadStart = null; // { q, r } for road drawing
 let _eraseDragLast = new Set(); // dedup erase-drag per drag session
 // Box select state
-let selectedHexes = new Set(); // Set of "q,r" keys
+let selectedCells = new Set(); // Set of "q,r" keys
 let selectionRect = null; // { x1, y1, x2, y2 } screen coords during drag
 let isBoxSelecting = false;
 let isGenerating = false; // lock for generation buttons
@@ -536,95 +536,80 @@ function getCachedImage(url) {
   return imageCache.get(url);
 }
 
-const HEX_SIZE = 36;
-const SQRT3 = Math.sqrt(3);
+const CELL_SIZE = 58;
 
 // Canvas
 const container = document.getElementById('canvas-container');
-const canvas = document.getElementById('hex-canvas');
+const canvas = document.getElementById('grid-canvas');
 const ctx = canvas.getContext('2d');
 
-// ======== Hex math (odd-r offset, flat-top) ========
-function hexToPixel(q, r) {
-  const w = HEX_SIZE * 2;
-  const h = HEX_SIZE * SQRT3;
-  const x = w * 3/4 * q;
-  const y = h * (r + 0.5 * (q & 1));
-  return { x, y };
+// ======== Cell math (square grid) ========
+function cellToPixel(q, r) {
+  return {
+    x: q * CELL_SIZE,
+    y: r * CELL_SIZE
+  };
 }
 
-function pixelToHex(px, py) {
-  const size = HEX_SIZE;
-  const q = (2/3 * px) / size;
-  const r = (-1/3 * px + SQRT3/3 * py) / size;
-  return cubeRound(q, r, -q - r);
+function pixelToCell(px, py) {
+  return {
+    q: Math.floor((px + CELL_SIZE / 2) / CELL_SIZE),
+    r: Math.floor((py + CELL_SIZE / 2) / CELL_SIZE)
+  };
 }
 
-function cubeRound(q, r, s) {
-  let rq = Math.round(q), rr = Math.round(r), rs = Math.round(s);
-  const dq = Math.abs(rq - q), dr = Math.abs(rr - r), ds = Math.abs(rs - s);
-  if (dq > dr && dq > ds) rq = -rr - rs;
-  else if (dr > ds) rr = -rq - rs;
-  // convert to odd-r offset
-  const col = rq;
-  const row = rr + (rq - (rq & 1)) / 2;
-  return { q: Math.round(col), r: Math.round(row) };
+function cellCorners(cx, cy, size) {
+  const half = size / 2;
+  return [
+    { x: cx - half, y: cy - half },
+    { x: cx + half, y: cy - half },
+    { x: cx + half, y: cy + half },
+    { x: cx - half, y: cy + half }
+  ];
 }
 
-function hexCorners(cx, cy, size) {
-  const corners = [];
-  for (let i = 0; i < 6; i++) {
-    const angle = Math.PI / 180 * (60 * i);
-    corners.push({
-      x: cx + size * Math.cos(angle),
-      y: cy + size * Math.sin(angle)
-    });
-  }
-  return corners;
+function cellKey(q, r) { return `${q},${r}`; }
+
+function getCell(q, r) {
+  const k = cellKey(q, r);
+  return gridData[k] || { terrain: null, label: '', settlement: null, roads: [] };
 }
 
-function hexKey(q, r) { return `${q},${r}`; }
-
-function getHex(q, r) {
-  const k = hexKey(q, r);
-  return hexData[k] || { terrain: null, label: '', settlement: null, roads: [] };
-}
-
-function setHex(q, r, data) {
-  const key = hexKey(q, r);
+function setCell(q, r, data) {
+  const key = cellKey(q, r);
   pushUndo(key);
-  const merged = { ...getHex(q, r), ...data };
-  // Auto-clean empty hexes (all fields are default)
+  const merged = { ...getCell(q, r), ...data };
+  // Auto-clean empty cells (all fields are default)
   if (!merged.terrain && !merged.label && !merged.settlement && (!merged.roads || merged.roads.length === 0)) {
-    delete hexData[key];
+    delete gridData[key];
   } else {
-    hexData[key] = merged;
+    gridData[key] = merged;
   }
 }
 
-// Remove hexes with no terrain, label, settlement, or roads
-function cleanHexData() {
-  for (const key of Object.keys(hexData)) {
-    const h = hexData[key];
+// Remove cells with no terrain, label, settlement, or roads
+function cleanGridData() {
+  for (const key of Object.keys(gridData)) {
+    const h = gridData[key];
     if (!h.terrain && !h.label && !h.settlement && (!h.roads || h.roads.length === 0)) {
-      delete hexData[key];
+      delete gridData[key];
     }
   }
 }
 
 function hasRoad(q1, r1, q2, r2) {
-  return getHex(q1, r1).roads?.some(rr => rr.q === q2 && rr.r === r2) ?? false;
+  return getCell(q1, r1).roads?.some(rr => rr.q === q2 && rr.r === r2) ?? false;
 }
 
 function addRoad(q1, r1, q2, r2) {
-  const k1 = hexKey(q1, r1);
-  const k2 = hexKey(q2, r2);
-  if (!hexData[k1]) hexData[k1] = { terrain: null, label: '', settlement: null, roads: [] };
-  if (!hexData[k2]) hexData[k2] = { terrain: null, label: '', settlement: null, roads: [] };
+  const k1 = cellKey(q1, r1);
+  const k2 = cellKey(q2, r2);
+  if (!gridData[k1]) gridData[k1] = { terrain: null, label: '', settlement: null, roads: [] };
+  if (!gridData[k2]) gridData[k2] = { terrain: null, label: '', settlement: null, roads: [] };
   pushUndo(k1);
   pushUndo(k2);
-  const h1 = hexData[k1];
-  const h2 = hexData[k2];
+  const h1 = gridData[k1];
+  const h2 = gridData[k2];
   if (!h1.roads) h1.roads = [];
   if (!h1.roads.some(r => r.q === q2 && r.r === r2)) h1.roads.push({ q: q2, r: r2 });
   if (!h2.roads) h2.roads = [];
@@ -632,14 +617,14 @@ function addRoad(q1, r1, q2, r2) {
 }
 
 function removeRoad(q1, r1, q2, r2) {
-  const k1 = hexKey(q1, r1);
-  const k2 = hexKey(q2, r2);
-  const h1 = getHex(q1, r1);
+  const k1 = cellKey(q1, r1);
+  const k2 = cellKey(q2, r2);
+  const h1 = getCell(q1, r1);
   if (h1.roads) {
     pushUndo(k1);
     h1.roads = h1.roads.filter(r => !(r.q === q2 && r.r === r2));
   }
-  const h2 = getHex(q2, r2);
+  const h2 = getCell(q2, r2);
   if (h2.roads) {
     pushUndo(k2);
     h2.roads = h2.roads.filter(r => !(r.q === q1 && r.r === r1));
@@ -647,12 +632,7 @@ function removeRoad(q1, r1, q2, r2) {
 }
 
 function neighbors(q, r) {
-  const parity = q & 1;
-  const dirs = parity ? [
-    [1,0],[0,-1],[-1,0],[-1,1],[0,1],[1,1]
-  ] : [
-    [1,0],[1,-1],[0,-1],[-1,-1],[-1,0],[0,1]
-  ];
+  const dirs = [[1,0], [0,-1], [-1,0], [0,1]];
   return dirs.map(([dq, dr]) => ({ q: q + dq, r: r + dr }));
 }
 
@@ -675,34 +655,34 @@ function render() {
   ctx.translate(viewX, viewY);
   ctx.scale(zoom, zoom);
 
-  // Determine visible hex range
-  const margin = HEX_SIZE * 2;
-  const topLeft = pixelToHex((-viewX - margin) / zoom, (-viewY - margin) / zoom);
-  const botRight = pixelToHex((W - viewX + margin) / zoom, (H - viewY + margin) / zoom);
+  // Determine visible cell range
+  const margin = CELL_SIZE * 2;
+  const topLeft = pixelToCell((-viewX - margin) / zoom, (-viewY - margin) / zoom);
+  const botRight = pixelToCell((W - viewX + margin) / zoom, (H - viewY + margin) / zoom);
 
   const qMin = Math.floor(topLeft.q) - 1, qMax = Math.ceil(botRight.q) + 1;
   const rMin = Math.floor(topLeft.r) - 1, rMax = Math.ceil(botRight.r) + 1;
   const allTerrains = getAllTerrains();
 
-  // Pass 1: Draw hex fills and grid only
+  // Pass 1: Draw cell fills and grid only
   for (let q = qMin; q <= qMax; q++) {
     for (let r = rMin; r <= rMax; r++) {
-      drawHexBase(q, r, allTerrains);
+      drawCellBase(q, r, allTerrains);
     }
   }
 
-  // Pass 2: Draw roads (between hexes)
+  // Pass 2: Draw roads (between cells)
   ctx.strokeStyle = '#8B4513';
   ctx.lineWidth = 3;
   for (let q = qMin; q <= qMax; q++) {
     for (let r = rMin; r <= rMax; r++) {
-      const h = getHex(q, r);
+      const h = getCell(q, r);
       if (h.roads) {
-        const p1 = hexToPixel(q, r);
+        const p1 = cellToPixel(q, r);
         for (const rd of h.roads) {
           // Draw each road once (only if q,r < rd in some ordering)
           if (rd.q > q || (rd.q === q && rd.r > r)) {
-            const p2 = hexToPixel(rd.q, rd.r);
+            const p2 = cellToPixel(rd.q, rd.r);
             ctx.beginPath();
             ctx.moveTo(p1.x, p1.y);
             ctx.lineTo(p2.x, p2.y);
@@ -716,51 +696,41 @@ function render() {
   // Pass 3: Draw overlays (icons, labels, settlements) — on top of everything
   for (let q = qMin; q <= qMax; q++) {
     for (let r = rMin; r <= rMax; r++) {
-      drawHexOverlay(q, r, allTerrains);
+      drawCellOverlay(q, r, allTerrains);
     }
   }
 
   // Draw selection outline
-  if (selectedHex) {
-    const p = hexToPixel(selectedHex.q, selectedHex.r);
-    const corners = hexCorners(p.x, p.y, HEX_SIZE);
-    ctx.beginPath();
-    corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
-    ctx.closePath();
+  if (selectedCell) {
+    const p = cellToPixel(selectedCell.q, selectedCell.r);
+    const half = CELL_SIZE / 2;
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 3;
     ctx.setLineDash([4, 4]);
-    ctx.stroke();
+    ctx.strokeRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
     ctx.setLineDash([]);
   }
 
   // Draw road start indicator
   if (roadStart) {
-    const p = hexToPixel(roadStart.q, roadStart.r);
-    const corners = hexCorners(p.x, p.y, HEX_SIZE + 4);
-    ctx.beginPath();
-    corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
-    ctx.closePath();
+    const p = cellToPixel(roadStart.q, roadStart.r);
     ctx.strokeStyle = '#ff6600';
     ctx.lineWidth = 2;
-    ctx.stroke();
+    ctx.strokeRect(p.x - CELL_SIZE/2 - 2, p.y - CELL_SIZE/2 - 2, CELL_SIZE + 4, CELL_SIZE + 4);
   }
 
-  // Draw box-selected hex highlights
-  if (selectedHexes.size > 0) {
-    for (const key of selectedHexes) {
+  // Draw box-selected cell highlights
+  if (selectedCells.size > 0) {
+    for (const key of selectedCells) {
       const [sq, sr] = key.split(',').map(Number);
-      const p = hexToPixel(sq, sr);
-      const corners = hexCorners(p.x, p.y, HEX_SIZE);
-      ctx.beginPath();
-      corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
-      ctx.closePath();
+      const p = cellToPixel(sq, sr);
+      const half = CELL_SIZE / 2;
       ctx.strokeStyle = 'rgba(0, 200, 255, 0.7)';
       ctx.lineWidth = 3;
-      ctx.stroke();
+      ctx.strokeRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
       // Inner glow
       ctx.fillStyle = 'rgba(0, 200, 255, 0.08)';
-      ctx.fill();
+      ctx.fillRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
     }
   }
 
@@ -769,7 +739,7 @@ function render() {
     const { x1, y1, x2, y2 } = selectionRect;
     const rx = Math.min(x1, x2), ry = Math.min(y1, y2);
     const rw = Math.abs(x2 - x1), rh = Math.abs(y2 - y1);
-    ctx.restore(); // temporarily exit hex coordinate transform
+    ctx.restore(); // temporarily exit cell coordinate transform
     ctx.fillStyle = 'rgba(0, 150, 255, 0.1)';
     ctx.fillRect(rx, ry, rw, rh);
     ctx.strokeStyle = 'rgba(0, 150, 255, 0.7)';
@@ -785,146 +755,132 @@ function render() {
   ctx.restore();
 }
 
-function drawHexBase(q, r, allTerrains) {
-  const p = hexToPixel(q, r);
-  const h = getHex(q, r);
-  const corners = hexCorners(p.x, p.y, HEX_SIZE);
+function drawCellBase(q, r, allTerrains) {
+  const p = cellToPixel(q, r);
+  const h = getCell(q, r);
+  const half = CELL_SIZE / 2;
 
   // Fill
-  ctx.beginPath();
-  corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
-  ctx.closePath();
-
   let fillColor = '#3a3a52';
   const hTerrainInfo = h.terrain ? allTerrains[h.terrain] : null;
   if (hTerrainInfo) fillColor = hTerrainInfo.color;
   ctx.fillStyle = fillColor;
-  ctx.fill();
+  ctx.fillRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
 
   // Grid stroke
   if (showGrid) {
     ctx.strokeStyle = 'rgba(255,255,255,0.12)';
     ctx.lineWidth = 1;
-    ctx.stroke();
+    ctx.strokeRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
   }
 }
 
-function drawHexOverlay(q, r, allTerrains) {
-  const p = hexToPixel(q, r);
-  const h = getHex(q, r);
+function drawCellOverlay(q, r, allTerrains) {
+  const p = cellToPixel(q, r);
+  const h = getCell(q, r);
 
   // Coordinates
   if (showCoords) {
     ctx.fillStyle = 'rgba(255,255,255,0.35)';
-    ctx.font = `${Math.max(8, HEX_SIZE * 0.32)}px monospace`;
+    ctx.font = `${Math.max(8, CELL_SIZE * 0.2)}px monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`${q},${r}`, p.x, p.y + HEX_SIZE * 0.4);
+    ctx.fillText(`${q},${r}`, p.x, p.y + CELL_SIZE * 0.25);
   }
 
   // Terrain icon (image or emoji)
   const hOverlayTI = h.terrain ? allTerrains[h.terrain] : null;
   if (hOverlayTI) {
     if (hOverlayTI.imageUrl) {
-      drawHexImage(p.x, p.y, HEX_SIZE * 1.1, hOverlayTI.imageUrl);
+      drawCellImage(p.x, p.y, CELL_SIZE * 0.68, hOverlayTI.imageUrl);
     } else {
-      ctx.font = `${HEX_SIZE * 0.5}px sans-serif`;
+      ctx.font = `${CELL_SIZE * 0.31}px sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = 'rgba(255,255,255,0.85)';
-      ctx.fillText(hOverlayTI.icon, p.x, p.y - (h.label || h.settlement ? HEX_SIZE * 0.15 : 0));
+      ctx.fillText(hOverlayTI.icon, p.x, p.y - (h.label || h.settlement ? CELL_SIZE * 0.09 : 0));
     }
   }
 
   // Label
   if (h.label) {
     ctx.fillStyle = '#fff';
-    ctx.font = `bold ${Math.max(9, HEX_SIZE * 0.38)}px sans-serif`;
+    ctx.font = `bold ${Math.max(9, CELL_SIZE * 0.24)}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
     const tw = ctx.measureText(h.label).width;
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(p.x - tw/2 - 3, p.y - HEX_SIZE * 0.65, tw + 6, HEX_SIZE * 0.55);
+    ctx.fillRect(p.x - tw/2 - 3, p.y - CELL_SIZE * 0.4, tw + 6, CELL_SIZE * 0.34);
     ctx.fillStyle = '#fff';
-    ctx.fillText(h.label, p.x, p.y - HEX_SIZE * 0.2);
+    ctx.fillText(h.label, p.x, p.y - CELL_SIZE * 0.12);
   }
 
   // Settlement marker
   if (h.settlement) {
     if (h.settlement.imageUrl) {
-      drawHexImage(p.x, p.y + HEX_SIZE * 0.15, HEX_SIZE * 0.9, h.settlement.imageUrl);
+      drawCellImage(p.x, p.y + CELL_SIZE * 0.09, CELL_SIZE * 0.56, h.settlement.imageUrl);
     } else {
-      ctx.font = `${HEX_SIZE * 0.6}px sans-serif`;
+      ctx.font = `${CELL_SIZE * 0.37}px sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
-      ctx.fillText('🏘️', p.x, p.y + HEX_SIZE * 0.45);
+      ctx.fillText('🏘️', p.x, p.y + CELL_SIZE * 0.28);
     }
 
     // Settlement name & rating
     ctx.fillStyle = '#ffd700';
-    ctx.font = `bold ${Math.max(9, HEX_SIZE * 0.3)}px sans-serif`;
+    ctx.font = `bold ${Math.max(9, CELL_SIZE * 0.19)}px sans-serif`;
     ctx.textBaseline = 'top';
     const sname = h.settlement.name || '?';
     const srating = h.settlement.rating ?? 0;
     const stext = `${sname} (${srating >= 0 ? '+' : ''}${srating})`;
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
     const sw = ctx.measureText(stext).width;
-    ctx.fillRect(p.x - sw/2 - 3, p.y + HEX_SIZE * 0.3, sw + 6, HEX_SIZE * 0.38);
+    ctx.fillRect(p.x - sw/2 - 3, p.y + CELL_SIZE * 0.19, sw + 6, CELL_SIZE * 0.24);
     ctx.fillStyle = '#ffd700';
-    ctx.fillText(stext, p.x, p.y + HEX_SIZE * 0.35);
+    ctx.fillText(stext, p.x, p.y + CELL_SIZE * 0.22);
   }
 }
 
-// Draw an image clipped to a hexagon shape
-function drawHexImage(cx, cy, imgSize, imageUrl) {
+// Draw an image clipped to a square shape
+function drawCellImage(cx, cy, imgSize, imageUrl) {
   const img = getCachedImage(imageUrl);
   if (!img || !img.complete || img.naturalWidth === 0) {
     // Image not loaded yet, draw placeholder
     ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    ctx.font = `${HEX_SIZE * 0.5}px sans-serif`;
+    ctx.font = `${CELL_SIZE * 0.5}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('🖼️', cx, cy);
     return;
   }
   ctx.save();
-  // Hex clip path
-  const corners = hexCorners(cx, cy, imgSize * 0.6);
+  // Square clip path
+  const half = imgSize / 2;
   ctx.beginPath();
-  corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
-  ctx.closePath();
+  ctx.rect(cx - half, cy - half, imgSize, imgSize);
   ctx.clip();
   // Draw image centered
   const s = imgSize;
   ctx.drawImage(img, cx - s/2, cy - s/2, s, s);
   ctx.restore();
   // Thin border
-  ctx.beginPath();
-  corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
-  ctx.closePath();
   ctx.strokeStyle = 'rgba(255,255,255,0.15)';
   ctx.lineWidth = 1;
-  ctx.stroke();
+  ctx.strokeRect(cx - half, cy - half, imgSize, imgSize);
 }
 
 // ======== Hit testing ========
-function hexAtPixel(px, py) {
-  // Transform screen → world
+function cellAtPixel(px, py) {
   const wx = (px - viewX) / zoom;
   const wy = (py - viewY) / zoom;
-  const h = pixelToHex(wx, wy);
-  // Verify distance
-  const p = hexToPixel(h.q, h.r);
-  const corners = hexCorners(p.x, p.y, HEX_SIZE);
-  // Point-in-polygon test
-  let inside = false;
-  for (let i = 0, j = 5; i < 6; j = i++) {
-    const xi = corners[i].x, yi = corners[i].y;
-    const xj = corners[j].x, yj = corners[j].y;
-    if ((yi > wy) !== (yj > wy) && wx < (xj - xi) * (wy - yi) / (yj - yi) + xi)
-      inside = !inside;
+  const c = pixelToCell(wx, wy);
+  const p = cellToPixel(c.q, c.r);
+  const half = CELL_SIZE / 2;
+  if (wx >= p.x - half && wx <= p.x + half &&
+      wy >= p.y - half && wy <= p.y + half) {
+    return c;
   }
-  return inside ? h : null;
+  return null;
 }
 
 // ======== Input Handling ========
@@ -946,10 +902,10 @@ canvas.addEventListener('mousedown', (e) => {
       return;
     }
 
-    const hex = hexAtPixel(mx, my);
+    const hex = cellAtPixel(mx, my);
 
     if (hex) {
-      handleHexClick(hex.q, hex.r, e);
+      handleCellClick(hex.q, hex.r, e);
       // Select 模式下点击格子后仍可拖拽平移地图
       if (selectedTool === 'select') {
         isDragging = true;
@@ -958,20 +914,20 @@ canvas.addEventListener('mousedown', (e) => {
         viewStartX = viewX;
         viewStartY = viewY;
       }
-      // Paint mode: still enable drag for continuous painting across hexes
+      // Paint mode: still enable drag for continuous painting across cells
       if (selectedTool === 'paint') {
         isDragging = true;
         dragStartX = mx;
         dragStartY = my;
         // Don't save viewStart - we don't want to pan
       }
-      // Erase mode: drag across hexes to erase continuously
+      // Erase mode: drag across cells to erase continuously
       if (selectedTool === 'erase') {
         isDragging = true;
         dragStartX = mx;
         dragStartY = my;
         _eraseDragLast = new Set();
-        _eraseDragLast.add(hexKey(hex.q, hex.r));
+        _eraseDragLast.add(cellKey(hex.q, hex.r));
       }
       return;
     }
@@ -998,46 +954,46 @@ canvas.addEventListener('mousemove', (e) => {
   }
 
   if (isDragging) {
-    // Paint tool: drag across hexes to paint continuously
+    // Paint tool: drag across cells to paint continuously
     if (selectedTool === 'paint') {
-      const hex = hexAtPixel(mx, my);
+      const hex = cellAtPixel(mx, my);
       if (hex) {
-        const k = hexKey(hex.q, hex.r);
-        const h = getHex(hex.q, hex.r);
-        // Skip if locked and hex already has terrain
+        const k = cellKey(hex.q, hex.r);
+        const h = getCell(hex.q, hex.r);
+        // Skip if locked and cell already has terrain
         if (h.terrain !== selectedTerrain && !(isLocked && h.terrain)) {
-          setHex(hex.q, hex.r, { terrain: selectedTerrain });
+          setCell(hex.q, hex.r, { terrain: selectedTerrain });
           render();
         }
       }
     } else if (selectedTool === 'erase') {
-      const hex = hexAtPixel(mx, my);
+      const hex = cellAtPixel(mx, my);
       if (hex) {
-        const k = hexKey(hex.q, hex.r);
+        const k = cellKey(hex.q, hex.r);
         if (_eraseDragLast.has(k)) return; // skip same hex
         _eraseDragLast.add(k);
-        const h = getHex(hex.q, hex.r);
+        const h = getCell(hex.q, hex.r);
         if (isLocked && (h.terrain || h.settlement || h.label || h.roads?.length)) return;
         const mode = document.getElementById('erase-mode').value;
         if (mode === 'all') {
-          setHex(hex.q, hex.r, { terrain: null, label: '', settlement: null, roads: [] });
+          setCell(hex.q, hex.r, { terrain: null, label: '', settlement: null, roads: [] });
         } else if (mode === 'terrain') {
-          setHex(hex.q, hex.r, { terrain: null });
+          setCell(hex.q, hex.r, { terrain: null });
         } else if (mode === 'settlement') {
-          setHex(hex.q, hex.r, { settlement: null });
+          setCell(hex.q, hex.r, { settlement: null });
         } else if (mode === 'label') {
-          setHex(hex.q, hex.r, { label: '' });
+          setCell(hex.q, hex.r, { label: '' });
         } else if (mode === 'roads') {
-          const cur = getHex(hex.q, hex.r);
+          const cur = getCell(hex.q, hex.r);
           if (cur.roads) {
             for (const rd of cur.roads) {
-              const nh = getHex(rd.q, rd.r);
+              const nh = getCell(rd.q, rd.r);
               if (nh.roads) {
-                setHex(rd.q, rd.r, { roads: nh.roads.filter(r => !(r.q === hex.q && r.r === hex.r)) });
+                setCell(rd.q, rd.r, { roads: nh.roads.filter(r => !(r.q === hex.q && r.r === hex.r)) });
               }
             }
           }
-          setHex(hex.q, hex.r, { roads: [] });
+          setCell(hex.q, hex.r, { roads: [] });
         }
         render();
       }
@@ -1055,22 +1011,22 @@ canvas.addEventListener('mouseup', () => {
   _eraseDragLast = new Set();
   if (isBoxSelecting) {
     isBoxSelecting = false;
-    // Find hexes within the selection rectangle
-    selectedHexes = new Set();
+    // Find cells within the selection rectangle
+    selectedCells = new Set();
     if (selectionRect) {
       const { x1, y1, x2, y2 } = selectionRect;
       const minX = Math.min(x1, x2), maxX = Math.max(x1, x2);
       const minY = Math.min(y1, y2), maxY = Math.max(y1, y2);
-      // Estimate hex range from corners
-      const topLeft = pixelToHex((minX - viewX) / zoom, (minY - viewY) / zoom);
-      const botRight = pixelToHex((maxX - viewX) / zoom, (maxY - viewY) / zoom);
+      // Estimate cell range from corners
+      const topLeft = pixelToCell((minX - viewX) / zoom, (minY - viewY) / zoom);
+      const botRight = pixelToCell((maxX - viewX) / zoom, (maxY - viewY) / zoom);
       for (let q = Math.floor(topLeft.q) - 1; q <= Math.ceil(botRight.q) + 1; q++) {
         for (let r = Math.floor(topLeft.r) - 1; r <= Math.ceil(botRight.r) + 1; r++) {
-          const p = hexToPixel(q, r);
+          const p = cellToPixel(q, r);
           const sx = p.x * zoom + viewX;
           const sy = p.y * zoom + viewY;
           if (sx >= minX && sx <= maxX && sy >= minY && sy <= maxY) {
-            selectedHexes.add(hexKey(q, r));
+            selectedCells.add(cellKey(q, r));
           }
         }
       }
@@ -1108,9 +1064,9 @@ canvas.addEventListener('touchstart', (e) => {
     const mx = e.touches[0].clientX - rect.left;
     const my = e.touches[0].clientY - rect.top;
 
-    const hex = hexAtPixel(mx, my);
+    const hex = cellAtPixel(mx, my);
     if (hex) {
-      handleHexClick(hex.q, hex.r, { shiftKey: false, ctrlKey: false });
+      handleCellClick(hex.q, hex.r, { shiftKey: false, ctrlKey: false });
       isDragging = false;
       return;
     }
@@ -1158,13 +1114,13 @@ canvas.addEventListener('touchend', () => { isDragging = false; });
 
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
-// ======== Hex Click Handler ========
-function handleHexClick(q, r, e) {
-  selectedHex = { q, r };
+// ======== Cell Click Handler ========
+function handleCellClick(q, r, e) {
+  selectedCell = { q, r };
 
   if (selectedTool === 'paint') {
-    if (isLocked && getHex(q, r).terrain) { /* locked, skip */ } else {
-      setHex(q, r, { terrain: selectedTerrain });
+    if (isLocked && getCell(q, r).terrain) { /* locked, skip */ } else {
+      setCell(q, r, { terrain: selectedTerrain });
       render();
       updateInfo();
     }
@@ -1174,12 +1130,12 @@ function handleHexClick(q, r, e) {
     const hint = document.getElementById('tool-hint');
     if (!roadStart) {
       roadStart = { q, r };
-      hint.innerHTML = `🛤️ 起点已选 <b>(${q}, ${r})</b>，点击相邻六角格连线。再次点击起点可取消`;
+      hint.innerHTML = `🛤️ 起点已选 <b>(${q}, ${r})</b>，点击相邻格子连线。再次点击起点可取消`;
       document.getElementById('coord-indicator').textContent = `🛤️ 起点 (${q}, ${r})`;
     } else {
       if (roadStart.q === q && roadStart.r === r) {
         roadStart = null;
-        hint.innerHTML = '🛤️ <b>点击第一个六角格</b>设为起点(橙色高亮)，再<b>点击相邻格</b>连线';
+        hint.innerHTML = '🛤️ <b>点击第一个格子</b>设为起点(橙色高亮)，再<b>点击相邻格</b>连线';
         document.getElementById('coord-indicator').textContent = '🛤️ 点击选择道路起点';
       } else {
         // Check if adjacent
@@ -1210,34 +1166,34 @@ function handleHexClick(q, r, e) {
     showLabelDialog(q, r);
   } else if (selectedTool === 'erase') {
     const mode = document.getElementById('erase-mode').value;
-    const h = getHex(q, r);
-    // Locked: don't erase hexes with any content
+    const h = getCell(q, r);
+    // Locked: don't erase cells with any content
     if (isLocked && (h.terrain || h.settlement || h.label || h.roads?.length)) {
       showDiceResult('🔒', '已锁定，取消勾选锁定后擦除');
       return;
     }
     if (mode === 'all') {
-      setHex(q, r, { terrain: null, label: '', settlement: null, roads: [] });
+      setCell(q, r, { terrain: null, label: '', settlement: null, roads: [] });
     } else if (mode === 'terrain') {
-      setHex(q, r, { terrain: null });
+      setCell(q, r, { terrain: null });
     } else if (mode === 'settlement') {
-      // Keep roads to/from this hex when removing settlement
-      setHex(q, r, { settlement: null });
+      // Keep roads to/from this cell when removing settlement
+      setCell(q, r, { settlement: null });
     } else if (mode === 'label') {
-      setHex(q, r, { label: '' });
+      setCell(q, r, { label: '' });
     } else if (mode === 'roads') {
-      // Remove all roads from this hex and corresponding roads from neighbors
+      // Remove all roads from this cell and corresponding roads from neighbors
       beginBatch();
       if (h.roads) {
         for (const rd of h.roads) {
-          const nh = getHex(rd.q, rd.r);
+          const nh = getCell(rd.q, rd.r);
           if (nh.roads) {
             const filtered = nh.roads.filter(r => !(r.q === q && r.r === r));
-            setHex(rd.q, rd.r, { roads: filtered });
+            setCell(rd.q, rd.r, { roads: filtered });
           }
         }
       }
-      setHex(q, r, { roads: [] });
+      setCell(q, r, { roads: [] });
       endBatch();
     }
     render();
@@ -1251,7 +1207,7 @@ function handleHexClick(q, r, e) {
 
 // ======== Context Menu ========
 function showContextMenu(cx, cy, mx, my) {
-  const hex = hexAtPixel(mx, my);
+  const hex = cellAtPixel(mx, my);
   if (!hex) return;
 
   const menu = document.getElementById('ctx-menu');
@@ -1263,7 +1219,7 @@ function showContextMenu(cx, cy, mx, my) {
   menu.style.top = cy + 'px';
 
   const items = [
-    { text: `📍 选中 (${hex.q}, ${hex.r})`, action: () => { selectedHex = hex; updateInfo(); render(); } },
+    { text: `📍 选中 (${hex.q}, ${hex.r})`, action: () => { selectedCell = hex; updateInfo(); render(); } },
     { text: '—' },
   ];
 
@@ -1274,27 +1230,27 @@ function showContextMenu(cx, cy, mx, my) {
     if (!ctxTInfo) return;
     items.push({
       text: `${ctxTInfo.icon} ${ctxTInfo.name}`,
-      action: () => { setHex(hex.q, hex.r, { terrain: id }); render(); updateInfo(); }
+      action: () => { setCell(hex.q, hex.r, { terrain: id }); render(); updateInfo(); }
     });
   });
 
   items.push({ text: '—' });
   items.push({
     text: '🏘️ 设置定居点',
-    action: () => { selectedHex = hex; showSettlementDialog(hex.q, hex.r); render(); }
+    action: () => { selectedCell = hex; showSettlementDialog(hex.q, hex.r); render(); }
   });
   items.push({
     text: '🏷️ 设置标签',
-    action: () => { selectedHex = hex; showLabelDialog(hex.q, hex.r); render(); }
+    action: () => { selectedCell = hex; showLabelDialog(hex.q, hex.r); render(); }
   });
   items.push({
     text: '🛤️ 切换道路',
-    action: () => { selectedHex = hex; roadStart = hex; }
+    action: () => { selectedCell = hex; roadStart = hex; }
   });
   items.push({ text: '—' });
   items.push({
     text: '🧹 清除',
-    action: () => { setHex(hex.q, hex.r, { terrain: null, label: '', settlement: null, roads: [] }); render(); updateInfo(); }
+    action: () => { setCell(hex.q, hex.r, { terrain: null, label: '', settlement: null, roads: [] }); render(); updateInfo(); }
   });
 
   items.forEach(item => {
@@ -1327,16 +1283,16 @@ function showContextMenu(cx, cy, mx, my) {
 function updateBatchPanel() {
   const panel = document.getElementById('batch-panel');
   const count = document.getElementById('batch-count');
-  if (selectedHexes.size > 0) {
+  if (selectedCells.size > 0) {
     panel.style.display = 'block';
-    count.textContent = `已选 ${selectedHexes.size} 格`;
+    count.textContent = `已选 ${selectedCells.size} 格`;
   } else {
     panel.style.display = 'none';
   }
 }
 
 function clearSelection() {
-  selectedHexes = new Set();
+  selectedCells = new Set();
   updateBatchPanel();
   render();
   updateInfo();
@@ -1345,44 +1301,44 @@ function clearSelection() {
 document.getElementById('btn-batch-clear-selection').addEventListener('click', clearSelection);
 
 document.getElementById('btn-batch-terrain').addEventListener('click', () => {
-  if (selectedHexes.size === 0) return;
+  if (selectedCells.size === 0) return;
   const terrainId = selectedTerrain;
   beginBatch();
-  for (const key of selectedHexes) {
+  for (const key of selectedCells) {
     const [q, r] = key.split(',').map(Number);
-    if (!(isLocked && getHex(q, r).terrain)) {
-      setHex(q, r, { terrain: terrainId });
+    if (!(isLocked && getCell(q, r).terrain)) {
+      setCell(q, r, { terrain: terrainId });
     }
   }
   endBatch();
-  showDiceResult('🏞️', `已批量设置地形 → ${getTerrainInfo(terrainId)?.name || terrainId} (${selectedHexes.size} 格)`);
+  showDiceResult('🏞️', `已批量设置地形 → ${getTerrainInfo(terrainId)?.name || terrainId} (${selectedCells.size} 格)`);
   render();
   updateInfo();
 });
 
 document.getElementById('btn-batch-erase').addEventListener('click', () => {
-  if (selectedHexes.size === 0) return;
-  if (!confirm(`确认清除 ${selectedHexes.size} 个六角格的内容？`)) return;
+  if (selectedCells.size === 0) return;
+  if (!confirm(`确认清除 ${selectedCells.size} 个格子的内容？`)) return;
   beginBatch();
-  for (const key of selectedHexes) {
+  for (const key of selectedCells) {
     const [q, r] = key.split(',').map(Number);
-    const h = getHex(q, r);
+    const h = getCell(q, r);
     if (isLocked && (h.terrain || h.settlement || h.label || h.roads?.length)) continue;
-    setHex(q, r, { terrain: null, label: '', settlement: null, roads: [] });
+    setCell(q, r, { terrain: null, label: '', settlement: null, roads: [] });
   }
   endBatch();
-  showDiceResult('🧹', `已批量清除 ${selectedHexes.size} 格`);
+  showDiceResult('🧹', `已批量清除 ${selectedCells.size} 格`);
   clearSelection();
   render();
   updateInfo();
 });
 
 document.getElementById('btn-batch-road').addEventListener('click', () => {
-  if (selectedHexes.size < 2) { showDiceResult('⚠️', '需选中至少 2 个格子才能连道路'); return; }
-  const keys = [...selectedHexes];
+  if (selectedCells.size < 2) { showDiceResult('⚠️', '需选中至少 2 个格子才能连道路'); return; }
+  const keys = [...selectedCells];
   beginBatch();
   let count = 0;
-  // Connect selected hexes in sequence along the path
+  // Connect selected cells in sequence along the path
   for (let i = 0; i < keys.length; i++) {
     for (let j = i + 1; j < keys.length; j++) {
       const [q1, r1] = keys[i].split(',').map(Number);
@@ -1406,7 +1362,7 @@ document.getElementById('btn-batch-road').addEventListener('click', () => {
 // (modal functions removed — settlement/label now use browser dialogs)
 
 function showSettlementDialog(q, r) {
-  const h = getHex(q, r);
+  const h = getCell(q, r);
   const existing = h.settlement;
   document.getElementById('settlement-modal-q').value = q;
   document.getElementById('settlement-modal-r').value = r;
@@ -1425,7 +1381,7 @@ function showSettlementDialog(q, r) {
 }
 
 function showLabelDialog(q, r) {
-  const h = getHex(q, r);
+  const h = getCell(q, r);
   document.getElementById('label-modal-q').value = q;
   document.getElementById('label-modal-r').value = r;
   document.getElementById('label-modal-coord').textContent = `(${q}, ${r})`;
@@ -1484,7 +1440,7 @@ function setTool(tool) {
   document.getElementById('erase-options').style.display = tool === 'erase' ? 'block' : 'none';
   // Hide batch panel when not in select-rect
   if (tool !== 'select-rect') {
-    if (selectedHexes.size > 0) clearSelection();
+    if (selectedCells.size > 0) clearSelection();
     document.getElementById('batch-panel').style.display = 'none';
   } else {
     updateBatchPanel();
@@ -1494,12 +1450,12 @@ function setTool(tool) {
   const coord = document.getElementById('coord-indicator');
   switch (tool) {
     case 'select':
-      hint.innerHTML = '👆 点击六角格查看信息';
+      hint.innerHTML = '👆 点击格子查看信息';
       coord.textContent = '⚪ 选择模式';
       break;
     case 'select-rect':
-      hint.innerHTML = '🔲 在画布上<b>拖拽</b>框选多个六角格，然后使用批量操作按钮';
-      coord.textContent = `🔲 已选 ${selectedHexes.size} 格`;
+      hint.innerHTML = '🔲 在画布上<b>拖拽</b>框选多个格子，然后使用批量操作按钮';
+      coord.textContent = `🔲 已选 ${selectedCells.size} 格`;
       break;
     case 'paint':
       const paintT = getTerrainInfo(selectedTerrain);
@@ -1507,15 +1463,15 @@ function setTool(tool) {
       coord.textContent = `🖌️ ${paintT?.name || ''} 笔刷`;
       break;
     case 'settlement':
-      hint.innerHTML = '🏘️ 点击六角格 → 弹出窗口填写名称和评分';
+      hint.innerHTML = '🏘️ 点击格子 → 弹出窗口填写名称和评分';
       coord.textContent = '🏘️ 点击放置定居点';
       break;
     case 'road':
-      hint.innerHTML = '🛤️ <b>点击第一个六角格</b>设为起点(橙色高亮)，再<b>点击相邻格</b>连线。再次点击起点可取消';
+      hint.innerHTML = '🛤️ <b>点击第一个格子</b>设为起点(橙色高亮)，再<b>点击相邻格</b>连线。再次点击起点可取消';
       coord.textContent = roadStart ? `🛤️ 起点 (${roadStart.q}, ${roadStart.r})` : '🛤️ 点击选择道路起点';
       break;
     case 'label':
-      hint.innerHTML = '🏷️ 点击六角格 → 弹出窗口输入地标名称（如：古墓、龙巢）';
+      hint.innerHTML = '🏷️ 点击格子 → 弹出窗口输入地标名称（如：古墓、龙巢）';
       coord.textContent = '🏷️ 点击添加标签';
       break;
     case 'erase':
@@ -1825,7 +1781,7 @@ function settlementModalConfirm() {
   const imageUrl = document.getElementById('settlement-modal-img').value || undefined;
   const settlement = { name, rating };
   if (imageUrl) settlement.imageUrl = imageUrl;
-  setHex(q, r, { settlement });
+  setCell(q, r, { settlement });
   document.getElementById('settlement-modal').style.display = 'none';
   render();
   updateInfo();
@@ -1874,7 +1830,7 @@ function labelModalConfirm() {
   const q = parseInt(document.getElementById('label-modal-q').value);
   const r = parseInt(document.getElementById('label-modal-r').value);
   const text = document.getElementById('label-modal-text').value.trim();
-  setHex(q, r, { label: text });
+  setCell(q, r, { label: text });
   document.getElementById('label-modal').style.display = 'none';
   render();
   updateInfo();
@@ -1963,8 +1919,8 @@ function showStepResult(icon, label, value, extra) {
 // Random terrain — with roll animation (uses customizable rules)
 document.getElementById('btn-gen-terrain').addEventListener('click', () => {
   if (isGenerating) return;
-  if (!selectedHex) { showDiceResult('⚠️', '请先点击选择一个六角格'); return; }
-  if (isLocked && getHex(selectedHex.q, selectedHex.r).terrain) {
+  if (!selectedCell) { showDiceResult('⚠️', '请先点击选择一个格子'); return; }
+  if (isLocked && getCell(selectedCell.q, selectedCell.r).terrain) {
     showDiceResult('🔒', '已锁定，取消勾选锁定后生成');
     return;
   }
@@ -1981,7 +1937,7 @@ document.getElementById('btn-gen-terrain').addEventListener('click', () => {
 
     if (d6 < threshold) {
       showStepResult('🎲', `投d6 → ${d6}`, '', `🏞️ ${defaultIcon} ${defaultName}`);
-      setHex(selectedHex.q, selectedHex.r, { terrain: defaultId });
+      setCell(selectedCell.q, selectedCell.r, { terrain: defaultId });
       render();
       isGenerating = false;
       setGenButtonsDisabled(false);
@@ -2003,7 +1959,7 @@ document.getElementById('btn-gen-terrain').addEventListener('click', () => {
           const ticon = t?.icon || '';
           const tname = t?.name || chosen;
           showStepResult('🎲', `抽中 → ${ticon} ${tname}`, '', `${dieFormula}示数:${result2.total}`);
-          setHex(selectedHex.q, selectedHex.r, { terrain: chosen });
+          setCell(selectedCell.q, selectedCell.r, { terrain: chosen });
           render();
           isGenerating = false;
           setGenButtonsDisabled(false);
@@ -2016,8 +1972,8 @@ document.getElementById('btn-gen-terrain').addEventListener('click', () => {
 // Generate settlement (per 冒险者公会传说 rules) — with roll animation
 document.getElementById('btn-gen-settlement').addEventListener('click', () => {
   if (isGenerating) return;
-  if (!selectedHex) { showDiceResult('⚠️', '请先点击选择一个六角格'); return; }
-  if (isLocked && getHex(selectedHex.q, selectedHex.r).settlement) {
+  if (!selectedCell) { showDiceResult('⚠️', '请先点击选择一个格子'); return; }
+  if (isLocked && getCell(selectedCell.q, selectedCell.r).settlement) {
     showDiceResult('🔒', '已有定居点，取消勾选锁定后生成');
     return;
   }
@@ -2031,24 +1987,24 @@ document.getElementById('btn-gen-settlement').addEventListener('click', () => {
     const name = randomName();
     const sign = rating >= 0 ? '+' : '';
     showStepResult('🏘️', '投d6 →', d6, `${name} 评分: ${sign}${rating}`);
-    setHex(selectedHex.q, selectedHex.r, { terrain: generationRules.defaultTerrain, settlement: { name, rating } });
+    setCell(selectedCell.q, selectedCell.r, { terrain: generationRules.defaultTerrain, settlement: { name, rating } });
     render();
     isGenerating = false;
     setGenButtonsDisabled(false);
   });
 });
 
-// BFS pathfinding along hex grid — returns array of {q,r} from start to goal (inclusive)
-function hexPathfind(q1, r1, q2, r2) {
+// BFS pathfinding along square grid — returns array of {q,r} from start to goal (inclusive)
+function cellPathfind(q1, r1, q2, r2) {
   if (q1 === q2 && r1 === r2) return [{ q: q1, r: r1 }];
-  const startKey = hexKey(q1, r1);
-  const goalKey = hexKey(q2, r2);
+  const startKey = cellKey(q1, r1);
+  const goalKey = cellKey(q2, r2);
   const visited = new Set([startKey]);
   const queue = [{ q: q1, r: r1, path: [{ q: q1, r: r1 }] }];
   while (queue.length > 0) {
     const cur = queue.shift();
     for (const n of neighbors(cur.q, cur.r)) {
-      const nk = hexKey(n.q, n.r);
+      const nk = cellKey(n.q, n.r);
       if (nk === goalKey) return [...cur.path, { q: n.q, r: n.r }];
       if (!visited.has(nk)) {
         visited.add(nk);
@@ -2062,9 +2018,9 @@ function hexPathfind(q1, r1, q2, r2) {
 // Road detection (per 冒险者公会传说: 3d6 > distance → road exists) — with roll animation
 document.getElementById('btn-gen-road').addEventListener('click', () => {
   if (isGenerating) return;
-  if (!selectedHex) { showDiceResult('⚠️', '请先选中一个定居点六角格'); return; }
-  const h = getHex(selectedHex.q, selectedHex.r);
-  if (!h.settlement) { showDiceResult('⚠️', '当前六角格没有定居点'); return; }
+  if (!selectedCell) { showDiceResult('⚠️', '请先选中一个定居点格子'); return; }
+  const h = getCell(selectedCell.q, selectedCell.r);
+  if (!h.settlement) { showDiceResult('⚠️', '当前格子没有定居点'); return; }
   isGenerating = true;
   setGenButtonsDisabled(true);
 
@@ -2073,19 +2029,19 @@ document.getElementById('btn-gen-road').addEventListener('click', () => {
     let roadsBuilt = 0;
     let checked = 0;
     beginBatch();
-    for (const [key, data] of Object.entries(hexData)) {
+    for (const [key, data] of Object.entries(gridData)) {
       if (!data.settlement) continue;
       const [oq, or] = key.split(',').map(Number);
-      if (oq === selectedHex.q && or === selectedHex.r) continue;
+      if (oq === selectedCell.q && or === selectedCell.r) continue;
       checked++;
-      const dist = hexDistance(selectedHex.q, selectedHex.r, oq, or);
+      const dist = cellDistance(selectedCell.q, selectedCell.r, oq, or);
       // Each settlement rolls its own 3d6
       const roll3d6 = Math.floor(Math.random() * 6) + 1
                     + Math.floor(Math.random() * 6) + 1
                     + Math.floor(Math.random() * 6) + 1;
       if (roll3d6 > dist) {
-        // Find a path along adjacent hexes and build roads segment by segment
-        const path = hexPathfind(selectedHex.q, selectedHex.r, oq, or);
+        // Find a path along adjacent cells and build roads segment by segment
+        const path = cellPathfind(selectedCell.q, selectedCell.r, oq, or);
         if (path && path.length > 1) {
           for (let i = 0; i < path.length - 1; i++) {
             addRoad(path[i].q, path[i].r, path[i + 1].q, path[i + 1].r);
@@ -2102,11 +2058,8 @@ document.getElementById('btn-gen-road').addEventListener('click', () => {
   });
 });
 
-function hexDistance(q1, r1, q2, r2) {
-  // Convert to cube
-  const x1 = q1, z1 = r1 - (q1 - (q1 & 1)) / 2, y1 = -x1 - z1;
-  const x2 = q2, z2 = r2 - (q2 - (q2 & 1)) / 2, y2 = -x2 - z2;
-  return Math.max(Math.abs(x1 - x2), Math.abs(y1 - y2), Math.abs(z1 - z2));
+function cellDistance(q1, r1, q2, r2) {
+  return Math.abs(q1 - q2) + Math.abs(r1 - r2);
 }
 
 // Undo/Redo buttons
@@ -2115,17 +2068,17 @@ document.getElementById('btn-redo').addEventListener('click', redo);
 
 // Save/Load
 document.getElementById('btn-save').addEventListener('click', () => {
-  cleanHexData();
-  const data = { hexData, viewX, viewY, zoom, customTerrains, deletedTerrains, terrainOrder, generationRules };
+  cleanGridData();
+  const data = { gridData, viewX, viewY, zoom, customTerrains, deletedTerrains, terrainOrder, generationRules };
   const json = JSON.stringify(data);
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `hexmap_${new Date().toISOString().slice(0,10)}.json`;
+  a.download = `squaremap_${new Date().toISOString().slice(0,10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
-  showDiceResult('💾 已保存', `共 ${Object.keys(hexData).length} 个六角格数据`);
+  showDiceResult('💾 已保存', `共 ${Object.keys(gridData).length} 个格子数据`);
 });
 
 document.getElementById('btn-load').addEventListener('click', () => {
@@ -2139,7 +2092,7 @@ document.getElementById('btn-load').addEventListener('click', () => {
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
-        hexData = data.hexData || {};
+        gridData = data.gridData || {};
 	        undoStack = []; redoStack = []; updateUndoButtons();
         viewX = data.viewX || 0;
         viewY = data.viewY || 0;
@@ -2153,7 +2106,7 @@ document.getElementById('btn-load').addEventListener('click', () => {
         document.getElementById('zoom-indicator').textContent = `🔍 ${Math.round(zoom * 100)}%`;
         render();
         updateInfo();
-        showDiceResult('📂 已加载', `共 ${Object.keys(hexData).length} 个六角格`);
+        showDiceResult('📂 已加载', `共 ${Object.keys(gridData).length} 个格子`);
       } catch(e) {
         showDiceResult('⚠️ 加载失败', '文件格式错误');
       }
@@ -2165,8 +2118,8 @@ document.getElementById('btn-load').addEventListener('click', () => {
 
 // Export PNG
 document.getElementById('btn-export-img').addEventListener('click', () => {
-  cleanHexData();
-  const keys = Object.keys(hexData);
+  cleanGridData();
+  const keys = Object.keys(gridData);
   if (keys.length === 0) { showDiceResult('⚠️', '没有数据可导出'); return; }
   // Compute bounding box
   let minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
@@ -2177,12 +2130,13 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
     if (r < minR) minR = r;
     if (r > maxR) maxR = r;
   });
-  const topLeft = hexToPixel(minQ, minR);
-  const botRight = hexToPixel(maxQ, maxR);
-  const size = HEX_SIZE;
-  const padding = size * 2;
-  const w = Math.ceil(botRight.x - topLeft.x + size * 2 + padding * 2);
-  const h = Math.ceil(botRight.y - topLeft.y + size * 1.5 + padding * 2);
+  const padding = CELL_SIZE * 2;
+  const half = CELL_SIZE / 2;
+  // topLeft corner (not center) of the top-left cell
+  const topLeftX = minQ * CELL_SIZE - half;
+  const topLeftY = minR * CELL_SIZE - half;
+  const w = Math.ceil((maxQ - minQ + 1) * CELL_SIZE + padding * 2);
+  const h = Math.ceil((maxR - minR + 1) * CELL_SIZE + padding * 2);
   const MAX_EXPORT = 10000;
   if (w > MAX_EXPORT || h > MAX_EXPORT) { showDiceResult('⚠️', '地图太大，缩小后导出'); return; }
   const exportCanvas = document.createElement('canvas');
@@ -2191,39 +2145,36 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
   const exportCtx = exportCanvas.getContext('2d');
   exportCtx.fillStyle = '#2d2d44';
   exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
-  const offsetX = (exportCanvas.width - w) / 2 - topLeft.x + padding;
-  const offsetY = (exportCanvas.height - h) / 2 - topLeft.y + padding;
+  const offsetX = (exportCanvas.width - w) / 2 - topLeftX + padding;
+  const offsetY = (exportCanvas.height - h) / 2 - topLeftY + padding;
   exportCtx.save();
   exportCtx.translate(offsetX, offsetY);
   const allTerrains = getAllTerrains();
-  // Draw hex fills + grid (Pass 1)
+  // Draw cell fills + grid (Pass 1)
   for (const key of keys) {
     const [q, r] = key.split(',').map(Number);
-    const p = hexToPixel(q, r);
-    const corners = hexCorners(p.x, p.y, HEX_SIZE);
-    const h = hexData[key];
-    exportCtx.beginPath();
-    corners.forEach((c, i) => i === 0 ? exportCtx.moveTo(c.x, c.y) : exportCtx.lineTo(c.x, c.y));
-    exportCtx.closePath();
+    const p = cellToPixel(q, r);
+    const half = CELL_SIZE / 2;
+    const h = gridData[key];
     let fillColor = '#3a3a52';
     if (h.terrain && allTerrains[h.terrain]) fillColor = allTerrains[h.terrain].color;
     exportCtx.fillStyle = fillColor;
-    exportCtx.fill();
+    exportCtx.fillRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
     exportCtx.strokeStyle = 'rgba(255,255,255,0.12)';
     exportCtx.lineWidth = 1;
-    exportCtx.stroke();
+    exportCtx.strokeRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
   }
-  // Draw roads (Pass 2)
+  // Draw roads (Pass 2) — center-to-center lines between adjacent cells
   exportCtx.strokeStyle = '#8B4513';
   exportCtx.lineWidth = 3;
   for (const key of keys) {
-    const h = hexData[key];
+    const h = gridData[key];
     if (h.roads && h.roads.length) {
       const [q1, r1] = key.split(',').map(Number);
-      const p1 = hexToPixel(q1, r1);
+      const p1 = cellToPixel(q1, r1);
       for (const rd of h.roads) {
         if (rd.q > q1 || (rd.q === q1 && rd.r > r1)) {
-          const p2 = hexToPixel(rd.q, rd.r);
+          const p2 = cellToPixel(rd.q, rd.r);
           exportCtx.beginPath();
           exportCtx.moveTo(p1.x, p1.y);
           exportCtx.lineTo(p2.x, p2.y);
@@ -2235,8 +2186,8 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
   // Draw overlays (Pass 3)
   for (const key of keys) {
     const [q, r] = key.split(',').map(Number);
-    const h = hexData[key];
-    const p = hexToPixel(q, r);
+    const h = gridData[key];
+    const p = cellToPixel(q, r);
     // Terrain icon (image or emoji)
     const hOTI = h.terrain ? allTerrains[h.terrain] : null;
     if (hOTI) {
@@ -2244,36 +2195,39 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
         const img = getCachedImage(hOTI.imageUrl);
         if (img && img.complete && img.naturalWidth > 0) {
           exportCtx.save();
-          const ec = hexCorners(p.x, p.y, HEX_SIZE * 0.6);
+          const hs = CELL_SIZE * 0.68 / 2;
           exportCtx.beginPath();
-          ec.forEach((c, i) => i === 0 ? exportCtx.moveTo(c.x, c.y) : exportCtx.lineTo(c.x, c.y));
-          exportCtx.closePath();
+          exportCtx.rect(p.x - hs, p.y - hs, CELL_SIZE * 0.68, CELL_SIZE * 0.68);
           exportCtx.clip();
-          const is = HEX_SIZE * 0.9;
-          exportCtx.drawImage(img, p.x - is/2, p.y - (h.label || h.settlement ? HEX_SIZE * 0.3 : 0) - is/2, is, is);
+          const is = CELL_SIZE * 0.68;
+          exportCtx.drawImage(img, p.x - is/2, p.y - (h.label || h.settlement ? CELL_SIZE * 0.09 : 0) - is/2, is, is);
           exportCtx.restore();
         } else {
-          exportCtx.fillText(hOTI.icon, p.x, p.y - (h.label || h.settlement ? HEX_SIZE * 0.15 : 0));
+          exportCtx.font = `${CELL_SIZE * 0.31}px sans-serif`;
+          exportCtx.textAlign = 'center';
+          exportCtx.textBaseline = 'middle';
+          exportCtx.fillStyle = 'rgba(255,255,255,0.85)';
+          exportCtx.fillText(hOTI.icon, p.x, p.y - (h.label || h.settlement ? CELL_SIZE * 0.09 : 0));
         }
       } else {
-        exportCtx.font = `${HEX_SIZE * 0.5}px sans-serif`;
+        exportCtx.font = `${CELL_SIZE * 0.31}px sans-serif`;
         exportCtx.textAlign = 'center';
         exportCtx.textBaseline = 'middle';
         exportCtx.fillStyle = 'rgba(255,255,255,0.85)';
-        exportCtx.fillText(hOTI.icon, p.x, p.y - (h.label || h.settlement ? HEX_SIZE * 0.15 : 0));
+        exportCtx.fillText(hOTI.icon, p.x, p.y - (h.label || h.settlement ? CELL_SIZE * 0.09 : 0));
       }
     }
     // Label
     if (h.label) {
       exportCtx.fillStyle = '#fff';
-      exportCtx.font = `bold ${Math.max(9, HEX_SIZE * 0.38)}px sans-serif`;
+      exportCtx.font = `bold ${Math.max(9, CELL_SIZE * 0.24)}px sans-serif`;
       exportCtx.textAlign = 'center';
       exportCtx.textBaseline = 'bottom';
       const tw = exportCtx.measureText(h.label).width;
       exportCtx.fillStyle = 'rgba(0,0,0,0.55)';
-      exportCtx.fillRect(p.x - tw/2 - 3, p.y - HEX_SIZE * 0.65, tw + 6, HEX_SIZE * 0.55);
+      exportCtx.fillRect(p.x - tw/2 - 3, p.y - CELL_SIZE * 0.4, tw + 6, CELL_SIZE * 0.34);
       exportCtx.fillStyle = '#fff';
-      exportCtx.fillText(h.label, p.x, p.y - HEX_SIZE * 0.2);
+      exportCtx.fillText(h.label, p.x, p.y - CELL_SIZE * 0.12);
     }
     // Settlement
     if (h.settlement) {
@@ -2281,31 +2235,30 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
         const img = getCachedImage(h.settlement.imageUrl);
         if (img && img.complete && img.naturalWidth > 0) {
           exportCtx.save();
-          const ec = hexCorners(p.x, p.y + HEX_SIZE * 0.1, HEX_SIZE * 0.5);
+          const hs = CELL_SIZE * 0.56 / 2;
           exportCtx.beginPath();
-          ec.forEach((c, i) => i === 0 ? exportCtx.moveTo(c.x, c.y) : exportCtx.lineTo(c.x, c.y));
-          exportCtx.closePath();
+          exportCtx.rect(p.x - hs, p.y + CELL_SIZE * 0.09 - hs, CELL_SIZE * 0.56, CELL_SIZE * 0.56);
           exportCtx.clip();
-          const is = HEX_SIZE * 0.8;
-          exportCtx.drawImage(img, p.x - is/2, p.y + HEX_SIZE * 0.1 - is/2, is, is);
+          const is = CELL_SIZE * 0.56;
+          exportCtx.drawImage(img, p.x - is/2, p.y + CELL_SIZE * 0.09 - is/2, is, is);
           exportCtx.restore();
         } else {
-          exportCtx.font = `${HEX_SIZE * 0.6}px sans-serif`;
+          exportCtx.font = `${CELL_SIZE * 0.37}px sans-serif`;
           exportCtx.textAlign = 'center';
           exportCtx.textBaseline = 'bottom';
-          exportCtx.fillText('🏘️', p.x, p.y + HEX_SIZE * 0.45);
+          exportCtx.fillText('🏘️', p.x, p.y + CELL_SIZE * 0.28);
         }
       } else {
-        exportCtx.font = `${HEX_SIZE * 0.6}px sans-serif`;
+        exportCtx.font = `${CELL_SIZE * 0.37}px sans-serif`;
         exportCtx.textAlign = 'center';
         exportCtx.textBaseline = 'bottom';
-        exportCtx.fillText('🏘️', p.x, p.y + HEX_SIZE * 0.45);
+        exportCtx.fillText('🏘️', p.x, p.y + CELL_SIZE * 0.28);
       }
     } // closes if(h.settlement)
   } // closes for loop
   exportCtx.restore();
   const link = document.createElement("a");
-  link.download = "hexmap_" + new Date().toISOString().slice(0,10) + ".png";
+  link.download = "squaremap_" + new Date().toISOString().slice(0,10) + ".png";
   link.href = exportCanvas.toDataURL("image/png");
   link.click();
   showDiceResult("🖼️ 已导出", "全地图 " + exportCanvas.width + "x" + exportCanvas.height + " (" + keys.length + " 格)");
@@ -2313,12 +2266,12 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
 
 // Clear
 document.getElementById('btn-clear').addEventListener('click', () => {
-  if (!confirm('⚠️ 确认清空所有六角格数据？')) return;
+  if (!confirm('⚠️ 确认清空所有格子数据？')) return;
   beginBatch();
-  for (const key of Object.keys(hexData)) pushUndo(key);
-  hexData = {};
+  for (const key of Object.keys(gridData)) pushUndo(key);
+  gridData = {};
   endBatch();
-  selectedHex = null;
+  selectedCell = null;
   roadStart = null;
   render();
   updateInfo();
@@ -2333,12 +2286,12 @@ document.getElementById('chk-lock').addEventListener('change', (e) => { isLocked
 // Info panel
 function updateInfo() {
   const panel = document.getElementById('info-panel');
-  if (!selectedHex) {
-    panel.innerHTML = '<div class="row"><span class="label">💡 选工具 → 看上方提示 → 点六角格操作</span></div>';
+  if (!selectedCell) {
+    panel.innerHTML = '<div class="row"><span class="label">💡 选工具 → 看上方提示 → 点格子操作</span></div>';
     return;
   }
-  const { q, r } = selectedHex;
-  const h = getHex(q, r);
+  const { q, r } = selectedCell;
+  const h = getCell(q, r);
   const hInfoTI = h.terrain ? getAllTerrains()[h.terrain] : null;
   const t = h.terrain ? `${hInfoTI?.icon || ''} ${hInfoTI?.name || h.terrain}` : '未探索';
   const settle = h.settlement ? `${h.settlement.name} (${h.settlement.rating >= 0 ? '+' : ''}${h.settlement.rating})` : '—';
@@ -2354,7 +2307,7 @@ function updateInfo() {
 }
 
 // ======== Init ========
-cleanHexData();
+cleanGridData();
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
@@ -2373,7 +2326,7 @@ setTool('select');
 render();
 updateInfo();
 
-console.log('🏗️ 四战黑六角格地图已加载');
+console.log('🏗️ 四战黑方格地图已加载');
 console.log('快捷键: V=选择 X=框选 B=笔刷 S=定居点 R=道路 L=标签 E=擦除 Ctrl+Z=撤销');
 </script>
 </body>
