@@ -536,6 +536,93 @@ function getCachedImage(url) {
   return imageCache.get(url);
 }
 
+// Simple string hash for image deduplication (DJB2-style)
+function hashCode(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + c;
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36);
+}
+
+// Compress image to maxSize x maxSize JPEG for storage efficiency
+function compressImage(dataUrl, maxSize) {
+  maxSize = maxSize || 256;
+  return new Promise(function(resolve) {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', 0.75));
+    };
+    img.onerror = function() { resolve(dataUrl); };
+    img.src = dataUrl;
+  });
+}
+
+// Build an image registry from hex data + custom terrains, replacing imageUrl with imageHash
+function buildImageRegistry(sourceHexData, sourceCustomTerrains) {
+  const registry = {};
+  function register(url) {
+    if (!url || !url.startsWith('data:')) return url;
+    const h = hashCode(url);
+    if (!registry[h]) registry[h] = url;
+    return h;
+  }
+  const exportHex = {};
+  for (const [k, h] of Object.entries(sourceHexData)) {
+    const eh = { terrain: h.terrain, label: h.label };
+    if (h.settlement) {
+      eh.settlement = { name: h.settlement.name, rating: h.settlement.rating };
+      if (h.settlement.imageUrl) eh.settlement.imageHash = register(h.settlement.imageUrl);
+    }
+    if (h.roads && h.roads.length) eh.roads = h.roads.map(function(r) { return { q: r.q, r: r.r }; });
+    exportHex[k] = eh;
+  }
+  const exportCT = {};
+  for (const [id, t] of Object.entries(sourceCustomTerrains)) {
+    const et = { name: t.name, color: t.color, icon: t.icon, travel: t.travel };
+    if (t.imageUrl) et.imageHash = register(t.imageUrl);
+    exportCT[id] = et;
+  }
+  return { exportHex, exportCT, registry };
+}
+
+// Restore imageUrl from imageRegistry on load
+function resolveImageRegistry(sourceHexData, sourceCustomTerrains, registry) {
+  const reg = registry || {};
+  function resolve(hash) {
+    if (!hash) return undefined;
+    if (hash.startsWith('data:')) return hash; // old format backward compat
+    return reg[hash] || undefined;
+  }
+  const resultHex = {};
+  for (const [k, h] of Object.entries(sourceHexData)) {
+    const rh = { terrain: h.terrain, label: h.label };
+    if (h.settlement) {
+      rh.settlement = { name: h.settlement.name, rating: h.settlement.rating };
+      const img = h.settlement.imageHash ? resolve(h.settlement.imageHash) : h.settlement.imageUrl;
+      if (img) rh.settlement.imageUrl = img;
+    }
+    if (h.roads) rh.roads = h.roads;
+    resultHex[k] = rh;
+  }
+  const resultCT = {};
+  for (const [id, t] of Object.entries(sourceCustomTerrains || {})) {
+    const rt = { name: t.name, color: t.color, icon: t.icon, travel: t.travel };
+    const img = t.imageHash ? resolve(t.imageHash) : t.imageUrl;
+    if (img) rt.imageUrl = img;
+    resultCT[id] = rt;
+  }
+  return { resultHex, resultCT };
+}
+
 const HEX_SIZE = 36;
 const SQRT3 = Math.sqrt(3);
 
@@ -1580,9 +1667,10 @@ function rebuildTerrainEditorList() {
     fileInput.addEventListener('change', function() {
       if (fileInput.files && fileInput.files[0]) {
         const reader = new FileReader();
-        reader.onload = function(ev) {
+        reader.onload = async function(ev) {
+          const compressed = await compressImage(ev.target.result);
           if (!customTerrains[id]) customTerrains[id] = { ...t };
-          customTerrains[id].imageUrl = ev.target.result;
+          customTerrains[id].imageUrl = compressed;
           saveTerrainConfig();
           rebuildTerrainPalette();
           rebuildTerrainEditorList();
@@ -1852,8 +1940,9 @@ document.getElementById('settlement-modal-img-input').addEventListener('change',
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
-  reader.onload = function(ev) {
-    document.getElementById('settlement-modal-img').value = ev.target.result;
+  reader.onload = async function(ev) {
+    const compressed = await compressImage(ev.target.result);
+    document.getElementById('settlement-modal-img').value = compressed;
     document.getElementById('settlement-modal-img-name').textContent = '✅ 已上传';
     document.getElementById('settlement-modal-img-clear').style.display = 'inline';
   };
@@ -2116,7 +2205,8 @@ document.getElementById('btn-redo').addEventListener('click', redo);
 // Save/Load
 document.getElementById('btn-save').addEventListener('click', () => {
   cleanHexData();
-  const data = { hexData, viewX, viewY, zoom, customTerrains, deletedTerrains, terrainOrder, generationRules };
+  const { exportHex, exportCT, registry } = buildImageRegistry(hexData, customTerrains);
+  const data = { hexData: exportHex, imageRegistry: registry, viewX, viewY, zoom, customTerrains: exportCT, deletedTerrains, terrainOrder, generationRules };
   const json = JSON.stringify(data);
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -2139,8 +2229,15 @@ document.getElementById('btn-load').addEventListener('click', () => {
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
-        hexData = data.hexData || {};
-	        undoStack = []; redoStack = []; updateUndoButtons();
+        if (data.imageRegistry) {
+          const resolved = resolveImageRegistry(data.hexData || {}, data.customTerrains || {}, data.imageRegistry);
+          hexData = resolved.resultHex;
+          customTerrains = resolved.resultCT;
+        } else {
+          hexData = data.hexData || {};
+          if (data.customTerrains) customTerrains = data.customTerrains;
+        }
+        undoStack = []; redoStack = []; updateUndoButtons();
         viewX = data.viewX || 0;
         viewY = data.viewY || 0;
         zoom = data.zoom || 1;
