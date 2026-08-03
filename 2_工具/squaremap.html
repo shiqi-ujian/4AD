@@ -156,6 +156,9 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
       <button id="btn-gen-road" style="flex:1;padding:6px;background:#8b7a3a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;" title="自动探测选中定居点与其他定居点的道路">🛤️ 探测道路</button>
     </div>
     <div style="margin:2px 0;font-size:11px;color:#888;text-align:center;">💡 先生成定居点，再探测道路</div>
+    <div style="margin-top:6px;border-top:1px solid #0f3460;padding-top:6px;">
+      <button id="btn-oneclick-gen" style="width:100%;padding:8px;background:linear-gradient(135deg,#e94560,#c23152);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:bold;">⚡ 一键生成地图</button>
+    </div>
 
     <h3>💾 数据</h3>
     <div style="display:flex;gap:4px;">
@@ -240,6 +243,54 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     <div style="display:flex;gap:6px;justify-content:flex-end;">
       <button id="gr-btn-reset" style="padding:5px 12px;background:#6b5b4f;color:#ccc;border:none;border-radius:4px;cursor:pointer;font-size:12px;">↺ 默认</button>
       <button id="gr-btn-close" style="padding:5px 12px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">✓ 完成</button>
+    </div>
+  </div>
+</div>
+
+<!-- One-Click Generate Config Modal -->
+<div id="oneclick-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:420px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">⚡ 一键生成地图</h3>
+    <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">种子 Seed</label>
+    <div style="display:flex;gap:6px;margin-bottom:10px;">
+      <input id="oc-seed" type="number" value="0" style="flex:1;padding:4px 8px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;">
+      <button id="oc-random-seed" style="padding:4px 10px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🎲 随机</button>
+    </div>
+    <div style="display:flex;gap:12px;margin-bottom:10px;">
+      <div style="flex:1;">
+        <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">宽度: <span id="oc-width-val">30</span></label>
+        <input id="oc-width" type="range" min="10" max="60" value="30" style="width:100%;">
+      </div>
+      <div style="flex:1;">
+        <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">高度: <span id="oc-height-val">30</span></label>
+        <input id="oc-height" type="range" min="10" max="60" value="30" style="width:100%;">
+      </div>
+    </div>
+    <div style="margin-bottom:10px;">
+      <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">地形缩放: <span id="oc-scale-val">1.0</span> <span style="color:#888;font-weight:normal;">(小→大斑块)</span></label>
+      <input id="oc-scale" type="range" min="3" max="30" value="10" style="width:100%;">
+    </div>
+    <div style="display:flex;gap:12px;margin-bottom:10px;">
+      <div style="flex:1;">
+        <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">定居点: <span id="oc-settle-val">6</span></label>
+        <input id="oc-settle" type="range" min="2" max="20" value="6" style="width:100%;">
+      </div>
+      <div style="flex:1;display:flex;align-items:flex-end;padding-bottom:4px;">
+        <label style="font-size:12px;color:#ccc;display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input id="oc-build-roads" type="checkbox" checked> 🛤️ 自动修路
+        </label>
+      </div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">生成位置</label>
+      <select id="oc-position" style="width:100%;padding:4px 8px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;">
+        <option value="center">视图中心</option>
+        <option value="origin">坐标原点 (0,0)</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:6px;justify-content:flex-end;border-top:1px solid #0f3460;padding-top:12px;">
+      <button id="oc-btn-cancel" style="padding:6px 14px;background:#3a3a5e;color:#ccc;border:1px solid #0f3460;border-radius:4px;cursor:pointer;font-size:13px;">取消</button>
+      <button id="oc-btn-confirm" style="padding:6px 14px;background:linear-gradient(135deg,#e94560,#c23152);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;">⚡ 开始生成</button>
     </div>
   </div>
 </div>
@@ -657,7 +708,7 @@ function cellCorners(cx, cy, size) {
 
 function cellKey(q, r) { return `${q},${r}`; }
 
-function getCell(q, r) {
+function getCelll(q, r) {
   const k = cellKey(q, r);
   return gridData[k] || { terrain: null, label: '', settlement: null, roads: [] };
 }
@@ -665,7 +716,7 @@ function getCell(q, r) {
 function setCell(q, r, data) {
   const key = cellKey(q, r);
   pushUndo(key);
-  const merged = { ...getCell(q, r), ...data };
+  const merged = { ...getCelll(q, r), ...data };
   // Auto-clean empty cells (all fields are default)
   if (!merged.terrain && !merged.label && !merged.settlement && (!merged.roads || merged.roads.length === 0)) {
     delete gridData[key];
@@ -685,7 +736,7 @@ function cleanGridData() {
 }
 
 function hasRoad(q1, r1, q2, r2) {
-  return getCell(q1, r1).roads?.some(rr => rr.q === q2 && rr.r === r2) ?? false;
+  return getCelll(q1, r1).roads?.some(rr => rr.q === q2 && rr.r === r2) ?? false;
 }
 
 function addRoad(q1, r1, q2, r2) {
@@ -706,12 +757,12 @@ function addRoad(q1, r1, q2, r2) {
 function removeRoad(q1, r1, q2, r2) {
   const k1 = cellKey(q1, r1);
   const k2 = cellKey(q2, r2);
-  const h1 = getCell(q1, r1);
+  const h1 = getCelll(q1, r1);
   if (h1.roads) {
     pushUndo(k1);
     h1.roads = h1.roads.filter(r => !(r.q === q2 && r.r === r2));
   }
-  const h2 = getCell(q2, r2);
+  const h2 = getCelll(q2, r2);
   if (h2.roads) {
     pushUndo(k2);
     h2.roads = h2.roads.filter(r => !(r.q === q1 && r.r === r1));
@@ -763,7 +814,7 @@ function render() {
   ctx.lineWidth = 3;
   for (let q = qMin; q <= qMax; q++) {
     for (let r = rMin; r <= rMax; r++) {
-      const h = getCell(q, r);
+      const h = getCelll(q, r);
       if (h.roads) {
         const p1 = cellToPixel(q, r);
         for (const rd of h.roads) {
@@ -844,7 +895,7 @@ function render() {
 
 function drawCellBase(q, r, allTerrains) {
   const p = cellToPixel(q, r);
-  const h = getCell(q, r);
+  const h = getCelll(q, r);
   const half = CELL_SIZE / 2;
 
   // Fill
@@ -864,7 +915,7 @@ function drawCellBase(q, r, allTerrains) {
 
 function drawCellOverlay(q, r, allTerrains) {
   const p = cellToPixel(q, r);
-  const h = getCell(q, r);
+  const h = getCelll(q, r);
 
   // Coordinates
   if (showCoords) {
@@ -1046,7 +1097,7 @@ canvas.addEventListener('mousemove', (e) => {
       const hex = cellAtPixel(mx, my);
       if (hex) {
         const k = cellKey(hex.q, hex.r);
-        const h = getCell(hex.q, hex.r);
+        const h = getCelll(hex.q, hex.r);
         // Skip if locked and cell already has terrain
         if (h.terrain !== selectedTerrain && !(isLocked && h.terrain)) {
           setCell(hex.q, hex.r, { terrain: selectedTerrain });
@@ -1059,7 +1110,7 @@ canvas.addEventListener('mousemove', (e) => {
         const k = cellKey(hex.q, hex.r);
         if (_eraseDragLast.has(k)) return; // skip same hex
         _eraseDragLast.add(k);
-        const h = getCell(hex.q, hex.r);
+        const h = getCelll(hex.q, hex.r);
         if (isLocked && (h.terrain || h.settlement || h.label || h.roads?.length)) return;
         const mode = document.getElementById('erase-mode').value;
         if (mode === 'all') {
@@ -1071,10 +1122,10 @@ canvas.addEventListener('mousemove', (e) => {
         } else if (mode === 'label') {
           setCell(hex.q, hex.r, { label: '' });
         } else if (mode === 'roads') {
-          const cur = getCell(hex.q, hex.r);
+          const cur = getCelll(hex.q, hex.r);
           if (cur.roads) {
             for (const rd of cur.roads) {
-              const nh = getCell(rd.q, rd.r);
+              const nh = getCelll(rd.q, rd.r);
               if (nh.roads) {
                 setCell(rd.q, rd.r, { roads: nh.roads.filter(r => !(r.q === hex.q && r.r === hex.r)) });
               }
@@ -1206,7 +1257,7 @@ function handleCellClick(q, r, e) {
   selectedCell = { q, r };
 
   if (selectedTool === 'paint') {
-    if (isLocked && getCell(q, r).terrain) { /* locked, skip */ } else {
+    if (isLocked && getCelll(q, r).terrain) { /* locked, skip */ } else {
       setCell(q, r, { terrain: selectedTerrain });
       render();
       updateInfo();
@@ -1253,7 +1304,7 @@ function handleCellClick(q, r, e) {
     showLabelDialog(q, r);
   } else if (selectedTool === 'erase') {
     const mode = document.getElementById('erase-mode').value;
-    const h = getCell(q, r);
+    const h = getCelll(q, r);
     // Locked: don't erase cells with any content
     if (isLocked && (h.terrain || h.settlement || h.label || h.roads?.length)) {
       showDiceResult('🔒', '已锁定，取消勾选锁定后擦除');
@@ -1273,7 +1324,7 @@ function handleCellClick(q, r, e) {
       beginBatch();
       if (h.roads) {
         for (const rd of h.roads) {
-          const nh = getCell(rd.q, rd.r);
+          const nh = getCelll(rd.q, rd.r);
           if (nh.roads) {
             const filtered = nh.roads.filter(r => !(r.q === q && r.r === r));
             setCell(rd.q, rd.r, { roads: filtered });
@@ -1393,7 +1444,7 @@ document.getElementById('btn-batch-terrain').addEventListener('click', () => {
   beginBatch();
   for (const key of selectedCells) {
     const [q, r] = key.split(',').map(Number);
-    if (!(isLocked && getCell(q, r).terrain)) {
+    if (!(isLocked && getCelll(q, r).terrain)) {
       setCell(q, r, { terrain: terrainId });
     }
   }
@@ -1409,7 +1460,7 @@ document.getElementById('btn-batch-erase').addEventListener('click', () => {
   beginBatch();
   for (const key of selectedCells) {
     const [q, r] = key.split(',').map(Number);
-    const h = getCell(q, r);
+    const h = getCelll(q, r);
     if (isLocked && (h.terrain || h.settlement || h.label || h.roads?.length)) continue;
     setCell(q, r, { terrain: null, label: '', settlement: null, roads: [] });
   }
@@ -1449,7 +1500,7 @@ document.getElementById('btn-batch-road').addEventListener('click', () => {
 // (modal functions removed — settlement/label now use browser dialogs)
 
 function showSettlementDialog(q, r) {
-  const h = getCell(q, r);
+  const h = getCelll(q, r);
   const existing = h.settlement;
   document.getElementById('settlement-modal-q').value = q;
   document.getElementById('settlement-modal-r').value = r;
@@ -1468,7 +1519,7 @@ function showSettlementDialog(q, r) {
 }
 
 function showLabelDialog(q, r) {
-  const h = getCell(q, r);
+  const h = getCelll(q, r);
   document.getElementById('label-modal-q').value = q;
   document.getElementById('label-modal-r').value = r;
   document.getElementById('label-modal-coord').textContent = `(${q}, ${r})`;
@@ -2009,7 +2060,7 @@ function showStepResult(icon, label, value, extra) {
 document.getElementById('btn-gen-terrain').addEventListener('click', () => {
   if (isGenerating) return;
   if (!selectedCell) { showDiceResult('⚠️', '请先点击选择一个格子'); return; }
-  if (isLocked && getCell(selectedCell.q, selectedCell.r).terrain) {
+  if (isLocked && getCelll(selectedCell.q, selectedCell.r).terrain) {
     showDiceResult('🔒', '已锁定，取消勾选锁定后生成');
     return;
   }
@@ -2062,7 +2113,7 @@ document.getElementById('btn-gen-terrain').addEventListener('click', () => {
 document.getElementById('btn-gen-settlement').addEventListener('click', () => {
   if (isGenerating) return;
   if (!selectedCell) { showDiceResult('⚠️', '请先点击选择一个格子'); return; }
-  if (isLocked && getCell(selectedCell.q, selectedCell.r).settlement) {
+  if (isLocked && getCelll(selectedCell.q, selectedCell.r).settlement) {
     showDiceResult('🔒', '已有定居点，取消勾选锁定后生成');
     return;
   }
@@ -2108,7 +2159,7 @@ function cellPathfind(q1, r1, q2, r2) {
 document.getElementById('btn-gen-road').addEventListener('click', () => {
   if (isGenerating) return;
   if (!selectedCell) { showDiceResult('⚠️', '请先选中一个定居点格子'); return; }
-  const h = getCell(selectedCell.q, selectedCell.r);
+  const h = getCelll(selectedCell.q, selectedCell.r);
   if (!h.settlement) { showDiceResult('⚠️', '当前格子没有定居点'); return; }
   isGenerating = true;
   setGenButtonsDisabled(true);
@@ -2150,6 +2201,410 @@ document.getElementById('btn-gen-road').addEventListener('click', () => {
 function cellDistance(q1, r1, q2, r2) {
   return Math.abs(q1 - q2) + Math.abs(r1 - r2);
 }
+
+// ======== One-Click Map Generation ========
+
+// Mulberry32 PRNG
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    var t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// Perlin noise
+let perm = new Uint8Array(512);
+function initPerm(seed) {
+  const rng = mulberry32(seed);
+  const p = new Uint8Array(256);
+  for (let i = 0; i < 256; i++) p[i] = i;
+  for (let i = 255; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [p[i], p[j]] = [p[j], p[i]];
+  }
+  for (let i = 0; i < 512; i++) perm[i] = p[i & 255];
+}
+
+function fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+function lerp(a, b, t) { return a + t * (b - a); }
+function grad2D(hash, x, y) {
+  const h = hash & 3;
+  const u = h < 2 ? x : y;
+  const v = h < 2 ? y : x;
+  return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+}
+
+function noise2D(x, y) {
+  const X = Math.floor(x) & 255;
+  const Y = Math.floor(y) & 255;
+  const xf = x - Math.floor(x);
+  const yf = y - Math.floor(y);
+  const u = fade(xf);
+  const v = fade(yf);
+  const aa = perm[perm[X] + Y];
+  const ab = perm[perm[X] + Y + 1];
+  const ba = perm[perm[X + 1] + Y];
+  const bb = perm[perm[X + 1] + Y + 1];
+  return lerp(
+    lerp(grad2D(aa, xf, yf), grad2D(ba, xf - 1, yf), u),
+    lerp(grad2D(ab, xf, yf - 1), grad2D(bb, xf - 1, yf - 1), u),
+    v
+  );
+}
+
+function fractalNoise(x, y, octaves) {
+  let value = 0, amp = 1, freq = 1, max = 0;
+  for (let i = 0; i < octaves; i++) {
+    value += amp * noise2D(x * freq, y * freq);
+    max += amp;
+    amp *= 0.5;
+    freq *= 2;
+  }
+  return value / max;
+}
+
+// Generate terrain for a bounded region
+function generateTerrainRegion(seed, centerQ, centerR, width, height, scale) {
+  initPerm(seed);
+  const rng = mulberry32(seed +1);
+  const allTerrains = getAllTerrains();
+  const ids = [];
+
+  for (let q = centerQ - Math.floor(width / 2); q <= centerQ + Math.floor(width / 2); q++) {
+    for (let r = centerR - Math.floor(height / 2); r <= centerR + Math.floor(height / 2); r++) {
+      ids.push({ q, r });
+    }
+  }
+
+  // Shuffle
+  for (let i = ids.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+  }
+
+  for (const { q, r } of ids) {
+    const p = cellToPixel(q, r);
+    const nx = p.x * 0.005 / scale;
+    const ny = p.y * 0.005 / scale;
+
+    const elev = fractalNoise(nx, ny, 4);
+    const moist = fractalNoise(nx + 100, ny + 100, 3);
+
+    let terrainId;
+    if (elev < -0.20) {
+      terrainId = 'water';
+    } else if (elev > 0.50 && moist < -0.05) {
+      terrainId = 'snow';
+    } else if (elev > 0.40) {
+      terrainId = 'mountain';
+    } else if (elev > 0.20) {
+      terrainId = 'hill';
+    } else if (moist < -0.15) {
+      terrainId = 'desert';
+    } else if (moist > 0.15 && elev < 0.30) {
+      terrainId = 'forest';
+    } else if (elev < -0.05 && moist > 0.10) {
+      terrainId = 'swamp';
+    } else {
+      terrainId = 'plain';
+    }
+
+    // 5% chance of special terrain
+    if (rng() < 0.05) {
+      const specials = ['ruins', 'temple', 'abyss', 'necromantic'].filter(s => allTerrains[s]);
+      if (specials.length > 0) terrainId = specials[Math.floor(rng() * specials.length)];
+    }
+
+    setCell(q, r, { terrain: terrainId });
+  }
+}
+
+// A* pathfinding with terrain travel cost
+function aStarPathfind(q1, r1, q2, r2) {
+  if (q1 === q2 && r1 === r2) return [{ q: q1, r: r1 }];
+  const startKey = cellKey(q1, r1);
+  const goalKey = cellKey(q2, r2);
+  const allTerrains = getAllTerrains();
+
+  const openSet = new Set([startKey]);
+  const cameFrom = {};
+  const gScore = {}; gScore[startKey] = 0;
+  const h = (q, r) => Math.abs(q - q2) + Math.abs(r - r2);
+  const fScore = {}; fScore[startKey] = h(q1, r1);
+
+  while (openSet.size > 0) {
+    // Find node in openSet with lowest fScore
+    let current = null, bestF = Infinity;
+    for (const key of openSet) {
+      if (fScore[key] !== undefined && fScore[key] < bestF) {
+        bestF = fScore[key];
+        current = key;
+      }
+    }
+    if (!current) break;
+    if (current === goalKey) {
+      // Reconstruct path
+      const path = [];
+      let c = current;
+      while (c) {
+        const [cq, cr] = c.split(',').map(Number);
+        path.unshift({ q: cq, r: cr });
+        c = cameFrom[c];
+      }
+      return path;
+    }
+
+    openSet.delete(current);
+    const [cq, cr] = current.split(',').map(Number);
+
+    for (const n of neighbors(cq, cr)) {
+      const nk = cellKey(n.q, n.r);
+      const hData = getCelll(n.q, n.r);
+      const tInfo = hData.terrain ? allTerrains[hData.terrain] : null;
+      const moveCost = tInfo ? tInfo.travel : 1;
+      // Water is nearly impassable
+      const waterPenalty = hData.terrain === 'water' ? 10 : 0;
+      const totalCost = moveCost + waterPenalty;
+
+      const tentativeG = gScore[current] + totalCost;
+      if (gScore[nk] === undefined || tentativeG < gScore[nk]) {
+        cameFrom[nk] = current;
+        gScore[nk] = tentativeG;
+        fScore[nk] = tentativeG + h(n.q, n.r);
+        openSet.add(nk);
+      }
+    }
+  }
+  return null; // no path
+}
+
+// Score a cell for settlement placement
+function rankSettlementLocation(q, r) {
+  const h = getCelll(q, r);
+  if (!h.terrain) return -Infinity;
+  if (h.terrain === 'water' || h.terrain === 'mountain') return -Infinity;
+
+  let score = 0;
+  if (h.terrain === 'plain') score += 10;
+  else if (h.terrain === 'hill') score += 5;
+  else if (h.terrain === 'forest') score += 4;
+  else if (h.terrain === 'swamp' || h.terrain === 'desert') score -= 5;
+  else if (h.terrain === 'snow') score -= 10;
+
+  // Water proximity
+  const nbrs = neighbors(q, r);
+  for (const n of nbrs) {
+    const nh = getCelll(n.q, n.r);
+    if (nh.terrain === 'water') score += 6;
+    if (nh.terrain && (nh.terrain === 'temple' || nh.terrain === 'ruins')) score += 3;
+  }
+
+  // Penalty for mountains nearby
+  for (const n of nbrs) {
+    const nh = getCelll(n.q, n.r);
+    if (nh.terrain === 'mountain') score -= 4;
+  }
+
+  // Distance from other settlements
+  for (const [key, data] of Object.entries(gridData)) {
+    if (data.settlement) {
+      const [sq, sr] = key.split(',').map(Number);
+      const dist = Math.abs(q - sq) + Math.abs(r - sr);
+      if (dist < 4) score -= (4 - dist) * 15;
+      if (dist < 2) score -= 100; // way too close
+    }
+  }
+
+  return score;
+}
+
+// Place settlements using greedy scoring
+function placeSettlements(count, _seed, centerQ, centerR, width, height) {
+  const halfW = Math.floor(width / 2);
+  const halfH = Math.floor(height / 2);
+  const rng = mulberry32(_seed + 2);
+  const candidates = [];
+
+  for (let q = centerQ - halfW; q <= centerQ + halfW; q++) {
+    for (let r = centerR - halfH; r <= centerR + halfH; r++) {
+      const key = cellKey(q, r);
+      if (!gridData[key]) continue;
+      const score = rankSettlementLocation(q, r);
+      if (score > -Infinity) candidates.push({ q, r, score });
+    }
+  }
+
+  candidates.sort((a, b) => b.score - a.score);
+
+  const placed = [];
+  for (const cand of candidates) {
+    if (placed.length >= count) break;
+    let tooClose = false;
+    for (const p of placed) {
+      if (Math.abs(cand.q - p.q) + Math.abs(cand.r - p.r) < 4) { tooClose = true; break; }
+    }
+    if (tooClose) continue;
+    const ratingMap = { 0: -3, 1: -2, 2: -1, 3: 0, 4: 1, 5: 2, 6: 3 };
+    const d6 = Math.floor(rng() * 6 + 1);
+    const rating = ratingMap[d6] || 0;
+    const name = randomName();
+    setCell(cand.q, cand.r, { settlement: { name, rating } });
+    placed.push({ q: cand.q, r: cand.r });
+  }
+
+  return placed;
+}
+
+// Build road network using A* + Minimum Spanning Tree (Prim's)
+function buildRoadNetwork(settlements) {
+  if (settlements.length < 2) return 0;
+
+  // Compute A* path costs between all pairs
+  const n = settlements.length;
+  const edges = [];
+
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const path = aStarPathfind(settlements[i].q, settlements[i].r, settlements[j].q, settlements[j].r);
+      if (path) {
+        const cost = path.length;
+        edges.push({ i, j, cost, path });
+      }
+    }
+  }
+
+  // Prim's algorithm for MST
+  const visited = new Set([0]);
+  const mstEdges = [];
+  while (visited.size < n) {
+    let best = null;
+    for (const e of edges) {
+      const inVisited = visited.has(e.i);
+      const outVisited = visited.has(e.j);
+      if (inVisited && !outVisited || !inVisited && outVisited) {
+        if (!best || e.cost < best.cost) best = e;
+      }
+    }
+    if (!best) break;
+    mstEdges.push(best);
+    visited.add(best.i);
+    visited.add(best.j);
+  }
+
+  let roadsBuilt = 0;
+  for (const e of mstEdges) {
+    for (let k = 0; k < e.path.length -1; k++) {
+      addRoad(e.path[k].q, e.path[k].r, e.path[k +1].q, e.path[k + 1].r);
+      roadsBuilt++;
+    }
+  }
+  return roadsBuilt;
+}
+
+// One-click generate orchestrator
+function oneClickGenerate(config) {
+  if (isGenerating) return;
+  isGenerating = true;
+  setGenButtonsDisabled(true);
+
+  const { seed, width, height, scale, settlementCount, buildRoads, pos } = config;
+
+  let centerQ = 0, centerR = 0;
+  if (pos === 'center' && selectedCell) {
+    centerQ = selectedCell.q;
+    centerR = selectedCell.r;
+  }
+
+  showDiceResult('🏗️', `生成地形中 (${width}×${height})...`);
+
+  setTimeout(() => {
+    beginBatch();
+
+    // Step 1: Generate terrain
+    generateTerrainRegion(seed, centerQ, centerR, width, height, scale);
+    render();
+
+    showDiceResult('🏘️', '放置定居点...');
+
+    setTimeout(() => {
+      // Step 2: Place settlements
+      const settlements = placeSettlements(settlementCount, seed +1, centerQ, centerR, width, height);
+      render();
+
+      if (buildRoads && settlements.length >= 2) {
+        showDiceResult('🛤️', '修建道路...');
+
+        setTimeout(() => {
+          // Step 3: Build roads
+          buildRoadNetwork(settlements);
+          render();
+
+          endBatch();
+
+          const stats = Object.keys(gridData).length;
+          showStepResult('✅', '生成完成！', `${stats} 格 · ${settlements.length} 定居点`);
+          isGenerating = false;
+          setGenButtonsDisabled(false);
+          updateInfo();
+        }, 200);
+      } else {
+        endBatch();
+        const stats = Object.keys(gridData).length;
+        showStepResult('✅', '生成完成！', `${stats} 格 · ${settlements.length} 定居点`);
+        isGenerating = false;
+        setGenButtonsDisabled(false);
+        updateInfo();
+      }
+    }, 200);
+  }, 50);
+}
+
+// Even bindings — One-click modal
+document.getElementById('btn-oneclick-gen').addEventListener('click', () => {
+  document.getElementById('oc-seed').value = Math.floor(Math.random() * 99999) + 1;
+  document.getElementById('oneclick-modal').style.display = 'block';
+});
+
+// Slider live values
+['oc-width', 'oc-height', 'oc-scale', 'oc-settle'].forEach(id => {
+  const input = document.getElementById(id);
+  const valSpan = document.getElementById(id + '-val');
+  if (input && valSpan) {
+    input.addEventListener('input', () => {
+      if (id === 'oc-scale') valSpan.textContent = (input.value / 10).toFixed(1);
+      else valSpan.textContent = input.value;
+    });
+  }
+});
+
+document.getElementById('oc-random-seed').addEventListener('click', () => {
+  document.getElementById('oc-seed').value = Math.floor(Math.random() * 99999) + 1;
+});
+
+document.getElementById('oc-btn-cancel').addEventListener('click', () => {
+  document.getElementById('oneclick-modal').style.display = 'none';
+});
+
+document.getElementById('oc-btn-confirm').addEventListener('click', () => {
+  const seed = parseInt(document.getElementById('oc-seed').value) || Date.now();
+  const width = parseInt(document.getElementById('oc-width').value);
+  const height = parseInt(document.getElementById('oc-height').value);
+  const scale = parseInt(document.getElementById('oc-scale').value) / 10;
+  const settlementCount = parseInt(document.getElementById('oc-settle').value);
+  const buildRoads = document.getElementById('oc-build-roads').checked;
+  const pos = document.getElementById('oc-position').value;
+
+  document.getElementById('oneclick-modal').style.display = 'none';
+
+  oneClickGenerate({ seed, width, height, scale, settlementCount, buildRoads, pos });
+});
+
+// Click background to close
+document.getElementById('oneclick-modal').addEventListener('click', function(e) {
+  if (e.target === e.currentTarget) this.style.display = 'none';
+});
 
 // Undo/Redo buttons
 document.getElementById('btn-undo').addEventListener('click', undo);
@@ -2387,7 +2842,7 @@ function updateInfo() {
     return;
   }
   const { q, r } = selectedCell;
-  const h = getCell(q, r);
+  const h = getCelll(q, r);
   const hInfoTI = h.terrain ? getAllTerrains()[h.terrain] : null;
   const t = h.terrain ? `${hInfoTI?.icon || ''} ${hInfoTI?.name || h.terrain}` : '未探索';
   const settle = h.settlement ? `${h.settlement.name} (${h.settlement.rating >= 0 ? '+' : ''}${h.settlement.rating})` : '—';

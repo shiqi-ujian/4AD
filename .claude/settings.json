@@ -8,7 +8,14 @@
       "Bash(bash -n git_pull.sh)",
       "Bash(cmd //c \"C:\\\\Users\\\\qiujian.shi\\\\Desktop\\\\test-skill\\\\4AD\\\\git_pull.bat\")",
       "Bash(python3 -c ':*)",
-      "Bash(python -c ':*)"
+      "Bash(python -c ':*)",
+      "Bash(node \"c:/Users/qiujian.shi/Desktop/test-skill/4AD/2_工具/brace_check.js\")",
+      "Bash(node \"c:\\\\Users\\\\qiujian.shi\\\\Desktop\\\\test-skill\\\\4AD\\\\2_工具\\\\brace_check.js\")",
+      "Bash(start \"\" \"c:\\\\Users\\\\qiujian.shi\\\\Desktop\\\\test-skill\\\\4AD\\\\2_工具\\\\hexmap.html\")",
+      "Bash(node -e \"const fs=require\\('fs'\\);const lines=fs.readFileSync\\('c:/Users/qiujian.shi/Desktop/test-skill/4AD/2_工具/squaremap.html','utf8'\\).split\\('\\\\n'\\);const s=lines.findIndex\\(l=>l.trim\\(\\).startsWith\\('<script'\\)&&!l.trim\\(\\).startsWith\\('</script'\\)\\);let bc=0,lz=-1;for\\(let i=s;i<lines.length;i++\\){let L=lines[i];for\\(let j=0;j<L.length;\\){let c=L[j];if\\(c==='{'||c==='}'\\){c==='{'?bc++:bc--}j++}if\\(bc===0\\)lz=i}console.log\\('count:',bc,'lastZero:',lz+1,bc===0?'\\\\u2713':'MISMATCH'\\)\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\qiujian.shi\\.claude\\plans"
     ]
   },
   "_comment": "远程 commit da33efd 删除了此文件，本地保留修改版本"
