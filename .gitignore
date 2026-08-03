@@ -19,5 +19,10 @@ Thumbs.db
 .trae/
 .claude/
 
+# 自动拉取脚本（本地环境专用，不提交）
+git_pull.sh
+git_pull.bat
+pull.log
+
 # 编辑器临时文件
 *~

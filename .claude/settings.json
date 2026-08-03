@@ -4,7 +4,11 @@
       "Bash(node --check \"c:\\\\Users\\\\qiujian.shi\\\\Desktop\\\\test-skill\\\\4AD\\\\2_工具\\\\hexmap.html\")",
       "Bash(node -e ':*)",
       "Bash(python ../fix_d12.py)",
-      "Bash(node -e \"const fs = require\\('fs'\\); let html = fs.readFileSync\\('C:/Users/qiujian.shi/Desktop/test-skill/4AD/2_工具/hexmap.html', 'utf8'\\); let lines = html.split\\('\\\\n'\\); for\\(let i=280;i<300;i++\\) console.log\\(i+1+': '+lines[i].substring\\(0,100\\)\\)\")"
+      "Bash(node -e \"const fs = require\\('fs'\\); let html = fs.readFileSync\\('C:/Users/qiujian.shi/Desktop/test-skill/4AD/2_工具/hexmap.html', 'utf8'\\); let lines = html.split\\('\\\\n'\\); for\\(let i=280;i<300;i++\\) console.log\\(i+1+': '+lines[i].substring\\(0,100\\)\\)\")",
+      "Bash(bash -n git_pull.sh)",
+      "Bash(cmd //c \"C:\\\\Users\\\\qiujian.shi\\\\Desktop\\\\test-skill\\\\4AD\\\\git_pull.bat\")",
+      "Bash(python3 -c ':*)",
+      "Bash(python -c ':*)"
     ]
   },
   "_comment": "远程 commit da33efd 删除了此文件，本地保留修改版本"
