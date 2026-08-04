@@ -1,0 +1,2050 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>四战黑 - 城市地图生成器</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
+#app { display: flex; height: 100vh; }
+
+/* Toolbar */
+#toolbar {
+  width: 300px; min-width: 300px;
+  background: #16213e;
+  padding: 14px 12px;
+  display: flex; flex-direction: column; gap: 4px;
+  overflow-y: auto; border-right: 1px solid #0f3460;
+  z-index: 10;
+}
+#toolbar h2 { font-size: 17px; text-align: center; color: #e94560; margin-bottom: 4px; border-bottom: 1px solid #0f3460; padding-bottom: 8px; letter-spacing: 2px; }
+#toolbar h3 { font-size: 13px; color: #aaa; margin: 8px 0 4px; font-weight: 600; letter-spacing: 1px; }
+#toolbar label { font-size: 12px; color: #ccc; display: block; margin: 2px 0; }
+.tool-group { display: flex; flex-wrap: wrap; gap: 4px; margin: 0; }
+.tool-btn {
+  height: 36px; border: 2px solid transparent; border-radius: 6px;
+  cursor: pointer; font-size: 15px; display: flex; align-items: center; justify-content: center;
+  transition: all 0.1s; position: relative; flex-shrink: 0;
+}
+.tool-btn:hover { transform: scale(1.08); z-index: 2; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+.tool-btn.active { border-color: #fff; box-shadow: 0 0 8px rgba(255,255,255,0.4); }
+.tool-btn[data-tool] {
+  width: auto; padding: 0 10px; gap: 4px; min-width: 44px;
+  background: #1a1a2e; color: #e0e0e0; font-size: 13px;
+}
+.tool-btn[data-tool] .icon { font-size: 17px; }
+.tool-btn[data-tool] .label { font-size: 12px; white-space: nowrap; }
+.tool-btn[data-district] {
+  width: auto; padding: 0 8px; gap: 3px; min-width: 36px; height: 32px; font-size: 13px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+.tool-btn[data-district] .icon { font-size: 14px; }
+
+#canvas-container { flex: 1; position: relative; overflow: hidden; background: #2d2d44; cursor: grab; }
+#canvas-container:active { cursor: grabbing; }
+canvas { display: block; }
+
+/* Info Panel */
+#info-panel {
+  position: absolute; bottom: 12px; left: 12px; right: 12px;
+  background: rgba(22, 33, 62, 0.92); border: 1px solid #0f3460; border-radius: 8px;
+  padding: 10px 14px; font-size: 13px; pointer-events: none;
+  backdrop-filter: blur(4px); max-height: 120px; overflow-y: auto;
+}
+#info-panel .row { display: flex; gap: 16px; flex-wrap: wrap; }
+#info-panel .label { color: #888; }
+#info-panel .val { color: #fff; }
+
+/* Zoom & Coord indicators */
+#zoom-indicator {
+  position: absolute; top: 12px; right: 12px;
+  background: rgba(22,33,62,0.85); border: 1px solid #0f3460; border-radius: 6px;
+  padding: 4px 10px; font-size: 12px; color: #aaa; pointer-events: none;
+}
+#coord-indicator {
+  position: absolute; top: 12px; left: 12px;
+  background: rgba(22,33,62,0.85); border: 1px solid #0f3460; border-radius: 6px;
+  padding: 4px 10px; font-size: 12px; color: #aaa; pointer-events: none;
+}
+
+input[type="range"] { width: 100%; margin: 2px 0; cursor: pointer; }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Scrollbar */
+#toolbar::-webkit-scrollbar { width: 4px; }
+#toolbar::-webkit-scrollbar-thumb { background: #0f3460; border-radius: 2px; }
+
+/* Style radio buttons */
+.style-radio-group { display: flex; gap: 6px; margin: 4px 0; }
+.style-radio {
+  flex: 1; padding: 6px 4px; border: 2px solid #0f3460; border-radius: 6px;
+  background: #1a1a2e; color: #ccc; cursor: pointer; text-align: center;
+  font-size: 12px; transition: all 0.15s;
+}
+.style-radio:hover { border-color: #3a7abd; }
+.style-radio.active { border-color: #e94560; background: rgba(233,69,96,0.15); color: #fff; }
+.style-radio .icon { font-size: 18px; display: block; }
+.style-radio .label { font-size: 11px; }
+
+@media (max-width: 800px) {
+  #toolbar { width: 48px; min-width: 48px; }
+  #toolbar h3 span { display: none; }
+  #toolbar h2, #toolbar h3, #toolbar label, .tool-btn .label, #tool-hint { display: none; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="toolbar">
+    <h2>🏙️ 城市地图生成器</h2>
+
+    <h3>🔧 工具 <span style="font-weight:normal;font-size:11px;color:#888;float:right;">(快捷键)</span></h3>
+    <div class="tool-group">
+      <button class="tool-btn active" data-tool="select" title="选择/查看 (V)"><span class="icon">👆</span><span class="label">选择(V)</span></button>
+      <button class="tool-btn" data-tool="paint" title="城区笔刷 (B)"><span class="icon">🖌️</span><span class="label">笔刷(B)</span></button>
+      <button class="tool-btn" data-tool="landmark" title="地标 (L)"><span class="icon">🏛️</span><span class="label">地标(L)</span></button>
+      <button class="tool-btn" data-tool="erase" title="擦除 (E)"><span class="icon">🧹</span><span class="label">擦除(E)</span></button>
+      <button class="tool-btn" data-tool="wall" title="城墙 (W)"><span class="icon">🧱</span><span class="label">城墙(W)</span></button>
+      <button class="tool-btn" data-tool="gate" title="城门 (G)"><span class="icon">🚪</span><span class="label">城门(G)</span></button>
+    </div>
+
+    <h3>🏘️ 城区 <span style="font-weight:normal;font-size:11px;color:#888;float:right;">选笔刷后涂</span></h3>
+    <div class="tool-group" id="district-palette"></div>
+
+    <h3>🏙️ 城市风格</h3>
+    <div class="style-radio-group" id="city-style-group">
+      <div class="style-radio active" data-style="walled"><span class="icon">🏰</span><span class="label">围城</span></div>
+      <div class="style-radio" data-style="riverside"><span class="icon">🌊</span><span class="label">河畔</span></div>
+      <div class="style-radio" data-style="coastal"><span class="icon">⛵</span><span class="label">滨海</span></div>
+      <div class="style-radio" data-style="canal"><span class="icon">🚣</span><span class="label">运河</span></div>
+    </div>
+
+    <div style="margin-top:6px;border-top:1px solid #0f3460;padding-top:6px;">
+      <button id="btn-oneclick-gen" style="width:100%;padding:8px;background:linear-gradient(135deg,#e94560,#c23152);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:bold;">⚡ 一键生成城市</button>
+    </div>
+
+    <h3>💾 数据</h3>
+    <div style="display:flex;gap:4px;">
+      <button id="btn-save" style="flex:1;padding:4px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;">💾 保存</button>
+      <button id="btn-load" style="flex:1;padding:4px;background:#c9a84c;color:#000;border:none;border-radius:4px;cursor:pointer;">📂 加载</button>
+    </div>
+    <div style="display:flex;gap:4px;">
+      <button id="btn-export-img" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;">🖼️ 导出PNG</button>
+      <button id="btn-clear" style="flex:1;padding:4px;background:#6b5b4f;color:#ccc;border:none;border-radius:4px;cursor:pointer;">🗑️ 清空</button>
+    </div>
+    <div style="display:flex;gap:4px;margin-top:2px;">
+      <button id="btn-undo" style="flex:1;padding:4px;background:#3a3a5e;color:#fff;border:none;border-radius:4px;cursor:pointer;opacity:0.4;" disabled>↩️ 撤销</button>
+      <button id="btn-redo" style="flex:1;padding:4px;background:#3a3a5e;color:#fff;border:none;border-radius:4px;cursor:pointer;opacity:0.4;" disabled>↪️ 重做</button>
+    </div>
+    <label style="margin-top:4px;font-size:12px;">
+      <input type="checkbox" id="chk-grid" checked> 显示网格
+    </label>
+    <label style="font-size:12px;">
+      <input type="checkbox" id="chk-coords" checked> 显示坐标
+    </label>
+
+    <div id="tool-hint" style="font-size:11px;color:#e94560;padding:2px 4px;background:rgba(233,69,96,0.1);border-radius:4px;min-height:18px;margin-top:4px;">👆 点击六角格进行操作</div>
+
+    <div style="margin-top:auto;font-size:11px;color:#666;text-align:center;padding-top:8px;">
+      四战黑 · 城市地图生成器 v1.0<br>
+      滚轮缩放 · 拖拽平移
+    </div>
+  </div>
+
+  <div id="canvas-container">
+    <div id="coord-indicator">⚪ (0, 0)</div>
+    <div id="zoom-indicator">🔍 100%</div>
+    <canvas id="city-canvas"></canvas>
+    <div id="info-panel"><div class="row"><span class="label">点击六角格查看信息</span></div></div>
+  </div>
+</div>
+
+<!-- One-Click Generate Config Modal -->
+<div id="oneclick-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:420px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">⚡ 一键生成城市</h3>
+
+    <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">种子 Seed</label>
+    <div style="display:flex;gap:6px;margin-bottom:10px;">
+      <input id="oc-seed" type="number" value="0" style="flex:1;padding:4px 8px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;">
+      <button id="oc-random-seed" style="padding:4px 10px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🎲 随机</button>
+    </div>
+
+    <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">城市风格</label>
+    <select id="oc-style" style="width:100%;padding:4px 8px;margin-bottom:10px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;">
+      <option value="walled">🏰 围城</option>
+      <option value="riverside">🌊 河畔</option>
+      <option value="coastal">⛵ 滨海</option>
+      <option value="canal">🚣 运河</option>
+    </select>
+
+    <div style="display:flex;gap:12px;margin-bottom:10px;">
+      <div style="flex:1;">
+        <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">宽度: <span id="oc-width-val">50</span></label>
+        <input id="oc-width" type="range" min="20" max="80" value="50" style="width:100%;">
+      </div>
+      <div style="flex:1;">
+        <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">高度: <span id="oc-height-val">50</span></label>
+        <input id="oc-height" type="range" min="20" max="80" value="50" style="width:100%;">
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px;margin-bottom:10px;">
+      <div style="flex:1;">
+        <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">大道数量: <span id="oc-boulevard-val">8</span></label>
+        <input id="oc-boulevard" type="range" min="4" max="12" value="8" style="width:100%;">
+      </div>
+      <div style="flex:1;">
+        <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">街区密度: <span id="oc-density-val">3</span></label>
+        <input id="oc-density" type="range" min="1" max="5" value="3" style="width:100%;">
+      </div>
+    </div>
+
+    <div style="margin-bottom:14px;">
+      <label style="font-size:12px;color:#ccc;display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <input id="oc-build-walls" type="checkbox" checked> 🏰 生成城墙
+      </label>
+    </div>
+
+    <div style="display:flex;gap:6px;justify-content:flex-end;border-top:1px solid #0f3460;padding-top:12px;">
+      <button id="oc-btn-cancel" style="padding:6px 14px;background:#3a3a5e;color:#ccc;border:1px solid #0f3460;border-radius:4px;cursor:pointer;font-size:13px;">取消</button>
+      <button id="oc-btn-confirm" style="padding:6px 14px;background:linear-gradient(135deg,#e94560,#c23152);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;">⚡ 开始生成</button>
+    </div>
+  </div>
+</div>
+
+<!-- Landmark Modal -->
+<div id="landmark-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:360px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">🏛️ 地标 <span id="landmark-modal-coord" style="font-size:13px;color:#888;font-weight:normal;"></span></h3>
+    <label style="font-size:12px;color:#ccc;display:block;margin-bottom:4px;">地标类型</label>
+    <select id="landmark-modal-type" style="width:100%;padding:4px 8px;margin-bottom:10px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;"></select>
+    <label style="font-size:12px;color:#ccc;display:block;margin-bottom:4px;">名称（可选）</label>
+    <input id="landmark-modal-name" type="text" style="width:100%;padding:6px 8px;margin-bottom:14px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:14px;" placeholder="例：王座厅">
+    <div style="display:flex;gap:6px;justify-content:flex-end;">
+      <button id="landmark-modal-cancel" style="padding:6px 16px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">取消</button>
+      <button id="landmark-modal-confirm" style="padding:6px 16px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">✓ 确认</button>
+    </div>
+    <input id="landmark-modal-q" type="hidden">
+    <input id="landmark-modal-r" type="hidden">
+  </div>
+</div>
+
+<script>
+// ======== Configuration ========
+const DISTRICTS = {
+  castle:     { name: '城堡区', color: '#5D3A1A', icon: '🏰', order: 0 },
+  noble:      { name: '贵族区', color: '#D4A574', icon: '👑', order: 1 },
+  wealthy:    { name: '富人区', color: '#C9A84C', icon: '💎', order: 2 },
+  common:     { name: '普通街区', color: '#B5B0A0', icon: '🏘️', order: 3 },
+  poor:       { name: '贫民区', color: '#8B7D6B', icon: '📦', order: 4 },
+  commercial: { name: '商业区', color: '#E8C840', icon: '🏛️', order: 5 },
+  industrial: { name: '工业区', color: '#7A6B5A', icon: '🏭', order: 6 },
+  temple:     { name: '神殿区', color: '#C9A8E8', icon: '⛪', order: 7 },
+  plaza:      { name: '广场', color: '#D4C8A0', icon: '⛲', order: 8 },
+  garden:     { name: '园林', color: '#6BA86B', icon: '🌳', order: 9 },
+  dock:       { name: '码头区', color: '#8B9BB4', icon: '⚓', order: 10 },
+  water:      { name: '水道', color: '#3A7ABD', icon: '🌊', order: 11 },
+};
+const DISTRICT_LIST = Object.keys(DISTRICTS);
+
+// Landmark types
+const LANDMARK_TYPES = {
+  castle:    { name: '城堡', icon: '🏰', desc: '城市中心堡垒' },
+  cathedral: { name: '大教堂', icon: '⛪', desc: '宗教中心' },
+  market:    { name: '市场广场', icon: '🏛️', desc: '商业中心' },
+  gate:      { name: '城门', icon: '🚪', desc: '城墙出入口' },
+  bridge:    { name: '桥梁', icon: '🌉', desc: '跨越水道' },
+  fountain:  { name: '喷泉', icon: '⛲', desc: '公共水景' },
+  statue:    { name: '雕像', icon: '🗿', desc: '纪念雕塑' },
+  well:      { name: '水井', icon: '🪣', desc: '公共水井' },
+};
+const LANDMARK_TYPE_LIST = Object.keys(LANDMARK_TYPES);
+
+// City styles
+const CITY_STYLES = ['walled', 'riverside', 'coastal', 'canal'];
+
+// ======== State ========
+let hexData = {};
+let selectedTool = 'select';
+let selectedDistrict = 'common';
+let selectedHex = null;
+let isLocked = false;
+let viewX = 0, viewY = 0;
+let zoom = 1;
+let isDragging = false, dragStartX, dragStartY, viewStartX, viewStartY;
+let showGrid = true, showCoords = true;
+let isGenerating = false;
+let selectedCityStyle = 'walled';
+
+// Undo/Redo
+const MAX_UNDO = 50;
+let undoStack = [];
+let redoStack = [];
+let undoBatch = null;
+
+function snapshotHex(key) {
+  return hexData[key] ? JSON.parse(JSON.stringify(hexData[key])) : null;
+}
+
+function updateUndoButtons() {
+  const btnU = document.getElementById('btn-undo');
+  const btnR = document.getElementById('btn-redo');
+  if (btnU) { btnU.disabled = undoStack.length === 0; btnU.style.opacity = undoStack.length === 0 ? '0.4' : '1'; }
+  if (btnR) { btnR.disabled = redoStack.length === 0; btnR.style.opacity = redoStack.length === 0 ? '0.4' : '1'; }
+}
+
+function pushUndo(key) {
+  const entry = { key, before: snapshotHex(key) };
+  if (undoBatch !== null) {
+    undoBatch.push(entry);
+  } else {
+    undoStack.push([entry]);
+    if (undoStack.length > MAX_UNDO) undoStack.shift();
+    redoStack = [];
+    updateUndoButtons();
+  }
+}
+
+function beginBatch() { undoBatch = []; }
+
+function endBatch() {
+  if (undoBatch && undoBatch.length) {
+    const latest = new Map();
+    for (const e of undoBatch) latest.set(e.key, e);
+    const merged = [...latest.values()];
+    undoStack.push(merged);
+    if (undoStack.length > MAX_UNDO) undoStack.shift();
+    redoStack = [];
+  }
+  undoBatch = null;
+  updateUndoButtons();
+}
+
+function applyUndoEntry(entries) {
+  const redoEntries = [];
+  for (const { key, before } of entries) {
+    redoEntries.push({ key, before: snapshotHex(key) });
+    if (before) hexData[key] = before;
+    else delete hexData[key];
+  }
+  return redoEntries;
+}
+
+function undo() {
+  const entry = undoStack.pop();
+  if (!entry) return;
+  const redoEntries = applyUndoEntry(entry);
+  redoStack.push(redoEntries);
+  render();
+  updateInfo();
+  updateUndoButtons();
+}
+
+function redo() {
+  const entry = redoStack.pop();
+  if (!entry) return;
+  const undoEntries = applyUndoEntry(entry);
+  undoStack.push(undoEntries);
+  render();
+  updateInfo();
+  updateUndoButtons();
+}
+
+// ======== Hex math (odd-r offset, flat-top) ========
+const HEX_SIZE = 36;
+const SQRT3 = Math.sqrt(3);
+
+const container = document.getElementById('canvas-container');
+const canvas = document.getElementById('city-canvas');
+const ctx = canvas.getContext('2d');
+
+function hexToPixel(q, r) {
+  const x = HEX_SIZE * 3/2 * q;
+  const y = HEX_SIZE * SQRT3 * (r + 0.5 * (q & 1));
+  return { x, y };
+}
+
+function pixelToHex(px, py) {
+  const s = HEX_SIZE;
+  const x = (2/3 * px) / s;  // cube x = axial q
+  const z = (-1/3 * px + SQRT3/3 * py) / s;  // cube z = axial r
+  return cubeRound(x, -x - z, z);  // cubeRound(x, y, z) where y = -x-z
+}
+
+function cubeRound(x, y, z) {
+  let rx = Math.round(x), ry = Math.round(y), rz = Math.round(z);
+  const dx = Math.abs(rx - x), dy = Math.abs(ry - y), dz = Math.abs(rz - z);
+  if (dx > dy && dx > dz) rx = -ry - rz;
+  else if (dy > dz) ry = -rx - rz;
+  // Convert cube (x,y,z) to odd-r offset (q,r)
+  // q = x, r = z + (x - (x&1)) / 2
+  const col = rx;
+  const row = rz + (rx - (rx & 1)) / 2;
+  return { q: Math.round(col), r: Math.round(row) };
+}
+
+function hexCorners(cx, cy, size) {
+  const corners = [];
+  for (let i = 0; i < 6; i++) {
+    const angle = Math.PI / 180 * (60 * i);
+    corners.push({ x: cx + size * Math.cos(angle), y: cy + size * Math.sin(angle) });
+  }
+  return corners;
+}
+
+function hexKey(q, r) { return `${q},${r}`; }
+
+function getHex(q, r) {
+  const k = hexKey(q, r);
+  return hexData[k] || { district: null, landmark: null, streets: [], wall: false, wallGate: null, label: '' };
+}
+
+function setHex(q, r, data) {
+  const key = hexKey(q, r);
+  pushUndo(key);
+  const merged = { ...getHex(q, r), ...data };
+  if (!merged.district && !merged.landmark && !merged.label && (!merged.streets || merged.streets.length === 0) && !merged.wall && !merged.wallGate) {
+    delete hexData[key];
+  } else {
+    hexData[key] = merged;
+  }
+}
+
+function cleanHexData() {
+  for (const key of Object.keys(hexData)) {
+    const h = hexData[key];
+    if (!h.district && !h.landmark && !h.label && (!h.streets || h.streets.length === 0) && !h.wall && !h.wallGate) {
+      delete hexData[key];
+    }
+  }
+}
+
+function neighbors(q, r) {
+  const parity = q & 1;
+  const dirs = parity ? [
+    [1,0],[0,-1],[-1,0],[-1,1],[0,1],[1,1]
+  ] : [
+    [1,0],[1,-1],[0,-1],[-1,-1],[-1,0],[0,1]
+  ];
+  return dirs.map(([dq, dr]) => ({ q: q + dq, r: r + dr }));
+}
+
+function hexDistance(q1, r1, q2, r2) {
+  const x1 = q1, z1 = r1 - (q1 - (q1 & 1)) / 2, y1 = -x1 - z1;
+  const x2 = q2, z2 = r2 - (q2 - (q2 & 1)) / 2, y2 = -x2 - z2;
+  return Math.max(Math.abs(x1 - x2), Math.abs(y1 - y2), Math.abs(z1 - z2));
+}
+
+// Hex line algorithm (Bresenham for hex grids)
+function hexLine(q1, r1, q2, r2) {
+  const d = hexDistance(q1, r1, q2, r2);
+  const results = [];
+  for (let i = 0; i <= d; i++) {
+    const t = d === 0 ? 0 : i / d;
+    // Cube coordinate interpolation
+    const x1 = q1, z1 = r1 - (q1 - (q1 & 1)) / 2, y1 = -x1 - z1;
+    const x2 = q2, z2 = r2 - (q2 - (q2 & 1)) / 2, y2 = -x2 - z2;
+    const rx = x1 + (x2 - x1) * t;
+    const ry = y1 + (y2 - y1) * t;
+    const rz = z1 + (z2 - z1) * t;
+    const rounded = cubeRound(rx, ry, rz);
+    results.push({ q: rounded.q, r: rounded.r });
+  }
+  return results;
+}
+
+/**
+ * Generate hex ring — returns all hexes at given radius from center (cube-based)
+ */
+function hexRingSimple(centerQ, centerR, radius) {
+  const ring = [];
+  if (radius === 0) return [{ q: centerQ, r: centerR }];
+  const cx = centerQ;
+  const cz = centerR - (centerQ - (centerQ & 1)) / 2;
+  const cy = -cx - cz;
+  const dirs = [[1,-1,0],[1,0,-1],[0,1,-1],[-1,1,0],[-1,0,1],[0,-1,1]];
+  let hx = cx + dirs[4][0] * radius, hy = cy + dirs[4][1] * radius, hz = cz + dirs[4][2] * radius;
+  const seen = new Set();
+  for (let side = 0; side < 6; side++) {
+    for (let i = 0; i < radius; i++) {
+      const col = Math.round(hx);
+      const row = Math.round(hz + (hx - (hx & 1)) / 2);
+      const k = `${col},${row}`;
+      if (!seen.has(k)) { seen.add(k); ring.push({ q: col, r: row }); }
+      hx += dirs[side][0]; hy += dirs[side][1]; hz += dirs[side][2];
+    }
+  }
+  return ring;
+}
+
+// ======== Rendering ========
+function resizeCanvas() {
+  canvas.width = container.clientWidth;
+  canvas.height = container.clientHeight;
+  render();
+}
+
+function render() {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  ctx.fillStyle = '#2d2d44';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.save();
+  ctx.translate(viewX, viewY);
+  ctx.scale(zoom, zoom);
+
+  const margin = HEX_SIZE * 2;
+  const topLeft = pixelToHex((-viewX - margin) / zoom, (-viewY - margin) / zoom);
+  const botRight = pixelToHex((W - viewX + margin) / zoom, (H - viewY + margin) / zoom);
+  const qMin = Math.floor(topLeft.q) - 1, qMax = Math.ceil(botRight.q) + 1;
+  const rMin = Math.floor(topLeft.r) - 1, rMax = Math.ceil(botRight.r) + 1;
+
+  // Pass 1: District fills + grid
+  for (let q = qMin; q <= qMax; q++) {
+    for (let r = rMin; r <= rMax; r++) {
+      drawHexBase(q, r);
+    }
+  }
+
+  // Pass 2: Streets (alley → street → boulevard, drawn bottom-up so higher layers on top)
+  // Draw alleys first
+  ctx.lineCap = 'round';
+  for (let q = qMin; q <= qMax; q++) {
+    for (let r = rMin; r <= rMax; r++) {
+      const h = getHex(q, r);
+      if (h.streets) {
+        for (const st of h.streets) {
+          if (st.type === 'alley' && (st.q > q || (st.q === q && st.r > r))) {
+            drawStreetSegment(q, r, st.q, st.r, '#998', 1.5, 0.4);
+          }
+        }
+      }
+    }
+  }
+  // Then streets
+  for (let q = qMin; q <= qMax; q++) {
+    for (let r = rMin; r <= rMax; r++) {
+      const h = getHex(q, r);
+      if (h.streets) {
+        for (const st of h.streets) {
+          if (st.type === 'street' && (st.q > q || (st.q === q && st.r > r))) {
+            drawStreetSegment(q, r, st.q, st.r, '#8B6914', 3, 0.9);
+          }
+        }
+      }
+    }
+  }
+  // Then boulevards (with glow)
+  for (let q = qMin; q <= qMax; q++) {
+    for (let r = rMin; r <= rMax; r++) {
+      const h = getHex(q, r);
+      if (h.streets) {
+        for (const st of h.streets) {
+          if (st.type === 'boulevard' && (st.q > q || (st.q === q && st.r > r))) {
+            // Glow
+            drawStreetSegment(q, r, st.q, st.r, 'rgba(255, 215, 0, 0.3)', 8, 1);
+            // Main line
+            drawStreetSegment(q, r, st.q, st.r, '#FFD700', 4, 1);
+          }
+        }
+      }
+    }
+  }
+
+  // Pass 3: Walls
+  drawWalls(qMin, qMax, rMin, rMax);
+
+  // Pass 4: Overlays (icons, labels, landmarks)
+  for (let q = qMin; q <= qMax; q++) {
+    for (let r = rMin; r <= rMax; r++) {
+      drawHexOverlay(q, r);
+    }
+  }
+
+  // Selection highlight
+  if (selectedHex) {
+    const p = hexToPixel(selectedHex.q, selectedHex.r);
+    const corners = hexCorners(p.x, p.y, HEX_SIZE);
+    ctx.beginPath();
+    corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
+    ctx.closePath();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([4, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  ctx.restore();
+}
+
+function drawStreetSegment(q1, r1, q2, r2, color, width, alpha) {
+  const p1 = hexToPixel(q1, r1);
+  const p2 = hexToPixel(q2, r2);
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  ctx.moveTo(p1.x, p1.y);
+  ctx.lineTo(p2.x, p2.y);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+function drawHexBase(q, r) {
+  const p = hexToPixel(q, r);
+  const h = getHex(q, r);
+  const corners = hexCorners(p.x, p.y, HEX_SIZE);
+
+  ctx.beginPath();
+  corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
+  ctx.closePath();
+
+  let fillColor = '#3a3a52';
+  if (h.district && DISTRICTS[h.district]) fillColor = DISTRICTS[h.district].color;
+  ctx.fillStyle = fillColor;
+  ctx.fill();
+
+  if (showGrid) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+}
+
+function drawHexOverlay(q, r) {
+  const p = hexToPixel(q, r);
+  const h = getHex(q, r);
+
+  // District icon (skip for wall hexes — wall fill covers them)
+  if (h.district && !h.wall && DISTRICTS[h.district]) {
+    ctx.font = `${HEX_SIZE * 0.45}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.fillText(DISTRICTS[h.district].icon, p.x, p.y - (h.landmark || h.label ? HEX_SIZE * 0.15 : 0));
+  }
+
+  // Coordinates
+  if (showCoords) {
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.font = `${Math.max(7, HEX_SIZE * 0.28)}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${q},${r}`, p.x, p.y + HEX_SIZE * 0.42);
+  }
+
+  // Label
+  if (h.label) {
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${Math.max(9, HEX_SIZE * 0.38)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    const tw = ctx.measureText(h.label).width;
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(p.x - tw/2 - 3, p.y - HEX_SIZE * 0.65, tw + 6, HEX_SIZE * 0.55);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(h.label, p.x, p.y - HEX_SIZE * 0.2);
+  }
+
+  // Landmark
+  if (h.landmark) {
+    const lmType = h.landmark.type;
+    const lmInfo = LANDMARK_TYPES[lmType] || { icon: '🏛️', name: '地标' };
+    const isMajor = lmType === 'castle' || lmType === 'cathedral' || lmType === 'gate';
+
+    // Glow for major landmarks
+    if (isMajor) {
+      ctx.shadowColor = 'rgba(255,255,255,0.5)';
+      ctx.shadowBlur = 15;
+    }
+
+    ctx.font = `${HEX_SIZE * 0.7}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(lmInfo.icon, p.x, p.y + HEX_SIZE * 0.35);
+
+    ctx.shadowBlur = 0;
+
+    // Name
+    const lmName = h.landmark.name || lmInfo.name;
+    ctx.fillStyle = '#ffd700';
+    ctx.font = `bold ${Math.max(9, HEX_SIZE * 0.3)}px sans-serif`;
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    const sw = ctx.measureText(lmName).width;
+    ctx.fillRect(p.x - sw/2 - 3, p.y + HEX_SIZE * 0.25, sw + 6, HEX_SIZE * 0.38);
+    ctx.fillStyle = '#ffd700';
+    ctx.fillText(lmName, p.x, p.y + HEX_SIZE * 0.3);
+  }
+}
+
+function drawWalls(qMin, qMax, rMin, rMax) {
+  // Collect all wall hex positions
+  const wallHexes = [];
+  const gateHexes = [];
+  for (let q = qMin; q <= qMax; q++) {
+    for (let r = rMin; r <= rMax; r++) {
+      const h = getHex(q, r);
+      if (h.wall) wallHexes.push({ q, r });
+      if (h.wallGate) gateHexes.push({ q, r });
+    }
+  }
+  if (wallHexes.length === 0 && gateHexes.length === 0) return;
+
+  const wallSet = new Set(wallHexes.map(h => hexKey(h.q, h.r)));
+  const gateSet = new Set(gateHexes.map(h => hexKey(h.q, h.r)));
+  const allWallSet = new Set([...wallSet, ...gateSet]);
+
+  // Edge-to-neighbor mapping for flat-top hex (corners 0=E,1=NE,2=NW,3=W,4=SW,5=SE)
+  // THIS IS PURE GEOMETRY — same for ALL hexes regardless of parity
+  const dirs = [
+    [1,0],[0,1],[-1,1],[-1,0],[0,-1],[1,-1]
+  ];
+
+  // Step 1: Fill all wall hexes as one solid mass (no mortar lines)
+  ctx.beginPath();
+  for (const { q, r } of wallHexes) {
+    const p = hexToPixel(q, r);
+    const corners = hexCorners(p.x, p.y, HEX_SIZE);
+    ctx.moveTo(corners[0].x, corners[0].y);
+    for (let i = 1; i < 6; i++) ctx.lineTo(corners[i].x, corners[i].y);
+    ctx.closePath();
+  }
+  ctx.fillStyle = '#5A4A3A';
+  ctx.fill();
+
+  // Step 2: Collect all outer edges (edges facing non-wall hexes)
+  const outerSegments = [];
+  for (const { q, r } of wallHexes) {
+    const p = hexToPixel(q, r);
+    const corners = hexCorners(p.x, p.y, HEX_SIZE);
+    for (let i = 0; i < 6; i++) {
+      const nk = hexKey(q + dirs[i][0], r + dirs[i][1]);
+      if (!allWallSet.has(nk)) {
+        outerSegments.push({
+          x1: corners[i].x, y1: corners[i].y,
+          x2: corners[(i + 1) % 6].x, y2: corners[(i + 1) % 6].y
+        });
+      }
+    }
+  }
+
+  if (outerSegments.length > 0) {
+    // Build endpoint adjacency map, walk into connected polylines
+    const adj = new Map();
+    function epk(x, y) { return Math.round(x * 1000) + ',' + Math.round(y * 1000); }
+    for (let i = 0; i < outerSegments.length; i++) {
+      const s = outerSegments[i];
+      const k1 = epk(s.x1, s.y1), k2 = epk(s.x2, s.y2);
+      if (!adj.has(k1)) adj.set(k1, []);
+      if (!adj.has(k2)) adj.set(k2, []);
+      adj.get(k1).push(i);
+      adj.get(k2).push(i);
+    }
+
+    const visited = new Set();
+    const polylines = [];
+    for (let start = 0; start < outerSegments.length; start++) {
+      if (visited.has(start)) continue;
+      visited.add(start);
+      const pts = [{ x: outerSegments[start].x1, y: outerSegments[start].y1 }, { x: outerSegments[start].x2, y: outerSegments[start].y2 }];
+      // Forward from tail
+      let tail = epk(outerSegments[start].x2, outerSegments[start].y2);
+      let more = true;
+      while (more) {
+        more = false;
+        for (const ci of adj.get(tail) || []) {
+          if (visited.has(ci)) continue;
+          visited.add(ci);
+          const s = outerSegments[ci];
+          if (epk(s.x1, s.y1) === tail) { tail = epk(s.x2, s.y2); pts.push({ x: s.x2, y: s.y2 }); }
+          else { tail = epk(s.x1, s.y1); pts.push({ x: s.x1, y: s.y1 }); }
+          more = true; break;
+        }
+      }
+      // Backward from head
+      let head = epk(outerSegments[start].x1, outerSegments[start].y1);
+      more = true;
+      while (more) {
+        more = false;
+        for (const ci of adj.get(head) || []) {
+          if (visited.has(ci)) continue;
+          visited.add(ci);
+          const s = outerSegments[ci];
+          if (epk(s.x1, s.y1) === head) { head = epk(s.x2, s.y2); pts.unshift({ x: s.x2, y: s.y2 }); }
+          else { head = epk(s.x1, s.y1); pts.unshift({ x: s.x1, y: s.y1 }); }
+          more = true; break;
+        }
+      }
+      if (pts.length > 1) polylines.push(pts);
+    }
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // Draw each polyline as one continuous path
+    for (const poly of polylines) {
+      // Shadow
+      ctx.beginPath();
+      ctx.moveTo(poly[0].x + 1.5, poly[0].y + 2);
+      for (let i = 1; i < poly.length; i++) ctx.lineTo(poly[i].x + 1.5, poly[i].y + 2);
+      ctx.strokeStyle = '#2a1a0a';
+      ctx.lineWidth = 13;
+      ctx.stroke();
+      
+      // Wall body
+      ctx.beginPath();
+      ctx.moveTo(poly[0].x, poly[0].y);
+      for (let i = 1; i < poly.length; i++) ctx.lineTo(poly[i].x, poly[i].y);
+      ctx.strokeStyle = '#8B7355';
+      ctx.lineWidth = 11;
+      ctx.stroke();
+      
+      // Highlight
+      ctx.beginPath();
+      ctx.moveTo(poly[0].x, poly[0].y - 1);
+      for (let i = 1; i < poly.length; i++) ctx.lineTo(poly[i].x, poly[i].y - 1);
+      ctx.strokeStyle = '#A0896C';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+  }
+
+  // Step 3: Draw gates — prominent arch structures
+  for (const { q, r } of gateHexes) {
+    const p = hexToPixel(q, r);
+    const corners = hexCorners(p.x, p.y, HEX_SIZE);
+
+    // Gate arch fill — warm glow
+    ctx.fillStyle = 'rgba(255, 200, 50, 0.25)';
+    ctx.beginPath();
+    corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
+    ctx.closePath();
+    ctx.fill();
+
+    // Draw opening indicators on outward edges
+    for (let i = 0; i < 6; i++) {
+      const nk = hexKey(q + dirs[i][0], r + dirs[i][1]);
+      if (!wallSet.has(nk) && !gateSet.has(nk)) {
+        const c1 = corners[i];
+        const c2 = corners[(i + 1) % 6];
+        // Draw stone pillar on each side of opening
+        ctx.strokeStyle = '#8B7355';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        // Pillar 1 (near c1)
+        ctx.moveTo(c1.x, c1.y);
+        ctx.lineTo(c1.x + (c2.x - c1.x) * 0.15, c1.y + (c2.y - c1.y) * 0.15);
+        ctx.moveTo(c2.x, c2.y);
+        ctx.lineTo(c2.x - (c2.x - c1.x) * 0.15, c2.y - (c2.y - c1.y) * 0.15);
+        ctx.stroke();
+      }
+    }
+
+    // Gate arch symbol (tower icon)
+    const towerSize = HEX_SIZE * 0.45;
+    ctx.fillStyle = '#FFD700';
+    ctx.font = `bold ${towerSize}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🏛️', p.x, p.y - 2);
+
+    // Gate label
+    ctx.fillStyle = 'rgba(255, 215, 0, 0.9)';
+    ctx.font = `bold ${HEX_SIZE * 0.3}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText('城门', p.x, p.y + HEX_SIZE * 0.45);
+  }
+}
+
+// ======== Hit testing ========
+function hexAtPixel(px, py) {
+  const wx = (px - viewX) / zoom;
+  const wy = (py - viewY) / zoom;
+  const h = pixelToHex(wx, wy);
+  const p = hexToPixel(h.q, h.r);
+  const corners = hexCorners(p.x, p.y, HEX_SIZE);
+  let inside = false;
+  for (let i = 0, j = 5; i < 6; j = i++) {
+    const xi = corners[i].x, yi = corners[i].y;
+    const xj = corners[j].x, yj = corners[j].y;
+    if ((yi > wy) !== (yj > wy) && wx < (xj - xi) * (wy - yi) / (yj - yi) + xi)
+      inside = !inside;
+  }
+  return inside ? h : null;
+}
+
+// ======== Input Handling ========
+canvas.addEventListener('mousedown', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+
+  if (e.button === 0) {
+    const hex = hexAtPixel(mx, my);
+    if (hex) {
+      handleHexClick(hex.q, hex.r);
+      if (selectedTool === 'select') {
+        isDragging = true;
+        dragStartX = mx; dragStartY = my;
+        viewStartX = viewX; viewStartY = viewY;
+      }
+      if (selectedTool === 'paint') {
+        isDragging = true;
+        dragStartX = mx; dragStartY = my;
+      }
+      if (selectedTool === 'erase') {
+        isDragging = true;
+        dragStartX = mx; dragStartY = my;
+      }
+      return;
+    }
+    isDragging = true;
+    dragStartX = mx; dragStartY = my;
+    viewStartX = viewX; viewStartY = viewY;
+  }
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+
+  if (isDragging) {
+    if (selectedTool === 'paint') {
+      const hex = hexAtPixel(mx, my);
+      if (hex) {
+        const h = getHex(hex.q, hex.r);
+        if (h.district !== selectedDistrict) {
+          setHex(hex.q, hex.r, { district: selectedDistrict });
+          render();
+        }
+      }
+    } else if (selectedTool === 'erase') {
+      const hex = hexAtPixel(mx, my);
+      if (hex) {
+        setHex(hex.q, hex.r, { district: null, landmark: null, streets: [], wall: false, wallGate: null, label: '' });
+        render();
+      }
+    } else if (selectedTool === 'wall') {
+      const hex = hexAtPixel(mx, my);
+      if (hex) {
+        const h = getHex(hex.q, hex.r);
+        if (!h.wall && !h.wallGate) {
+          setHex(hex.q, hex.r, { wall: true });
+          render();
+        }
+      }
+    } else if (selectedTool === 'gate') {
+      const hex = hexAtPixel(mx, my);
+      if (hex) {
+        const h = getHex(hex.q, hex.r);
+        if (!h.wall && !h.wallGate) {
+          setHex(hex.q, hex.r, { wallGate: 'gate' });
+          render();
+        }
+      }
+    } else {
+      viewX = viewStartX + (mx - dragStartX);
+      viewY = viewStartY + (my - dragStartY);
+      render();
+    }
+  }
+});
+
+canvas.addEventListener('mouseup', () => { isDragging = false; });
+canvas.addEventListener('mouseleave', () => { isDragging = false; });
+
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const delta = e.deltaY > 0 ? 0.9 : 1.1;
+  const newZoom = Math.max(0.15, Math.min(5, zoom * delta));
+  viewX = mx - (mx - viewX) * (newZoom / zoom);
+  viewY = my - (my - viewY) * (newZoom / zoom);
+  zoom = newZoom;
+  document.getElementById('zoom-indicator').textContent = `🔍 ${Math.round(zoom * 100)}%`;
+  render();
+});
+
+// Touch support
+let touchDist = 0;
+canvas.addEventListener('touchstart', (e) => {
+  if (e.touches.length === 1) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.touches[0].clientX - rect.left;
+    const my = e.touches[0].clientY - rect.top;
+    const hex = hexAtPixel(mx, my);
+    if (hex) { handleHexClick(hex.q, hex.r); return; }
+    isDragging = true;
+    dragStartX = mx; dragStartY = my;
+    viewStartX = viewX; viewStartY = viewY;
+  } else if (e.touches.length === 2) {
+    touchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  if (e.touches.length === 1 && isDragging) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.touches[0].clientX - rect.left;
+    const my = e.touches[0].clientY - rect.top;
+    viewX = viewStartX + (mx - dragStartX);
+    viewY = viewStartY + (my - dragStartY);
+    render();
+  } else if (e.touches.length === 2) {
+    const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    const scale = dist / touchDist;
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+    const my = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+    const newZoom = Math.max(0.15, Math.min(5, zoom * scale));
+    viewX = mx - (mx - viewX) * (newZoom / zoom);
+    viewY = my - (my - viewY) * (newZoom / zoom);
+    zoom = newZoom;
+    document.getElementById('zoom-indicator').textContent = `🔍 ${Math.round(zoom * 100)}%`;
+    touchDist = dist;
+    render();
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', () => { isDragging = false; });
+
+// ======== Hex Click Handler ========
+function handleHexClick(q, r) {
+  selectedHex = { q, r };
+
+  if (selectedTool === 'paint') {
+    setHex(q, r, { district: selectedDistrict });
+    render();
+    updateInfo();
+  } else if (selectedTool === 'landmark') {
+    showLandmarkDialog(q, r);
+  } else if (selectedTool === 'erase') {
+    setHex(q, r, { district: null, landmark: null, streets: [], wall: false, wallGate: null, label: '' });
+    render();
+    updateInfo();
+  } else if (selectedTool === 'wall') {
+    const h = getHex(q, r);
+    setHex(q, r, { wall: !h.wall, wallGate: h.wallGate && !h.wall ? h.wallGate : null });
+    render();
+    updateInfo();
+  } else if (selectedTool === 'gate') {
+    const h = getHex(q, r);
+    setHex(q, r, { wallGate: h.wallGate ? null : 'gate', wall: h.wallGate ? h.wall : false });
+    render();
+    updateInfo();
+  } else {
+    updateInfo();
+    render();
+  }
+}
+
+// ======== Landmark Dialog ========
+function showLandmarkDialog(q, r) {
+  const h = getHex(q, r);
+  document.getElementById('landmark-modal-q').value = q;
+  document.getElementById('landmark-modal-r').value = r;
+  document.getElementById('landmark-modal-coord').textContent = `(${q}, ${r})`;
+  document.getElementById('landmark-modal-name').value = h.landmark?.name || '';
+
+  const typeSelect = document.getElementById('landmark-modal-type');
+  typeSelect.innerHTML = '';
+  LANDMARK_TYPE_LIST.forEach(id => {
+    const opt = document.createElement('option');
+    opt.value = id;
+    opt.textContent = LANDMARK_TYPES[id].icon + ' ' + LANDMARK_TYPES[id].name;
+    if (h.landmark?.type === id) opt.selected = true;
+    typeSelect.appendChild(opt);
+  });
+
+  document.getElementById('landmark-modal').style.display = 'block';
+  setTimeout(() => document.getElementById('landmark-modal-name').focus(), 50);
+}
+
+document.getElementById('landmark-modal-confirm').addEventListener('click', () => {
+  const q = parseInt(document.getElementById('landmark-modal-q').value);
+  const r = parseInt(document.getElementById('landmark-modal-r').value);
+  const type = document.getElementById('landmark-modal-type').value;
+  const name = document.getElementById('landmark-modal-name').value.trim() || LANDMARK_TYPES[type].name;
+  setHex(q, r, { landmark: { type, name } });
+  document.getElementById('landmark-modal').style.display = 'none';
+  render();
+  updateInfo();
+});
+
+document.getElementById('landmark-modal-cancel').addEventListener('click', () => {
+  document.getElementById('landmark-modal').style.display = 'none';
+});
+document.getElementById('landmark-modal').addEventListener('click', function(e) {
+  if (e.target === e.currentTarget) this.style.display = 'none';
+});
+
+// ======== Perlin Noise (same as hexmap) ========
+let _perm = new Uint8Array(512);
+function initPerm(seed) {
+  const rng = mulberry32(seed);
+  const p = [...Array(256).keys()];
+  for (let i = 255; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [p[i], p[j]] = [p[j], p[i]];
+  }
+  for (let i = 0; i < 512; i++) _perm[i] = p[i & 255];
+}
+
+function fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+function lerp(a, b, t) { return a + t * (b - a); }
+function grad2D(hash, x, y) {
+  const h = hash & 3;
+  const u = h < 2 ? x : y;
+  const v = h < 2 ? y : x;
+  return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+}
+function noise2D(x, y) {
+  const X = Math.floor(x) & 255, Y = Math.floor(y) & 255;
+  const xf = x - Math.floor(x), yf = y - Math.floor(y);
+  const u = fade(xf), v = fade(yf);
+  const aa = _perm[_perm[X] + Y], ab = _perm[_perm[X] + Y + 1];
+  const ba = _perm[_perm[X + 1] + Y], bb = _perm[_perm[X + 1] + Y + 1];
+  return lerp(lerp(grad2D(aa, xf, yf), grad2D(ba, xf - 1, yf), u), lerp(grad2D(ab, xf, yf - 1), grad2D(bb, xf - 1, yf - 1), u), v);
+}
+function fractalNoise(x, y, octaves) {
+  let value = 0, amp = 1, freq = 1, max = 0;
+  for (let i = 0; i < octaves; i++) {
+    value += amp * noise2D(x * freq, y * freq);
+    max += amp;
+    amp *= 0.5;
+    freq *= 2;
+  }
+  return value / max;
+}
+
+// ======== PRNG ========
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// ======== City Generation ========
+
+function generateCity(config) {
+  if (isGenerating) return;
+  isGenerating = true;
+
+  const { seed, style, width, height, boulevardCount, buildWalls, density } = config;
+
+  const rng = mulberry32(seed);
+  initPerm(seed + 1);
+
+  const centerQ = 0, centerR = 0;
+  const halfW = Math.floor(width / 2);
+  const halfH = Math.floor(height / 2);
+  const maxRadius = Math.max(halfW, halfH);
+
+  showDiceResult('🏗️', '生成城市布局...');
+
+  setTimeout(() => {
+    beginBatch();
+
+    // === Step 1: Generate city shape using noise-perturbed radius ===
+    const cityHexes = [];
+    const radiusMap = new Map(); // key → distance from center
+
+    const cityRadius = Math.min(halfW, halfH) * 0.8;
+
+    for (let q = -halfW; q <= halfW; q++) {
+      for (let r = -halfH; r <= halfH; r++) {
+        const dist = hexDistance(q, r, centerQ, centerR);
+        const nx = q * 0.08;
+        const ny = r * 0.08;
+        const noiseVal = fractalNoise(nx, ny, 3);
+        // Perturb radius with noise: outer boundary gets wobbly shape
+        const perturbedRadius = cityRadius * (1 + noiseVal * 0.2);
+        if (dist <= perturbedRadius) {
+          cityHexes.push({ q, r, dist });
+          radiusMap.set(hexKey(q, r), dist);
+        }
+      }
+    }
+
+    // === Step 2: Apply city style (water features) ===
+    // Mark water hexes first based on style
+    const waterHexes = new Set();
+    if (style === 'riverside') {
+      // River through city center (2-3 hex wide, horizontal)
+      const riverQ = 0;
+      for (let r = -4; r <= 4; r++) {
+        for (let q = -halfW; q <= halfW; q++) {
+          const dist = Math.abs(q - riverQ);
+          if (dist <= 1.5 + (r % 3 === 0 ? 0.5 : 0)) {
+            const key = hexKey(q, r);
+            waterHexes.add(key);
+          }
+        }
+      }
+    } else if (style === 'coastal') {
+      // Half the city is coast (south side)
+      for (const { q, r } of cityHexes) {
+        if (r > halfH * 0.15) {
+          waterHexes.add(hexKey(q, r));
+        }
+      }
+    } else if (style === 'canal') {
+      // Multiple narrow canals (grid pattern)
+      for (const { q, r } of cityHexes) {
+        if ((q % 6 === 0 || q % 6 === 1) && r % 5 === 0) {
+          waterHexes.add(hexKey(q, r));
+        }
+        // Some random canals
+        if ((q % 7 === 3 || q % 7 === 4) && r % 4 === 2) {
+          waterHexes.add(hexKey(q, r));
+        }
+      }
+    }
+    // For walled style, maybe add a small inner river/pond
+    if (style === 'walled' && rng() < 0.4) {
+      // Small decorative water feature
+      const pondQ = Math.floor(rng() * 5) - 2;
+      const pondR = Math.floor(rng() * 5) - 2;
+      for (let dq = -1; dq <= 1; dq++) {
+        for (let dr = -1; dr <= 1; dr++) {
+          if (rng() < 0.6) waterHexes.add(hexKey(pondQ + dq, pondR + dr));
+        }
+      }
+    }
+
+    // Remove water hexes from city hex list
+    const landHexes = cityHexes.filter(h => !waterHexes.has(hexKey(h.q, h.r)));
+
+    // Set water district
+    for (const key of waterHexes) {
+      const [q, r] = key.split(',').map(Number);
+      const h = getHex(q, r);
+      setHex(q, r, { district: 'water', streets: h.streets || [], wall: false, wallGate: null, landmark: null, label: '' });
+    }
+
+    // === Step 3: Prestige gradient for land hexes ===
+    const maxDist = landHexes.length > 0 ? Math.max(...landHexes.map(h => h.dist)) : 1;
+
+    // Prestige center offset for some styles
+    let prestigeCenterQ = centerQ, prestigeCenterR = centerR;
+    if (style === 'coastal') {
+      prestigeCenterR = Math.round(centerR - halfH * 0.2); // shift inland
+    } else if (style === 'riverside') {
+      prestigeCenterQ = Math.round(centerQ + 2); // shift slightly off river
+    }
+
+    for (const h of landHexes) {
+      const dist = hexDistance(h.q, h.r, prestigeCenterQ, prestigeCenterR);
+      let prestige = 1 - dist / maxDist;
+      // Add noise for organic feel (20% weight)
+      const nx = h.q * 0.1;
+      const ny = h.r * 0.1;
+      const noise = fractalNoise(nx, ny, 2) * 0.2;
+      prestige = Math.max(0, Math.min(1, prestige + noise));
+
+      // Style-based adjustments
+      if (style === 'coastal') {
+        // Coastal: lower prestige near coast
+        const coastDist = hexDistance(h.q, h.r, centerQ, Math.round(halfH * 0.15));
+        if (coastDist < 8) prestige *= 0.7;
+      }
+      if (style === 'canal') {
+        // Canal: prestige bonus near water
+        for (const n of neighbors(h.q, h.r)) {
+          if (waterHexes.has(hexKey(n.q, n.r))) {
+            prestige = Math.min(1, prestige + 0.15);
+          }
+        }
+      }
+
+      // Determine district based on prestige
+      let district;
+      if (prestige > 0.85) {
+        // Noble/temple district
+        district = rng() < 0.4 ? 'temple' : 'noble';
+      } else if (prestige > 0.65) {
+        district = 'wealthy';
+        // Sometimes plaza in wealthy areas
+        if (rng() < 0.08) district = 'plaza';
+      } else if (prestige > 0.40) {
+        district = rng() < 0.3 ? 'commercial' : 'common';
+        if (rng() < 0.05) district = 'plaza';
+        if (rng() < 0.03) district = 'garden';
+      } else if (prestige > 0.20) {
+        district = rng() < 0.3 ? 'industrial' : 'common';
+        if (rng() < 0.08) district = 'poor';
+      } else {
+        district = rng() < 0.5 ? 'poor' : 'industrial';
+        if (rng() < 0.1 && (style === 'coastal' || style === 'canal')) district = 'dock';
+      }
+
+      // Garden in outer areas sometimes
+      if (prestige > 0.3 && prestige < 0.6 && rng() < 0.04) district = 'garden';
+
+      // Dock near water
+      if (style === 'coastal' || style === 'canal') {
+        for (const n of neighbors(h.q, h.r)) {
+          if (waterHexes.has(hexKey(n.q, n.r)) && rng() < 0.2) {
+            district = 'dock';
+          }
+        }
+      }
+
+      h.district = district;
+    }
+
+    // === Step 4: Place districts into hexData ===
+    for (const h of landHexes) {
+      const key = hexKey(h.q, h.r);
+      setHex(h.q, h.r, { district: h.district });
+    }
+
+    render();
+    showDiceResult('🏛️', '放置地标与街道...');
+
+    setTimeout(() => {
+      // === Step 5: Place landmarks ===
+      placeLandmarks(landHexes, waterHexes, centerQ, centerR, halfW, halfH, style, rng);
+      render();
+
+      setTimeout(() => {
+        // === Step 6: Build street network ===
+        buildStreetNetwork(landHexes, waterHexes, centerQ, centerR, halfW, halfH, boulevardCount, style, rng);
+        render();
+
+        setTimeout(() => {
+          // === Step 7: Build walls ===
+          if (buildWalls) {
+            buildWallsAndGates(landHexes, waterHexes, centerQ, centerR, halfW, halfH, style, rng);
+          }
+
+          // === Step 8: Alley fill based on density ===
+          if (density > 1) {
+            fillAlleys(landHexes, density, rng);
+          }
+
+          render();
+          endBatch();
+
+          const stats = Object.keys(hexData).length;
+          const districtCounts = {};
+          for (const h of landHexes) {
+            districtCounts[h.district] = (districtCounts[h.district] || 0) + 1;
+          }
+          showStepResult('✅', '城市生成完成！', `${stats} 格`);
+          isGenerating = false;
+          updateInfo();
+        }, 150);
+      }, 150);
+    }, 150);
+  }, 50);
+}
+
+// ======== Landmark Placement ========
+function placeLandmarks(landHexes, waterHexes, centerQ, centerR, halfW, halfH, style, rng) {
+  // Find castle position (center)
+  const center = landHexes.reduce((best, h) => {
+    const d = hexDistance(h.q, h.r, centerQ, centerR);
+    return d < best.dist ? { h, dist: d } : best;
+  }, { h: landHexes[0], dist: Infinity }).h;
+
+  if (center) {
+    setHex(center.q, center.r, { landmark: { type: 'castle', name: '城主城堡' }, district: 'castle' });
+  }
+
+  // Cathedral — near center in noble/temple district
+  const cathedralCandidates = landHexes.filter(h =>
+    h.district === 'temple' || h.district === 'noble'
+  ).sort((a, b) => hexDistance(a.q, a.r, center.q, center.r) - hexDistance(b.q, b.r, center.q, center.r));
+
+  if (cathedralCandidates.length > 1) {
+    const idx = Math.min(1, Math.floor(rng() * 3));
+    const cath = cathedralCandidates[idx];
+    if (cath && !getHex(cath.q, cath.r).landmark) {
+      setHex(cath.q, cath.r, { landmark: { type: 'cathedral', name: '大教堂' } });
+    }
+  }
+
+  // Market — in commercial district, preferably near boulevard intersection
+  const marketCandidates = landHexes.filter(h => h.district === 'commercial' || h.district === 'plaza');
+  if (marketCandidates.length > 0) {
+    const market = marketCandidates[Math.floor(rng() * marketCandidates.length)];
+    if (!getHex(market.q, market.r).landmark) {
+      setHex(market.q, market.r, { landmark: { type: 'market', name: '市场广场' } });
+    }
+  }
+
+  // Decorative landmarks
+  const landmarkTypes = ['fountain', 'statue', 'well'];
+  for (const h of landHexes) {
+    if (getHex(h.q, h.r).landmark) continue;
+    if (rng() < 0.02) {
+      const lmType = landmarkTypes[Math.floor(rng() * landmarkTypes.length)];
+      const lmNames = {
+        fountain: ['公共喷泉', '许愿池', '清泉喷水'],
+        statue: ['英雄雕像', '国王雕像', '女神像'],
+        well: ['古井', '市集水井', '深水井']
+      };
+      const name = lmNames[lmType][Math.floor(rng() * lmNames[lmType].length)];
+      setHex(h.q, h.r, { landmark: { type: lmType, name } });
+    }
+  }
+}
+
+// ======== Street Network ========
+function buildStreetNetwork(landHexes, waterHexes, centerQ, centerR, halfW, halfH, boulevardCount, style, rng) {
+  // Find castle position
+  let castlePos = null;
+  for (const key of Object.keys(hexData)) {
+    if (hexData[key]?.landmark?.type === 'castle') {
+      const [q, r] = key.split(',').map(Number);
+      castlePos = { q, r };
+      break;
+    }
+  }
+  if (!castlePos) {
+    castlePos = { q: centerQ, r: centerR };
+  }
+
+  // Generate boulevard directions (evenly distributed + some randomness)
+  const gateDirections = [];
+  for (let i = 0; i < boulevardCount; i++) {
+    const angle = (i / boulevardCount) * 2 * Math.PI + rng() * 0.2;
+    gateDirections.push(angle);
+  }
+
+  // For each direction, find perimeter hex and build boulevard
+  const waterSet = new Set(waterHexes);
+  const landSet = new Set(landHexes.map(h => hexKey(h.q, h.r)));
+
+  for (const angle of gateDirections) {
+    // Find perimeter hex in this direction
+    const dx = Math.cos(angle);
+    const dy = Math.sin(angle);
+    const targetQ = Math.round(castlePos.q + dx * halfW * 0.9);
+    const targetR = Math.round(castlePos.r + dy * halfH * 0.9);
+
+    // Find the closest land hex at perimeter
+    let best = null, bestDist = Infinity;
+    for (const h of landHexes) {
+      const d = hexDistance(h.q, h.r, targetQ, targetR);
+      if (d < bestDist) {
+        bestDist = d;
+        best = h;
+      }
+    }
+    if (!best) continue;
+
+    // Build hex line from castle to perimeter
+    const line = hexLine(castlePos.q, castlePos.r, best.q, best.r);
+
+    for (let i = 1; i < line.length; i++) {
+      const p = line[i];
+      const pkey = hexKey(p.q, p.r);
+      if (waterSet.has(pkey)) continue;
+      if (!hexData[pkey]) {
+        setHex(p.q, p.r, { district: null, landmark: null, streets: [], wall: false, wallGate: null, label: '' });
+      }
+      // Add bidirectional boulevard (build new array to avoid undo corruption)
+      const prev = line[i - 1];
+      const hP = getHex(p.q, p. r);
+      const curStreets = hP.streets || [];
+      if (!curStreets.some(s => s.q === prev.q && s.r === prev.r)) {
+        setHex(p.q, p.r, { streets: [...curStreets, { q: prev.q, r: prev.r, type: 'boulevard' }] });
+      }
+      const hPrev = getHex(prev.q, prev.r);
+      const prevStreets = hPrev.streets || [];
+      if (!prevStreets.some(s => s.q === p.q && s.r === p.r)) {
+        setHex(prev.q, prev.r, { streets: [...prevStreets, { q: p.q, r: p.r, type: 'boulevard' }] });
+      }
+
+      // Mark gate at perimeter
+      if (i === line.length - 1 || i === line.length - 2) {
+        const isPerimeter = landHexes.some(lh => lh.q === p.q && lh.r === p.r) &&
+          neighbors(p.q, p.r).some(n => {
+            const nk = hexKey(n.q, n.r);
+            return !landSet.has(nk) || waterSet.has(nk);
+          });
+        if (isPerimeter && !getHex(p.q, p.r).wallGate) {
+          setHex(p.q, p.r, { wallGate: 'gate' });
+        }
+      }
+    }
+  }
+
+  // Secondary streets — connect district centers to nearest boulevard
+  const districtCenters = {};
+  for (const h of landHexes) {
+    if (!districtCenters[h.district]) districtCenters[h.district] = [];
+    districtCenters[h.district].push(h);
+  }
+
+  // For each district type, find a center point and connect it to nearest boulevard
+  for (const [district, hexes] of Object.entries(districtCenters)) {
+    if (hexes.length < 3) continue;
+    // Find centroid-ish
+    let sumQ = 0, sumR = 0, count = 0;
+    for (const h of hexes) {
+      if (hexData[hexKey(h.q, h.r)]?.landmark) continue; // skip landmark hexes for center
+      sumQ += h.q; sumR += h.r; count++;
+    }
+    if (count === 0) continue;
+    const cq = Math.round(sumQ / count);
+    const cr = Math.round(sumR / count);
+
+    // Find nearest boulevard hex
+    let nearestBoulevard = null, nearestBDist = Infinity;
+    for (const key of Object.keys(hexData)) {
+      const h = hexData[key];
+      if (h.streets && h.streets.some(s => s.type === 'boulevard')) {
+        const [bq, br] = key.split(',').map(Number);
+        const d = hexDistance(cq, cr, bq, br);
+        if (d < nearestBDist) {
+          nearestBDist = d;
+          nearestBoulevard = { q: bq, r: br };
+        }
+      }
+    }
+    if (!nearestBoulevard || nearestBDist > 15) continue;
+
+    // Build street from district center to boulevard
+    const streetLine = hexLine(cq, cr, nearestBoulevard.q, nearestBoulevard.r);
+    for (let i = 0; i < streetLine.length - 1; i++) {
+      const a = streetLine[i], b = streetLine[i + 1];
+      const ak = hexKey(a.q, a.r), bk = hexKey(b.q, b.r);
+      if (waterSet.has(ak) || waterSet.has(bk)) continue;
+
+      const ha = getHex(a.q, a.r);
+      const hb = getHex(b.q, b.r);
+      const haStreets = ha.streets || [];
+      const hbStreets = hb.streets || [];
+
+      if (!haStreets.some(s => s.q === b.q && s.r === b.r)) {
+        setHex(a.q, a.r, { streets: [...haStreets, { q: b.q, r: b.r, type: 'street' }] });
+      }
+      if (!hbStreets.some(s => s.q === a.q && s.r === a.r)) {
+        setHex(b.q, b.r, { streets: [...hbStreets, { q: a.q, r: a.r, type: 'street' }] });
+      }
+    }
+  }
+
+  // Bridges over water for riverside/canal styles
+  if (style === 'riverside' || style === 'canal') {
+    for (const key of Object.keys(hexData)) {
+      const h = hexData[key];
+      if (!h.streets || h.streets.length === 0) continue;
+      for (const st of h.streets) {
+        const nk = hexKey(st.q, st.r);
+        if (waterSet.has(nk) && landSet.has(key)) {
+          // This street crosses water — place bridge landmark
+          if (!getHex(parseInt(key.split(',')[0]), parseInt(key.split(',')[1])).landmark && rng() < 0.3) {
+            const [bq, br] = key.split(',').map(Number);
+            setHex(bq, br, { landmark: { type: 'bridge', name: '石桥' } });
+          }
+        }
+      }
+    }
+  }
+}
+
+// ======== Walls and Gates ========
+function buildWallsAndGates(landHexes, waterHexes, centerQ, centerR, halfW, halfH, style, rng) {
+  const landSet = new Set(landHexes.map(h => hexKey(h.q, h.r)));
+  const waterSet = new Set(waterHexes);
+
+  // Skip walls for canal style (partial walls)
+  if (style === 'canal' && rng() < 0.5) return;
+
+  // Find perimeter: land hexes with at least one non-land neighbor
+  const perimeter = landHexes.filter(h => {
+    const key = hexKey(h.q, h.r);
+    return neighbors(h.q, h.r).some(n => {
+      const nk = hexKey(n.q, n.r);
+      return !landSet.has(nk) || waterSet.has(nk);
+    });
+  });
+
+  // For coastal style, don't wall the coast side
+  let filteredPerimeter = perimeter;
+  if (style === 'coastal') {
+    filteredPerimeter = perimeter.filter(h => {
+      // Skip hexes on the coast side (south)
+      return h.r <= halfH * 0.1;
+    });
+  }
+
+  // Sort perimeter into a rough ring (by angle from center)
+  filteredPerimeter.sort((a, b) => {
+    const angleA = Math.atan2(a.r - centerR, a.q - centerQ);
+    const angleB = Math.atan2(b.r - centerR, b.q - centerQ);
+    return angleA - angleB;
+  });
+
+  // Group consecutive perimeter hexes, mark as walls
+  // Find natural gaps for gates
+  const wallHexes = [];
+  for (const h of filteredPerimeter) {
+    const key = hexKey(h.q, h.r);
+    if (hexData[key]?.wallGate) {
+      // Already a gate here
+      continue;
+    }
+    // Check if this hex has a boulevard — mark as gate instead
+    const hasBoulevard = getHex(h.q, h.r).streets?.some(s => s.type === 'boulevard');
+    if (hasBoulevard) {
+      setHex(h.q, h.r, { wallGate: 'gate' });
+      wallHexes.push(key);
+    } else {
+      setHex(h.q, h.r, { wall: true });
+      wallHexes.push(key);
+    }
+  }
+
+  // For perimeter hexes adjacent to existing gates, mark as wall too
+  for (const h of perimeter) {
+    const key = hexKey(h.q, h.r);
+    if (hexData[key]?.wall || hexData[key]?.wallGate) continue;
+    const hasGateNeighbor = neighbors(h.q, h.r).some(n => {
+      const nk = hexKey(n.q, n.r);
+      return getHex(n.q, n.r).wallGate;
+    });
+    if (hasGateNeighbor) {
+      setHex(h.q, h.r, { wall: true });
+    }
+  }
+}
+
+// ======== Alley Filler ========
+function fillAlleys(landHexes, density, rng) {
+  const alleyProb = 0.15 * density;
+  for (const h of landHexes) {
+    const key = hexKey(h.q, h.r);
+    if (!hexData[key]) continue;
+    const nbrs = neighbors(h.q, h.r);
+    for (const n of nbrs) {
+      const nk = hexKey(n.q, n.r);
+      if (!hexData[nk]) continue;
+
+      // Check existing connections (read each hex's current streets)
+      const ha = getHex(h.q, h.r);
+      if (ha.streets?.some(s => s.q === n.q && s.r === n.r)) continue;
+
+      if (rng() < alleyProb) {
+        const haStreets = ha.streets || [];
+        setHex(h.q, h.r, { streets: [...haStreets, { q: n.q, r: n.r, type: 'alley' }] });
+
+        const nb = getHex(n.q, n.r);
+        const nbStreets = nb.streets || [];
+        if (!nbStreets.some(s => s.q === h.q && s.r === h.r)) {
+          setHex(n.q, n.r, { streets: [...nbStreets, { q: h.q, r: h.r, type: 'alley' }] });
+        }
+      }
+    }
+  }
+}
+
+// ======== UI Functions ========
+function showDiceResult(line1, line2) {
+  const panel = document.getElementById('info-panel');
+  panel.innerHTML = `<div class="row"><span style="font-size:20px;font-weight:bold;color:#e94560;">${line1}</span></div>
+    <div class="row"><span style="color:#aaa;">${line2 || ''}</span></div>`;
+}
+
+function showStepResult(icon, label, value, extra) {
+  const panel = document.getElementById('info-panel');
+  panel.innerHTML = `
+    <div class="row" style="justify-content:center;">
+      <span style="font-size:22px;font-weight:bold;color:#e94560;">
+        ${icon} ${label} <span style="color:#fff;">${value}</span>
+      </span>
+    </div>
+    ${extra ? `<div class="row" style="justify-content:center;margin-top:4px;"><span style="color:#aaa;font-size:15px;">${extra}</span></div>` : ''}`;
+}
+
+function updateInfo() {
+  const panel = document.getElementById('info-panel');
+  if (!selectedHex) {
+    panel.innerHTML = '<div class="row"><span class="label">💡 选择工具 → 点击六角格操作</span></div>';
+    return;
+  }
+  const { q, r } = selectedHex;
+  const h = getHex(q, r);
+  const dName = h.district ? `${DISTRICTS[h.district]?.icon || ''} ${DISTRICTS[h.district]?.name || h.district}` : '未规划';
+  const lm = h.landmark ? `${LANDMARK_TYPES[h.landmark.type]?.icon || '🏛️'} ${h.landmark.name || ''}` : '—';
+  const streets = h.streets?.length || 0;
+  const wallInfo = h.wallGate ? '🚪城门' : h.wall ? '🏰城墙' : '—';
+
+  panel.innerHTML = `<div class="row">
+    <span><span class="label">坐标:</span> <span class="val">(${q}, ${r})</span></span>
+    <span><span class="label">城区:</span> <span class="val">${dName}</span></span>
+    <span><span class="label">地标:</span> <span class="val">${lm}</span></span>
+    <span><span class="label">街道:</span> <span class="val">${streets} 条</span></span>
+    <span><span class="label">城墙:</span> <span class="val">${wallInfo}</span></span>
+  </div>`;
+}
+
+function setTool(tool) {
+  selectedTool = tool;
+  document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === tool));
+  const hint = document.getElementById('tool-hint');
+  const coord = document.getElementById('coord-indicator');
+  switch (tool) {
+    case 'select':
+      hint.innerHTML = '👆 点击六角格查看城区信息';
+      coord.textContent = '⚪ 选择模式';
+      break;
+    case 'paint': {
+      const dInfo = DISTRICTS[selectedDistrict];
+      hint.innerHTML = `🖌️ 点击格子涂上 <b>${dInfo?.name || ''}</b>，拖拽连续涂色`;
+      coord.textContent = `🖌️ ${dInfo?.name || ''} 笔刷`;
+      break;
+    }
+    case 'landmark':
+      hint.innerHTML = '🏛️ 点击六角格放置地标';
+      coord.textContent = '🏛️ 点击放置地标';
+      break;
+    case 'erase':
+      hint.innerHTML = '🧹 点击擦除六角格所有内容，拖拽连续擦除';
+      coord.textContent = '🧹 擦除模式';
+      break;
+    case 'wall':
+      hint.innerHTML = '🧱 点击六角格切换城墙（再次点击取消）';
+      coord.textContent = '🧱 城墙绘制';
+      break;
+    case 'gate':
+      hint.innerHTML = '🚪 点击六角格切换城门（再次点击取消）';
+      coord.textContent = '🚪 城门绘制';
+      break;
+  }
+  render();
+}
+
+document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
+  btn.addEventListener('click', () => setTool(btn.dataset.tool));
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+    if (e.shiftKey) { redo(); } else { undo(); }
+    e.preventDefault();
+    return;
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'y') { redo(); e.preventDefault(); return; }
+  const keyMap = { 'v': 'select', 'b': 'paint', 'l': 'landmark', 'e': 'erase', 'w': 'wall', 'g': 'gate' };
+  if (keyMap[e.key?.toLowerCase()]) {
+    setTool(keyMap[e.key.toLowerCase()]);
+    e.preventDefault();
+  }
+});
+
+// District palette
+function rebuildDistrictPalette() {
+  const palette = document.getElementById('district-palette');
+  if (!palette) return;
+  palette.innerHTML = '';
+  DISTRICT_LIST.forEach(id => {
+    const d = DISTRICTS[id];
+    if (!d) return;
+    const btn = document.createElement('button');
+    btn.className = 'tool-btn' + (id === selectedDistrict ? ' active' : '');
+    btn.dataset.district = id;
+    btn.title = d.name;
+    const isLight = ['#D4A574', '#C9A84C', '#B5B0A0', '#E8C840', '#C9A8E8', '#D4C8A0', '#6BA86B'].includes(d.color);
+    const textColor = isLight ? '#333' : '#fff';
+    btn.style.cssText = `background:${d.color};color:${textColor};text-shadow:${textColor === '#fff' ? '0 1px 3px rgba(0,0,0,0.5)' : 'none'}`;
+    btn.innerHTML = `<span class="icon">${d.icon}</span><span class="label">${d.name}</span>`;
+    btn.addEventListener('click', () => {
+      selectedDistrict = id;
+      document.querySelectorAll('.tool-btn[data-district]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (selectedTool !== 'paint') setTool('paint');
+    });
+    palette.appendChild(btn);
+  });
+}
+
+// City style selector
+document.querySelectorAll('.style-radio').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.style-radio').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    selectedCityStyle = el.dataset.style;
+  });
+});
+
+// ======== One-click Modal ========
+document.getElementById('btn-oneclick-gen').addEventListener('click', () => {
+  document.getElementById('oc-seed').value = Math.floor(Math.random() * 99999) + 1;
+  document.getElementById('oneclick-modal').style.display = 'block';
+});
+
+// Slider live values
+['oc-width', 'oc-height', 'oc-boulevard', 'oc-density'].forEach(id => {
+  const input = document.getElementById(id);
+  const valSpan = document.getElementById(id + '-val');
+  if (input && valSpan) {
+    input.addEventListener('input', () => { valSpan.textContent = input.value; });
+  }
+});
+
+document.getElementById('oc-random-seed').addEventListener('click', () => {
+  document.getElementById('oc-seed').value = Math.floor(Math.random() * 99999) + 1;
+});
+
+document.getElementById('oc-btn-cancel').addEventListener('click', () => {
+  document.getElementById('oneclick-modal').style.display = 'none';
+});
+
+document.getElementById('oc-btn-confirm').addEventListener('click', () => {
+  const seed = parseInt(document.getElementById('oc-seed').value) || Date.now();
+  const width = parseInt(document.getElementById('oc-width').value);
+  const height = parseInt(document.getElementById('oc-height').value);
+  const boulevardCount = parseInt(document.getElementById('oc-boulevard').value);
+  const buildWalls = document.getElementById('oc-build-walls').checked;
+  const density = parseInt(document.getElementById('oc-density').value);
+  const style = document.getElementById('oc-style').value;
+
+  document.getElementById('oneclick-modal').style.display = 'none';
+
+  generateCity({ seed, style, width, height, boulevardCount, buildWalls, density });
+});
+
+// Click background to close modal
+document.getElementById('oneclick-modal').addEventListener('click', function(e) {
+  if (e.target === e.currentTarget) this.style.display = 'none';
+});
+
+// ======== Save/Load/Export ========
+document.getElementById('btn-save').addEventListener('click', () => {
+  cleanHexData();
+  const data = { hexData, viewX, viewY, zoom };
+  const json = JSON.stringify(data);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `citymap_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showDiceResult('💾 已保存', `共 ${Object.keys(hexData).length} 个六角格`);
+});
+
+document.getElementById('btn-load').addEventListener('click', () => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        hexData = data.hexData || {};
+        undoStack = []; redoStack = []; updateUndoButtons();
+        if (data.viewX !== undefined) viewX = data.viewX;
+        if (data.viewY !== undefined) viewY = data.viewY;
+        if (data.zoom !== undefined) zoom = data.zoom;
+        document.getElementById('zoom-indicator').textContent = `🔍 ${Math.round(zoom * 100)}%`;
+        render();
+        updateInfo();
+        showDiceResult('📂 已加载', `共 ${Object.keys(hexData).length} 个六角格`);
+      } catch(e) {
+        showDiceResult('⚠️ 加载失败', '文件格式错误');
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+});
+
+document.getElementById('btn-export-img').addEventListener('click', () => {
+  cleanHexData();
+  const keys = Object.keys(hexData);
+  if (keys.length === 0) { showDiceResult('⚠️', '没有数据可导出'); return; }
+
+  let minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
+  keys.forEach(k => {
+    const [q, r] = k.split(',').map(Number);
+    if (q < minQ) minQ = q;
+    if (q > maxQ) maxQ = q;
+    if (r < minR) minR = r;
+    if (r > maxR) maxR = r;
+  });
+  const topLeft = hexToPixel(minQ, minR);
+  const botRight = hexToPixel(maxQ, maxR);
+  const padding = HEX_SIZE * 2;
+  const w = Math.ceil(botRight.x - topLeft.x + HEX_SIZE * 2 + padding * 2);
+  const h = Math.ceil(botRight.y - topLeft.y + HEX_SIZE * 1.5 + padding * 2);
+  const MAX_EXPORT = 10000;
+  if (w > MAX_EXPORT || h > MAX_EXPORT) { showDiceResult('⚠️', '地图太大，缩小后导出'); return; }
+
+  const exportCanvas = document.createElement('canvas');
+  exportCanvas.width = Math.max(w, 640);
+  exportCanvas.height = Math.max(h, 480);
+  const exportCtx = exportCanvas.getContext('2d');
+  exportCtx.fillStyle = '#2d2d44';
+  exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+  const offsetX = (exportCanvas.width - w) / 2 - topLeft.x + padding;
+  const offsetY = (exportCanvas.height - h) / 2 - topLeft.y + padding;
+  exportCtx.save();
+  exportCtx.translate(offsetX, offsetY);
+
+  // Pass 1: District fills
+  for (const key of keys) {
+    const [q, r] = key.split(',').map(Number);
+    const p = hexToPixel(q, r);
+    const corners = hexCorners(p.x, p.y, HEX_SIZE);
+    const hEntry = hexData[key];
+    exportCtx.beginPath();
+    corners.forEach((c, i) => i === 0 ? exportCtx.moveTo(c.x, c.y) : exportCtx.lineTo(c.x, c.y));
+    exportCtx.closePath();
+    let fillColor = '#3a3a52';
+    if (hEntry.district && DISTRICTS[hEntry.district]) fillColor = DISTRICTS[hEntry.district].color;
+    exportCtx.fillStyle = fillColor;
+    exportCtx.fill();
+    exportCtx.strokeStyle = 'rgba(255,255,255,0.12)';
+    exportCtx.lineWidth = 1;
+    exportCtx.stroke();
+  }
+
+  // Pass 2: Streets
+  exportCtx.lineCap = 'round';
+  for (const key of keys) {
+    const hEntry = hexData[key];
+    if (!hEntry.streets) continue;
+    for (const st of hEntry.streets) {
+      if (st.q > parseInt(key.split(',')[0]) || (st.q === parseInt(key.split(',')[0]) && st.r > parseInt(key.split(',')[1]))) continue;
+      // Draw in export
+      const [q1, r1] = key.split(',').map(Number);
+      const p1 = hexToPixel(q1, r1);
+      const p2 = hexToPixel(st.q, st.r);
+      const color = st.type === 'boulevard' ? '#FFD700' : st.type === 'street' ? '#8B6914' : '#998';
+      const width = st.type === 'boulevard' ? 4 : st.type === 'street' ? 3 : 1.5;
+      exportCtx.strokeStyle = color;
+      exportCtx.lineWidth = width;
+      exportCtx.beginPath();
+      exportCtx.moveTo(p1.x, p1.y);
+      exportCtx.lineTo(p2.x, p2.y);
+      exportCtx.stroke();
+    }
+  }
+
+  // Pass 3: Walls
+  for (const key of keys) {
+    const hEntry = hexData[key];
+    if (!hEntry.wall) continue;
+    const [q, r] = key.split(',').map(Number);
+    const p = hexToPixel(q, r);
+    const corners = hexCorners(p.x, p.y, HEX_SIZE);
+    exportCtx.strokeStyle = '#4a3a2a';
+    exportCtx.lineWidth = 5;
+    exportCtx.beginPath();
+    corners.forEach((c, i) => i === 0 ? exportCtx.moveTo(c.x, c.y) : exportCtx.lineTo(c.x, c.y));
+    exportCtx.closePath();
+    exportCtx.stroke();
+  }
+
+  // Pass 4: Overlays
+  for (const key of keys) {
+    const [q, r] = key.split(',').map(Number);
+    const hEntry = hexData[key];
+    const p = hexToPixel(q, r);
+
+    // District icon
+    if (hEntry.district && DISTRICTS[hEntry.district]) {
+      exportCtx.font = `${HEX_SIZE * 0.45}px sans-serif`;
+      exportCtx.textAlign = 'center';
+      exportCtx.textBaseline = 'middle';
+      exportCtx.fillStyle = 'rgba(255,255,255,0.8)';
+      exportCtx.fillText(DISTRICTS[hEntry.district].icon, p.x, p.y - (hEntry.landmark ? HEX_SIZE * 0.15 : 0));
+    }
+
+    // Label
+    if (hEntry.label) {
+      exportCtx.fillStyle = '#fff';
+      exportCtx.font = `bold ${Math.max(9, HEX_SIZE * 0.38)}px sans-serif`;
+      exportCtx.textAlign = 'center';
+      exportCtx.textBaseline = 'bottom';
+      const tw = exportCtx.measureText(hEntry.label).width;
+      exportCtx.fillStyle = 'rgba(0,0,0,0.55)';
+      exportCtx.fillRect(p.x - tw/2 - 3, p.y - HEX_SIZE * 0.65, tw + 6, HEX_SIZE * 0.55);
+      exportCtx.fillStyle = '#fff';
+      exportCtx.fillText(hEntry.label, p.x, p.y - HEX_SIZE * 0.2);
+    }
+
+    // Landmark
+    if (hEntry.landmark) {
+      const lmType = hEntry.landmark.type;
+      const lmInfo = LANDMARK_TYPES[lmType] || { icon: '🏛️', name: '地标' };
+      exportCtx.font = `${HEX_SIZE * 0.7}px sans-serif`;
+      exportCtx.textAlign = 'center';
+      exportCtx.textBaseline = 'bottom';
+      exportCtx.fillText(lmInfo.icon, p.x, p.y + HEX_SIZE * 0.35);
+      const lmName = hEntry.landmark.name || lmInfo.name;
+      exportCtx.fillStyle = 'rgba(0,0,0,0.5)';
+      exportCtx.font = `bold ${Math.max(9, HEX_SIZE * 0.3)}px sans-serif`;
+      const sw = exportCtx.measureText(lmName).width;
+      exportCtx.fillRect(p.x - sw/2 - 3, p.y + HEX_SIZE * 0.25, sw + 6, HEX_SIZE * 0.38);
+      exportCtx.fillStyle = '#ffd700';
+      exportCtx.fillText(lmName, p.x, p.y + HEX_SIZE * 0.3);
+    }
+  }
+
+  exportCtx.restore();
+  const link = document.createElement('a');
+  link.download = 'citymap_' + new Date().toISOString().slice(0,10) + '.png';
+  link.href = exportCanvas.toDataURL('image/png');
+  link.click();
+  showDiceResult('🖼️ 已导出', `${exportCanvas.width}x${exportCanvas.height} (${keys.length} 格)`);
+});
+
+// Clear
+document.getElementById('btn-clear').addEventListener('click', () => {
+  if (!confirm('⚠️ 确认清空所有六角格数据？')) return;
+  beginBatch();
+  for (const key of Object.keys(hexData)) pushUndo(key);
+  hexData = {};
+  endBatch();
+  selectedHex = null;
+  render();
+  updateInfo();
+  showDiceResult('🗑️ 已清空', '');
+});
+
+// Grid/Coords toggles
+document.getElementById('chk-grid').addEventListener('change', (e) => { showGrid = e.target.checked; render(); });
+document.getElementById('chk-coords').addEventListener('change', (e) => { showCoords = e.target.checked; render(); });
+
+// Undo/Redo buttons
+document.getElementById('btn-undo').addEventListener('click', undo);
+document.getElementById('btn-redo').addEventListener('click', redo);
+
+// ======== Init ========
+cleanHexData();
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+viewX = canvas.width / 2;
+viewY = canvas.height / 2;
+rebuildDistrictPalette();
+setTool('select');
+render();
+updateInfo();
+
+console.log('🏙️ 四战黑城市地图生成器已加载');
+console.log('快捷键: V=选择 B=笔刷 L=地标 E=擦除 W=城墙 G=城门 Ctrl+Z=撤销');
+</script>
+</body>
+</html>
