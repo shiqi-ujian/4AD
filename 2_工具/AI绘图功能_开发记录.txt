@@ -1,0 +1,49 @@
+AI绘图功能开发记录
+==============================
+日期: 2026-08-04
+状态: 开发中
+
+已完成
+--------
+1. AI绘图按钮 — 工具栏中"一键生成地图"下方插入 btn-ai-draw，紫色渐变
+2. AI绘图对话框 — ai-draw-modal，包含：
+   - API提供商选择（OpenAI/Anthropic/OpenRouter/自定义）
+   - API Key 密码输入 + 切换可见
+   - endpoint/模型名输入
+   - 范围选择（全部地图/选中框选/当前视野）
+   - 提示词文本框 + 清空/添加上下文按钮
+   - 状态显示区 + 确认/取消按钮
+3. AI JS代码 — 6个核心函数已注入到 </script> 前：
+   - loadAISettings/saveAISettings — localStorage持久化
+   - getMapContext/getScopeHexes — 获取地图上下文
+   - buildSystemPrompt — 构建AI系统提示词（列出所有可用地形）
+   - callAIAPI — 支持OpenAI兼容协议 + Anthropic Messages API
+   - parseAIResponse — 解析AI返回的JSON命令数组
+   - executeAICommands — 执行paint/erase/label/settlement/road/paintRect命令
+4. 大括号平衡 — brace_check.js 验证通过（count = 0）
+5. 已git commit: 9f269c8
+
+剩余问题
+----------
+1. UI ID不一致 — HTML中部分ID与JS代码不匹配，需修复：
+   - AI对话框HTML中endpoint区id是"ai-api-url"，但JS中引用"ai-endpoint"
+   - AI对话框HTML中模型行无"ai-model-row" id包装，JS中引用"ai-model-row"
+   - AI对话框HTML中范围选项为"selected"/"selection-box"/"viewport"，但JS中引用"all"/"selected"/"view"
+2. 未测试 — 尚未在浏览器中打开验证按钮点击和对话框显示
+3. Anthropic API确认 — 默认模型名claude-sonnet-4-20250514需要确认是否正确
+4. Provider切换 — OpenAI选择时需隐藏endpoint和model行，已实现但未测试
+
+AI命令格式
+-------------
+{"action":"paint","q":<数字>,"r":<数字>,"terrain":"<地形ID>"}
+{"action":"erase","q":<数字>,"r":<数字>}
+{"action":"label","q":<数字>,"r":<数字>,"text":"<文字>"}
+{"action":"settlement","q":<数字>,"r":<数字>,"name":"<名称>","rating":<-3到3的整数>}
+{"action":"road","q1":<数字>,"r1":<数字>,"q2":<数字>,"r2":<数字>}
+{"action":"paintRect","q1":<数字>,"r1":<数字>,"q2":<数字>,"r2":<数字>,"terrain":"<地形ID>"}
+
+下次继续
+----------
+1. 修复HTML UI ID以匹配JS引用
+2. 浏览器中测试按钮点击→对话框打开→API调用流程
+3. 用真实API Key测试生成
