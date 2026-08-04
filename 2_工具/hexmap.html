@@ -88,6 +88,15 @@ canvas { display: block; }
 
 input[type="range"] { width: 100%; margin: 2px 0; cursor: pointer; }
 button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Minimap */
+#minimap-canvas {
+  position: absolute; bottom: 10px; right: 10px;
+  width: 180px; height: 135px;
+  background: rgba(22,33,62,0.85); border: 1px solid #0f3460; border-radius: 6px;
+  cursor: pointer; z-index: 15;
+  image-rendering: auto;
+}
 </style>
 </head>
 <body>
@@ -171,6 +180,9 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
       <button id="btn-clear" style="flex:1;padding:4px;background:#6b5b4f;color:#ccc;border:none;border-radius:4px;cursor:pointer;">🗑️ 清空</button>
     </div>
     <div style="display:flex;gap:4px;margin-top:2px;">
+      <button id="btn-fit" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="缩放到显示全部内容">🔎 缩放至全图</button>
+    </div>
+    <div style="display:flex;gap:4px;margin-top:2px;">
       <button id="btn-undo" style="flex:1;padding:4px;background:#3a3a5e;color:#fff;border:none;border-radius:4px;cursor:pointer;opacity:0.4;" disabled>↩️ 撤销</button>
       <button id="btn-redo" style="flex:1;padding:4px;background:#3a3a5e;color:#fff;border:none;border-radius:4px;cursor:pointer;opacity:0.4;" disabled>↪️ 重做</button>
     </div>
@@ -179,6 +191,9 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     </label>
     <label style="font-size:12px;">
       <input type="checkbox" id="chk-coords" checked> 显示坐标
+    </label>
+    <label style="font-size:12px;">
+      <input type="checkbox" id="chk-minimap" checked> 🗺️ 小地图
     </label>
     <label style="font-size:12px;border-top:1px solid #0f3460;padding-top:4px;margin-top:2px;">
       <input type="checkbox" id="chk-lock"> 🔒 锁定（已编辑格子不受笔刷/擦除影响）
@@ -193,12 +208,22 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     <div id="coord-indicator">⚪ (0, 0)</div>
     <div id="zoom-indicator">🔍 100%</div>
     <canvas id="hex-canvas"></canvas>
+    <canvas id="minimap-canvas" style="display:none;"></canvas>
     <div id="info-panel"><div class="row"><span class="label">点击六角格查看信息</span></div></div>
+    <!-- AI floating progress bar (shown during generation) -->
+    <div id="ai-floating-bar" style="display:none;position:absolute;bottom:12px;right:12px;left:12px;background:rgba(22,33,62,0.94);border:1px solid #0f3460;border-radius:8px;padding:8px 12px;z-index:20;max-height:140px;overflow-y:auto;backdrop-filter:blur(4px);">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span id="ai-floating-icon" style="font-size:16px;">🤖</span>
+        <span id="ai-floating-status" style="flex:1;font-size:12px;color:#aaa;">准备中...</span>
+        <button id="ai-floating-undo" style="display:none;padding:3px 10px;background:#c9a84c;color:#000;border:none;border-radius:4px;cursor:pointer;font-size:11px;">↩ 撤销</button>
+        <button id="ai-floating-stop" style="padding:3px 10px;background:#e94560;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;">⏹ 停止</button>
+      </div>
+    </div>
   </div>
 </div>
 
 <!-- Context Menu -->
-<canvas id="ctx-menu" style="display:none;position:fixed;z-index:50;background:#16213e;border:1px solid #0f3460;border-radius:6px;padding:4px 0;width:180px;box-shadow:0 4px 12px rgba(0,0,0,0.4);"></canvas>
+<div id="ctx-menu" style="display:none;position:fixed;z-index:50;background:#16213e;border:1px solid #0f3460;border-radius:6px;padding:4px 0;width:180px;box-shadow:0 4px 12px rgba(0,0,0,0.4);"></div>
 
 <!-- Terrain Editor Modal -->
 <div id="terrain-editor-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
@@ -234,6 +259,11 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
       </select>
     </div>
     <div style="margin-bottom:10px;">
+      <label style="font-size:12px;color:#ccc;display:block;margin-bottom:4px;">一键/规划模式 特殊地形概率: <span id="gr-special-chance-val">5%</span></label>
+      <input id="gr-special-chance" type="range" min="0" max="20" value="5" style="width:100%;">
+      <div style="font-size:10px;color:#888;">控制地形生成时注入特殊地形(废墟/神庙等)的概率。仅影响一键生成和AI规划模式。</div>
+    </div>
+    <div style="margin-bottom:10px;">
       <label style="font-size:12px;color:#ccc;display:block;margin-bottom:4px;">默认地形 (d6 < 阈值时)：</label>
       <select id="gr-default-terrain" style="width:120px;padding:4px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;"></select>
     </div>
@@ -252,7 +282,10 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 	<!-- AI Draw Modal -->
 <div id="ai-draw-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
   <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:500px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
-    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">🤖 AI 绘图</h3>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 12px;">
+      <h3 style="color:#e94560;margin:0;font-size:17px;">🤖 AI 绘图</h3>
+      <button id="ai-btn-close-x" style="background:none;border:none;color:#aaa;font-size:20px;cursor:pointer;padding:0 4px;line-height:1;" title="关闭">&times;</button>
+    </div>
     <p style="font-size:12px;color:#aaa;margin-bottom:12px;">用自然语言描述你想要的地图，AI 会自动在地图上绘制。你需要自己准备 API Key。</p>
 
     <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">API 提供商</label>
@@ -264,7 +297,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     </select>
 
     <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">API Key <span style="color:#888;font-weight:normal;">(存在浏览器本地，不会上传)</span></label>
-    <div id="ai-model-row" style="display:block;margin-bottom:8px;">
+    <div id="ai-key-row" style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
       <input id="ai-api-key" type="password" placeholder="sk-..." style="flex:1;padding:6px 8px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;">
       <button id="ai-toggle-key" style="padding:4px 10px;background:#3a3a5e;color:#ccc;border:none;border-radius:4px;cursor:pointer;font-size:12px;">👁️</button>
     </div>
@@ -275,21 +308,37 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     </div>
 
     <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">模型名 <span style="color:#888;font-weight:normal;">(默认自动选择)</span></label>
-    <div style="display:flex;gap:6px;margin-bottom:8px;">
+    <div id="ai-model-row" style="display:flex;gap:6px;margin-bottom:8px;">
       <input id="ai-model" type="text" placeholder="例: gpt-4o, claude-sonnet-4-6" style="flex:1;padding:6px 8px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;">
       <button id="ai-model-default" style="padding:4px 10px;background:#0f3460;color:#ccc;border:none;border-radius:4px;cursor:pointer;font-size:12px;">默认</button>
     </div>
 
+    <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">生成模式 <span style="color:#888;font-weight:normal;">(规划模式=AI设计+程序化生成)</span></label>
+    <select id="ai-mode" style="width:100%;padding:6px 8px;margin-bottom:8px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;">
+      <option value="plan" selected>🗺️ 规划模式 — AI描述布局，程序化生成（推荐）</option>
+      <option value="precise">🎯 精确模式 — AI逐格输出坐标（小范围修改用）</option>
+    </select>
+
     <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">描述你想要的区域 <span style="color:#888;font-weight:normal;">(框选的范围，或选中的格子)</span></label>
     <div style="display:flex;gap:6px;margin-bottom:10px;">
       <select id="ai-scope" style="flex:1;padding:6px 8px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;">
-        <option value="all">全部地图</option>
-        <option value="selected" selected>仅选中/框选格子</option>
+        <option value="all" selected>全部地图</option>
+        <option value="selected">仅选中/框选格子</option>
         <option value="view">当前视野</option>
       </select>
     </div>
 
-    <label style="font-size:12px;color:#ccc;display:block;margin-bottom:4px;">你的需求</label>
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">
+      <label style="font-size:12px;color:#ccc;white-space:nowrap;">你的需求</label>
+      <select id="ai-template" style="flex:1;padding:3px 6px;background:#1a1a2e;color:#aaa;border:1px solid #0f3460;border-radius:4px;font-size:11px;">
+        <option value="">📋 快速模板...</option>
+        <option value="生成一片被山脉环绕的盆地：环形山脉在外围，中间是平原和森林，山脚下放3个定居点，用道路连接起来">🏔️ 环形山脉+盆地</option>
+        <option value="生成一片完整王国：北边山脉南边森林，中间平原地带放3-4个定居点，东边海岸线，用道路连接">👑 完整王国</option>
+        <option value="生成一片沿海地图：西边是海岸线水域，东边向内陆延伸为平原和丘陵，沿海放2个港口定居点，内陆放2个村庄">🌊 海岸地图</option>
+        <option value="生成一片河谷：中间一条河流从北向南穿过，两岸是森林和平原，河边放3个定居点，道路沿河分布">🏞️ 河谷地带</option>
+        <option value="随机生成多样地形：混合分布平原、森林、丘陵、山地、水域、沙漠、沼泽，放几个散落的定居点和连接道路">🎲 随机大地图</option>
+      </select>
+    </div>
     <textarea id="ai-prompt" rows="5" style="width:100%;padding:8px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;font-family:inherit;resize:vertical;" placeholder="例如：在这片区域中间放一座山脉，周围环绕森林，北边有一条河流穿过，山脚下放一个定居点叫「铁砧镇」，东边留一条路通往外界……"></textarea>
 
     <div style="display:flex;gap:4px;margin:8px 0;">
@@ -320,13 +369,30 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 	    <div style="display:flex;gap:12px;margin-bottom:10px;">
 	      <div style="flex:1;">
 	        <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">宽度: <span id="oc-width-val">30</span></label>
-	        <input id="oc-width" type="range" min="10" max="60" value="30" style="width:100%;">
+	        <div style="display:flex;gap:4px;align-items:center;">
+	          <input id="oc-width" type="range" min="10" max="100" value="30" style="flex:1;">
+	          <input id="oc-width-num" type="number" min="10" max="600" value="30" style="width:60px;padding:2px 4px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;">
+	        </div>
 	      </div>
 	      <div style="flex:1;">
 	        <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">高度: <span id="oc-height-val">30</span></label>
-	        <input id="oc-height" type="range" min="10" max="60" value="30" style="width:100%;">
+	        <div style="display:flex;gap:4px;align-items:center;">
+	          <input id="oc-height" type="range" min="10" max="100" value="30" style="flex:1;">
+	          <input id="oc-height-num" type="number" min="10" max="600" value="30" style="width:60px;padding:2px 4px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;">
+	        </div>
 	      </div>
 	    </div>
+
+	    <div style="margin-bottom:8px;">
+	      <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">预设尺寸</label>
+	      <div style="display:flex;gap:4px;">
+	        <button class="oc-preset" data-w="30" data-h="30" style="flex:1;padding:4px 8px;background:#0f3460;color:#ccc;border:1px solid #1a5276;border-radius:4px;cursor:pointer;font-size:12px;">小 30×30</button>
+	        <button class="oc-preset" data-w="60" data-h="60" style="flex:1;padding:4px 8px;background:#0f3460;color:#ccc;border:1px solid #1a5276;border-radius:4px;cursor:pointer;font-size:12px;">中 60×60</button>
+	        <button class="oc-preset" data-w="100" data-h="100" style="flex:1;padding:4px 8px;background:#0f3460;color:#ccc;border:1px solid #1a5276;border-radius:4px;cursor:pointer;font-size:12px;">大 100×100</button>
+	        <button class="oc-preset" data-w="500" data-h="600" style="flex:1;padding:4px 8px;background:#6a3093;color:#fff;border:1px solid #a044ff;border-radius:4px;cursor:pointer;font-size:12px;">巨型 500×600</button>
+	      </div>
+	    </div>
+	    <div id="oc-size-warning" style="display:none;padding:4px 8px;margin-bottom:10px;background:#5a3a1a;color:#ffd700;border-radius:4px;font-size:11px;text-align:center;">⚠ 大地图生成可能需要数十秒，请耐心等待</div>
 
 	    <div style="margin-bottom:10px;">
 	      <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">地形缩放: <span id="oc-scale-val">1.0</span> <span style="color:#888;font-weight:normal;">(小→大斑块)</span></label>
@@ -336,7 +402,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 	    <div style="display:flex;gap:12px;margin-bottom:10px;">
 	      <div style="flex:1;">
 	        <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">定居点: <span id="oc-settle-val">6</span></label>
-	        <input id="oc-settle" type="range" min="2" max="20" value="6" style="width:100%;">
+	        <input id="oc-settle" type="range" min="2" max="100" value="6" style="width:100%;">
 	      </div>
 	      <div style="flex:1;display:flex;align-items:flex-end;padding-bottom:4px;">
 	        <label style="font-size:12px;color:#ccc;display:flex;align-items:center;gap:6px;cursor:pointer;">
@@ -403,6 +469,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     </div>
 </div>
 
+
 <script>
 // ======== Configuration ========
 const TERRAIN = {
@@ -430,6 +497,7 @@ let terrainOrder = null;      // array of terrain IDs in display order, null = d
 const DEFAULT_GEN_RULES = {
   d6Threshold: 6,
   defaultTerrain: 'plain',
+  specialTerrainChance: 0.05, // probability of injecting a special terrain per hex
   specialTable: [
     { terrainId: 'forest', weight: 3 },
     { terrainId: 'hill', weight: 2 },
@@ -441,6 +509,20 @@ const DEFAULT_GEN_RULES = {
     { terrainId: 'plain', weight: 1 },
   ]
 };
+
+// Pick a terrain from specialTable by weight (for noise-based generation)
+function pickSpecialTerrain(rng) {
+  var entries = generationRules.specialTable.filter(function(e) { return getAllTerrains()[e.terrainId]; });
+  if (entries.length === 0) return null;
+  var totalWeight = 0;
+  for (var i = 0; i < entries.length; i++) totalWeight += entries[i].weight;
+  var roll = rng() * totalWeight;
+  for (var i = 0; i < entries.length; i++) {
+    roll -= entries[i].weight;
+    if (roll <= 0) return entries[i].terrainId;
+  }
+  return entries[0].terrainId;
+}
 let generationRules = JSON.parse(JSON.stringify(DEFAULT_GEN_RULES));
 
 function getAllTerrainIds() {
@@ -746,6 +828,117 @@ const SQRT3 = Math.sqrt(3);
 const container = document.getElementById('canvas-container');
 const canvas = document.getElementById('hex-canvas');
 const ctx = canvas.getContext('2d');
+const minimapCanvas = document.getElementById('minimap-canvas');
+const minimapCtx = minimapCanvas.getContext('2d');
+
+// Fit view to show all hex content
+function fitToContent() {
+  var keys = Object.keys(hexData);
+  if (keys.length === 0) { showDiceResult('⚠️', '没有数据'); return; }
+  var minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
+  for (var i = 0; i < keys.length; i++) {
+    var parts = keys[i].split(','); var q = +parts[0], r = +parts[1];
+    if (q < minQ) minQ = q; if (q > maxQ) maxQ = q;
+    if (r < minR) minR = r; if (r > maxR) maxR = r;
+  }
+  var tl = hexToPixel(minQ, minR), br = hexToPixel(maxQ, maxR);
+  var mapW = br.x - tl.x + HEX_SIZE * 2;
+  var mapH = br.y - tl.y + HEX_SIZE * 2;
+  var pad = 40;
+  var sx = (canvas.width - pad * 2) / mapW;
+  var sy = (canvas.height - pad * 2) / mapH;
+  zoom = Math.max(0.02, Math.min(3, Math.min(sx, sy)));
+  viewX = canvas.width / 2 - (tl.x + br.x) / 2 * zoom;
+  viewY = canvas.height / 2 - (tl.y + br.y) / 2 * zoom;
+  document.getElementById('zoom-indicator').textContent = '🔍 ' + Math.round(zoom * 100) + '%';
+  render();
+}
+
+var _lastMinimapRender = 0;
+
+// Minimap: draws all hexes at tiny scale with a viewport rect overlay
+function renderMinimap(force) {
+  var enabled = document.getElementById('chk-minimap').checked;
+  if (!enabled) { minimapCanvas.style.display = 'none'; return; }
+  if (!force && Date.now() - _lastMinimapRender < 200) return; // throttle to 5fps
+  _lastMinimapRender = Date.now();
+  var keys = Object.keys(hexData);
+  if (keys.length === 0) { minimapCanvas.style.display = 'none'; return; }
+  minimapCanvas.style.display = 'block';
+  var w = minimapCanvas.width = 180 * (window.devicePixelRatio || 1);
+  var h = minimapCanvas.height = 135 * (window.devicePixelRatio || 1);
+  var ctxM = minimapCtx;
+  ctxM.clearRect(0, 0, w, h);
+
+  // Compute bounding box
+  var minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
+  for (var i = 0; i < keys.length; i++) {
+    var parts = keys[i].split(','); var q = +parts[0], r = +parts[1];
+    if (q < minQ) minQ = q; if (q > maxQ) maxQ = q;
+    if (r < minR) minR = r; if (r > maxR) maxR = r;
+  }
+  var tl = hexToPixel(minQ, minR), br = hexToPixel(maxQ, maxR);
+  var fullW = br.x - tl.x + HEX_SIZE * 2;
+  var fullH = br.y - tl.y + HEX_SIZE * 2;
+  var scale = Math.min((w - 8) / fullW, (h - 8) / fullH);
+  var offX = (w - fullW * scale) / 2 - tl.x * scale + HEX_SIZE * scale;
+  var offY = (h - fullH * scale) / 2 - tl.y * scale + HEX_SIZE * scale;
+
+  // Fill hex cells (sample every Nth hex on very large maps for performance)
+  var allTerrains = getAllTerrains();
+  var step = keys.length > 50000 ? Math.ceil(keys.length / 40000) : 1;
+  for (var i = 0; i < keys.length; i++) {
+    if (i % step !== 0) continue;
+    var hd = hexData[keys[i]];
+    if (!hd || !hd.terrain) continue;
+    var parts = keys[i].split(','); var q = +parts[0], r = +parts[1];
+    var px = hexToPixel(q, r);
+    var cx = offX + px.x * scale, cy = offY + px.y * scale;
+    var sz = HEX_SIZE * scale * 0.95;
+    var terrainInfo = hd.terrain ? allTerrains[hd.terrain] : null;
+    ctxM.fillStyle = terrainInfo ? terrainInfo.color : '#3a3a52';
+    ctxM.fillRect(cx - sz, cy - sz * 0.75, sz * 2, sz * 1.5);
+  }
+
+  // Draw viewport rect
+  var vpLeft = -viewX / zoom, vpTop = -viewY / zoom;
+  var vpW = canvas.width / zoom, vpH = canvas.height / zoom;
+  ctxM.strokeStyle = '#fff';
+  ctxM.lineWidth = 1.5;
+  ctxM.strokeRect(offX + vpLeft * scale, offY + vpTop * scale, vpW * scale, vpH * scale);
+}
+
+// Minimap click → pan to position
+minimapCanvas.addEventListener('click', function(e) {
+  var keys = Object.keys(hexData);
+  if (keys.length === 0) return;
+  var rect = minimapCanvas.getBoundingClientRect();
+  var mx = (e.clientX - rect.left) * (window.devicePixelRatio || 1);
+  var my = (e.clientY - rect.top) * (window.devicePixelRatio || 1);
+
+  // Compute same bounding box + scale as renderMinimap
+  var minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
+  for (var i = 0; i < keys.length; i++) {
+    var parts = keys[i].split(','); var q = +parts[0], r = +parts[1];
+    if (q < minQ) minQ = q; if (q > maxQ) maxQ = q;
+    if (r < minR) minR = r; if (r > maxR) maxR = r;
+  }
+  var tl = hexToPixel(minQ, minR), br = hexToPixel(maxQ, maxR);
+  var fullW = br.x - tl.x + HEX_SIZE * 2, fullH = br.y - tl.y + HEX_SIZE * 2;
+  var w = minimapCanvas.width, h = minimapCanvas.height;
+  var scale = Math.min((w - 8) / fullW, (h - 8) / fullH);
+  var offX = (w - fullW * scale) / 2 - tl.x * scale + HEX_SIZE * scale;
+  var offY = (h - fullH * scale) / 2 - tl.y * scale + HEX_SIZE * scale;
+
+  // Convert click to world coords
+  var worldX = (mx - offX) / scale;
+  var worldY = (my - offY) / scale;
+
+  // Pan so that clicked point is at center of viewport
+  viewX = canvas.width / 2 - worldX * zoom;
+  viewY = canvas.height / 2 - worldY * zoom;
+  render();
+});
 
 // ======== Hex math (odd-r offset, flat-top) ========
 function hexToPixel(q, r) {
@@ -793,16 +986,41 @@ function getHex(q, r) {
   return hexData[k] || { terrain: null, label: '', settlement: null, roads: [] };
 }
 
+let settlementIndex = []; // [{q, r}] — fast lookup for rankSettlementLocation
+
+// Low-level write without undo tracking. Used by bulk generation functions.
+// Returns the merged hex data, or null if the key was deleted (empty).
+function writeHexData(key, data) {
+  const old = hexData[key];
+  const merged = { ...(old || { terrain: null, label: '', settlement: null, roads: [] }), ...data };
+  if (!merged.terrain && !merged.label && !merged.settlement && (!merged.roads || merged.roads.length === 0)) {
+    delete hexData[key];
+    // Update settlementIndex if old had a settlement
+    if (old && old.settlement) {
+      const [oq, or_] = key.split(',').map(Number);
+      settlementIndex = settlementIndex.filter(s => !(s.q === oq && s.r === or_));
+    }
+    return null;
+  } else {
+    hexData[key] = merged;
+    // Update settlementIndex
+    if (old && old.settlement && !merged.settlement) {
+      const [oq, or_] = key.split(',').map(Number);
+      settlementIndex = settlementIndex.filter(s => !(s.q === oq && s.r === or_));
+    } else if ((!old || !old.settlement) && merged.settlement) {
+      const [nq, nr] = key.split(',').map(Number);
+      if (!settlementIndex.some(s => s.q === nq && s.r === nr)) {
+        settlementIndex.push({ q: nq, r: nr });
+      }
+    }
+    return merged;
+  }
+}
+
 function setHex(q, r, data) {
   const key = hexKey(q, r);
   pushUndo(key);
-  const merged = { ...getHex(q, r), ...data };
-  // Auto-clean empty hexes (all fields are default)
-  if (!merged.terrain && !merged.label && !merged.settlement && (!merged.roads || merged.roads.length === 0)) {
-    delete hexData[key];
-  } else {
-    hexData[key] = merged;
-  }
+  writeHexData(key, data);
 }
 
 // Remove hexes with no terrain, label, settlement, or roads
@@ -986,6 +1204,7 @@ function render() {
   }
 
   ctx.restore();
+  renderMinimap();
 }
 
 function drawHexBase(q, r, allTerrains) {
@@ -1891,6 +2110,9 @@ document.getElementById('te-btn-close').addEventListener('click', function() {
 function openGenRulesEditor() {
   let modal = document.getElementById('gen-rules-modal');
   document.getElementById('gr-threshold').value = String(generationRules.d6Threshold);
+  var chanceVal = Math.round((generationRules.specialTerrainChance || 0.05) * 100);
+  document.getElementById('gr-special-chance').value = chanceVal;
+  document.getElementById('gr-special-chance-val').textContent = chanceVal + '%';
   let defaultSelect = document.getElementById('gr-default-terrain');
   defaultSelect.innerHTML = '';
   let ids = getAllTerrainIds();
@@ -1992,11 +2214,19 @@ document.getElementById('gr-default-terrain').addEventListener('change', functio
   saveTerrainConfig();
 });
 
+document.getElementById('gr-special-chance').addEventListener('input', function(e) {
+  generationRules.specialTerrainChance = parseInt(e.target.value) / 100;
+  document.getElementById('gr-special-chance-val').textContent = e.target.value + '%';
+  saveTerrainConfig();
+});
+
 document.getElementById('gr-btn-reset').addEventListener('click', function() {
   generationRules = JSON.parse(JSON.stringify(DEFAULT_GEN_RULES));
   saveTerrainConfig();
   rebuildWeightTable();
   document.getElementById('gr-threshold').value = generationRules.d6Threshold;
+  document.getElementById('gr-special-chance').value = Math.round((generationRules.specialTerrainChance || 0.05) * 100);
+  document.getElementById('gr-special-chance-val').textContent = document.getElementById('gr-special-chance').value + '%';
   let defaultSelect = document.getElementById('gr-default-terrain');
   [].slice.call(defaultSelect.options).forEach(function(opt) {
     opt.selected = opt.value === generationRules.defaultTerrain;
@@ -2014,7 +2244,6 @@ document.getElementById('terrain-editor-modal').addEventListener('click', functi
 document.getElementById('gen-rules-modal').addEventListener('click', function(e) {
   if (e.target === e.currentTarget) e.currentTarget.style.display = 'none';
 });
-
 // ======== Settlement Modal ========
 document.getElementById('settlement-modal-rating').addEventListener('input', function(e) {
   const val = parseInt(e.target.value);
@@ -2165,6 +2394,21 @@ function showStepResult(icon, label, value, extra) {
     ${extra ? `<div class="row" style="justify-content:center;margin-top:4px;"><span style="color:#aaa;font-size:15px;">${extra}</span></div>` : ''}`;
 }
 
+// Progress display with bar (for long-running async ops)
+function showProgress(icon, label, done, total) {
+  const panel = document.getElementById('info-panel');
+  const pct = total > 0 ? Math.round(done / total * 100) : 0;
+  const barW = Math.max(0, Math.min(100, pct));
+  panel.innerHTML = `
+    <div style="text-align:center;margin-bottom:4px;">
+      <span style="font-size:16px;font-weight:bold;color:#e94560;">${icon} ${label}</span>
+      <span style="font-size:13px;color:#ccc;"> ${done.toLocaleString()} / ${total.toLocaleString()} (${pct}%)</span>
+    </div>
+    <div style="background:#1a1a2e;border-radius:4px;height:8px;overflow:hidden;max-width:400px;margin:0 auto;">
+      <div style="background:linear-gradient(90deg,#e94560,#c23152);height:100%;width:${barW}%;transition:width 0.1s;"></div>
+    </div>`;
+}
+
 // Random terrain — with roll animation (uses customizable rules)
 document.getElementById('btn-gen-terrain').addEventListener('click', () => {
   if (isGenerating) return;
@@ -2244,25 +2488,42 @@ document.getElementById('btn-gen-settlement').addEventListener('click', () => {
 });
 
 // BFS pathfinding along hex grid — returns array of {q,r} from start to goal (inclusive)
+// BFS pathfinding — uses index pointer instead of shift(), cameFrom instead of path copies
 function hexPathfind(q1, r1, q2, r2) {
   if (q1 === q2 && r1 === r2) return [{ q: q1, r: r1 }];
   const startKey = hexKey(q1, r1);
   const goalKey = hexKey(q2, r2);
   const visited = new Set([startKey]);
-  const queue = [{ q: q1, r: r1, path: [{ q: q1, r: r1 }] }];
-  while (queue.length > 0) {
-    const cur = queue.shift();
-    for (const n of neighbors(cur.q, cur.r)) {
-      const nk = hexKey(n.q, n.r);
-      if (nk === goalKey) return [...cur.path, { q: n.q, r: n.r }];
+  const cameFrom = {};
+  const queue = [{ q: q1, r: r1 }];
+  var head = 0;
+  while (head < queue.length) {
+    var cur = queue[head++];
+    var curKey = hexKey(cur.q, cur.r);
+    var nbrs = neighbors(cur.q, cur.r);
+    for (var ni = 0; ni < nbrs.length; ni++) {
+      var n = nbrs[ni];
+      var nk = hexKey(n.q, n.r);
+      if (nk === goalKey) {
+        // Reconstruct path
+        var path = [{ q: n.q, r: n.r }];
+        var ck = curKey;
+        while (ck) {
+          var parts = ck.split(','); path.unshift({ q: +parts[0], r: +parts[1] });
+          ck = cameFrom[ck];
+        }
+        return path;
+      }
       if (!visited.has(nk)) {
         visited.add(nk);
-        queue.push({ q: n.q, r: n.r, path: [...cur.path, { q: n.q, r: n.r }] });
+        cameFrom[nk] = curKey;
+        queue.push({ q: n.q, r: n.r });
       }
     }
   }
-  return null; // no path found
+  return null;
 }
+
 
 // ======== One-Click Map Generation ========
 
@@ -2322,7 +2583,84 @@ function fractalNoise(x, y, octaves) {
   return value / max; // -1..1
 }
 
-// Generate terrain for a bounded region
+// Generate terrain for a bounded region (synchronous — kept for backward compat)
+// ======== Web Worker for off-thread Perlin noise ========
+var _noiseWorker = null;
+var _noiseWorkerReady = false;
+var _workerPending = null; // { resolve, reject }
+
+function getNoiseWorker() {
+  if (_noiseWorker) return _noiseWorker;
+  if (typeof Blob === 'undefined' || typeof Worker === 'undefined') return null;
+
+  // Inline worker — encapsulates all noise math, no DOM access
+  var workerCode = [
+    'var _perm=new Uint8Array(512);',
+    'function m32(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}};',
+    'function ip(s){var r=m32(s),p=[],i;for(i=0;i<256;i++)p[i]=i;for(i=255;i>0;i--){var j=Math.floor(r()*(i+1)),t=p[i];p[i]=p[j];p[j]=t;}for(i=0;i<512;i++)_perm[i]=p[i&255]};',
+    'function f(t){return t*t*t*(t*(t*6-15)+10)};function l(a,b,t){return a+t*(b-a)};',
+    'function g2(h,x,y){var u=(h&1?y:x),v=(h&2?y:x);return(h&1?-u:u)+(h&2?-v:v)};',
+    'function n2(x,y){var X=Math.floor(x)&255,Y=Math.floor(y)&255,xf=x-Math.floor(x),yf=y-Math.floor(y),u=f(xf),v=f(yf);var aa=_perm[_perm[X]+Y],ab=_perm[_perm[X]+Y+1],ba=_perm[_perm[X+1]+Y],bb=_perm[_perm[X+1]+Y+1];return l(l(g2(aa,xf,yf),g2(ba,xf-1,yf),u),l(g2(ab,xf,yf-1),g2(bb,xf-1,yf-1),u),v)};',
+    'function fn(x,y,o){var val=0,amp=1,freq=1,mx=0;for(var i=0;i<o;i++){val+=amp*n2(x*freq,y*freq);mx+=amp;amp*=0.5;freq*=2;}return val/mx};',
+    'self.onmessage=function(e){var d=e.data,seed=d.seed,coords=d.coords,scale=d.scale;ip(seed);',
+    'var res=[];for(var i=0;i<coords.length;i++){var c=coords[i],nx=c.px*0.005/scale,ny=c.py*0.005/scale;',
+    'var elev=fn(nx,ny,4),moist=fn(nx+100,ny+100,3),t;',
+    'if(elev<-0.20)t="water";else if(elev>0.50&&moist<-0.05)t="snow";else if(elev>0.40)t="mountain";else if(elev>0.20)t="hill";else if(moist<-0.15)t="desert";else if(moist>0.15&&elev<0.30)t="forest";else if(elev<-0.05&&moist>0.10)t="swamp";else t="plain";',
+    'res.push({q:c.q,r:c.r,terrain:t});}',
+    'self.postMessage({results:res,id:d.id});};'
+  ].join('\n');
+
+  try {
+    var blob = new Blob([workerCode], { type: 'application/javascript' });
+    _noiseWorker = new Worker(URL.createObjectURL(blob));
+    _noiseWorkerReady = true;
+    return _noiseWorker;
+  } catch(e) {
+    console.warn('Web Worker not available, using main thread for noise');
+    _noiseWorkerReady = false;
+    return null;
+  }
+}
+
+// Classify terrain from noise using the worker (async). Falls back to sync if no worker.
+function classifyBatchWithWorker(seed, coords, scale) {
+  return new Promise(function(resolve) {
+    var w = getNoiseWorker();
+    if (!w) {
+      // Fallback: compute on main thread
+      initPerm(seed);
+      var results = [];
+      for (var i = 0; i < coords.length; i++) {
+        var c = coords[i];
+        var nx = c.px * 0.005 / scale, ny = c.py * 0.005 / scale;
+        var elev = fractalNoise(nx, ny, 4), moist = fractalNoise(nx + 100, ny + 100, 3);
+        var t;
+        if (elev < -0.20) t = 'water';
+        else if (elev > 0.50 && moist < -0.05) t = 'snow';
+        else if (elev > 0.40) t = 'mountain';
+        else if (elev > 0.20) t = 'hill';
+        else if (moist < -0.15) t = 'desert';
+        else if (moist > 0.15 && elev < 0.30) t = 'forest';
+        else if (elev < -0.05 && moist > 0.10) t = 'swamp';
+        else t = generationRules.defaultTerrain || 'plain';
+        results.push({ q: c.q, r: c.r, terrain: t });
+      }
+      resolve(results);
+      return;
+    }
+
+    var msgId = Date.now() + Math.random();
+    var handler = function(e) {
+      if (e.data.id === msgId) {
+        w.removeEventListener('message', handler);
+        resolve(e.data.results);
+      }
+    };
+    w.addEventListener('message', handler);
+    w.postMessage({ id: msgId, seed: seed, coords: coords, scale: scale });
+  });
+}
+
 function generateTerrainRegion(seed, centerQ, centerR, width, height, scale) {
   initPerm(seed);
   const rng = mulberry32(seed + 1);
@@ -2366,76 +2704,162 @@ function generateTerrainRegion(seed, centerQ, centerR, width, height, scale) {
       terrainId = 'forest';
     } else if (elev < -0.05 && moist > 0.10) {
       terrainId = 'swamp';
-    } else {      terrainId = 'plain';
+    } else {      terrainId = generationRules.defaultTerrain || 'plain';
     }
 
-    // 5% chance of special terrain
-    if (rng() < 0.05) {
-      const specials = ['ruins', 'temple', 'abyss', 'necromantic'].filter(s => allTerrains[s]);
-      if (specials.length > 0) terrainId = specials[Math.floor(rng() * specials.length)];
+    // Special terrain injection
+    var chance = generationRules.specialTerrainChance != null ? generationRules.specialTerrainChance : 0.05;
+    if (rng() < chance) {
+      var special = pickSpecialTerrain(rng);
+      if (special) terrainId = special;
     }
 
-    setHex(q, r, { terrain: terrainId });
+    writeHexData(hexKey(q, r), { terrain: terrainId });
+  }
+}
+
+// Async chunked version — use for large maps to keep UI responsive
+async function generateTerrainRegionAsync(seed, centerQ, centerR, width, height, scale, onProgress) {
+  var rng = mulberry32(seed + 1);
+  var halfW = Math.floor(width / 2);
+  var halfH = Math.floor(height / 2);
+
+  // Build coord list with pixel positions
+  var coords = [];
+  for (var q = centerQ - halfW; q <= centerQ + halfW; q++) {
+    for (var r = centerR - halfH; r <= centerR + halfH; r++) {
+      var p = hexToPixel(q, r);
+      coords.push({ q: q, r: r, px: p.x, py: p.y });
+    }
+  }
+
+  // Shuffle
+  for (var i = coords.length - 1; i > 0; i--) {
+    var j = Math.floor(rng() * (i + 1));
+    var tmp = coords[i]; coords[i] = coords[j]; coords[j] = tmp;
+  }
+
+  var total = coords.length;
+  var CHUNK = getNoiseWorker() ? 20000 : 5000; // bigger chunks with worker since noise is off-thread
+  for (var ci = 0; ci < total; ci += CHUNK) {
+    var end = Math.min(ci + CHUNK, total);
+    var batch = coords.slice(ci, end);
+
+    // Step 1: Classify terrain (worker if available, else inline)
+    var results = await classifyBatchWithWorker(seed, batch, scale);
+
+    // Step 2: Special terrain injection (main thread, needs generationRules)
+    for (var ri = 0; ri < results.length; ri++) {
+      var res = results[ri];
+      var terrainId = res.terrain;
+      var chance = generationRules.specialTerrainChance != null ? generationRules.specialTerrainChance : 0.05;
+      if (rng() < chance) {
+        var special = pickSpecialTerrain(rng);
+        if (special) terrainId = special;
+      }
+      writeHexData(hexKey(res.q, res.r), { terrain: terrainId });
+    }
+    if (onProgress) onProgress(end, total);
+    render();
+    await new Promise(function(resolve) { requestAnimationFrame(resolve); });
   }
 }
 
 // A* pathfinding with terrain travel cost
-function aStarPathfind(q1, r1, q2, r2) {
-  if (q1 === q2 && r1 === r2) return [{ q: q1, r: r1 }];
-  const startKey = hexKey(q1, r1);
-  const goalKey = hexKey(q2, r2);
-  const allTerrains = getAllTerrains();
-
-  const openSet = new Set([startKey]);
-  const cameFrom = {};
-  const gScore = {}; gScore[startKey] = 0;
-  const h = (q, r) => hexDistance(q, r, q2, r2);
-  const fScore = {}; fScore[startKey] = h(q1, r1);
-
-  while (openSet.size > 0) {
-    // Find node in openSet with lowest fScore
-    let current = null, bestF = Infinity;
-    for (const key of openSet) {
-      if (fScore[key] !== undefined && fScore[key] < bestF) {
-        bestF = fScore[key];
-        current = key;
-      }
+// Binary min-heap for A* priority queue
+function MinHeap() { this.heap = []; }
+MinHeap.prototype.push = function(key, score) {
+  this.heap.push({ key: key, score: score });
+  var i = this.heap.length - 1;
+  while (i > 0) {
+    var p = (i - 1) >> 1;
+    if (this.heap[p].score <= this.heap[i].score) break;
+    var tmp = this.heap[p]; this.heap[p] = this.heap[i]; this.heap[i] = tmp;
+    i = p;
+  }
+};
+MinHeap.prototype.pop = function() {
+  if (this.heap.length === 0) return null;
+  var top = this.heap[0];
+  var last = this.heap.pop();
+  if (this.heap.length > 0) {
+    this.heap[0] = last;
+    var i = 0, n = this.heap.length;
+    while (true) {
+      var left = (i << 1) + 1, right = left + 1, smallest = i;
+      if (left < n && this.heap[left].score < this.heap[smallest].score) smallest = left;
+      if (right < n && this.heap[right].score < this.heap[smallest].score) smallest = right;
+      if (smallest === i) break;
+      var t = this.heap[i]; this.heap[i] = this.heap[smallest]; this.heap[smallest] = t;
+      i = smallest;
     }
-    if (!current) break;
+  }
+  return top;
+};
+MinHeap.prototype.size = function() { return this.heap.length; };
+
+// A* pathfinding with binary heap — fast even for large open sets
+// Returns path array or null. Capped at maxSteps explored nodes.
+function aStarPathfind(q1, r1, q2, r2, maxSteps) {
+  if (q1 === q2 && r1 === r2) return [{ q: q1, r: r1 }];
+  if (!maxSteps) maxSteps = 5000;
+  var startKey = hexKey(q1, r1);
+  var goalKey = hexKey(q2, r2);
+  var allTerrains = getAllTerrains();
+  var h = function(q, r) { return hexDistance(q, r, q2, r2); };
+
+  var openHeap = new MinHeap();
+  openHeap.push(startKey, h(q1, r1));
+  var cameFrom = {};
+  var gScore = {}; gScore[startKey] = 0;
+  var closedSet = new Set();
+  var steps = 0;
+
+  while (openHeap.size() > 0) {
+    var entry = openHeap.pop();
+    var current = entry.key;
+    if (closedSet.has(current)) continue; // skip stale entries
     if (current === goalKey) {
-      // Reconstruct path
-      const path = [];
-      let c = current;
-      while (c) {
-        const [cq, cr] = c.split(',').map(Number);
-        path.unshift({ q: cq, r: cr });
-        c = cameFrom[c];
-      }
+      var path = [];
+      var c = current;
+      while (c) { var parts = c.split(','); path.unshift({ q: +parts[0], r: +parts[1] }); c = cameFrom[c]; }
       return path;
     }
+    closedSet.add(current);
+    steps++;
+    if (steps > maxSteps) return null; // give up on very long paths
 
-    openSet.delete(current);
-    const [cq, cr] = current.split(',').map(Number);
-
-    for (const n of neighbors(cq, cr)) {
-      const nk = hexKey(n.q, n.r);
-      const hData = getHex(n.q, n.r);
-      const tInfo = hData.terrain ? allTerrains[hData.terrain] : null;
-      const moveCost = tInfo ? tInfo.travel : 1;
-      // Water is nearly impassable avoid roads through water
-      const waterPenalty = hData.terrain === 'water' ? 10 : 0;
-      const totalCost = moveCost + waterPenalty;
-
-      const tentativeG = gScore[current] + totalCost;
+    var coords = current.split(','); var cq = +coords[0], cr = +coords[1];
+    var nbrs = neighbors(cq, cr);
+    for (var ni = 0; ni < nbrs.length; ni++) {
+      var n = nbrs[ni];
+      var nk = hexKey(n.q, n.r);
+      if (closedSet.has(nk)) continue;
+      var hData = getHex(n.q, n.r);
+      var tInfo = hData.terrain ? allTerrains[hData.terrain] : null;
+      var moveCost = tInfo ? tInfo.travel : 1;
+      var waterPenalty = hData.terrain === 'water' ? 10 : 0;
+      var totalCost = moveCost + waterPenalty;
+      var tentativeG = gScore[current] + totalCost;
       if (gScore[nk] === undefined || tentativeG < gScore[nk]) {
         cameFrom[nk] = current;
         gScore[nk] = tentativeG;
-        fScore[nk] = tentativeG + h(n.q, n.r);
-        openSet.add(nk);
+        openHeap.push(nk, tentativeG + h(n.q, n.r));
       }
     }
   }
-  return null; // no path
+  return null;
+}
+
+// Rebuild settlementIndex from hexData (called after map load)
+function rebuildSettlementIndex() {
+  settlementIndex = [];
+  for (const key of Object.keys(hexData)) {
+    if (hexData[key] && hexData[key].settlement) {
+      const [q, r] = key.split(',').map(Number);
+      settlementIndex.push({ q, r });
+    }
+  }
 }
 
 // Score a hex for settlement placement
@@ -2465,14 +2889,11 @@ function rankSettlementLocation(q, r) {
     if (nh.terrain === 'mountain') score -= 4;
   }
 
-  // Distance from other settlements
-  for (const [key, data] of Object.entries(hexData)) {
-    if (data.settlement) {
-      const [sq, sr] = key.split(',').map(Number);
-      const dist = hexDistance(q, r, sq, sr);
-      if (dist < 4) score -= (4 - dist) * 15;
-      if (dist < 2) score -= 100; // way too close
-    }
+  // Distance from other settlements — use fast settlementIndex instead of scanning all hexData
+  for (const s of settlementIndex) {
+    const dist = hexDistance(q, r, s.q, s.r);
+    if (dist < 4) score -= (4 - dist) * 15;
+    if (dist < 2) score -= 100; // way too close
   }
 
   return score;
@@ -2522,50 +2943,53 @@ function placeSettlements(count, _seed, centerQ, centerR, width, height) {
 function buildRoadNetwork(settlements) {
   if (settlements.length < 2) return 0;
 
-  // Compute A* path costs between all pairs
-  const n = settlements.length;
-  const edges = [];
+  // Compute A* path costs between all pairs (with distance cap for large maps)
+  var n = settlements.length;
+  var MAX_PAIR_DIST = 200;
 
-  for (let i = 0; i < n; i++) {
-    for (let j = i + 1; j < n; j++) {
-      const path = aStarPathfind(settlements[i].q, settlements[i].r, settlements[j].q, settlements[j].r);
+  // Build adjacency list for union-find style connectivity
+  var edges = [];
+  for (var i = 0; i < n; i++) {
+    for (var j = i + 1; j < n; j++) {
+      var d = hexDistance(settlements[i].q, settlements[i].r, settlements[j].q, settlements[j].r);
+      if (d > MAX_PAIR_DIST) continue; // skip very distant pairs
+      var path = aStarPathfind(settlements[i].q, settlements[i].r, settlements[j].q, settlements[j].r, 5000);
       if (path) {
-        const cost = path.length;
-        edges.push({ i, j, cost, path });
+        edges.push({ i: i, j: j, cost: path.length, path: path });
       }
     }
   }
 
-  // Prim's algorithm for MST
-  const visited = new Set([0]);
-  const mstEdges = [];
-  while (visited.size < n) {
-    let best = null;
-    for (const e of edges) {
-      const inVisited = visited.has(e.i);
-      const outVisited = visited.has(e.j);
-      if (inVisited && !outVisited || !inVisited && outVisited) {
-        if (!best || e.cost < best.cost) best = e;
-      }
+  // Union-find to track connectivity across all settlements
+  var parent = []; for (var k = 0; k < n; k++) parent[k] = k;
+  function find(x) { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; }
+  function union(a, b) { var ra = find(a), rb = find(b); if (ra !== rb) parent[rb] = ra; }
+
+  // Sort edges by cost for Kruskal-style MST
+  edges.sort(function(a, b) { return a.cost - b.cost; });
+
+  var mstEdges = [];
+  for (var ei = 0; ei < edges.length; ei++) {
+    var e = edges[ei];
+    if (find(e.i) !== find(e.j)) {
+      union(e.i, e.j);
+      mstEdges.push(e);
     }
-    if (!best) break;
-    mstEdges.push(best);
-    visited.add(best.i);
-    visited.add(best.j);
   }
 
-  let roadsBuilt = 0;
-  for (const e of mstEdges) {
-    for (let k = 0; k < e.path.length - 1; k++) {
-      addRoad(e.path[k].q, e.path[k].r, e.path[k + 1].q, e.path[k + 1].r);
+  var roadsBuilt = 0;
+  for (var mi = 0; mi < mstEdges.length; mi++) {
+    var p = mstEdges[mi].path;
+    for (var k = 0; k < p.length - 1; k++) {
+      addRoad(p[k].q, p[k].r, p[k + 1].q, p[k + 1].r);
       roadsBuilt++;
     }
   }
   return roadsBuilt;
 }
 
-// One-click generate orchestrator
-function oneClickGenerate(config) {
+// One-click generate orchestrator (async)
+async function oneClickGenerate(config) {
   if (isGenerating) return;
   isGenerating = true;
   setGenButtonsDisabled(true);
@@ -2578,48 +3002,39 @@ function oneClickGenerate(config) {
     centerR = selectedHex.r;
   }
 
-  showDiceResult('🏗️', `生成地形中 (${width}×${height})...`);
+  const totalHexes = width * height;
+  showProgress('🏗️', '生成地形中', 0, totalHexes);
 
-  setTimeout(() => {
-    beginBatch();
+  beginBatch();
 
-    // Step 1: Generate terrain
-    generateTerrainRegion(seed, centerQ, centerR, width, height, scale);
+  // Step 1: Generate terrain (async chunked for large maps)
+  await generateTerrainRegionAsync(seed, centerQ, centerR, width, height, scale,
+    function(done, total) { showProgress('🏗️', '生成地形中', done, total); }
+  );
+
+  showProgress('🏘️', '放置定居点...', 0, 1);
+
+  // Step 2: Place settlements (fast enough to run sync, but yield for UI)
+  await new Promise(function(resolve) { setTimeout(resolve, 20); });
+  const settlements = placeSettlements(settlementCount, seed + 1, centerQ, centerR, width, height);
+  render();
+
+  if (buildRoads && settlements.length >= 2) {
+    showProgress('🛤️', '修建道路...', 0, 1);
+
+    // Step 3: Build roads
+    await new Promise(function(resolve) { setTimeout(resolve, 20); });
+    buildRoadNetwork(settlements);
     render();
+  }
 
-    showDiceResult('🏘️', '放置定居点...');
+  endBatch();
 
-    setTimeout(() => {
-      // Step 2: Place settlements
-      const settlements = placeSettlements(settlementCount, seed + 1, centerQ, centerR, width, height);
-      render();
-
-      if (buildRoads && settlements.length >= 2) {
-        showDiceResult('🛤️', '修建道路...');
-
-        setTimeout(() => {
-          // Step 3: Build roads
-          buildRoadNetwork(settlements);
-          render();
-
-          endBatch();
-
-          const stats = Object.keys(hexData).length;
-          showStepResult('✅', '生成完成！', `${stats} 格 · ${settlements.length} 定居点`);
-          isGenerating = false;
-          setGenButtonsDisabled(false);
-          updateInfo();
-        }, 200);
-      } else {
-        endBatch();
-        const stats = Object.keys(hexData).length;
-        showStepResult('✅', '生成完成！', `${stats} 格 · ${settlements.length} 定居点`);
-        isGenerating = false;
-        setGenButtonsDisabled(false);
-        updateInfo();
-      }
-    }, 200);
-  }, 50);
+  const stats = Object.keys(hexData).length;
+  showStepResult('✅', '生成完成！', stats + ' 格 · ' + settlements.length + ' 定居点');
+  isGenerating = false;
+  setGenButtonsDisabled(false);
+  updateInfo();
 }
 
 // Event bindings — One-click modal
@@ -2628,16 +3043,52 @@ document.getElementById('btn-oneclick-gen').addEventListener('click', () => {
   document.getElementById('oneclick-modal').style.display = 'block';
 });
 
-// Slider live values
-['oc-width', 'oc-height', 'oc-scale', 'oc-settle'].forEach(id => {
-  const input = document.getElementById(id);
-  const valSpan = document.getElementById(id + '-val');
+// Slider live values + two-way sync with number inputs
+function ocSetWidth(val) {
+  val = Math.max(10, Math.min(600, parseInt(val) || 30));
+  document.getElementById('oc-width').value = Math.min(val, 100);
+  document.getElementById('oc-width-num').value = val;
+  document.getElementById('oc-width-val').textContent = val;
+  document.getElementById('oc-size-warning').style.display = (val * (parseInt(document.getElementById('oc-height-num').value) || 30) > 8000) ? 'block' : 'none';
+}
+function ocSetHeight(val) {
+  val = Math.max(10, Math.min(600, parseInt(val) || 30));
+  document.getElementById('oc-height').value = Math.min(val, 100);
+  document.getElementById('oc-height-num').value = val;
+  document.getElementById('oc-height-val').textContent = val;
+  document.getElementById('oc-size-warning').style.display = ((parseInt(document.getElementById('oc-width-num').value) || 30) * val > 8000) ? 'block' : 'none';
+}
+
+['oc-scale', 'oc-settle'].forEach(function(id) {
+  var input = document.getElementById(id);
+  var valSpan = document.getElementById(id + '-val');
   if (input && valSpan) {
-    input.addEventListener('input', () => {
+    input.addEventListener('input', function() {
       if (id === 'oc-scale') valSpan.textContent = (input.value / 10).toFixed(1);
       else valSpan.textContent = input.value;
     });
   }
+});
+
+document.getElementById('oc-width').addEventListener('input', function() {
+  ocSetWidth(this.value);
+});
+document.getElementById('oc-width-num').addEventListener('input', function() {
+  ocSetWidth(this.value);
+});
+document.getElementById('oc-height').addEventListener('input', function() {
+  ocSetHeight(this.value);
+});
+document.getElementById('oc-height-num').addEventListener('input', function() {
+  ocSetHeight(this.value);
+});
+
+// Preset buttons
+document.querySelectorAll('.oc-preset').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    ocSetWidth(this.dataset.w);
+    ocSetHeight(this.dataset.h);
+  });
 });
 
 document.getElementById('oc-random-seed').addEventListener('click', () => {
@@ -2648,18 +3099,18 @@ document.getElementById('oc-btn-cancel').addEventListener('click', () => {
   document.getElementById('oneclick-modal').style.display = 'none';
 });
 
-document.getElementById('oc-btn-confirm').addEventListener('click', () => {
-  const seed = parseInt(document.getElementById('oc-seed').value) || Date.now();
-  const width = parseInt(document.getElementById('oc-width').value);
-  const height = parseInt(document.getElementById('oc-height').value);
-  const scale = parseInt(document.getElementById('oc-scale').value) / 10;
-  const settlementCount = parseInt(document.getElementById('oc-settle').value);
-  const buildRoads = document.getElementById('oc-build-roads').checked;
-  const pos = document.getElementById('oc-position').value;
+document.getElementById('oc-btn-confirm').addEventListener('click', function() {
+  var seed = parseInt(document.getElementById('oc-seed').value) || Date.now();
+  var width = parseInt(document.getElementById('oc-width-num').value) || parseInt(document.getElementById('oc-width').value);
+  var height = parseInt(document.getElementById('oc-height-num').value) || parseInt(document.getElementById('oc-height').value);
+  var scale = parseInt(document.getElementById('oc-scale').value) / 10;
+  var settlementCount = parseInt(document.getElementById('oc-settle').value);
+  var buildRoads = document.getElementById('oc-build-roads').checked;
+  var pos = document.getElementById('oc-position').value;
 
   document.getElementById('oneclick-modal').style.display = 'none';
 
-  oneClickGenerate({ seed, width, height, scale, settlementCount, buildRoads, pos });
+  oneClickGenerate({ seed: seed, width: width, height: height, scale: scale, settlementCount: settlementCount, buildRoads: buildRoads, pos: pos });
 });
 
 // Click background to close
@@ -2722,59 +3173,103 @@ document.getElementById('btn-undo').addEventListener('click', undo);
 document.getElementById('btn-redo').addEventListener('click', redo);
 
 // Save/Load
-document.getElementById('btn-save').addEventListener('click', () => {
+// gzip helpers for save/load
+function gzipSupported() {
+  return typeof CompressionStream !== 'undefined' && typeof DecompressionStream !== 'undefined';
+}
+
+async function gzipCompress(str) {
+  var blob = new Blob([str]);
+  var compressed = blob.stream().pipeThrough(new CompressionStream('gzip'));
+  return new Response(compressed).blob();
+}
+
+async function gzipDecompress(blob) {
+  var decompressed = blob.stream().pipeThrough(new DecompressionStream('gzip'));
+  return new Response(decompressed).text();
+}
+
+document.getElementById('btn-save').addEventListener('click', async function() {
   cleanHexData();
-  const { exportHex, exportCT, registry } = buildImageRegistry(hexData, customTerrains);
-  const data = { hexData: exportHex, imageRegistry: registry, viewX, viewY, zoom, customTerrains: exportCT, deletedTerrains, terrainOrder, generationRules };
-  const json = JSON.stringify(data);
-  const blob = new Blob([json], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  var hexCount = Object.keys(hexData).length;
+  showProgress('💾', '保存中...', 0, 1);
+  await new Promise(function(resolve) { setTimeout(resolve, 20); });
+
+  var ex = buildImageRegistry(hexData, customTerrains);
+  var data = { hexData: ex.exportHex, imageRegistry: ex.registry, viewX: viewX, viewY: viewY, zoom: zoom, customTerrains: ex.exportCT, deletedTerrains: deletedTerrains, terrainOrder: terrainOrder, generationRules: generationRules };
+  var json = JSON.stringify(data);
+
+  var blob;
+  var ext;
+  if (gzipSupported()) {
+    blob = await gzipCompress(json);
+    ext = '.hexmap';
+  } else {
+    blob = new Blob([json], { type: 'application/json' });
+    ext = '.json';
+  }
+
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
   a.href = url;
-  a.download = `hexmap_${new Date().toISOString().slice(0,10)}.json`;
+  a.download = 'hexmap_' + new Date().toISOString().slice(0,10) + ext;
   a.click();
   URL.revokeObjectURL(url);
-  showDiceResult('💾 已保存', `共 ${Object.keys(hexData).length} 个六角格数据`);
+
+  var sizeMB = (blob.size / 1024 / 1024).toFixed(2);
+  showDiceResult('💾 已保存', hexCount + ' 格 · ' + sizeMB + ' MB' + (ext === '.hexmap' ? ' (gzip)' : ''));
 });
 
-document.getElementById('btn-load').addEventListener('click', () => {
-  const input = document.createElement('input');
+document.getElementById('btn-load').addEventListener('click', function() {
+  var input = document.createElement('input');
   input.type = 'file';
-  input.accept = '.json';
-  input.onchange = (e) => {
-    const file = e.target.files[0];
+  input.accept = '.json,.hexmap';
+  input.onchange = async function(e) {
+    var file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        if (data.imageRegistry) {
-          const resolved = resolveImageRegistry(data.hexData || {}, data.customTerrains || {}, data.imageRegistry);
-          hexData = resolved.resultHex;
-          customTerrains = resolved.resultCT;
-        } else {
-          hexData = data.hexData || {};
-          if (data.customTerrains) customTerrains = data.customTerrains;
-        }
-        undoStack = []; redoStack = []; updateUndoButtons();
-        viewX = data.viewX || 0;
-        viewY = data.viewY || 0;
-        zoom = data.zoom || 1;
-        if (data.customTerrains) customTerrains = data.customTerrains;
-        if (data.deletedTerrains) deletedTerrains = data.deletedTerrains;
-        if (data.terrainOrder) terrainOrder = data.terrainOrder;
-        if (data.generationRules) generationRules = { ...DEFAULT_GEN_RULES, ...data.generationRules };
-        saveTerrainConfig();
-        rebuildTerrainPalette();
-        document.getElementById('zoom-indicator').textContent = `🔍 ${Math.round(zoom * 100)}%`;
-        render();
-        updateInfo();
-        showDiceResult('📂 已加载', `共 ${Object.keys(hexData).length} 个六角格`);
-      } catch(e) {
-        showDiceResult('⚠️ 加载失败', '文件格式错误');
+
+    try {
+      showProgress('📂', '加载中...', 0, 1);
+
+      var text;
+      // Check for gzip magic bytes (1f 8b)
+      var header = new Uint8Array(await file.slice(0, 2).arrayBuffer());
+      if (header[0] === 0x1F && header[1] === 0x8B) {
+        // gzip compressed
+        text = await gzipDecompress(file);
+      } else {
+        // plain JSON (backward compat)
+        text = await file.text();
       }
-    };
-    reader.readAsText(file);
+
+      var data = JSON.parse(text);
+      if (data.imageRegistry) {
+        var resolved = resolveImageRegistry(data.hexData || {}, data.customTerrains || {}, data.imageRegistry);
+        hexData = resolved.resultHex;
+        customTerrains = resolved.resultCT;
+      } else {
+        hexData = data.hexData || {};
+        if (data.customTerrains) customTerrains = data.customTerrains;
+      }
+      rebuildSettlementIndex();
+      undoStack = []; redoStack = []; updateUndoButtons();
+      viewX = data.viewX || 0;
+      viewY = data.viewY || 0;
+      zoom = data.zoom || 1;
+      if (data.customTerrains) customTerrains = data.customTerrains;
+      if (data.deletedTerrains) deletedTerrains = data.deletedTerrains;
+      if (data.terrainOrder) terrainOrder = data.terrainOrder;
+      if (data.generationRules) generationRules = { ...DEFAULT_GEN_RULES, ...data.generationRules };
+      saveTerrainConfig();
+      rebuildTerrainPalette();
+      document.getElementById('zoom-indicator').textContent = '🔍 ' + Math.round(zoom * 100) + '%';
+      render();
+      updateInfo();
+      showDiceResult('📂 已加载', '共 ' + Object.keys(hexData).length + ' 个六角格');
+    } catch(err) {
+      showDiceResult('⚠️ 加载失败', '文件格式错误');
+      console.error(err);
+    }
   };
   input.click();
 });
@@ -2797,20 +3292,28 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
   const botRight = hexToPixel(maxQ, maxR);
   const size = HEX_SIZE;
   const padding = size * 2;
-  const w = Math.ceil(botRight.x - topLeft.x + size * 2 + padding * 2);
-  const h = Math.ceil(botRight.y - topLeft.y + size * 1.5 + padding * 2);
-  const MAX_EXPORT = 10000;
-  if (w > MAX_EXPORT || h > MAX_EXPORT) { showDiceResult('⚠️', '地图太大，缩小后导出'); return; }
+  let w = Math.ceil(botRight.x - topLeft.x + size * 2 + padding * 2);
+  let h = Math.ceil(botRight.y - topLeft.y + size * 1.5 + padding * 2);
+  const MAX_DIM = 8000;
+  let exportScale = 1;
+  let scaleNote = '';
+  if (w > MAX_DIM || h > MAX_DIM) {
+    exportScale = MAX_DIM / Math.max(w, h);
+    w = Math.ceil(w * exportScale);
+    h = Math.ceil(h * exportScale);
+    scaleNote = ' (已缩放至 ' + Math.round(exportScale * 100) + '%)';
+  }
   const exportCanvas = document.createElement('canvas');
   exportCanvas.width = Math.max(w, 640);
   exportCanvas.height = Math.max(h, 480);
   const exportCtx = exportCanvas.getContext('2d');
   exportCtx.fillStyle = '#2d2d44';
   exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
-  const offsetX = (exportCanvas.width - w) / 2 - topLeft.x + padding;
-  const offsetY = (exportCanvas.height - h) / 2 - topLeft.y + padding;
   exportCtx.save();
-  exportCtx.translate(offsetX, offsetY);
+  const offsetX = (exportCanvas.width / exportScale - (botRight.x - topLeft.x + size * 2 + padding * 2)) / 2 - topLeft.x + padding;
+  const offsetY = (exportCanvas.height / exportScale - (botRight.y - topLeft.y + size * 1.5 + padding * 2)) / 2 - topLeft.y + padding;
+  exportCtx.translate(offsetX * exportScale, offsetY * exportScale);
+  exportCtx.scale(exportScale, exportScale);
   const allTerrains = getAllTerrains();
   // Draw hex fills + grid (Pass 1)
   for (const key of keys) {
@@ -2924,7 +3427,7 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
   link.download = "hexmap_" + new Date().toISOString().slice(0,10) + ".png";
   link.href = exportCanvas.toDataURL("image/png");
   link.click();
-  showDiceResult("🖼️ 已导出", "全地图 " + exportCanvas.width + "x" + exportCanvas.height + " (" + keys.length + " 格)");
+  showDiceResult("🖼️ 已导出", exportCanvas.width + "x" + exportCanvas.height + " (" + keys.length + " 格)" + scaleNote);
 });
 
 // Clear
@@ -2941,9 +3444,13 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   showDiceResult('🗑️ 已清空', '');
 });
 
+// Fit-to-content button
+document.getElementById('btn-fit').addEventListener('click', fitToContent);
+
 // Grid/Coords/Lock toggles
 document.getElementById('chk-grid').addEventListener('change', (e) => { showGrid = e.target.checked; render(); });
 document.getElementById('chk-coords').addEventListener('change', (e) => { showCoords = e.target.checked; render(); });
+document.getElementById('chk-minimap').addEventListener('change', () => render());
 document.getElementById('chk-lock').addEventListener('change', (e) => { isLocked = e.target.checked; });
 
 // Info panel
@@ -2969,6 +3476,7 @@ function updateInfo() {
   </div>`;
 }
 
+
 // ======== Init ========
 cleanHexData();
 window.addEventListener('resize', resizeCanvas);
@@ -2991,6 +3499,7 @@ updateInfo();
 
 console.log('🏗️ 四战黑六角格地图已加载');
 console.log('快捷键: V=选择 X=框选 B=笔刷 S=定居点 R=道路 L=标签 E=擦除 Ctrl+Z=撤销');
+
 
 // ======== AI 绘图 ========
 // --- Settings persistence ---
@@ -3017,31 +3526,23 @@ function getScopeHexes(scope) {
   const keys = Object.keys(hexData);
   if (scope === 'all') return keys;
   if (scope === 'selected') {
-    if (selectionRect) {
-      // Use box selection
-      const q1 = Math.round(selectionRect.x1), r1 = Math.round(selectionRect.y1);
-      const q2 = Math.round(selectionRect.x2), r2 = Math.round(selectionRect.y2);      const minQ = Math.min(q1, q2), maxQ = Math.max(q1, q2);
-      const minR = Math.min(r1, r2), maxR = Math.max(r1, r2);
-      return keys.filter(k => {
-        const [q, r] = k.split(',').map(Number);
-        return q >= minQ && q <= maxQ && r >= minR && r <= maxR;
-      });
-    }
-    if (selectedHex) return [`${selectedHex.q},${selectedHex.r}`];
+    // Use box-selected hexes (selectedHexes Set) or single selected hex
+    if (selectedHexes.size > 0) return [...selectedHexes];
+    if (selectedHex) return [hexKey(selectedHex.q, selectedHex.r)];
     return [];
   }
   if (scope === 'view') {
-    // Return hexes roughly in current viewport
-    const margin = 5;
-    const halfW = canvas.width / 2 / zoom + margin;
-    const halfH = canvas.height / 2 / zoom + margin;
-    return keys.filter(k => {
-      const [q, r] = k.split(',').map(Number);
-      const px = q * hexWidth * 0.75 + viewX;
-      const py = r * hexHeight + (q % 2) * hexHeight / 2 + viewY;
-      return px > viewX - halfW * hexWidth && px < viewX + halfW * hexWidth &&
-             py > viewY - halfH * hexHeight && py < viewY + halfH * hexHeight;
-    });
+    // Convert viewport corners to hex coordinates
+    const topLeft = pixelToHex(-viewX / zoom, -viewY / zoom);
+    const botRight = pixelToHex((canvas.width - viewX) / zoom, (canvas.height - viewY) / zoom);
+    const result = [];
+    for (let q = Math.floor(topLeft.q) - 1; q <= Math.ceil(botRight.q) + 1; q++) {
+      for (let r = Math.floor(topLeft.r) - 1; r <= Math.ceil(botRight.r) + 1; r++) {
+        const k = hexKey(q, r);
+        if (hexData[k]) result.push(k);
+      }
+    }
+    return result;
   }
   return [];
 }
@@ -3094,18 +3595,206 @@ ${terrainDesc}
 - 只输出JSON数组，不要多余文字
 - 用 \`\`\`json 包裹你的回复
 - paintRect 的 q1/r1 和 q2/r2 定义矩形对角，会自动填充整个矩形区域
+- 道路只能连接相邻（共边）的六角格！q1/r1 和 q2/r2 必须是 neighbors，不能跳格连路。如需连接非相邻格，请逐段铺设
 - 每次返回完整的命令列表，包含所有需要绘制的格子`;
 }
-// --- API call ---
-async function callAIAPI(systemPrompt, userMessage) {
+
+// --- System prompt for plan mode ---
+function buildPlanSystemPrompt() {
+  const allT = getAllTerrains?.() || {};
+  const terrainDesc = Object.entries(allT).map(([id, info]) =>
+    `  - "${id}": ${info.name || id}${info.icon ? " (" + info.icon + ")" : ""}`
+  ).join('\n');
+  const cb = "```";  // code block marker
+  return `你是地图设计师AI。你通过输出"地图规划书"来控制程序化地图生成引擎。
+
+可用地形ID：
+${terrainDesc}
+
+你需要输出一个JSON规划书，格式如下：
+${cb}json
+{
+  "mode": "plan",
+  "idea": "简短描述你的设计思路",
+  "seed": <随机种子数字>,
+  "width": <地图宽度，建议10-30>,
+  "height": <地图高度，建议10-30>,
+  "scale": <噪声缩放，0.5=大块地形 2.0=细碎地形，默认1.0>,
+  "zones": [
+    {"terrain": "<地形ID>", "at": "<方位>", "span": <半径>},
+    {"terrain": "<地形ID>", "at": "<方位>", "span": <半径>}
+  ],
+  "settlementCount": <定居点数量，建议2-12，大地图可到50>,
+  "buildRoads": true
+}
+${cb}
+
+方位(at)可选值：center, north, south, east, west, northeast, northwest, southeast, southwest, all
+
+设计原则：
+- 每个zone定义一个区域。引擎会用噪声算法在区域内生成自然地形，边缘自动渐变过渡，不会生硬切割
+- 不同zone可以部分重叠。后列出的zone优先级更高（可以覆盖前面的）
+- 山脉(mountain)适合放在边缘（north/south/east/west），作为天然屏障
+- 水域(water)适合沿海（east/west）或低洼处
+- 平原(plain)和森林(forest)适合放在中心和平缓地带
+- 定居点会自动选择最佳位置（靠近水、在平原或森林上、避开山脉），无需手动指定坐标
+- 道路会自动用MST算法连通所有定居点，沿最优路径铺设
+- 默认的纯噪声地形已经足够好，只需用zone指定你想要的"特殊结构"
+
+只输出JSON规划书，用 ${cb}json 包裹。不要输出额外文字。`;
+}
+
+// --- Resolve zone position from compass direction ---
+function resolveZonePosition(at, centerQ, centerR, halfW, halfH) {
+  if (!at || at === 'all') return { q: centerQ, r: centerR, isAll: true };
+  const dist = Math.floor(Math.max(1, Math.min(halfW, halfH)) * 0.55);
+  const dirMap = {
+    'center': [0, 0],
+    'north': [0, -dist],
+    'northeast': [Math.round(dist * 0.7), -Math.round(dist * 0.7)],
+    'east': [dist, 0],
+    'southeast': [Math.round(dist * 0.7), Math.round(dist * 0.7)],
+    'south': [0, dist],
+    'southwest': [-Math.round(dist * 0.7), Math.round(dist * 0.7)],
+    'west': [-dist, 0],
+    'northwest': [-Math.round(dist * 0.7), -Math.round(dist * 0.7)]
+  };
+  const [dq, dr] = dirMap[at] || [0, 0];
+  return { q: centerQ + dq, r: centerR + dr, isAll: false };
+}
+
+// --- Classify terrain by Perlin noise (extracted from generateTerrainRegion) ---
+function classifyTerrainByNoise(nx, ny, rng) {
+  const elev = fractalNoise(nx, ny, 4);
+  const moist = fractalNoise(nx + 100, ny + 100, 3);
+  if (elev < -0.20) return 'water';
+  if (elev > 0.50 && moist < -0.05) return 'snow';
+  if (elev > 0.40) return 'mountain';
+  if (elev > 0.20) return 'hill';
+  if (moist < -0.15) return 'desert';
+  if (moist > 0.15 && elev < 0.30) return 'forest';
+  if (elev < -0.05 && moist > 0.10) return 'swamp';
+  return generationRules.defaultTerrain || 'plain';
+}
+
+// --- Execute a map plan (AI-designed, procedurally generated) ---
+async function executeMapPlan(plan) {
+  const allTerrains = getAllTerrains?.() || {};
+  let { seed, width, height, scale, zones, settlementCount, buildRoads, center } = plan;
+
+  // Clamp dimensions
+  width = Math.max(6, Math.min(200, width || 16));
+  height = Math.max(6, Math.min(200, height || 16));
+  scale = Math.max(0.3, Math.min(3.0, scale || 1.0));
+  settlementCount = Math.max(0, Math.min(100, settlementCount || 0));
+  if (!zones || !zones.length) zones = [];
+
+  // Determine center
+  let centerQ = 0, centerR = 0;
+  if (center && typeof center.q === 'number') centerQ = center.q;
+  if (center && typeof center.r === 'number') centerR = center.r;
+
+  const halfW = Math.floor(width / 2);
+  const halfH = Math.floor(height / 2);
+
+  // Resolve zone positions
+  const resolvedZones = zones.map(function(z) {
+    const pos = resolveZonePosition(z.at, centerQ, centerR, halfW, halfH);
+    return {
+      terrain: z.terrain || 'plain',
+      span: Math.max(1, Math.min(Math.max(halfW, halfH), z.span || 3)),
+      q: pos.q,
+      r: pos.r,
+      isAll: pos.isAll
+    };
+  });
+
+  // If a zone has isAll, it covers the whole region
+  const bgZone = resolvedZones.find(function(z) { return z.isAll; });
+  const overlayZones = resolvedZones.filter(function(z) { return !z.isAll; });
+
+  initPerm(seed);
+  const rng = mulberry32(seed + 1);
+
+  // Collect all hexes in region
+  const hexList = [];
+  for (let q = centerQ - halfW; q <= centerQ + halfW; q++) {
+    for (let r = centerR - halfH; r <= centerR + halfH; r++) {
+      hexList.push({ q, r });
+    }
+  }
+
+  // Shuffle for natural processing order
+  for (let i = hexList.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [hexList[i], hexList[j]] = [hexList[j], hexList[i]];
+  }
+
+  // Process in chunks for large maps
+  let painted = 0;
+  const CHUNK = 5000;
+  for (var ci = 0; ci < hexList.length; ci += CHUNK) {
+    const end = Math.min(ci + CHUNK, hexList.length);
+    for (var idx = ci; idx < end; idx++) {
+      const { q, r } = hexList[idx];
+      const p = hexToPixel(q, r);
+      const nx = p.x * 0.005 / scale;
+      const ny = p.y * 0.005 / scale;
+
+      // Check overlay zones first (higher priority)
+      let terrainId = null;
+      for (var zi = overlayZones.length - 1; zi >= 0; zi--) {
+        const zone = overlayZones[zi];
+        const dz = hexDistance(q, r, zone.q, zone.r);
+        if (dz <= zone.span) {
+          const edgeFactor = dz / Math.max(1, zone.span);
+          const noiseVal = fractalNoise(nx + 50, ny + 50, 2);
+          if (edgeFactor > 0.65 && noiseVal > 0.35) continue;
+          terrainId = zone.terrain;
+          break;
+        }
+      }
+      if (!terrainId && bgZone) terrainId = bgZone.terrain;
+      if (!terrainId) terrainId = classifyTerrainByNoise(nx, ny, rng);
+
+      var chance = generationRules.specialTerrainChance != null ? generationRules.specialTerrainChance : 0.05;
+      if (rng() < chance && terrainId !== 'water' && terrainId !== 'mountain') {
+        var special = pickSpecialTerrain(rng);
+        if (special) terrainId = special;
+      }
+
+      writeHexData(hexKey(q, r), { terrain: terrainId });
+      painted++;
+    }
+    render();
+    await new Promise(function(resolve) { requestAnimationFrame(resolve); });
+  }
+
+  // Place settlements
+  let placed = [];
+  if (settlementCount > 0) {
+    placed = placeSettlements(settlementCount, seed + 1, centerQ, centerR, width, height);
+  }
+
+  // Build road network
+  let roadsBuilt = 0;
+  if (buildRoads !== false && placed.length >= 2) {
+    roadsBuilt = buildRoadNetwork(placed);
+  }
+
+  return { painted: painted, settlements: placed.length, roads: roadsBuilt };
+}
+// --- API call (streaming) ---
+async function callAIAPI(systemPrompt, userMessage, onChunk, signal) {
   const settings = loadAISettings();
   if (!settings.apiKey) throw new Error('请先在AI绘图对话框中填写API Key');
+
   if (settings.provider === 'anthropic') {
-    // Anthropic Messages API
     const endpoint = settings.endpoint || 'https://api.anthropic.com/v1/messages';
     const model = settings.model || 'claude-sonnet-4-20250514';
     const resp = await fetch(endpoint, {
       method: 'POST',
+      signal: signal || null,
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': settings.apiKey,
@@ -3115,16 +3804,17 @@ async function callAIAPI(systemPrompt, userMessage) {
         model,
         max_tokens: 4096,
         system: systemPrompt,
-        messages: [{ role: 'user', content: userMessage }]
+        messages: [{ role: 'user', content: userMessage }],
+        stream: true
       })
     });
     if (!resp.ok) {
       let errText = '';
       try { const e = await resp.json(); errText = JSON.stringify(e); } catch (e) { errText = await resp.text(); }
-      throw new Error(`API错误 (${resp.status}): ${errText}`);
+      console.error('[AI API Error] HTTP ' + resp.status + ': ' + errText);
+      throw new Error('API错误 (' + resp.status + '): ' + errText);
     }
-    const data = await resp.json();
-    return data.content[0].text;
+    return await readAnthropicStream(resp, onChunk);
   } else {
     // OpenAI-compatible API
     const isOpenAI = settings.provider === 'openai';
@@ -3136,9 +3826,10 @@ async function callAIAPI(systemPrompt, userMessage) {
     if (!model) throw new Error('请填写模型名称');
     const resp = await fetch(endpoint, {
       method: 'POST',
+      signal: signal || null,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${settings.apiKey}`
+        'Authorization': 'Bearer ' + settings.apiKey
       },
       body: JSON.stringify({
         model,
@@ -3146,96 +3837,374 @@ async function callAIAPI(systemPrompt, userMessage) {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMessage }
         ],
-        max_tokens: 4096
+        max_tokens: 4096,
+        stream: true
       })
     });
     if (!resp.ok) {
       let errText = '';
       try { const e = await resp.json(); errText = JSON.stringify(e); } catch (e) { errText = await resp.text(); }
-      throw new Error(`API错误 (${resp.status}): ${errText}`);
+      console.error('[AI API Error] HTTP ' + resp.status + ': ' + errText);
+      throw new Error('API错误 (' + resp.status + '): ' + errText);
     }
-    const data = await resp.json();
-    return data.choices[0].message.content;
+    let result = await readOpenAIStream(resp, onChunk);
+    // Fallback: if streaming returned empty, retry without stream
+    if (!result || !result.trim()) {
+      console.warn('[AI Stream] Streaming returned empty, retrying without stream...');
+      const resp2 = await fetch(endpoint, {
+        method: 'POST',
+        signal: signal || null,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + settings.apiKey
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMessage }
+          ],
+          max_tokens: 4096
+        })
+      });
+      if (!resp2.ok) {
+        let errText = '';
+        try { const e = await resp2.json(); errText = JSON.stringify(e); } catch (e) { errText = await resp2.text(); }
+        console.error('[AI API Error] Non-stream HTTP ' + resp2.status + ': ' + errText);
+        throw new Error('API错误 (' + resp2.status + '): ' + errText);
+      }
+      const data = await resp2.json();
+      result = data.choices?.[0]?.message?.content || '';
+      if (onChunk && result) onChunk(result, result);
+    }
+    return result;
   }
+}
+
+async function readOpenAIStream(resp, onChunk) {
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let fullText = '';
+  let buffer = '';
+  let rawChunksLogged = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      if (buffer.trim()) {
+        const s = buffer.trim();
+        if (s.startsWith('data: ') && s !== 'data: [DONE]') {
+          try {
+            const json = JSON.parse(s.slice(6));
+            const content = json.choices?.[0]?.delta?.content || json.choices?.[0]?.message?.content || '';
+            if (content) fullText += content;
+          } catch(e) {}
+        }
+      }
+      break;
+    }
+    const chunk = decoder.decode(value, { stream: true });
+    // Debug: log first 3 raw chunks
+    if (rawChunksLogged < 3) {
+      console.log('[AI Stream Debug] Raw chunk #' + (rawChunksLogged + 1) + ':', JSON.stringify(chunk.slice(0, 300)));
+      rawChunksLogged++;
+    }
+    buffer += chunk;
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    for (const line of lines) {
+      const s = line.trim();
+      if (!s.startsWith('data: ')) continue;
+      const data = s.slice(6);
+      if (data === '[DONE]') continue;
+      try {
+        const json = JSON.parse(data);
+        const content = json.choices?.[0]?.delta?.content
+                     || json.choices?.[0]?.message?.content
+                     || '';
+        if (content) {
+          fullText += content;
+          if (onChunk) onChunk(content, fullText);
+        }
+      } catch (e) {
+        console.warn('[AI Stream Debug] Failed to parse data line:', data.slice(0, 100));
+      }
+    }
+  }
+  if (!fullText) {
+    console.warn('[AI Stream] Empty response — stream finished with no content.');
+    console.warn('[AI Stream] Check provider/endpoint/model. For DeepSeek, endpoint should be: https://api.deepseek.com/chat/completions');
+  }
+  return fullText;
+}
+
+async function readAnthropicStream(resp, onChunk) {
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let fullText = '';
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    for (const line of lines) {
+      const s = line.trim();
+      if (!s.startsWith('data: ')) continue;
+      const data = s.slice(6);
+      try {
+        const json = JSON.parse(data);
+        const delta = json.delta;
+        if (delta && delta.text) {
+          fullText += delta.text;
+          if (onChunk) onChunk(delta.text, fullText);
+        }
+      } catch (e) { /* skip malformed chunks */ }
+    }
+  }
+  return fullText;
 }
 // --- Parse AI response ---
 function parseAIResponse(text) {
-  // Try to extract JSON from code block
-  const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const jsonStr = jsonMatch ? jsonMatch[1].trim() : text.trim();
+  console.log('[AI Raw Response]', text);
+  let content = text.trim();
+
+  // Strategy 1: Extract from markdown code block (```json ... ``` or ``` ... ```)
+  const codeBlock = content.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
+  if (codeBlock) content = codeBlock[1].trim();
+
+  // Strategy 2: Direct JSON parse
   try {
-    const parsed = JSON.parse(jsonStr);
-    return Array.isArray(parsed) ? parsed : [parsed];
-  } catch (e) {
-    // Try line-by-line
-    const lines = jsonStr.split('\n').filter(l => l.trim().startsWith('{'));
-    const commands = [];
-    for (const line of lines) {
-      try { commands.push(JSON.parse(line)); } catch (e2) { /* skip */ }
+    const parsed = JSON.parse(content);
+    if (Array.isArray(parsed)) return parsed;
+    if (parsed && typeof parsed === 'object') return [parsed];
+  } catch (e) { /* continue */ }
+
+  // Strategy 3: Extract JSON array [...] from text
+  const arrMatch = content.match(/\[\s*\{[\s\S]*\}\s*\]/);
+  if (arrMatch) {
+    try {
+      const parsed = JSON.parse(arrMatch[0]);
+      if (Array.isArray(parsed) && parsed.length) return parsed;
+    } catch (e) { /* continue */ }
+  }
+
+  // Strategy 4: Line-by-line JSONL (each line is a complete {…} object)
+  const jsonlLines = content.split('\n').filter(function(l) {
+    var t = l.trim();
+    return t.startsWith('{') && t.endsWith('}');
+  });
+  if (jsonlLines.length) {
+    var commands = [];
+    for (var i = 0; i < jsonlLines.length; i++) {
+      try { commands.push(JSON.parse(jsonlLines[i].trim())); } catch (e2) { /* skip */ }
     }
     if (commands.length) return commands;
-    throw new Error('无法解析AI返回的JSON: ' + jsonStr.slice(0, 200));
   }
+
+  // Strategy 5: Extract all {...} objects from anywhere in the text
+  var objRegex = /\{(?:[^{}]|(?:\{[^{}]*\}))*\}/g;
+  var objMatches = content.match(objRegex);
+  if (objMatches && objMatches.length) {
+    var cmds = [];
+    for (var j = 0; j < objMatches.length; j++) {
+      try { cmds.push(JSON.parse(objMatches[j])); } catch (e2) { /* skip */ }
+    }
+    if (cmds.length) return cmds;
+  }
+
+  throw new Error('无法解析AI返回的JSON (前300字): ' + content.slice(0, 300));
 }
 // --- Execute commands ---
+function executeOneAICommand(cmd) {
+  // Each command is its own undo batch
+  beginBatch();
+  try {
+    const { action, q, r, terrain, text, name, rating, q1, r1, q2, r2 } = cmd;
+    let count = 0;
+    if (action === 'paint' && q !== undefined && r !== undefined && terrain) {
+      const key = hexKey(q, r);
+      pushUndo(key);
+      if (!hexData[key]) hexData[key] = {};
+      hexData[key].terrain = terrain;
+      count++;
+    } else if (action === 'erase' && q !== undefined && r !== undefined) {
+      const key = hexKey(q, r);
+      pushUndo(key);
+      delete hexData[key];
+      count++;
+    } else if (action === 'label' && q !== undefined && r !== undefined && text !== undefined) {
+      const key = hexKey(q, r);
+      pushUndo(key);
+      if (!hexData[key]) hexData[key] = {};
+      if (text) hexData[key].label = text;
+      else delete hexData[key].label;
+      count++;
+    } else if (action === 'settlement' && q !== undefined && r !== undefined && name) {
+      const key = hexKey(q, r);
+      pushUndo(key);
+      if (!hexData[key]) hexData[key] = {};
+      hexData[key].settlement = { name, rating: rating || 0 };
+      count++;
+    } else if (action === 'road' && q1 !== undefined && r1 !== undefined && q2 !== undefined && r2 !== undefined) {
+      // If not adjacent, auto-pathfind and build road segment by segment
+      if (!neighbors(q1, r1).some(n => n.q === q2 && n.r === r2)) {
+        const path = hexPathfind(q1, r1, q2, r2);
+        if (path && path.length > 1) {
+          let built = 0;
+          for (let pi = 0; pi < path.length - 1; pi++) {
+            const a = path[pi], b = path[pi + 1];
+            const ak = hexKey(a.q, a.r), bk = hexKey(b.q, b.r);
+            pushUndo(ak); if (!hexData[ak]) hexData[ak] = {};
+            if (!hexData[ak].roads) hexData[ak].roads = [];
+            if (!hexData[ak].roads.some(r => r.q === b.q && r.r === b.r)) hexData[ak].roads.push({ q: b.q, r: b.r });
+            pushUndo(bk); if (!hexData[bk]) hexData[bk] = {};
+            if (!hexData[bk].roads) hexData[bk].roads = [];
+            if (!hexData[bk].roads.some(r => r.q === a.q && r.r === a.r)) hexData[bk].roads.push({ q: a.q, r: a.r });
+            built++;
+          }
+          return built;
+        }
+        return 0;
+      }
+      const k1 = hexKey(q1, r1), k2 = hexKey(q2, r2);
+      pushUndo(k1);
+      if (!hexData[k1]) hexData[k1] = {};
+      if (!hexData[k1].roads) hexData[k1].roads = [];
+      if (!hexData[k1].roads.some(r => r.q === q2 && r.r === r2)) {
+        hexData[k1].roads.push({ q: q2, r: r2 });
+      }
+      pushUndo(k2);
+      if (!hexData[k2]) hexData[k2] = {};
+      if (!hexData[k2].roads) hexData[k2].roads = [];
+      if (!hexData[k2].roads.some(r => r.q === q1 && r.r === r1)) {
+        hexData[k2].roads.push({ q: q1, r: r1 });
+      }
+      count++;
+    } else if (action === 'paintRect' && q1 !== undefined && r1 !== undefined && q2 !== undefined && r2 !== undefined && terrain) {
+      // Safety cap: limit rect to 100×100 to prevent accidental map-wide fills
+      let minQ = Math.min(q1, q2), maxQ = Math.max(q1, q2);
+      let minR = Math.min(r1, r2), maxR = Math.max(r1, r2);
+      if (Math.abs(maxQ - minQ) > 100) {
+        console.warn('AI paintRect capped: q range ' + (maxQ - minQ) + ' → 100');
+        if (q1 < q2) maxQ = minQ + 100; else minQ = maxQ - 100;
+      }
+      if (Math.abs(maxR - minR) > 100) {
+        console.warn('AI paintRect capped: r range ' + (maxR - minR) + ' → 100');
+        if (r1 < r2) maxR = minR + 100; else minR = maxR - 100;
+      }
+      for (let qq = minQ; qq <= maxQ; qq++) {
+        for (let rr = minR; rr <= maxR; rr++) {
+          const key = hexKey(qq, rr);
+          pushUndo(key);
+          if (!hexData[key]) hexData[key] = {};
+          hexData[key].terrain = terrain;
+          count++;
+        }
+      }
+    }
+    return count;
+  } finally {
+    endBatch();
+  }
+}
+
 function executeAICommands(commands) {
-  let count = 0;
+  let total = 0;
+  // All commands in one undo batch for legacy use (save/load etc.)
   beginBatch();
   try {
     for (const cmd of commands) {
-      const { action, q, r, terrain, text, name, rating, q1, r1, q2, r2 } = cmd;
-      if (action === 'paint' && q !== undefined && r !== undefined && terrain) {
-        const key = `${q},${r}`;
+      total += executeOneAICommandNoBatch(cmd);
+    }
+  } finally {
+    endBatch();
+  }
+  return total;
+}
+
+// Internal: execute one command without beginBatch/endBatch (caller batches)
+function executeOneAICommandNoBatch(cmd) {
+  const { action, q, r, terrain, text, name, rating, q1, r1, q2, r2 } = cmd;
+  let count = 0;
+  if (action === 'paint' && q !== undefined && r !== undefined && terrain) {
+    const key = hexKey(q, r);
+    pushUndo(key);
+    if (!hexData[key]) hexData[key] = {};
+    hexData[key].terrain = terrain;
+    count++;
+  } else if (action === 'erase' && q !== undefined && r !== undefined) {
+    const key = hexKey(q, r);
+    pushUndo(key);
+    delete hexData[key];
+    count++;
+  } else if (action === 'label' && q !== undefined && r !== undefined && text !== undefined) {
+    const key = hexKey(q, r);
+    pushUndo(key);
+    if (!hexData[key]) hexData[key] = {};
+    if (text) hexData[key].label = text;
+    else delete hexData[key].label;
+    count++;
+  } else if (action === 'settlement' && q !== undefined && r !== undefined && name) {
+    const key = hexKey(q, r);
+    pushUndo(key);
+    if (!hexData[key]) hexData[key] = {};
+    hexData[key].settlement = { name, rating: rating || 0 };
+    count++;
+  } else if (action === 'road' && q1 !== undefined && r1 !== undefined && q2 !== undefined && r2 !== undefined) {
+    // If not adjacent, auto-pathfind
+    if (!neighbors(q1, r1).some(n => n.q === q2 && n.r === r2)) {
+      const path = hexPathfind(q1, r1, q2, r2);
+      if (path && path.length > 1) {
+        let built = 0;
+        for (let pi = 0; pi < path.length - 1; pi++) {
+          const a = path[pi], b = path[pi + 1];
+          const ak = hexKey(a.q, a.r), bk = hexKey(b.q, b.r);
+          pushUndo(ak); if (!hexData[ak]) hexData[ak] = {};
+          if (!hexData[ak].roads) hexData[ak].roads = [];
+          if (!hexData[ak].roads.some(r => r.q === b.q && r.r === b.r)) hexData[ak].roads.push({ q: b.q, r: b.r });
+          pushUndo(bk); if (!hexData[bk]) hexData[bk] = {};
+          if (!hexData[bk].roads) hexData[bk].roads = [];
+          if (!hexData[bk].roads.some(r => r.q === a.q && r.r === a.r)) hexData[bk].roads.push({ q: a.q, r: a.r });
+          built++;
+        }
+        return built;
+      }
+      return 0;
+    }
+    const k1 = hexKey(q1, r1), k2 = hexKey(q2, r2);
+    pushUndo(k1);
+    if (!hexData[k1]) hexData[k1] = {};
+    if (!hexData[k1].roads) hexData[k1].roads = [];
+    if (!hexData[k1].roads.some(r => r.q === q2 && r.r === r2)) {
+      hexData[k1].roads.push({ q: q2, r: r2 });
+    }
+    pushUndo(k2);
+    if (!hexData[k2]) hexData[k2] = {};
+    if (!hexData[k2].roads) hexData[k2].roads = [];
+    if (!hexData[k2].roads.some(r => r.q === q1 && r.r === r1)) {
+      hexData[k2].roads.push({ q: q1, r: r1 });
+    }
+    count++;
+  } else if (action === 'paintRect' && q1 !== undefined && r1 !== undefined && q2 !== undefined && r2 !== undefined && terrain) {
+    // Safety cap: limit rect to 100×100
+    let minQ = Math.min(q1, q2), maxQ = Math.max(q1, q2);
+    let minR = Math.min(r1, r2), maxR = Math.max(r1, r2);
+    if (Math.abs(maxQ - minQ) > 100) {
+      if (q1 < q2) maxQ = minQ + 100; else minQ = maxQ - 100;
+    }
+    if (Math.abs(maxR - minR) > 100) {
+      if (r1 < r2) maxR = minR + 100; else minR = maxR - 100;
+    }
+    for (let qq = minQ; qq <= maxQ; qq++) {
+      for (let rr = minR; rr <= maxR; rr++) {
+        const key = hexKey(qq, rr);
         pushUndo(key);
         if (!hexData[key]) hexData[key] = {};
         hexData[key].terrain = terrain;
         count++;
-      } else if (action === 'erase' && q !== undefined && r !== undefined) {
-        const key = `${q},${r}`;
-        pushUndo(key);
-        delete hexData[key];
-        count++;
-      } else if (action === 'label' && q !== undefined && r !== undefined && text !== undefined) {
-        const key = `${q},${r}`;
-        pushUndo(key);
-        if (!hexData[key]) hexData[key] = {};
-        if (text) hexData[key].label = text;
-        else delete hexData[key].label;
-        count++;
-      } else if (action === 'settlement' && q !== undefined && r !== undefined && name) {
-        const key = `${q},${r}`;
-        pushUndo(key);
-        if (!hexData[key]) hexData[key] = {};
-        hexData[key].settlement = { name, rating: rating || 0 };
-        count++;
-      } else if (action === 'road' && q1 !== undefined && r1 !== undefined && q2 !== undefined && r2 !== undefined) {
-        const k1 = `${q1},${r1}`, k2 = `${q2},${r2}`;
-        // Add road to both hexes
-        for (const [k, a, b] of [[k1, q1, r1], [k2, q2, r2]]) {
-          pushUndo(k);
-          if (!hexData[k]) hexData[k] = {};
-          if (!hexData[k].roads) hexData[k].roads = [];
-          // Add if not duplicate
-          const exists = hexData[k].roads.some(r => (r.q === q1 && r.r === r1) || (r.q === q2 && r.r === r2));
-          if (!exists) hexData[k].roads.push({ q: a === q1 ? q2 : q1, r: a === r1 ? r2 : r1 });
-        }
-        count++;
-      } else if (action === 'paintRect' && q1 !== undefined && r1 !== undefined && q2 !== undefined && r2 !== undefined && terrain) {
-        const minQ = Math.min(q1, q2), maxQ = Math.max(q1, q2);
-        const minR = Math.min(r1, r2), maxR = Math.max(r1, r2);
-        for (let qq = minQ; qq <= maxQ; qq++) {
-          for (let rr = minR; rr <= maxR; rr++) {
-            const key = `${qq},${rr}`;
-            pushUndo(key);
-            if (!hexData[key]) hexData[key] = {};
-            hexData[key].terrain = terrain;
-            count++;
-          }
-        }
       }
     }
-  } finally {
-    endBatch();
   }
   return count;
 }
@@ -3245,7 +4214,8 @@ function executeAICommands(commands) {
   const btnAI = document.getElementById('btn-ai-draw');
   if (btnAI) {
     btnAI.addEventListener('click', () => {
-      const modal = document.getElementById('ai-draw-modal');      if (modal) modal.style.display = 'block';
+      const modal = document.getElementById('ai-draw-modal');
+      if (modal) modal.style.display = 'block';
       // Load saved settings
       const settings = loadAISettings();
       const providerSel = document.getElementById('ai-provider');
@@ -3256,6 +4226,14 @@ function executeAICommands(commands) {
       if (keyInput) keyInput.value = settings.apiKey || '';
       if (endpointInput) endpointInput.value = settings.endpoint || '';
       if (modelInput) modelInput.value = settings.model || '';
+      // Restore saved prompt
+      const promptTa = document.getElementById('ai-prompt');
+      if (promptTa) {
+        try {
+          const savedPrompt = localStorage.getItem('ai_draw_prompt');
+          if (savedPrompt) promptTa.value = savedPrompt;
+        } catch(e) {}
+      }
       // Trigger provider change to show/hide fields
       if (providerSel) providerSel.dispatchEvent(new Event('change'));
     });
@@ -3298,44 +4276,116 @@ function executeAICommands(commands) {
       }
     });
   }
+  // Model default button
+  const modelDefaultBtn = document.getElementById('ai-model-default');
+  if (modelDefaultBtn) {
+    modelDefaultBtn.addEventListener('click', () => {
+      const provider = document.getElementById('ai-provider').value;
+      const modelInput = document.getElementById('ai-model');
+      if (!modelInput) return;
+      const defaults = {
+        'openai': 'gpt-4o',
+        'anthropic': 'claude-sonnet-4-20250514',
+        'openrouter': 'openai/gpt-4o',
+        'custom': ''
+      };
+      modelInput.value = defaults[provider] || '';
+    });
+  }
   // Clear prompt
   const clearBtn = document.getElementById('ai-btn-clear-prompt');
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {
-      const ta = document.getElementById('ai-prompt');      if (ta) ta.value = '';
-      ta.focus();
+      const ta = document.getElementById('ai-prompt');
+      if (ta) { ta.value = ''; ta.focus(); }
     });
   }
-  // Add context - insert current map description into prompt
+  // Add context - insert structured map summary into prompt
   const contextBtn = document.getElementById('ai-btn-add-context');
   if (contextBtn) {
     contextBtn.addEventListener('click', () => {
-      const scopeSel = document.getElementById('ai-scope');      const scope = scopeSel ? scopeSel.value : 'all';
+      const scopeSel = document.getElementById('ai-scope');
+      const scope = scopeSel ? scopeSel.value : 'all';
       const context = getMapContext(scope);
-      const ta = document.getElementById('ai-prompt');      if (!ta) return;
-      const lines = [`[当前地图状态 - 范围: ${scope}]`];
-      lines.push(`格子数: ${context.hexCount}`);
-      // Group by terrain      const byTerrain = {};
+      const ta = document.getElementById('ai-prompt');
+      if (!ta) return;
+
+      // Compute coordinate range
+      let minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
       for (const h of context.hexes) {
-        const t = h.terrain || 'unexplored';        if (!byTerrain[t]) byTerrain[t] = [];
-        byTerrain[t].push(`(${h.q},${h.r})`);
+        if (h.q < minQ) minQ = h.q; if (h.q > maxQ) maxQ = h.q;
+        if (h.r < minR) minR = h.r; if (h.r > maxR) maxR = h.r;
       }
-      for (const [t, coords] of Object.entries(byTerrain)) {
-        const name = context.terrains[t] || t;
-        lines.push(`${name}: ${coords.join(' ')}`);
+
+      // Count terrain distribution (sorted by count desc)
+      const byTerrain = {};
+      for (const h of context.hexes) {
+        const t = h.terrain || '未探索';
+        byTerrain[t] = (byTerrain[t] || 0) + 1;
       }
-      // Settlements
-      const settls = context.hexes.filter(h => h.settlement);
-      if (settls.length) {
-        lines.push('定居点:');
-        for (const h of settls) {
-          lines.push(`  (${h.q},${h.r}) ${h.settlement.name} (${h.settlement.rating >= 0 ? '+' : ''}${h.settlement.rating})`);
+      const terrainSummary = Object.entries(byTerrain)
+        .sort((a, b) => b[1] - a[1])
+        .map(([t, n]) => {
+          const name = context.terrains[t] || t;
+          return name + ' ' + n + '格';
+        }).join(', ');
+
+      // Road count
+      let roadCount = 0;
+      const seenRoads = new Set();
+      for (const h of context.hexes) {
+        if (h.roads) {
+          for (const rd of h.roads) {
+            const rk = h.q + ',' + h.r + '-' + rd.q + ',' + rd.r;
+            const rk2 = rd.q + ',' + rd.r + '-' + h.q + ',' + h.r;
+            if (!seenRoads.has(rk) && !seenRoads.has(rk2)) {
+              seenRoads.add(rk);
+              roadCount++;
+            }
+          }
         }
       }
+
+      const lines = ['[当前地图状态]'];
+      lines.push('格子总数: ' + context.hexCount + ' | 坐标范围: q[' + (isFinite(minQ) ? minQ : '?') + '..' + (isFinite(maxQ) ? maxQ : '?') + '] r[' + (isFinite(minR) ? minR : '?') + '..' + (isFinite(maxR) ? maxR : '?') + ']');
+      lines.push('地形分布: ' + (terrainSummary || '无'));
+      lines.push('已有道路: ' + roadCount + ' 条');
+
+      // Settlements
+      const settls = context.hexes.filter(function(h) { return h.settlement; });
+      if (settls.length) {
+        const sList = settls.map(function(h) {
+          return h.settlement.name + ' (' + h.q + ',' + h.r + ') ' + (h.settlement.rating >= 0 ? '+' : '') + h.settlement.rating;
+        }).join(', ');
+        lines.push('定居点(' + settls.length + '): ' + sList);
+      } else {
+        lines.push('定居点: 无');
+      }
+
       ta.value = (ta.value ? ta.value + '\n\n' : '') + lines.join('\n');
     });
   }
-  // Confirm (execute AI generation)
+  // AI generation state
+  let aiStopRequested = false;
+  let aiAbortController = null;
+
+  // Helper: update floating bar
+  function setFloatingStatus(icon, text, showStop) {
+    const bar = document.getElementById('ai-floating-bar');
+    const iconEl = document.getElementById('ai-floating-icon');
+    const statusEl = document.getElementById('ai-floating-status');
+    const stopBtn = document.getElementById('ai-floating-stop');
+    if (bar) bar.style.display = 'block';
+    if (iconEl) iconEl.textContent = icon;
+    if (statusEl) statusEl.innerHTML = text;
+    if (stopBtn) stopBtn.style.display = showStop ? 'inline' : 'none';
+  }
+  function hideFloatingBar() {
+    const bar = document.getElementById('ai-floating-bar');
+    if (bar) bar.style.display = 'none';
+  }
+
+  // Confirm (execute AI generation: hide modal → floating bar → animate on map)
   const confirmBtn = document.getElementById('ai-btn-confirm');
   if (confirmBtn) {
     confirmBtn.addEventListener('click', async () => {
@@ -3350,53 +4400,238 @@ function executeAICommands(commands) {
       if (!prompt) { alert('请填写你的需求'); return; }
       // Save settings
       saveAISettings({ provider, apiKey, endpoint, model });
-      // Build messages
-      const mapContext = getMapContext(scope);
-      const systemPrompt = buildSystemPrompt();
-      const userMessage = `当前地图范围: ${scope}\n格子数: ${mapContext.hexCount}\n\n用户需求:\n${prompt}`;
-      // Status display
-      const statusDiv = document.getElementById('ai-status');
-      if (statusDiv) {
-        statusDiv.style.display = 'block';
-        statusDiv.innerHTML = '<span style="color:#a044ff;">⏳ AI 思考中...</span>';
+
+      // Auto-fallback: if scope is "selected" but nothing is selected, use "all"
+      let actualScope = scope;
+      let fallbackNote = '';
+      if (scope === 'selected') {
+        const selHexes = getScopeHexes('selected');
+        if (!selHexes.length) {
+          actualScope = 'all';
+          fallbackNote = ' (未选中任何格子，已自动切换为全部地图)';
+        }
       }
-      confirmBtn.disabled = true;
-      confirmBtn.textContent = '⏳ 生成中...';
-      try {
-        const respText = await callAIAPI(systemPrompt, userMessage);
-        if (statusDiv) {
-          statusDiv.innerHTML = '<span style="color:#4ecdc4;">✅ AI 响应已获取，解析中...</span>';
+
+      // Build messages — pick mode
+      const aiMode = document.getElementById('ai-mode').value;
+      const isPlanMode = aiMode === 'plan';
+      const mapContext = getMapContext(actualScope);
+
+      // Compute coordinate range for plan mode context
+      let minQ = 0, maxQ = 0, minR = 0, maxR = 0;
+      if (isPlanMode && mapContext.hexes.length) {
+        minQ = Infinity; maxQ = -Infinity; minR = Infinity; maxR = -Infinity;
+        for (const h of mapContext.hexes) {
+          if (h.q < minQ) minQ = h.q; if (h.q > maxQ) maxQ = h.q;
+          if (h.r < minR) minR = h.r; if (h.r > maxR) maxR = h.r;
         }
-        const commands = parseAIResponse(respText);
-        if (statusDiv) {
-          statusDiv.innerHTML = `<span style="color:#4ecdc4;">✅ 解析到 ${commands.length} 条命令，执行中...</span>`;
-        }
-        const count = executeAICommands(commands);
-        render();
-        updateInfo();
-        if (statusDiv) {
-          statusDiv.innerHTML = `<span style="color:#4ecdc4;">✅ 完成！共执行 ${count} 条命令</span>`;
-          setTimeout(() => { statusDiv.style.display = 'none'; }, 3000);
-        }
-      } catch (err) {
-        if (statusDiv) {
-          statusDiv.innerHTML = `<span style="color:#e94560;">❌ 错误: ${err.message}</span>`;
-        }
-        console.error('AI Draw Error:', err);
-      } finally {
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = '🤖 开始生成';
       }
-    });
-  }
-  // Cancel
-  const cancelBtn = document.getElementById('ai-btn-cancel');
-  if (cancelBtn) {
-    cancelBtn.addEventListener('click', () => {
+
+      const systemPrompt = isPlanMode ? buildPlanSystemPrompt() : buildSystemPrompt();
+      let userMessage;
+      if (isPlanMode) {
+        userMessage = '当前地图信息:\n' +
+          '- 范围: ' + actualScope + '\n' +
+          '- 现有格子数: ' + mapContext.hexCount + '\n' +
+          (mapContext.hexCount > 0 ? '- 现有坐标范围: q[' + minQ + '..' + maxQ + '] r[' + minR + '..' + maxR + ']\n' : '') +
+          '- 建议地图尺寸: ' + Math.max(10, Math.min(30, Math.max(maxQ - minQ + 1, maxR - minR + 1, 16))) + '×' + Math.max(10, Math.min(30, Math.max(maxQ - minQ + 1, maxR - minR + 1, 16))) + '\n' +
+          '\n用户需求:\n' + prompt;
+      } else {
+        userMessage = '当前地图范围: ' + actualScope + '\n格子数: ' + mapContext.hexCount + '\n\n用户需求:\n' + prompt;
+      }
+      aiStopRequested = false;
+
+      // Create abort controller for stop button
+      if (aiAbortController) aiAbortController.abort(); // cancel any previous request
+      aiAbortController = new AbortController();
+
+      // Record undo depth for one-click undo later
+      aiUndoBefore = undoStack.length;
+
+      // Hide undo button during generation
+      const undoBtn = document.getElementById('ai-floating-undo');
+      if (undoBtn) undoBtn.style.display = 'none';
+
+      // Reset stop button
+      const floatingStopBtn = document.getElementById('ai-floating-stop');
+      if (floatingStopBtn) { floatingStopBtn.disabled = false; floatingStopBtn.textContent = '⏹ 停止'; }
+
+      // Hide modal, show floating bar on the map (no backdrop!)
       const modal = document.getElementById('ai-draw-modal');
       if (modal) modal.style.display = 'none';
+      setFloatingStatus('⏳', 'AI 思考中...' + (isPlanMode ? ' (规划模式)' : '') + fallbackNote, true);
+
+      try {
+        // Phase 1: Stream AI response — show text in floating bar
+        const respText = await callAIAPI(systemPrompt, userMessage, function(chunk, fullText) {
+          const statusEl = document.getElementById('ai-floating-status');
+          if (statusEl) {
+            const show = fullText.length > 400 ? '...' + fullText.slice(-400) : fullText;
+            statusEl.innerHTML = '<span style="color:#a044ff;">⏳ 思考中</span> <span style="color:#888;font-size:10px;white-space:pre-wrap;">' + show.replace(/</g,'&lt;') + '</span>';
+          }
+        }, aiAbortController.signal);
+
+        // Check if user clicked stop during streaming
+        if (aiStopRequested) {
+          setFloatingStatus('⏹', '<span style="color:#ffd700;">已停止</span>', false);
+          setTimeout(hideFloatingBar, 10000);
+          return;
+        }
+
+        // Phase 2: Parse response
+        console.log('[AI Response] Length: ' + respText.length + ' chars');
+        if (!respText || !respText.trim()) {
+          throw new Error('AI 返回了空响应，请检查 API Key 和模型名是否正确，或查看控制台 [AI Stream] 日志');
+        }
+        const parsed = parseAIResponse(respText);
+        if (!parsed.length) throw new Error('AI 没有返回有效内容');
+
+        // Detect plan mode response (has "zones" field) vs command response (has "action" field)
+        const isPlan = parsed.length === 1 && parsed[0].mode === 'plan' && parsed[0].zones;
+
+        if (isPlan) {
+          // Check stop before executing plan
+          if (aiStopRequested) {
+            setFloatingStatus('⏹', '<span style="color:#ffd700;">已停止</span>', false);
+            setTimeout(hideFloatingBar, 10000);
+            return;
+          }
+          // ===== Plan Mode: execute as single undo batch =====
+          setFloatingStatus('🏗️', '<span style="color:#4ecdc4;">程序化生成中...</span>', true);
+          const plan = parsed[0];
+          console.log('[AI Plan]', plan.idea || '(no idea)');
+          console.log('[AI Plan] Zones:', plan.zones.length, ' Size:', plan.width + '×' + plan.height, ' Settlements:', plan.settlementCount);
+
+          beginBatch();
+          let planResult;
+          try {
+            planResult = await executeMapPlan(plan);
+          } finally {
+            endBatch(); // always close batch even on error
+          }
+          render();
+          updateInfo();
+
+          const summary = '完成！' + planResult.painted + ' 格 · ' + planResult.settlements + ' 定居点 · ' + planResult.roads + ' 条道路';
+          setFloatingStatus('✅', '<span style="color:#4ecdc4;">' + summary + '</span>', false);
+          if (undoBtn && undoStack.length > aiUndoBefore) undoBtn.style.display = 'inline';
+          setTimeout(hideFloatingBar, 20000);
+        } else {
+          // ===== Precise Mode: execute commands one by one =====
+          setFloatingStatus('🔍', '<span style="color:#4ecdc4;">解析命令中...</span>', true);
+          const commands = parsed;
+
+          let executed = 0;
+          for (let i = 0; i < commands.length; i++) {
+            if (aiStopRequested) {
+              setFloatingStatus('⏹', '<span style="color:#ffd700;">已停止。已执行 ' + (i + 1) + ' / ' + commands.length + ' 条命令</span>', false);
+              if (undoBtn && undoStack.length > aiUndoBefore) undoBtn.style.display = 'inline';
+              setTimeout(hideFloatingBar, 20000);
+              break;
+            }
+            const cellCount = executeOneAICommand(commands[i]);
+            executed += cellCount;
+            render();
+            if (i % 5 === 0 || i === commands.length - 1) {
+              const pct = Math.round((i + 1) / commands.length * 100);
+              setFloatingStatus('🎨', '<span style="color:#4ecdc4;">绘制中... ' + (i + 1) + ' / ' + commands.length + ' (' + pct + '%)</span>', true);
+            }
+            const delay = commands[i].action === 'paintRect' ? 20 : 60;
+            await new Promise(function(resolve) { setTimeout(resolve, delay); });
+          }
+
+          updateInfo();
+          if (!aiStopRequested) {
+            setFloatingStatus('✅', '<span style="color:#4ecdc4;">完成！共执行 ' + commands.length + ' 条命令</span>', false);
+            if (undoBtn && undoStack.length > aiUndoBefore) undoBtn.style.display = 'inline';
+            setTimeout(hideFloatingBar, 15000);
+          }
+        }
+      } catch (err) {
+        // Aborted by user — show stopped message, not error
+        if (err.name === 'AbortError') {
+          setFloatingStatus('⏹', '<span style="color:#ffd700;">已停止</span>', false);
+          setTimeout(hideFloatingBar, 10000);
+          return;
+        }
+        // Log full error details to console for debugging
+        console.error('[AI Draw Error] ' + err.message);
+        console.error('[AI Draw Error] Full error:', err);
+        if (err.stack) console.error('[AI Draw Error] Stack:', err.stack);
+        setFloatingStatus('❌', '<span style="color:#e94560;">错误: ' + err.message + '</span>', false);
+        if (undoBtn && undoStack.length > aiUndoBefore) undoBtn.style.display = 'inline';
+        setTimeout(hideFloatingBar, 30000);
+      }
     });
   }
+
+  // Stop button (in floating bar)
+  const floatingStopBtn = document.getElementById('ai-floating-stop');
+  if (floatingStopBtn) {
+    floatingStopBtn.addEventListener('click', function() {
+      aiStopRequested = true;
+      floatingStopBtn.disabled = true;
+      floatingStopBtn.textContent = '⏹ 停止中...';
+      // Abort in-flight API request
+      if (aiAbortController) {
+        try { aiAbortController.abort(); } catch(e) {}
+      }
+    });
+  }
+
+  // Undo button (in floating bar) — undo whole AI generation in one click
+  let aiUndoBefore = 0;
+  const floatingUndoBtn = document.getElementById('ai-floating-undo');
+  if (floatingUndoBtn) {
+    floatingUndoBtn.addEventListener('click', function() {
+      while (undoStack.length > aiUndoBefore) {
+        const entry = undoStack.pop();
+        if (!entry) break;
+        const redoEntries = applyUndoEntry(entry);
+        redoStack.push(redoEntries);
+      }
+      updateUndoButtons();
+      render();
+      updateInfo();
+      floatingUndoBtn.style.display = 'none';
+      setFloatingStatus('↩', '<span style="color:#ffd700;">已撤销本次AI生成</span>', false);
+      setTimeout(hideFloatingBar, 3000);
+    });
+  }
+
+  // Template dropdown
+  const templateSel = document.getElementById('ai-template');
+  if (templateSel) {
+    templateSel.addEventListener('change', function() {
+      if (!templateSel.value) return;
+      const ta = document.getElementById('ai-prompt');
+      if (!ta) return;
+      if (ta.value && !confirm('当前已有内容，是否替换？')) return;
+      ta.value = templateSel.value;
+      templateSel.value = '';
+      ta.focus();
+    });
+  }
+
+  // Auto-save prompt to localStorage on every keystroke
+  const promptTextarea = document.getElementById('ai-prompt');
+  if (promptTextarea) {
+    promptTextarea.addEventListener('input', function() {
+      try { localStorage.setItem('ai_draw_prompt', promptTextarea.value); } catch(e) {}
+    });
+  }
+
+  // Cancel / Close X
+  function closeAIModal() {
+    const modal = document.getElementById('ai-draw-modal');
+    if (modal) modal.style.display = 'none';
+  }
+  const cancelBtn = document.getElementById('ai-btn-cancel');
+  if (cancelBtn) cancelBtn.addEventListener('click', closeAIModal);
+  const closeXBtn = document.getElementById('ai-btn-close-x');
+  if (closeXBtn) closeXBtn.addEventListener('click', closeAIModal);
+</script>
+
 </script>
 </body>
 </html>

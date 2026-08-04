@@ -1,0 +1,951 @@
+// ======== One-Click Map Generation ========
+
+// Mulberry32 PRNG — deterministic, seedable
+function mulberry32(seed) {
+  return function() {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// Perlin noise — permutation table
+let _perm = new Uint8Array(512);
+function initPerm(seed) {
+  const rng = mulberry32(seed);
+  const p = [...Array(256).keys()];
+  // Fisher-Yates shuffle
+  for (let i = 255; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [p[i], p[j]] = [p[j], p[i]];
+  }
+  for (let i = 0; i < 512; i++) _perm[i] = p[i & 255];
+}
+
+function fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+function lerp(a, b, t) { return a + t * (b - a); }
+function grad2D(hash, x, y) {
+  const h = hash & 3;
+  const u = h < 2 ? x : y;
+  const v = h < 2 ? y : x;
+  return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+}
+
+function noise2D(x, y) {
+  const X = Math.floor(x) & 255, Y = Math.floor(y) & 255;
+  const xf = x - Math.floor(x), yf = y - Math.floor(y);
+  const u = fade(xf), v = fade(yf);
+  const aa = _perm[_perm[X] + Y], ab = _perm[_perm[X] + Y + 1];
+  const ba = _perm[_perm[X + 1] + Y], bb = _perm[_perm[X + 1] + Y + 1];
+  return lerp(
+    lerp(grad2D(aa, xf, yf), grad2D(ba, xf - 1, yf), u),
+    lerp(grad2D(ab, xf, yf - 1), grad2D(bb, xf - 1, yf - 1), u),
+    v
+  );
+}
+
+function fractalNoise(x, y, octaves) {
+  let value = 0, amp = 1, freq = 1, max = 0;
+  for (let i = 0; i < octaves; i++) {
+    value += amp * noise2D(x * freq, y * freq);
+    max += amp;
+    amp *= 0.5;
+    freq *= 2;
+  }
+  return value / max; // -1..1
+}
+
+// Generate terrain for a bounded region (synchronous — kept for backward compat)
+// ======== Web Worker for off-thread Perlin noise ========
+var _noiseWorker = null;
+var _noiseWorkerReady = false;
+var _workerPending = null; // { resolve, reject }
+
+function getNoiseWorker() {
+  if (_noiseWorker) return _noiseWorker;
+  if (typeof Blob === 'undefined' || typeof Worker === 'undefined') return null;
+
+  // Inline worker — encapsulates all noise math, no DOM access
+  var workerCode = [
+    'var _perm=new Uint8Array(512);',
+    'function m32(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}};',
+    'function ip(s){var r=m32(s),p=[],i;for(i=0;i<256;i++)p[i]=i;for(i=255;i>0;i--){var j=Math.floor(r()*(i+1)),t=p[i];p[i]=p[j];p[j]=t;}for(i=0;i<512;i++)_perm[i]=p[i&255]};',
+    'function f(t){return t*t*t*(t*(t*6-15)+10)};function l(a,b,t){return a+t*(b-a)};',
+    'function g2(h,x,y){var u=(h&1?y:x),v=(h&2?y:x);return(h&1?-u:u)+(h&2?-v:v)};',
+    'function n2(x,y){var X=Math.floor(x)&255,Y=Math.floor(y)&255,xf=x-Math.floor(x),yf=y-Math.floor(y),u=f(xf),v=f(yf);var aa=_perm[_perm[X]+Y],ab=_perm[_perm[X]+Y+1],ba=_perm[_perm[X+1]+Y],bb=_perm[_perm[X+1]+Y+1];return l(l(g2(aa,xf,yf),g2(ba,xf-1,yf),u),l(g2(ab,xf,yf-1),g2(bb,xf-1,yf-1),u),v)};',
+    'function fn(x,y,o){var val=0,amp=1,freq=1,mx=0;for(var i=0;i<o;i++){val+=amp*n2(x*freq,y*freq);mx+=amp;amp*=0.5;freq*=2;}return val/mx};',
+    'self.onmessage=function(e){var d=e.data,seed=d.seed,coords=d.coords,scale=d.scale;ip(seed);',
+    'var res=[];for(var i=0;i<coords.length;i++){var c=coords[i],nx=c.px*0.005/scale,ny=c.py*0.005/scale;',
+    'var elev=fn(nx,ny,4),moist=fn(nx+100,ny+100,3),t;',
+    'if(elev<-0.20)t="water";else if(elev>0.50&&moist<-0.05)t="snow";else if(elev>0.40)t="mountain";else if(elev>0.20)t="hill";else if(moist<-0.15)t="desert";else if(moist>0.15&&elev<0.30)t="forest";else if(elev<-0.05&&moist>0.10)t="swamp";else t="plain";',
+    'res.push({q:c.q,r:c.r,terrain:t});}',
+    'self.postMessage({results:res,id:d.id});};'
+  ].join('\n');
+
+  try {
+    var blob = new Blob([workerCode], { type: 'application/javascript' });
+    _noiseWorker = new Worker(URL.createObjectURL(blob));
+    _noiseWorkerReady = true;
+    return _noiseWorker;
+  } catch(e) {
+    console.warn('Web Worker not available, using main thread for noise');
+    _noiseWorkerReady = false;
+    return null;
+  }
+}
+
+// Classify terrain from noise using the worker (async). Falls back to sync if no worker.
+function classifyBatchWithWorker(seed, coords, scale) {
+  return new Promise(function(resolve) {
+    var w = getNoiseWorker();
+    if (!w) {
+      // Fallback: compute on main thread
+      initPerm(seed);
+      var results = [];
+      for (var i = 0; i < coords.length; i++) {
+        var c = coords[i];
+        var nx = c.px * 0.005 / scale, ny = c.py * 0.005 / scale;
+        var elev = fractalNoise(nx, ny, 4), moist = fractalNoise(nx + 100, ny + 100, 3);
+        var t;
+        if (elev < -0.20) t = 'water';
+        else if (elev > 0.50 && moist < -0.05) t = 'snow';
+        else if (elev > 0.40) t = 'mountain';
+        else if (elev > 0.20) t = 'hill';
+        else if (moist < -0.15) t = 'desert';
+        else if (moist > 0.15 && elev < 0.30) t = 'forest';
+        else if (elev < -0.05 && moist > 0.10) t = 'swamp';
+        else t = generationRules.defaultTerrain || 'plain';
+        results.push({ q: c.q, r: c.r, terrain: t });
+      }
+      resolve(results);
+      return;
+    }
+
+    var msgId = Date.now() + Math.random();
+    var handler = function(e) {
+      if (e.data.id === msgId) {
+        w.removeEventListener('message', handler);
+        resolve(e.data.results);
+      }
+    };
+    w.addEventListener('message', handler);
+    w.postMessage({ id: msgId, seed: seed, coords: coords, scale: scale });
+  });
+}
+
+function generateTerrainRegion(seed, centerQ, centerR, width, height, scale) {
+  initPerm(seed);
+  const rng = mulberry32(seed + 1);
+  const halfW = Math.floor(width / 2);
+  const halfH = Math.floor(height / 2);
+  const allTerrains = getAllTerrains();
+  const ids = [];
+
+  for (let q = centerQ - halfW; q <= centerQ + halfW; q++) {
+    for (let r = centerR - halfH; r <= centerR + halfH; r++) {
+      ids.push({ q, r });
+    }
+  }
+
+  // Shuffle for varied processing order (avoids bias)
+  for (let i = ids.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+  }
+
+  for (const { q, r } of ids) {
+    const p = hexToPixel(q, r);
+    const nx = p.x * 0.005 / scale;
+    const ny = p.y * 0.005 / scale;
+
+    const elev = fractalNoise(nx, ny, 4);
+    const moist = fractalNoise(nx + 100, ny + 100, 3);
+
+    let terrainId;
+    if (elev < -0.20) {
+      terrainId = 'water';
+    } else if (elev > 0.50 && moist < -0.05) {
+      terrainId = 'snow';
+    } else if (elev > 0.40) {
+      terrainId = 'mountain';
+    } else if (elev > 0.20) {
+      terrainId = 'hill';
+    } else if (moist < -0.15) {
+      terrainId = 'desert';
+    } else if (moist > 0.15 && elev < 0.30) {
+      terrainId = 'forest';
+    } else if (elev < -0.05 && moist > 0.10) {
+      terrainId = 'swamp';
+    } else {      terrainId = generationRules.defaultTerrain || 'plain';
+    }
+
+    // Special terrain injection
+    var chance = generationRules.specialTerrainChance != null ? generationRules.specialTerrainChance : 0.05;
+    if (rng() < chance) {
+      var special = pickSpecialTerrain(rng);
+      if (special) terrainId = special;
+    }
+
+    writeHexData(hexKey(q, r), { terrain: terrainId });
+  }
+}
+
+// Async chunked version — use for large maps to keep UI responsive
+async function generateTerrainRegionAsync(seed, centerQ, centerR, width, height, scale, onProgress) {
+  var rng = mulberry32(seed + 1);
+  var halfW = Math.floor(width / 2);
+  var halfH = Math.floor(height / 2);
+
+  // Build coord list with pixel positions
+  var coords = [];
+  for (var q = centerQ - halfW; q <= centerQ + halfW; q++) {
+    for (var r = centerR - halfH; r <= centerR + halfH; r++) {
+      var p = hexToPixel(q, r);
+      coords.push({ q: q, r: r, px: p.x, py: p.y });
+    }
+  }
+
+  // Shuffle
+  for (var i = coords.length - 1; i > 0; i--) {
+    var j = Math.floor(rng() * (i + 1));
+    var tmp = coords[i]; coords[i] = coords[j]; coords[j] = tmp;
+  }
+
+  var total = coords.length;
+  var CHUNK = getNoiseWorker() ? 20000 : 5000; // bigger chunks with worker since noise is off-thread
+  for (var ci = 0; ci < total; ci += CHUNK) {
+    var end = Math.min(ci + CHUNK, total);
+    var batch = coords.slice(ci, end);
+
+    // Step 1: Classify terrain (worker if available, else inline)
+    var results = await classifyBatchWithWorker(seed, batch, scale);
+
+    // Step 2: Special terrain injection (main thread, needs generationRules)
+    for (var ri = 0; ri < results.length; ri++) {
+      var res = results[ri];
+      var terrainId = res.terrain;
+      var chance = generationRules.specialTerrainChance != null ? generationRules.specialTerrainChance : 0.05;
+      if (rng() < chance) {
+        var special = pickSpecialTerrain(rng);
+        if (special) terrainId = special;
+      }
+      writeHexData(hexKey(res.q, res.r), { terrain: terrainId });
+    }
+    if (onProgress) onProgress(end, total);
+    render();
+    await new Promise(function(resolve) { requestAnimationFrame(resolve); });
+  }
+}
+
+// A* pathfinding with terrain travel cost
+// Binary min-heap for A* priority queue
+function MinHeap() { this.heap = []; }
+MinHeap.prototype.push = function(key, score) {
+  this.heap.push({ key: key, score: score });
+  var i = this.heap.length - 1;
+  while (i > 0) {
+    var p = (i - 1) >> 1;
+    if (this.heap[p].score <= this.heap[i].score) break;
+    var tmp = this.heap[p]; this.heap[p] = this.heap[i]; this.heap[i] = tmp;
+    i = p;
+  }
+};
+MinHeap.prototype.pop = function() {
+  if (this.heap.length === 0) return null;
+  var top = this.heap[0];
+  var last = this.heap.pop();
+  if (this.heap.length > 0) {
+    this.heap[0] = last;
+    var i = 0, n = this.heap.length;
+    while (true) {
+      var left = (i << 1) + 1, right = left + 1, smallest = i;
+      if (left < n && this.heap[left].score < this.heap[smallest].score) smallest = left;
+      if (right < n && this.heap[right].score < this.heap[smallest].score) smallest = right;
+      if (smallest === i) break;
+      var t = this.heap[i]; this.heap[i] = this.heap[smallest]; this.heap[smallest] = t;
+      i = smallest;
+    }
+  }
+  return top;
+};
+MinHeap.prototype.size = function() { return this.heap.length; };
+
+// A* pathfinding with binary heap — fast even for large open sets
+// Returns path array or null. Capped at maxSteps explored nodes.
+function aStarPathfind(q1, r1, q2, r2, maxSteps) {
+  if (q1 === q2 && r1 === r2) return [{ q: q1, r: r1 }];
+  if (!maxSteps) maxSteps = 5000;
+  var startKey = hexKey(q1, r1);
+  var goalKey = hexKey(q2, r2);
+  var allTerrains = getAllTerrains();
+  var h = function(q, r) { return hexDistance(q, r, q2, r2); };
+
+  var openHeap = new MinHeap();
+  openHeap.push(startKey, h(q1, r1));
+  var cameFrom = {};
+  var gScore = {}; gScore[startKey] = 0;
+  var closedSet = new Set();
+  var steps = 0;
+
+  while (openHeap.size() > 0) {
+    var entry = openHeap.pop();
+    var current = entry.key;
+    if (closedSet.has(current)) continue; // skip stale entries
+    if (current === goalKey) {
+      var path = [];
+      var c = current;
+      while (c) { var parts = c.split(','); path.unshift({ q: +parts[0], r: +parts[1] }); c = cameFrom[c]; }
+      return path;
+    }
+    closedSet.add(current);
+    steps++;
+    if (steps > maxSteps) return null; // give up on very long paths
+
+    var coords = current.split(','); var cq = +coords[0], cr = +coords[1];
+    var nbrs = neighbors(cq, cr);
+    for (var ni = 0; ni < nbrs.length; ni++) {
+      var n = nbrs[ni];
+      var nk = hexKey(n.q, n.r);
+      if (closedSet.has(nk)) continue;
+      var hData = getHex(n.q, n.r);
+      var tInfo = hData.terrain ? allTerrains[hData.terrain] : null;
+      var moveCost = tInfo ? tInfo.travel : 1;
+      var waterPenalty = hData.terrain === 'water' ? 10 : 0;
+      var totalCost = moveCost + waterPenalty;
+      var tentativeG = gScore[current] + totalCost;
+      if (gScore[nk] === undefined || tentativeG < gScore[nk]) {
+        cameFrom[nk] = current;
+        gScore[nk] = tentativeG;
+        openHeap.push(nk, tentativeG + h(n.q, n.r));
+      }
+    }
+  }
+  return null;
+}
+
+// Rebuild settlementIndex from hexData (called after map load)
+function rebuildSettlementIndex() {
+  settlementIndex = [];
+  for (const key of Object.keys(hexData)) {
+    if (hexData[key] && hexData[key].settlement) {
+      const [q, r] = key.split(',').map(Number);
+      settlementIndex.push({ q, r });
+    }
+  }
+}
+
+// Score a hex for settlement placement
+function rankSettlementLocation(q, r) {
+  const h = getHex(q, r);
+  if (!h.terrain) return -Infinity;
+  if (h.terrain === 'water' || h.terrain === 'mountain') return -Infinity;
+
+  let score = 0;
+  if (h.terrain === 'plain') score += 10;
+  else if (h.terrain === 'hill') score += 5;
+  else if (h.terrain === 'forest') score += 4;
+  else if (h.terrain === 'swamp' || h.terrain === 'desert') score -= 5;
+  else if (h.terrain === 'snow') score -= 10;
+
+  // Water proximity
+  const nbrs = neighbors(q, r);
+  for (const n of nbrs) {
+    const nh = getHex(n.q, n.r);
+    if (nh.terrain === 'water') score += 6;
+    if (nh.terrain && (nh.terrain === 'temple' || nh.terrain === 'ruins')) score += 3;
+  }
+
+  // Penalty for mountains nearby
+  for (const n of nbrs) {
+    const nh = getHex(n.q, n.r);
+    if (nh.terrain === 'mountain') score -= 4;
+  }
+
+  // Distance from other settlements — use fast settlementIndex instead of scanning all hexData
+  for (const s of settlementIndex) {
+    const dist = hexDistance(q, r, s.q, s.r);
+    if (dist < 4) score -= (4 - dist) * 15;
+    if (dist < 2) score -= 100; // way too close
+  }
+
+  return score;
+}
+
+// Place settlements using greedy scoring
+function placeSettlements(count, _seed, centerQ, centerR, width, height) {
+  const halfW = Math.floor(width / 2);
+  const halfH = Math.floor(height / 2);
+  const rng = mulberry32(_seed + 2);
+  const candidates = [];
+
+  for (let q = centerQ - halfW; q <= centerQ + halfW; q++) {
+    for (let r = centerR - halfH; r <= centerR + halfH; r++) {
+      const key = hexKey(q, r);
+      if (!hexData[key]) continue;
+      const score = rankSettlementLocation(q, r);
+      if (score > -Infinity) candidates.push({ q, r, score });
+    }
+  }
+
+  candidates.sort((a, b) => b.score - a.score);
+
+  const placed = [];
+  for (const cand of candidates) {
+    if (placed.length >= count) break;
+    let tooClose = false;
+    for (const p of placed) {
+      if (hexDistance(cand.q, cand.r, p.q, p.r) < 4) { tooClose = true; break; }
+    }
+    if (!tooClose) {
+      const ratingMap = { 0: -3, 1: -2, 2: -1, 3: 0, 4: 1, 5: 2, 6: 3 };
+      // Use the existing randomName function and generate rating based on d6
+      // But we're deterministic so use rng() * 6;
+      const d6 = Math.floor(rng() * 6 + 1);
+      const rating = ratingMap[d6] || 0;
+      const name = randomName();
+      setHex(cand.q, cand.r, { settlement: { name, rating } });
+      placed.push({ q: cand.q, r: cand.r });
+    }
+  }
+
+  return placed;
+}
+
+// Build road network using A* + Minimum Spanning Tree (Prim's)
+function buildRoadNetwork(settlements) {
+  if (settlements.length < 2) return 0;
+
+  // Compute A* path costs between all pairs (with distance cap for large maps)
+  var n = settlements.length;
+  var MAX_PAIR_DIST = 200;
+
+  // Build adjacency list for union-find style connectivity
+  var edges = [];
+  for (var i = 0; i < n; i++) {
+    for (var j = i + 1; j < n; j++) {
+      var d = hexDistance(settlements[i].q, settlements[i].r, settlements[j].q, settlements[j].r);
+      if (d > MAX_PAIR_DIST) continue; // skip very distant pairs
+      var path = aStarPathfind(settlements[i].q, settlements[i].r, settlements[j].q, settlements[j].r, 5000);
+      if (path) {
+        edges.push({ i: i, j: j, cost: path.length, path: path });
+      }
+    }
+  }
+
+  // Union-find to track connectivity across all settlements
+  var parent = []; for (var k = 0; k < n; k++) parent[k] = k;
+  function find(x) { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; }
+  function union(a, b) { var ra = find(a), rb = find(b); if (ra !== rb) parent[rb] = ra; }
+
+  // Sort edges by cost for Kruskal-style MST
+  edges.sort(function(a, b) { return a.cost - b.cost; });
+
+  var mstEdges = [];
+  for (var ei = 0; ei < edges.length; ei++) {
+    var e = edges[ei];
+    if (find(e.i) !== find(e.j)) {
+      union(e.i, e.j);
+      mstEdges.push(e);
+    }
+  }
+
+  var roadsBuilt = 0;
+  for (var mi = 0; mi < mstEdges.length; mi++) {
+    var p = mstEdges[mi].path;
+    for (var k = 0; k < p.length - 1; k++) {
+      addRoad(p[k].q, p[k].r, p[k + 1].q, p[k + 1].r);
+      roadsBuilt++;
+    }
+  }
+  return roadsBuilt;
+}
+
+// One-click generate orchestrator (async)
+async function oneClickGenerate(config) {
+  if (isGenerating) return;
+  isGenerating = true;
+  setGenButtonsDisabled(true);
+
+  const { seed, width, height, scale, settlementCount, buildRoads, pos } = config;
+
+  let centerQ = 0, centerR = 0;
+  if (pos === 'center' && selectedHex) {
+    centerQ = selectedHex.q;
+    centerR = selectedHex.r;
+  }
+
+  const totalHexes = width * height;
+  showProgress('🏗️', '生成地形中', 0, totalHexes);
+
+  beginBatch();
+
+  // Step 1: Generate terrain (async chunked for large maps)
+  await generateTerrainRegionAsync(seed, centerQ, centerR, width, height, scale,
+    function(done, total) { showProgress('🏗️', '生成地形中', done, total); }
+  );
+
+  showProgress('🏘️', '放置定居点...', 0, 1);
+
+  // Step 2: Place settlements (fast enough to run sync, but yield for UI)
+  await new Promise(function(resolve) { setTimeout(resolve, 20); });
+  const settlements = placeSettlements(settlementCount, seed + 1, centerQ, centerR, width, height);
+  render();
+
+  if (buildRoads && settlements.length >= 2) {
+    showProgress('🛤️', '修建道路...', 0, 1);
+
+    // Step 3: Build roads
+    await new Promise(function(resolve) { setTimeout(resolve, 20); });
+    buildRoadNetwork(settlements);
+    render();
+  }
+
+  endBatch();
+
+  const stats = Object.keys(hexData).length;
+  showStepResult('✅', '生成完成！', stats + ' 格 · ' + settlements.length + ' 定居点');
+  isGenerating = false;
+  setGenButtonsDisabled(false);
+  updateInfo();
+}
+
+// Event bindings — One-click modal
+document.getElementById('btn-oneclick-gen').addEventListener('click', () => {
+  document.getElementById('oc-seed').value = Math.floor(Math.random() * 99999) + 1;
+  document.getElementById('oneclick-modal').style.display = 'block';
+});
+
+// Slider live values + two-way sync with number inputs
+function ocSetWidth(val) {
+  val = Math.max(10, Math.min(600, parseInt(val) || 30));
+  document.getElementById('oc-width').value = Math.min(val, 100);
+  document.getElementById('oc-width-num').value = val;
+  document.getElementById('oc-width-val').textContent = val;
+  document.getElementById('oc-size-warning').style.display = (val * (parseInt(document.getElementById('oc-height-num').value) || 30) > 8000) ? 'block' : 'none';
+}
+function ocSetHeight(val) {
+  val = Math.max(10, Math.min(600, parseInt(val) || 30));
+  document.getElementById('oc-height').value = Math.min(val, 100);
+  document.getElementById('oc-height-num').value = val;
+  document.getElementById('oc-height-val').textContent = val;
+  document.getElementById('oc-size-warning').style.display = ((parseInt(document.getElementById('oc-width-num').value) || 30) * val > 8000) ? 'block' : 'none';
+}
+
+['oc-scale', 'oc-settle'].forEach(function(id) {
+  var input = document.getElementById(id);
+  var valSpan = document.getElementById(id + '-val');
+  if (input && valSpan) {
+    input.addEventListener('input', function() {
+      if (id === 'oc-scale') valSpan.textContent = (input.value / 10).toFixed(1);
+      else valSpan.textContent = input.value;
+    });
+  }
+});
+
+document.getElementById('oc-width').addEventListener('input', function() {
+  ocSetWidth(this.value);
+});
+document.getElementById('oc-width-num').addEventListener('input', function() {
+  ocSetWidth(this.value);
+});
+document.getElementById('oc-height').addEventListener('input', function() {
+  ocSetHeight(this.value);
+});
+document.getElementById('oc-height-num').addEventListener('input', function() {
+  ocSetHeight(this.value);
+});
+
+// Preset buttons
+document.querySelectorAll('.oc-preset').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    ocSetWidth(this.dataset.w);
+    ocSetHeight(this.dataset.h);
+  });
+});
+
+document.getElementById('oc-random-seed').addEventListener('click', () => {
+  document.getElementById('oc-seed').value = Math.floor(Math.random() * 99999) + 1;
+});
+
+document.getElementById('oc-btn-cancel').addEventListener('click', () => {
+  document.getElementById('oneclick-modal').style.display = 'none';
+});
+
+document.getElementById('oc-btn-confirm').addEventListener('click', function() {
+  var seed = parseInt(document.getElementById('oc-seed').value) || Date.now();
+  var width = parseInt(document.getElementById('oc-width-num').value) || parseInt(document.getElementById('oc-width').value);
+  var height = parseInt(document.getElementById('oc-height-num').value) || parseInt(document.getElementById('oc-height').value);
+  var scale = parseInt(document.getElementById('oc-scale').value) / 10;
+  var settlementCount = parseInt(document.getElementById('oc-settle').value);
+  var buildRoads = document.getElementById('oc-build-roads').checked;
+  var pos = document.getElementById('oc-position').value;
+
+  document.getElementById('oneclick-modal').style.display = 'none';
+
+  oneClickGenerate({ seed: seed, width: width, height: height, scale: scale, settlementCount: settlementCount, buildRoads: buildRoads, pos: pos });
+});
+
+// Click background to close
+document.getElementById('oneclick-modal').addEventListener('click', function(e) {
+  if (e.target === e.currentTarget) this.style.display = 'none';
+});
+
+// Road detection
+document.getElementById('btn-gen-road').addEventListener('click', () => {
+  if (isGenerating) return;
+  if (!selectedHex) { showDiceResult('⚠️', '请先选中一个定居点六角格'); return; }
+  const h = getHex(selectedHex.q, selectedHex.r);
+  if (!h.settlement) { showDiceResult('⚠️', '当前六角格没有定居点'); return; }
+  isGenerating = true;
+  setGenButtonsDisabled(true);
+
+  animateDiceRoll('3d6', 700, (result) => {
+    // Find nearby settlements — each compared with independent 3d6 roll
+    let roadsBuilt = 0;
+    let checked = 0;
+    beginBatch();
+    for (const [key, data] of Object.entries(hexData)) {
+      if (!data.settlement) continue;
+      const [oq, or] = key.split(',').map(Number);
+      if (oq === selectedHex.q && or === selectedHex.r) continue;
+      checked++;
+      const dist = hexDistance(selectedHex.q, selectedHex.r, oq, or);
+      // Each settlement rolls its own 3d6
+      const roll3d6 = Math.floor(Math.random() * 6) + 1
+                    + Math.floor(Math.random() * 6) + 1
+                    + Math.floor(Math.random() * 6) + 1;
+      if (roll3d6 > dist) {
+        // Find a path along adjacent hexes and build roads segment by segment
+        const path = hexPathfind(selectedHex.q, selectedHex.r, oq, or);
+        if (path && path.length > 1) {
+          for (let i = 0; i < path.length - 1; i++) {
+            addRoad(path[i].q, path[i].r, path[i + 1].q, path[i + 1].r);
+          }
+          roadsBuilt++;
+        }
+      }
+    }
+    endBatch();
+    showStepResult('🛤️', `3d6投完`, `检查了${checked}个定居点`, roadsBuilt > 0 ? `发现 ${roadsBuilt} 条道路连接` : '未发现道路');
+    render();
+    isGenerating = false;
+    setGenButtonsDisabled(false);
+  });
+});
+
+function hexDistance(q1, r1, q2, r2) {
+  // Convert to cube
+  const x1 = q1, z1 = r1 - (q1 - (q1 & 1)) / 2, y1 = -x1 - z1;
+  const x2 = q2, z2 = r2 - (q2 - (q2 & 1)) / 2, y2 = -x2 - z2;
+  return Math.max(Math.abs(x1 - x2), Math.abs(y1 - y2), Math.abs(z1 - z2));
+}
+
+// Undo/Redo buttons
+document.getElementById('btn-undo').addEventListener('click', undo);
+document.getElementById('btn-redo').addEventListener('click', redo);
+
+// Save/Load
+// gzip helpers for save/load
+function gzipSupported() {
+  return typeof CompressionStream !== 'undefined' && typeof DecompressionStream !== 'undefined';
+}
+
+async function gzipCompress(str) {
+  var blob = new Blob([str]);
+  var compressed = blob.stream().pipeThrough(new CompressionStream('gzip'));
+  return new Response(compressed).blob();
+}
+
+async function gzipDecompress(blob) {
+  var decompressed = blob.stream().pipeThrough(new DecompressionStream('gzip'));
+  return new Response(decompressed).text();
+}
+
+document.getElementById('btn-save').addEventListener('click', async function() {
+  cleanHexData();
+  var hexCount = Object.keys(hexData).length;
+  showProgress('💾', '保存中...', 0, 1);
+  await new Promise(function(resolve) { setTimeout(resolve, 20); });
+
+  var ex = buildImageRegistry(hexData, customTerrains);
+  var data = { hexData: ex.exportHex, imageRegistry: ex.registry, viewX: viewX, viewY: viewY, zoom: zoom, customTerrains: ex.exportCT, deletedTerrains: deletedTerrains, terrainOrder: terrainOrder, generationRules: generationRules };
+  var json = JSON.stringify(data);
+
+  var blob;
+  var ext;
+  if (gzipSupported()) {
+    blob = await gzipCompress(json);
+    ext = '.hexmap';
+  } else {
+    blob = new Blob([json], { type: 'application/json' });
+    ext = '.json';
+  }
+
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'hexmap_' + new Date().toISOString().slice(0,10) + ext;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  var sizeMB = (blob.size / 1024 / 1024).toFixed(2);
+  showDiceResult('💾 已保存', hexCount + ' 格 · ' + sizeMB + ' MB' + (ext === '.hexmap' ? ' (gzip)' : ''));
+});
+
+document.getElementById('btn-load').addEventListener('click', function() {
+  var input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json,.hexmap';
+  input.onchange = async function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      showProgress('📂', '加载中...', 0, 1);
+
+      var text;
+      // Check for gzip magic bytes (1f 8b)
+      var header = new Uint8Array(await file.slice(0, 2).arrayBuffer());
+      if (header[0] === 0x1F && header[1] === 0x8B) {
+        // gzip compressed
+        text = await gzipDecompress(file);
+      } else {
+        // plain JSON (backward compat)
+        text = await file.text();
+      }
+
+      var data = JSON.parse(text);
+      if (data.imageRegistry) {
+        var resolved = resolveImageRegistry(data.hexData || {}, data.customTerrains || {}, data.imageRegistry);
+        hexData = resolved.resultHex;
+        customTerrains = resolved.resultCT;
+      } else {
+        hexData = data.hexData || {};
+        if (data.customTerrains) customTerrains = data.customTerrains;
+      }
+      rebuildSettlementIndex();
+      undoStack = []; redoStack = []; updateUndoButtons();
+      viewX = data.viewX || 0;
+      viewY = data.viewY || 0;
+      zoom = data.zoom || 1;
+      if (data.customTerrains) customTerrains = data.customTerrains;
+      if (data.deletedTerrains) deletedTerrains = data.deletedTerrains;
+      if (data.terrainOrder) terrainOrder = data.terrainOrder;
+      if (data.generationRules) generationRules = { ...DEFAULT_GEN_RULES, ...data.generationRules };
+      saveTerrainConfig();
+      rebuildTerrainPalette();
+      document.getElementById('zoom-indicator').textContent = '🔍 ' + Math.round(zoom * 100) + '%';
+      render();
+      updateInfo();
+      showDiceResult('📂 已加载', '共 ' + Object.keys(hexData).length + ' 个六角格');
+    } catch(err) {
+      showDiceResult('⚠️ 加载失败', '文件格式错误');
+      console.error(err);
+    }
+  };
+  input.click();
+});
+
+// Export PNG
+document.getElementById('btn-export-img').addEventListener('click', () => {
+  cleanHexData();
+  const keys = Object.keys(hexData);
+  if (keys.length === 0) { showDiceResult('⚠️', '没有数据可导出'); return; }
+  // Compute bounding box
+  let minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
+  keys.forEach(k => {
+    const [q, r] = k.split(',').map(Number);
+    if (q < minQ) minQ = q;
+    if (q > maxQ) maxQ = q;
+    if (r < minR) minR = r;
+    if (r > maxR) maxR = r;
+  });
+  const topLeft = hexToPixel(minQ, minR);
+  const botRight = hexToPixel(maxQ, maxR);
+  const size = HEX_SIZE;
+  const padding = size * 2;
+  let w = Math.ceil(botRight.x - topLeft.x + size * 2 + padding * 2);
+  let h = Math.ceil(botRight.y - topLeft.y + size * 1.5 + padding * 2);
+  const MAX_DIM = 8000;
+  let exportScale = 1;
+  let scaleNote = '';
+  if (w > MAX_DIM || h > MAX_DIM) {
+    exportScale = MAX_DIM / Math.max(w, h);
+    w = Math.ceil(w * exportScale);
+    h = Math.ceil(h * exportScale);
+    scaleNote = ' (已缩放至 ' + Math.round(exportScale * 100) + '%)';
+  }
+  const exportCanvas = document.createElement('canvas');
+  exportCanvas.width = Math.max(w, 640);
+  exportCanvas.height = Math.max(h, 480);
+  const exportCtx = exportCanvas.getContext('2d');
+  exportCtx.fillStyle = '#2d2d44';
+  exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+  exportCtx.save();
+  const offsetX = (exportCanvas.width / exportScale - (botRight.x - topLeft.x + size * 2 + padding * 2)) / 2 - topLeft.x + padding;
+  const offsetY = (exportCanvas.height / exportScale - (botRight.y - topLeft.y + size * 1.5 + padding * 2)) / 2 - topLeft.y + padding;
+  exportCtx.translate(offsetX * exportScale, offsetY * exportScale);
+  exportCtx.scale(exportScale, exportScale);
+  const allTerrains = getAllTerrains();
+  // Draw hex fills + grid (Pass 1)
+  for (const key of keys) {
+    const [q, r] = key.split(',').map(Number);
+    const p = hexToPixel(q, r);
+    const corners = hexCorners(p.x, p.y, HEX_SIZE);
+    const h = hexData[key];
+    exportCtx.beginPath();
+    corners.forEach((c, i) => i === 0 ? exportCtx.moveTo(c.x, c.y) : exportCtx.lineTo(c.x, c.y));
+    exportCtx.closePath();
+    let fillColor = '#3a3a52';
+    if (h.terrain && allTerrains[h.terrain]) fillColor = allTerrains[h.terrain].color;
+    exportCtx.fillStyle = fillColor;
+    exportCtx.fill();
+    exportCtx.strokeStyle = 'rgba(255,255,255,0.12)';
+    exportCtx.lineWidth = 1;
+    exportCtx.stroke();
+  }
+  // Draw roads (Pass 2)
+  exportCtx.strokeStyle = '#8B4513';
+  exportCtx.lineWidth = 3;
+  for (const key of keys) {
+    const h = hexData[key];
+    if (h.roads && h.roads.length) {
+      const [q1, r1] = key.split(',').map(Number);
+      const p1 = hexToPixel(q1, r1);
+      for (const rd of h.roads) {
+        if (rd.q > q1 || (rd.q === q1 && rd.r > r1)) {
+          const p2 = hexToPixel(rd.q, rd.r);
+          exportCtx.beginPath();
+          exportCtx.moveTo(p1.x, p1.y);
+          exportCtx.lineTo(p2.x, p2.y);
+          exportCtx.stroke();
+        }
+      }
+    }
+  }
+  // Draw overlays (Pass 3)
+  for (const key of keys) {
+    const [q, r] = key.split(',').map(Number);
+    const h = hexData[key];
+    const p = hexToPixel(q, r);
+    // Terrain icon (image or emoji)
+    const hOTI = h.terrain ? allTerrains[h.terrain] : null;
+    if (hOTI) {
+      if (hOTI.imageUrl) {
+        const img = getCachedImage(hOTI.imageUrl);
+        if (img && img.complete && img.naturalWidth > 0) {
+          exportCtx.save();
+          const ec = hexCorners(p.x, p.y, HEX_SIZE * 0.6);
+          exportCtx.beginPath();
+          ec.forEach((c, i) => i === 0 ? exportCtx.moveTo(c.x, c.y) : exportCtx.lineTo(c.x, c.y));
+          exportCtx.closePath();
+          exportCtx.clip();
+          const is = HEX_SIZE * 0.9;
+          exportCtx.drawImage(img, p.x - is/2, p.y - (h.label || h.settlement ? HEX_SIZE * 0.3 : 0) - is/2, is, is);
+          exportCtx.restore();
+        } else {
+          exportCtx.fillText(hOTI.icon, p.x, p.y - (h.label || h.settlement ? HEX_SIZE * 0.15 : 0));
+        }
+      } else {
+        exportCtx.font = `${HEX_SIZE * 0.5}px sans-serif`;
+        exportCtx.textAlign = 'center';
+        exportCtx.textBaseline = 'middle';
+        exportCtx.fillStyle = 'rgba(255,255,255,0.85)';
+        exportCtx.fillText(hOTI.icon, p.x, p.y - (h.label || h.settlement ? HEX_SIZE * 0.15 : 0));
+      }
+    }
+    // Label
+    if (h.label) {
+      exportCtx.fillStyle = '#fff';
+      exportCtx.font = `bold ${Math.max(9, HEX_SIZE * 0.38)}px sans-serif`;
+      exportCtx.textAlign = 'center';
+      exportCtx.textBaseline = 'bottom';
+      const tw = exportCtx.measureText(h.label).width;
+      exportCtx.fillStyle = 'rgba(0,0,0,0.55)';
+      exportCtx.fillRect(p.x - tw/2 - 3, p.y - HEX_SIZE * 0.65, tw + 6, HEX_SIZE * 0.55);
+      exportCtx.fillStyle = '#fff';
+      exportCtx.fillText(h.label, p.x, p.y - HEX_SIZE * 0.2);
+    }
+    // Settlement
+    if (h.settlement) {
+      if (h.settlement.imageUrl) {
+        const img = getCachedImage(h.settlement.imageUrl);
+        if (img && img.complete && img.naturalWidth > 0) {
+          exportCtx.save();
+          const ec = hexCorners(p.x, p.y + HEX_SIZE * 0.1, HEX_SIZE * 0.5);
+          exportCtx.beginPath();
+          ec.forEach((c, i) => i === 0 ? exportCtx.moveTo(c.x, c.y) : exportCtx.lineTo(c.x, c.y));
+          exportCtx.closePath();
+          exportCtx.clip();
+          const is = HEX_SIZE * 0.8;
+          exportCtx.drawImage(img, p.x - is/2, p.y + HEX_SIZE * 0.1 - is/2, is, is);
+          exportCtx.restore();
+        } else {
+          exportCtx.font = `${HEX_SIZE * 0.6}px sans-serif`;
+          exportCtx.textAlign = 'center';
+          exportCtx.textBaseline = 'bottom';
+          exportCtx.fillText('🏘️', p.x, p.y + HEX_SIZE * 0.45);
+        }
+      } else {
+        exportCtx.font = `${HEX_SIZE * 0.6}px sans-serif`;
+        exportCtx.textAlign = 'center';
+        exportCtx.textBaseline = 'bottom';
+        exportCtx.fillText('🏘️', p.x, p.y + HEX_SIZE * 0.45);
+      }
+    } // closes if(h.settlement)
+  } // closes for loop
+  exportCtx.restore();
+  const link = document.createElement("a");
+  link.download = "hexmap_" + new Date().toISOString().slice(0,10) + ".png";
+  link.href = exportCanvas.toDataURL("image/png");
+  link.click();
+  showDiceResult("🖼️ 已导出", exportCanvas.width + "x" + exportCanvas.height + " (" + keys.length + " 格)" + scaleNote);
+});
+
+// Clear
+document.getElementById('btn-clear').addEventListener('click', () => {
+  if (!confirm('⚠️ 确认清空所有六角格数据？')) return;
+  beginBatch();
+  for (const key of Object.keys(hexData)) pushUndo(key);
+  hexData = {};
+  endBatch();
+  selectedHex = null;
+  roadStart = null;
+  render();
+  updateInfo();
+  showDiceResult('🗑️ 已清空', '');
+});
+
+// Fit-to-content button
+document.getElementById('btn-fit').addEventListener('click', fitToContent);
+
+// Grid/Coords/Lock toggles
+document.getElementById('chk-grid').addEventListener('change', (e) => { showGrid = e.target.checked; render(); });
+document.getElementById('chk-coords').addEventListener('change', (e) => { showCoords = e.target.checked; render(); });
+document.getElementById('chk-minimap').addEventListener('change', () => render());
+document.getElementById('chk-lock').addEventListener('change', (e) => { isLocked = e.target.checked; });
+
+// Info panel
+function updateInfo() {
+  const panel = document.getElementById('info-panel');
+  if (!selectedHex) {
+    panel.innerHTML = '<div class="row"><span class="label">💡 选工具 → 看上方提示 → 点六角格操作</span></div>';
+    return;
+  }
+  const { q, r } = selectedHex;
+  const h = getHex(q, r);
+  const hInfoTI = h.terrain ? getAllTerrains()[h.terrain] : null;
+  const t = h.terrain ? `${hInfoTI?.icon || ''} ${hInfoTI?.name || h.terrain}` : '未探索';
+  const settle = h.settlement ? `${h.settlement.name} (${h.settlement.rating >= 0 ? '+' : ''}${h.settlement.rating})` : '—';
+  const roads = h.roads?.length || 0;
+  const nbrs = neighbors(q, r);
+  panel.innerHTML = `<div class="row">
+    <span><span class="label">坐标:</span> <span class="val">(${q}, ${r})</span></span>
+    <span><span class="label">地形:</span> <span class="val">${t}</span></span>
+    <span><span class="label">定居点:</span> <span class="val">${settle}</span></span>
+    <span><span class="label">标签:</span> <span class="val">${h.label || '—'}</span></span>
+    <span><span class="label">道路:</span> <span class="val">${roads} 条连接</span></span>
+  </div>`;
+}
+

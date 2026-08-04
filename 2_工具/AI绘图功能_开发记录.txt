@@ -1,7 +1,7 @@
 AI绘图功能开发记录
 ==============================
 日期: 2026-08-04
-状态: 开发中
+状态: 开发中 (UI修复完成，待测试)
 
 已完成
 --------
@@ -23,15 +23,28 @@ AI绘图功能开发记录
 4. 大括号平衡 — brace_check.js 验证通过（count = 0）
 5. 已git commit: 9f269c8
 
+2026-08-04 修复 (第二次迭代)
+----------
+1. ✅ HTML ID修复:
+   - API Key行: id="ai-model-row" → id="ai-key-row" + flex布局修复
+   - 模型名行: 添加 id="ai-model-row" 包装
+   - 现在Provider切换时隐藏/显示的行与JS逻辑匹配
+2. ✅ getScopeHexes修复:
+   - 'selected' 分支: 不再使用已清空的 selectionRect 屏幕坐标，改用 selectedHexes Set
+   - 'view' 分支: 不再使用未定义的 hexWidth/hexHeight，改用 pixelToHex 正确转换视口坐标
+3. ✅ executeAICommands道路逻辑修复:
+   - 原来循环中 exists 检查和 push 目标不正确
+   - 改为明确的 k1→q2/r2 和 k2→q1/r1 双向添加
+4. ✅ 新增功能:
+   - AI对话框背景点击关闭（与其他modal一致）
+   - ai-model-default 按钮切换默认模型名
+5. ✅ brace_check.js 验证通过（count = 0）
+
 剩余问题
 ----------
-1. UI ID不一致 — HTML中部分ID与JS代码不匹配，需修复：
-   - AI对话框HTML中endpoint区id是"ai-api-url"，但JS中引用"ai-endpoint"
-   - AI对话框HTML中模型行无"ai-model-row" id包装，JS中引用"ai-model-row"
-   - AI对话框HTML中范围选项为"selected"/"selection-box"/"viewport"，但JS中引用"all"/"selected"/"view"
-2. 未测试 — 尚未在浏览器中打开验证按钮点击和对话框显示
-3. Anthropic API确认 — 默认模型名claude-sonnet-4-20250514需要确认是否正确
-4. Provider切换 — OpenAI选择时需隐藏endpoint和model行，已实现但未测试
+1. 未测试 — 尚未在浏览器中打开验证按钮点击和对话框显示
+2. Anthropic API确认 — 默认模型名 claude-sonnet-4-20250514 需要确认是否正确
+3. 需用真实API Key测试完整流程
 
 AI命令格式
 -------------
@@ -44,6 +57,6 @@ AI命令格式
 
 下次继续
 ----------
-1. 修复HTML UI ID以匹配JS引用
-2. 浏览器中测试按钮点击→对话框打开→API调用流程
-3. 用真实API Key测试生成
+1. 浏览器中测试按钮点击→对话框打开→API调用流程
+2. 用真实API Key测试生成
+3. Anthropic默认模型名确认
