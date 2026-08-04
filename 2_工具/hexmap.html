@@ -158,7 +158,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     <div style="margin:2px 0;font-size:11px;color:#888;text-align:center;">💡 先生成定居点，再探测道路</div>
 	    <div style="margin-top:6px;border-top:1px solid #0f3460;padding-top:6px;">
 	      <button id="btn-oneclick-gen" style="width:100%;padding:8px;background:linear-gradient(135deg,#e94560,#c23152);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:bold;">⚡ 一键生成地图</button>
-	    </div>
+		      <button id="btn-ai-draw" style="width:100%;padding:8px;margin-top:4px;background:linear-gradient(135deg,#6a3093,#a044ff);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:bold;">🤖 AI 绘图</button>
+		    </div>
 
     <h3>💾 数据</h3>
     <div style="display:flex;gap:4px;">
@@ -248,7 +249,65 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 </div>
 
 <!-- One-Click Generate Config Modal -->
-	<div id="oneclick-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+	<!-- AI Draw Modal -->
+<div id="ai-draw-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:500px;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">🤖 AI 绘图</h3>
+    <p style="font-size:12px;color:#aaa;margin-bottom:12px;">用自然语言描述你想要的地图，AI 会自动在地图上绘制。你需要自己准备 API Key。</p>
+
+    <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">API 提供商</label>
+    <select id="ai-provider" style="width:100%;padding:6px 8px;margin-bottom:8px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;">
+      <option value="openai">OpenAI (GPT-4o 等)</option>
+      <option value="anthropic">Anthropic Claude</option>
+      <option value="openrouter">OpenRouter (聚合)</option>
+      <option value="custom">自定义 OpenAI 兼容</option>
+    </select>
+
+    <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">API Key <span style="color:#888;font-weight:normal;">(存在浏览器本地，不会上传)</span></label>
+    <div id="ai-model-row" style="display:block;margin-bottom:8px;">
+      <input id="ai-api-key" type="password" placeholder="sk-..." style="flex:1;padding:6px 8px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;">
+      <button id="ai-toggle-key" style="padding:4px 10px;background:#3a3a5e;color:#ccc;border:none;border-radius:4px;cursor:pointer;font-size:12px;">👁️</button>
+    </div>
+
+    <div id="ai-endpoint-row" style="display:none;margin-bottom:8px;">
+      <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">API 地址</label>
+      <input id="ai-endpoint" type="text" placeholder="https://api.example.com/v1/chat/completions" style="width:100%;padding:6px 8px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;">
+    </div>
+
+    <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">模型名 <span style="color:#888;font-weight:normal;">(默认自动选择)</span></label>
+    <div style="display:flex;gap:6px;margin-bottom:8px;">
+      <input id="ai-model" type="text" placeholder="例: gpt-4o, claude-sonnet-4-6" style="flex:1;padding:6px 8px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;">
+      <button id="ai-model-default" style="padding:4px 10px;background:#0f3460;color:#ccc;border:none;border-radius:4px;cursor:pointer;font-size:12px;">默认</button>
+    </div>
+
+    <label style="font-size:12px;color:#ccc;display:block;margin-bottom:2px;">描述你想要的区域 <span style="color:#888;font-weight:normal;">(框选的范围，或选中的格子)</span></label>
+    <div style="display:flex;gap:6px;margin-bottom:10px;">
+      <select id="ai-scope" style="flex:1;padding:6px 8px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;">
+        <option value="all">全部地图</option>
+        <option value="selected" selected>仅选中/框选格子</option>
+        <option value="view">当前视野</option>
+      </select>
+    </div>
+
+    <label style="font-size:12px;color:#ccc;display:block;margin-bottom:4px;">你的需求</label>
+    <textarea id="ai-prompt" rows="5" style="width:100%;padding:8px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;font-family:inherit;resize:vertical;" placeholder="例如：在这片区域中间放一座山脉，周围环绕森林，北边有一条河流穿过，山脚下放一个定居点叫「铁砧镇」，东边留一条路通往外界……"></textarea>
+
+    <div style="display:flex;gap:4px;margin:8px 0;">
+      <button id="ai-btn-clear-prompt" style="padding:4px 10px;background:#3a3a5e;color:#aaa;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🗑️ 清空</button>
+      <button id="ai-btn-add-context" style="padding:4px 10px;background:#3a3a5e;color:#aaa;border:none;border-radius:4px;cursor:pointer;font-size:12px;">📋 添加当前地图信息</button>
+    </div>
+
+    <!-- AI response preview -->
+    <div id="ai-status" style="display:none;padding:8px;background:#1a1a2e;border:1px solid #0f3460;border-radius:4px;font-size:12px;color:#aaa;margin-bottom:8px;max-height:150px;overflow-y:auto;"></div>
+
+    <div style="display:flex;gap:6px;justify-content:flex-end;border-top:1px solid #0f3460;padding-top:12px;">
+      <button id="ai-btn-cancel" style="padding:6px 14px;background:#3a3a5e;color:#ccc;border:1px solid #0f3460;border-radius:4px;cursor:pointer;font-size:13px;">取消</button>
+      <button id="ai-btn-confirm" style="padding:6px 14px;background:linear-gradient(135deg,#6a3093,#a044ff);color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;">🤖 开始生成</button>
+    </div>
+  </div>
+</div>
+
+		<div id="oneclick-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
 	  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:420px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
 	    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">⚡ 一键生成地图</h3>
 
@@ -2932,6 +2991,412 @@ updateInfo();
 
 console.log('🏗️ 四战黑六角格地图已加载');
 console.log('快捷键: V=选择 X=框选 B=笔刷 S=定居点 R=道路 L=标签 E=擦除 Ctrl+Z=撤销');
+
+// ======== AI 绘图 ========
+// --- Settings persistence ---
+function loadAISettings() {
+  try {
+    const raw = localStorage.getItem('ai_draw_settings');
+    if (raw) return JSON.parse(raw);
+  } catch (e) { /* ignore */ }
+  return {
+    provider: 'openai',
+    apiKey: '',
+    endpoint: '',
+    model: ''
+  };
+}
+function saveAISettings(settings) {
+  localStorage.setItem('ai_draw_settings', JSON.stringify(settings));
+  // Also sync UI
+  const keyInput = document.getElementById('ai-api-key');
+  if (keyInput) keyInput.value = settings.apiKey || '';
+}
+// --- Map context ---
+function getScopeHexes(scope) {
+  const keys = Object.keys(hexData);
+  if (scope === 'all') return keys;
+  if (scope === 'selected') {
+    if (selectionRect) {
+      // Use box selection
+      const q1 = Math.round(selectionRect.x1), r1 = Math.round(selectionRect.y1);
+      const q2 = Math.round(selectionRect.x2), r2 = Math.round(selectionRect.y2);      const minQ = Math.min(q1, q2), maxQ = Math.max(q1, q2);
+      const minR = Math.min(r1, r2), maxR = Math.max(r1, r2);
+      return keys.filter(k => {
+        const [q, r] = k.split(',').map(Number);
+        return q >= minQ && q <= maxQ && r >= minR && r <= maxR;
+      });
+    }
+    if (selectedHex) return [`${selectedHex.q},${selectedHex.r}`];
+    return [];
+  }
+  if (scope === 'view') {
+    // Return hexes roughly in current viewport
+    const margin = 5;
+    const halfW = canvas.width / 2 / zoom + margin;
+    const halfH = canvas.height / 2 / zoom + margin;
+    return keys.filter(k => {
+      const [q, r] = k.split(',').map(Number);
+      const px = q * hexWidth * 0.75 + viewX;
+      const py = r * hexHeight + (q % 2) * hexHeight / 2 + viewY;
+      return px > viewX - halfW * hexWidth && px < viewX + halfW * hexWidth &&
+             py > viewY - halfH * hexHeight && py < viewY + halfH * hexHeight;
+    });
+  }
+  return [];
+}
+function getMapContext(scope) {
+  const hexes = getScopeHexes(scope);
+  const allTerrains = getAllTerrains?.() || {};
+  // Collect unique terrain IDs and their names
+  const terrainMap = {};
+  for (const [id, info] of Object.entries(allTerrains)) {
+    terrainMap[id] = info.name || id;
+  }
+  const hexList = hexes.map(k => {
+    const [q, r] = k.split(',').map(Number);
+    const h = hexData[k];
+    if (!h) return null;
+    const entry = { q, r, terrain: h.terrain || null };
+    if (h.label) entry.label = h.label;
+    if (h.settlement) entry.settlement = { name: h.settlement.name, rating: h.settlement.rating };
+    if (h.roads && h.roads.length) entry.roads = h.roads;
+    return entry;
+  }).filter(Boolean);
+  return {
+    hexCount: hexList.length,
+    terrains: terrainMap,
+    hexes: hexList,
+    scope
+  };
+}
+// --- System prompt ---
+function buildSystemPrompt() {
+  const allT = getAllTerrains?.() || {};
+  const terrainDesc = Object.entries(allT).map(([id, info]) =>
+    `  - "${id}": ${info.name || id}${info.icon ? ' (' + info.icon + ')' : ''}`
+  ).join('\n');
+  return `你是地图编辑AI。你通过JSON命令数组来控制六角格地图。
+
+可用地形ID：
+${terrainDesc}
+
+命令格式（每行一个JSON对象）：
+1. 涂色：{"action":"paint","q":<数字>,"r":<数字>,"terrain":"<地形ID>"}
+2. 擦除：{"action":"erase","q":<数字>,"r":<数字>}
+3. 标签：{"action":"label","q":<数字>,"r":<数字>,"text":"<文字>"}
+4. 定居点：{"action":"settlement","q":<数字>,"r":<数字>,"name":"<名称>","rating":<-3到3的整数>}
+5. 道路：{"action":"road","q1":<数字>,"r1":<数字>,"q2":<数字>,"r2":<数字>}
+6. 矩形区域涂色：{"action":"paintRect","q1":<数字>,"r1":<数字>,"q2":<数字>,"r2":<数字>,"terrain":"<地形ID>"}
+
+重要规则：
+- 坐标 (q, r) 使用 odd-r 六角格系统
+- 只输出JSON数组，不要多余文字
+- 用 \`\`\`json 包裹你的回复
+- paintRect 的 q1/r1 和 q2/r2 定义矩形对角，会自动填充整个矩形区域
+- 每次返回完整的命令列表，包含所有需要绘制的格子`;
+}
+// --- API call ---
+async function callAIAPI(systemPrompt, userMessage) {
+  const settings = loadAISettings();
+  if (!settings.apiKey) throw new Error('请先在AI绘图对话框中填写API Key');
+  if (settings.provider === 'anthropic') {
+    // Anthropic Messages API
+    const endpoint = settings.endpoint || 'https://api.anthropic.com/v1/messages';
+    const model = settings.model || 'claude-sonnet-4-20250514';
+    const resp = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': settings.apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userMessage }]
+      })
+    });
+    if (!resp.ok) {
+      let errText = '';
+      try { const e = await resp.json(); errText = JSON.stringify(e); } catch (e) { errText = await resp.text(); }
+      throw new Error(`API错误 (${resp.status}): ${errText}`);
+    }
+    const data = await resp.json();
+    return data.content[0].text;
+  } else {
+    // OpenAI-compatible API
+    const isOpenAI = settings.provider === 'openai';
+    const defaultEndpoint = isOpenAI ? 'https://api.openai.com/v1/chat/completions' :
+                           settings.provider === 'openrouter' ? 'https://openrouter.ai/api/v1/chat/completions' : '';
+    const endpoint = settings.endpoint || defaultEndpoint;
+    const model = settings.model || (isOpenAI ? 'gpt-4o' : '');
+    if (!endpoint) throw new Error('请填写API Endpoint');
+    if (!model) throw new Error('请填写模型名称');
+    const resp = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${settings.apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage }
+        ],
+        max_tokens: 4096
+      })
+    });
+    if (!resp.ok) {
+      let errText = '';
+      try { const e = await resp.json(); errText = JSON.stringify(e); } catch (e) { errText = await resp.text(); }
+      throw new Error(`API错误 (${resp.status}): ${errText}`);
+    }
+    const data = await resp.json();
+    return data.choices[0].message.content;
+  }
+}
+// --- Parse AI response ---
+function parseAIResponse(text) {
+  // Try to extract JSON from code block
+  const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const jsonStr = jsonMatch ? jsonMatch[1].trim() : text.trim();
+  try {
+    const parsed = JSON.parse(jsonStr);
+    return Array.isArray(parsed) ? parsed : [parsed];
+  } catch (e) {
+    // Try line-by-line
+    const lines = jsonStr.split('\n').filter(l => l.trim().startsWith('{'));
+    const commands = [];
+    for (const line of lines) {
+      try { commands.push(JSON.parse(line)); } catch (e2) { /* skip */ }
+    }
+    if (commands.length) return commands;
+    throw new Error('无法解析AI返回的JSON: ' + jsonStr.slice(0, 200));
+  }
+}
+// --- Execute commands ---
+function executeAICommands(commands) {
+  let count = 0;
+  beginBatch();
+  try {
+    for (const cmd of commands) {
+      const { action, q, r, terrain, text, name, rating, q1, r1, q2, r2 } = cmd;
+      if (action === 'paint' && q !== undefined && r !== undefined && terrain) {
+        const key = `${q},${r}`;
+        pushUndo(key);
+        if (!hexData[key]) hexData[key] = {};
+        hexData[key].terrain = terrain;
+        count++;
+      } else if (action === 'erase' && q !== undefined && r !== undefined) {
+        const key = `${q},${r}`;
+        pushUndo(key);
+        delete hexData[key];
+        count++;
+      } else if (action === 'label' && q !== undefined && r !== undefined && text !== undefined) {
+        const key = `${q},${r}`;
+        pushUndo(key);
+        if (!hexData[key]) hexData[key] = {};
+        if (text) hexData[key].label = text;
+        else delete hexData[key].label;
+        count++;
+      } else if (action === 'settlement' && q !== undefined && r !== undefined && name) {
+        const key = `${q},${r}`;
+        pushUndo(key);
+        if (!hexData[key]) hexData[key] = {};
+        hexData[key].settlement = { name, rating: rating || 0 };
+        count++;
+      } else if (action === 'road' && q1 !== undefined && r1 !== undefined && q2 !== undefined && r2 !== undefined) {
+        const k1 = `${q1},${r1}`, k2 = `${q2},${r2}`;
+        // Add road to both hexes
+        for (const [k, a, b] of [[k1, q1, r1], [k2, q2, r2]]) {
+          pushUndo(k);
+          if (!hexData[k]) hexData[k] = {};
+          if (!hexData[k].roads) hexData[k].roads = [];
+          // Add if not duplicate
+          const exists = hexData[k].roads.some(r => (r.q === q1 && r.r === r1) || (r.q === q2 && r.r === r2));
+          if (!exists) hexData[k].roads.push({ q: a === q1 ? q2 : q1, r: a === r1 ? r2 : r1 });
+        }
+        count++;
+      } else if (action === 'paintRect' && q1 !== undefined && r1 !== undefined && q2 !== undefined && r2 !== undefined && terrain) {
+        const minQ = Math.min(q1, q2), maxQ = Math.max(q1, q2);
+        const minR = Math.min(r1, r2), maxR = Math.max(r1, r2);
+        for (let qq = minQ; qq <= maxQ; qq++) {
+          for (let rr = minR; rr <= maxR; rr++) {
+            const key = `${qq},${rr}`;
+            pushUndo(key);
+            if (!hexData[key]) hexData[key] = {};
+            hexData[key].terrain = terrain;
+            count++;
+          }
+        }
+      }
+    }
+  } finally {
+    endBatch();
+  }
+  return count;
+}
+
+// --- Event bindings ---
+// Open AI dialog
+  const btnAI = document.getElementById('btn-ai-draw');
+  if (btnAI) {
+    btnAI.addEventListener('click', () => {
+      const modal = document.getElementById('ai-draw-modal');      if (modal) modal.style.display = 'block';
+      // Load saved settings
+      const settings = loadAISettings();
+      const providerSel = document.getElementById('ai-provider');
+      const keyInput = document.getElementById('ai-api-key');
+      const endpointInput = document.getElementById('ai-endpoint');
+      const modelInput = document.getElementById('ai-model');
+      if (providerSel) providerSel.value = settings.provider;
+      if (keyInput) keyInput.value = settings.apiKey || '';
+      if (endpointInput) endpointInput.value = settings.endpoint || '';
+      if (modelInput) modelInput.value = settings.model || '';
+      // Trigger provider change to show/hide fields
+      if (providerSel) providerSel.dispatchEvent(new Event('change'));
+    });
+  }
+  // Provider switch
+  const providerSel = document.getElementById('ai-provider');  if (providerSel) {
+    providerSel.addEventListener('change', () => {
+      const val = providerSel.value;
+      const endpointRow = document.getElementById('ai-endpoint-row');      const modelRow = document.getElementById('ai-model-row');      const epInput = document.getElementById('ai-endpoint');
+      const modelInput = document.getElementById('ai-model');
+      if (val === 'openai') {
+        if (endpointRow) endpointRow.style.display = 'none';
+        if (modelRow) modelRow.style.display = 'none';
+        if (epInput) epInput.value = '';
+        if (modelInput) modelInput.value = 'gpt-4o';
+      } else if (val === 'anthropic') {
+        if (endpointRow) endpointRow.style.display = 'none';
+        if (modelRow) modelRow.style.display = 'block';
+        if (epInput) epInput.value = '';
+        if (modelInput) modelInput.value = 'claude-sonnet-4-20250514';
+      } else if (val === 'openrouter') {
+        if (endpointRow) endpointRow.style.display = 'none';
+        if (modelRow) modelRow.style.display = 'block';
+        if (epInput) epInput.value = '';
+        if (modelInput) modelInput.value = '';
+      } else { // custom
+        if (endpointRow) endpointRow.style.display = 'block';
+        if (modelRow) modelRow.style.display = 'block';
+      }
+    });
+  }
+  // Toggle API key visibility
+  const toggleBtn = document.getElementById('ai-toggle-key');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      const input = document.getElementById('ai-api-key');
+      if (input) {
+        input.type = input.type === 'password' ? 'text' : 'password';
+        toggleBtn.textContent = input.type === 'password' ? '👁️' : '🙈';
+      }
+    });
+  }
+  // Clear prompt
+  const clearBtn = document.getElementById('ai-btn-clear-prompt');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      const ta = document.getElementById('ai-prompt');      if (ta) ta.value = '';
+      ta.focus();
+    });
+  }
+  // Add context - insert current map description into prompt
+  const contextBtn = document.getElementById('ai-btn-add-context');
+  if (contextBtn) {
+    contextBtn.addEventListener('click', () => {
+      const scopeSel = document.getElementById('ai-scope');      const scope = scopeSel ? scopeSel.value : 'all';
+      const context = getMapContext(scope);
+      const ta = document.getElementById('ai-prompt');      if (!ta) return;
+      const lines = [`[当前地图状态 - 范围: ${scope}]`];
+      lines.push(`格子数: ${context.hexCount}`);
+      // Group by terrain      const byTerrain = {};
+      for (const h of context.hexes) {
+        const t = h.terrain || 'unexplored';        if (!byTerrain[t]) byTerrain[t] = [];
+        byTerrain[t].push(`(${h.q},${h.r})`);
+      }
+      for (const [t, coords] of Object.entries(byTerrain)) {
+        const name = context.terrains[t] || t;
+        lines.push(`${name}: ${coords.join(' ')}`);
+      }
+      // Settlements
+      const settls = context.hexes.filter(h => h.settlement);
+      if (settls.length) {
+        lines.push('定居点:');
+        for (const h of settls) {
+          lines.push(`  (${h.q},${h.r}) ${h.settlement.name} (${h.settlement.rating >= 0 ? '+' : ''}${h.settlement.rating})`);
+        }
+      }
+      ta.value = (ta.value ? ta.value + '\n\n' : '') + lines.join('\n');
+    });
+  }
+  // Confirm (execute AI generation)
+  const confirmBtn = document.getElementById('ai-btn-confirm');
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', async () => {
+      // Gather settings
+      const provider = document.getElementById('ai-provider').value;
+      const apiKey = document.getElementById('ai-api-key').value;
+      const endpoint = document.getElementById('ai-endpoint').value;
+      const model = document.getElementById('ai-model').value;
+      const scope = document.getElementById('ai-scope').value;
+      const prompt = document.getElementById('ai-prompt').value;
+      if (!apiKey) { alert('请填写API Key'); return; }
+      if (!prompt) { alert('请填写你的需求'); return; }
+      // Save settings
+      saveAISettings({ provider, apiKey, endpoint, model });
+      // Build messages
+      const mapContext = getMapContext(scope);
+      const systemPrompt = buildSystemPrompt();
+      const userMessage = `当前地图范围: ${scope}\n格子数: ${mapContext.hexCount}\n\n用户需求:\n${prompt}`;
+      // Status display
+      const statusDiv = document.getElementById('ai-status');
+      if (statusDiv) {
+        statusDiv.style.display = 'block';
+        statusDiv.innerHTML = '<span style="color:#a044ff;">⏳ AI 思考中...</span>';
+      }
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = '⏳ 生成中...';
+      try {
+        const respText = await callAIAPI(systemPrompt, userMessage);
+        if (statusDiv) {
+          statusDiv.innerHTML = '<span style="color:#4ecdc4;">✅ AI 响应已获取，解析中...</span>';
+        }
+        const commands = parseAIResponse(respText);
+        if (statusDiv) {
+          statusDiv.innerHTML = `<span style="color:#4ecdc4;">✅ 解析到 ${commands.length} 条命令，执行中...</span>`;
+        }
+        const count = executeAICommands(commands);
+        render();
+        updateInfo();
+        if (statusDiv) {
+          statusDiv.innerHTML = `<span style="color:#4ecdc4;">✅ 完成！共执行 ${count} 条命令</span>`;
+          setTimeout(() => { statusDiv.style.display = 'none'; }, 3000);
+        }
+      } catch (err) {
+        if (statusDiv) {
+          statusDiv.innerHTML = `<span style="color:#e94560;">❌ 错误: ${err.message}</span>`;
+        }
+        console.error('AI Draw Error:', err);
+      } finally {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = '🤖 开始生成';
+      }
+    });
+  }
+  // Cancel
+  const cancelBtn = document.getElementById('ai-btn-cancel');
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+      const modal = document.getElementById('ai-draw-modal');
+      if (modal) modal.style.display = 'none';
+    });
+  }
 </script>
 </body>
 </html>
