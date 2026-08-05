@@ -1127,4 +1127,3 @@ function executeOneAICommandNoBatch(cmd) {
   if (cancelBtn) cancelBtn.addEventListener('click', closeAIModal);
   const closeXBtn = document.getElementById('ai-btn-close-x');
   if (closeXBtn) closeXBtn.addEventListener('click', closeAIModal);
-</script>

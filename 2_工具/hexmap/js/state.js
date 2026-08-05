@@ -88,6 +88,18 @@ function redo() {
   updateUndoButtons();
 }
 let showGrid = true, showCoords = true;
+let currentLayer = 'region'; // 始终显示王国边境
+
+// 王国边境配置 (一个六角格 = 一天路程)
+const DEFAULT_REGIONS = {
+  north:  { name: '北境王国', color: '#4a7fb5', icon: '❄️' },
+  south:  { name: '南境王国', color: '#b58a4a', icon: '🏜️' },
+  east:   { name: '东境王国', color: '#6ab54a', icon: '🌾' },
+  west:   { name: '西境王国', color: '#b54a6a', icon: '⛰️' },
+  central:{ name: '中央王国', color: '#c9a84c', icon: '👑' },
+};
+let regions = JSON.parse(JSON.stringify(DEFAULT_REGIONS));
+let regionOrder = null; // array of region IDs in display order
 let roadStart = null; // { q, r } for road drawing
 let _eraseDragLast = new Set(); // dedup erase-drag per drag session
 // Box select state

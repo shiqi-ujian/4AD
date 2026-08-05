@@ -1,4 +1,13 @@
 // ======== Rendering ========
+function hexToRGBA(hex, alpha) {
+  let h = hex.replace('#', '');
+  if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 function resizeCanvas() {
   canvas.width = container.clientWidth;
   canvas.height = container.clientHeight;
@@ -33,7 +42,44 @@ function render() {
     }
   }
 
-  // Pass 2: Draw roads (between hexes)
+  // Pass 2: Region borders (between fills and roads)
+  for (let q = qMin; q <= qMax; q++) {
+    for (let r = rMin; r <= rMax; r++) {
+      const h = getHex(q, r);
+      if (!h.region) continue;
+      const p = hexToPixel(q, r);
+      const corners = hexCorners(p.x, p.y, HEX_SIZE);
+      const parity = q & 1;
+      const dirs = parity
+        ? [[1,0],[0,-1],[-1,0],[-1,1],[0,1],[1,1]]
+        : [[1,0],[1,-1],[0,-1],[-1,-1],[-1,0],[0,1]];
+      for (let i = 0; i < 6; i++) {
+        const j = (i + 1) % 6;
+        // 边 i→j 对应的邻居方向：偶数列用 dirs[(i+1)%6]，奇数列用 dirs[i]
+        const [dq, dr] = dirs[(6 - i - parity) % 6];
+        const nq = q + dq, nr = r + dr;
+        const nh = getHex(nq, nr);
+        let drawBorder = false;
+        if (!nh.region) {
+          // Wilderness border: this hex's region boundary to unclaimed land
+          drawBorder = true;
+        } else if (nh.region !== h.region && h.region < nh.region) {
+          // Inter-region border: draw once per edge (alphabetical comparison)
+          drawBorder = true;
+        }
+        if (drawBorder) {
+          ctx.beginPath();
+          ctx.moveTo(corners[i].x, corners[i].y);
+          ctx.lineTo(corners[j].x, corners[j].y);
+          ctx.strokeStyle = hexToRGBA(regions[h.region].color, 0.7);
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  // Pass 3: Draw roads (between hexes)
   ctx.strokeStyle = '#8B4513';
   ctx.lineWidth = 3;
   for (let q = qMin; q <= qMax; q++) {
@@ -138,11 +184,18 @@ function drawHexBase(q, r, allTerrains) {
   corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
   ctx.closePath();
 
+  // 1. Always draw terrain as base fill
   let fillColor = '#3a3a52';
   const hTerrainInfo = h.terrain ? allTerrains[h.terrain] : null;
   if (hTerrainInfo) fillColor = hTerrainInfo.color;
   ctx.fillStyle = fillColor;
   ctx.fill();
+
+  // 2. Region layer: overlay semi-transparent region color on top of terrain
+  if (h.region && regions[h.region]) {
+    ctx.fillStyle = hexToRGBA(regions[h.region].color, 0.3);
+    ctx.fill();
+  }
 
   // Grid stroke
   if (showGrid) {
@@ -165,7 +218,7 @@ function drawHexOverlay(q, r, allTerrains) {
     ctx.fillText(`${q},${r}`, p.x, p.y + HEX_SIZE * 0.4);
   }
 
-  // Terrain icon (image or emoji)
+  // Terrain icon (image or emoji) — always show terrain, regardless of layer
   const hOverlayTI = h.terrain ? allTerrains[h.terrain] : null;
   if (hOverlayTI) {
     if (hOverlayTI.imageUrl) {
@@ -197,10 +250,12 @@ function drawHexOverlay(q, r, allTerrains) {
     if (h.settlement.imageUrl) {
       drawHexImage(p.x, p.y + HEX_SIZE * 0.15, HEX_SIZE * 0.9, h.settlement.imageUrl);
     } else {
+      const ratingIcons = {'-3':'🛖','-2':'🏕️','-1':'🏘️','0':'🏘️','1':'🏛️','2':'🏰','3':'🏙️'};
+      const icon = ratingIcons[String(h.settlement.rating)] || '🏘️';
       ctx.font = `${HEX_SIZE * 0.6}px sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
-      ctx.fillText('🏘️', p.x, p.y + HEX_SIZE * 0.45);
+      ctx.fillText(icon, p.x, p.y + HEX_SIZE * 0.45);
     }
 
     // Settlement name & rating

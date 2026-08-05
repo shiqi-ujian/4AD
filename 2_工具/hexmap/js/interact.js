@@ -56,6 +56,12 @@ canvas.addEventListener('mousedown', (e) => {
         dragStartY = my;
         // Don't save viewStart - we don't want to pan
       }
+      // Region paint mode: enable drag for continuous painting
+      if (selectedTool === 'paint-region') {
+        isDragging = true;
+        dragStartX = mx;
+        dragStartY = my;
+      }
       // Erase mode: drag across hexes to erase continuously
       if (selectedTool === 'erase') {
         isDragging = true;
@@ -89,17 +95,24 @@ canvas.addEventListener('mousemove', (e) => {
   }
 
   if (isDragging) {
-    // Paint tool: drag across hexes to paint continuously
-    if (selectedTool === 'paint') {
+    // Paint tool and region-paint tool: drag across hexes to paint continuously
+    if (selectedTool === 'paint' || selectedTool === 'paint-region') {
       const hex = hexAtPixel(mx, my);
       if (hex) {
         const k = hexKey(hex.q, hex.r);
         const h = getHex(hex.q, hex.r);
-        // Skip if locked and hex already has terrain
-        if (h.terrain !== selectedTerrain && !(isLocked && h.terrain)) {
-          setHex(hex.q, hex.r, { terrain: selectedTerrain });
-          render();
+        if (selectedTool === 'paint') {
+          // Skip if locked and hex already has terrain
+          if (h.terrain !== selectedTerrain && !(isLocked && h.terrain)) {
+            setHex(hex.q, hex.r, { terrain: selectedTerrain });
+          }
+        } else {
+          // paint-region
+          if (h.region !== selectedRegion && !(isLocked && h.region)) {
+            setHex(hex.q, hex.r, { region: selectedRegion });
+          }
         }
+        render();
       }
     } else if (selectedTool === 'erase') {
       const hex = hexAtPixel(mx, my);

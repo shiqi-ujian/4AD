@@ -108,7 +108,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     <div class="tool-group">
       <button class="tool-btn active" data-tool="select" title="选择/查看 (V)"><span class="icon">👆</span><span class="label">选择(V)</span></button>
       <button class="tool-btn" data-tool="select-rect" title="框选 (X)"><span class="icon">🔲</span><span class="label">框选(X)</span></button>
-      <button class="tool-btn" data-tool="paint" title="地形笔刷 (B)"><span class="icon">🖌️</span><span class="label">笔刷(B)</span></button>
+      <button class="tool-btn" data-tool="paint" title="地形笔刷 (B)"><span class="icon">🖌️</span><span class="label">地形(B)</span></button>
+      <button class="tool-btn" data-tool="paint-region" title="王国笔刷"><span class="icon">👑</span><span class="label">王国</span></button>
       <button class="tool-btn" data-tool="settlement" title="放置定居点 (S)"><span class="icon">🏘️</span><span class="label">定居(S)</span></button>
       <button class="tool-btn" data-tool="road" title="画道路 (R)"><span class="icon">🛤️</span><span class="label">道路(R)</span></button>
       <button class="tool-btn" data-tool="label" title="标文字 (L)"><span class="icon">🏷️</span><span class="label">标签(L)</span></button>
@@ -142,6 +143,10 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
         <button id="btn-manage-terrains" style="flex:1;padding:3px;background:#0f3460;color:#ccc;border:none;border-radius:4px;cursor:pointer;font-size:11px;">🎨 管理地形</button>
         <button id="btn-gen-rules" style="flex:1;padding:3px;background:#0f3460;color:#ccc;border:none;border-radius:4px;cursor:pointer;font-size:11px;">🎲 生成规则</button>
       </div>
+
+    <h3>👑 王国边境 <span style="font-weight:normal;font-size:11px;color:#888;float:right;">选王国后涂</span></h3>
+    <div id="region-palette" style="display:flex;flex-wrap:wrap;gap:3px;"></div>
+    <button id="btn-manage-regions" style="margin-top:3px;padding:3px 6px;background:#0f3460;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;width:100%;">✏️ 管理王国</button>
 
 	    <h3>🎲 生成工具</h3>
 	    <label style="display:flex;align-items:center;gap:6px;margin:2px 0;">
@@ -470,6 +475,15 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 </div>
 
 
+
+
+
+
+
+
+
+
+
 <script>
 // ======== Configuration ========
 const TERRAIN = {
@@ -713,6 +727,18 @@ function redo() {
   updateUndoButtons();
 }
 let showGrid = true, showCoords = true;
+let currentLayer = 'region'; // 始终显示王国边境
+
+// 王国边境配置 (一个六角格 = 一天路程)
+const DEFAULT_REGIONS = {
+  north:  { name: '北境王国', color: '#4a7fb5', icon: '❄️' },
+  south:  { name: '南境王国', color: '#b58a4a', icon: '🏜️' },
+  east:   { name: '东境王国', color: '#6ab54a', icon: '🌾' },
+  west:   { name: '西境王国', color: '#b54a6a', icon: '⛰️' },
+  central:{ name: '中央王国', color: '#c9a84c', icon: '👑' },
+};
+let regions = JSON.parse(JSON.stringify(DEFAULT_REGIONS));
+let regionOrder = null; // array of region IDs in display order
 let roadStart = null; // { q, r } for road drawing
 let _eraseDragLast = new Set(); // dedup erase-drag per drag session
 // Box select state
@@ -983,7 +1009,7 @@ function hexKey(q, r) { return `${q},${r}`; }
 
 function getHex(q, r) {
   const k = hexKey(q, r);
-  return hexData[k] || { terrain: null, label: '', settlement: null, roads: [] };
+  return hexData[k] || { terrain: null, label: '', settlement: null, roads: [], region: null };
 }
 
 let settlementIndex = []; // [{q, r}] — fast lookup for rankSettlementLocation
@@ -992,8 +1018,8 @@ let settlementIndex = []; // [{q, r}] — fast lookup for rankSettlementLocation
 // Returns the merged hex data, or null if the key was deleted (empty).
 function writeHexData(key, data) {
   const old = hexData[key];
-  const merged = { ...(old || { terrain: null, label: '', settlement: null, roads: [] }), ...data };
-  if (!merged.terrain && !merged.label && !merged.settlement && (!merged.roads || merged.roads.length === 0)) {
+  const merged = { ...(old || { terrain: null, label: '', settlement: null, roads: [], region: null }), ...data };
+  if (!merged.terrain && !merged.label && !merged.settlement && !merged.region && (!merged.roads || merged.roads.length === 0)) {
     delete hexData[key];
     // Update settlementIndex if old had a settlement
     if (old && old.settlement) {
@@ -1027,7 +1053,7 @@ function setHex(q, r, data) {
 function cleanHexData() {
   for (const key of Object.keys(hexData)) {
     const h = hexData[key];
-    if (!h.terrain && !h.label && !h.settlement && (!h.roads || h.roads.length === 0)) {
+    if (!h.terrain && !h.label && !h.settlement && !h.region && (!h.roads || h.roads.length === 0)) {
       delete hexData[key];
     }
   }
@@ -1040,8 +1066,8 @@ function hasRoad(q1, r1, q2, r2) {
 function addRoad(q1, r1, q2, r2) {
   const k1 = hexKey(q1, r1);
   const k2 = hexKey(q2, r2);
-  if (!hexData[k1]) hexData[k1] = { terrain: null, label: '', settlement: null, roads: [] };
-  if (!hexData[k2]) hexData[k2] = { terrain: null, label: '', settlement: null, roads: [] };
+  if (!hexData[k1]) hexData[k1] = { terrain: null, label: '', settlement: null, roads: [], region: null };
+  if (!hexData[k2]) hexData[k2] = { terrain: null, label: '', settlement: null, roads: [], region: null };
   pushUndo(k1);
   pushUndo(k2);
   const h1 = hexData[k1];
@@ -1078,6 +1104,15 @@ function neighbors(q, r) {
 }
 
 // ======== Rendering ========
+function hexToRGBA(hex, alpha) {
+  let h = hex.replace('#', '');
+  if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 function resizeCanvas() {
   canvas.width = container.clientWidth;
   canvas.height = container.clientHeight;
@@ -1112,7 +1147,44 @@ function render() {
     }
   }
 
-  // Pass 2: Draw roads (between hexes)
+  // Pass 2: Region borders (between fills and roads)
+  for (let q = qMin; q <= qMax; q++) {
+    for (let r = rMin; r <= rMax; r++) {
+      const h = getHex(q, r);
+      if (!h.region) continue;
+      const p = hexToPixel(q, r);
+      const corners = hexCorners(p.x, p.y, HEX_SIZE);
+      const parity = q & 1;
+      const dirs = parity
+        ? [[1,0],[0,-1],[-1,0],[-1,1],[0,1],[1,1]]
+        : [[1,0],[1,-1],[0,-1],[-1,-1],[-1,0],[0,1]];
+      for (let i = 0; i < 6; i++) {
+        const j = (i + 1) % 6;
+        // 边 i→j 对应的邻居方向：偶数列用 dirs[(i+1)%6]，奇数列用 dirs[i]
+        const [dq, dr] = dirs[(6 - i - parity) % 6];
+        const nq = q + dq, nr = r + dr;
+        const nh = getHex(nq, nr);
+        let drawBorder = false;
+        if (!nh.region) {
+          // Wilderness border: this hex's region boundary to unclaimed land
+          drawBorder = true;
+        } else if (nh.region !== h.region && h.region < nh.region) {
+          // Inter-region border: draw once per edge (alphabetical comparison)
+          drawBorder = true;
+        }
+        if (drawBorder) {
+          ctx.beginPath();
+          ctx.moveTo(corners[i].x, corners[i].y);
+          ctx.lineTo(corners[j].x, corners[j].y);
+          ctx.strokeStyle = hexToRGBA(regions[h.region].color, 0.7);
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  // Pass 3: Draw roads (between hexes)
   ctx.strokeStyle = '#8B4513';
   ctx.lineWidth = 3;
   for (let q = qMin; q <= qMax; q++) {
@@ -1217,11 +1289,18 @@ function drawHexBase(q, r, allTerrains) {
   corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
   ctx.closePath();
 
+  // 1. Always draw terrain as base fill
   let fillColor = '#3a3a52';
   const hTerrainInfo = h.terrain ? allTerrains[h.terrain] : null;
   if (hTerrainInfo) fillColor = hTerrainInfo.color;
   ctx.fillStyle = fillColor;
   ctx.fill();
+
+  // 2. Region layer: overlay semi-transparent region color on top of terrain
+  if (h.region && regions[h.region]) {
+    ctx.fillStyle = hexToRGBA(regions[h.region].color, 0.3);
+    ctx.fill();
+  }
 
   // Grid stroke
   if (showGrid) {
@@ -1244,7 +1323,7 @@ function drawHexOverlay(q, r, allTerrains) {
     ctx.fillText(`${q},${r}`, p.x, p.y + HEX_SIZE * 0.4);
   }
 
-  // Terrain icon (image or emoji)
+  // Terrain icon (image or emoji) — always show terrain, regardless of layer
   const hOverlayTI = h.terrain ? allTerrains[h.terrain] : null;
   if (hOverlayTI) {
     if (hOverlayTI.imageUrl) {
@@ -1276,10 +1355,12 @@ function drawHexOverlay(q, r, allTerrains) {
     if (h.settlement.imageUrl) {
       drawHexImage(p.x, p.y + HEX_SIZE * 0.15, HEX_SIZE * 0.9, h.settlement.imageUrl);
     } else {
+      const ratingIcons = {'-3':'🛖','-2':'🏕️','-1':'🏘️','0':'🏘️','1':'🏛️','2':'🏰','3':'🏙️'};
+      const icon = ratingIcons[String(h.settlement.rating)] || '🏘️';
       ctx.font = `${HEX_SIZE * 0.6}px sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
-      ctx.fillText('🏘️', p.x, p.y + HEX_SIZE * 0.45);
+      ctx.fillText(icon, p.x, p.y + HEX_SIZE * 0.45);
     }
 
     // Settlement name & rating
@@ -1387,6 +1468,12 @@ canvas.addEventListener('mousedown', (e) => {
         dragStartY = my;
         // Don't save viewStart - we don't want to pan
       }
+      // Region paint mode: enable drag for continuous painting
+      if (selectedTool === 'paint-region') {
+        isDragging = true;
+        dragStartX = mx;
+        dragStartY = my;
+      }
       // Erase mode: drag across hexes to erase continuously
       if (selectedTool === 'erase') {
         isDragging = true;
@@ -1420,17 +1507,24 @@ canvas.addEventListener('mousemove', (e) => {
   }
 
   if (isDragging) {
-    // Paint tool: drag across hexes to paint continuously
-    if (selectedTool === 'paint') {
+    // Paint tool and region-paint tool: drag across hexes to paint continuously
+    if (selectedTool === 'paint' || selectedTool === 'paint-region') {
       const hex = hexAtPixel(mx, my);
       if (hex) {
         const k = hexKey(hex.q, hex.r);
         const h = getHex(hex.q, hex.r);
-        // Skip if locked and hex already has terrain
-        if (h.terrain !== selectedTerrain && !(isLocked && h.terrain)) {
-          setHex(hex.q, hex.r, { terrain: selectedTerrain });
-          render();
+        if (selectedTool === 'paint') {
+          // Skip if locked and hex already has terrain
+          if (h.terrain !== selectedTerrain && !(isLocked && h.terrain)) {
+            setHex(hex.q, hex.r, { terrain: selectedTerrain });
+          }
+        } else {
+          // paint-region
+          if (h.region !== selectedRegion && !(isLocked && h.region)) {
+            setHex(hex.q, hex.r, { region: selectedRegion });
+          }
         }
+        render();
       }
     } else if (selectedTool === 'erase') {
       const hex = hexAtPixel(mx, my);
@@ -1944,6 +2038,11 @@ function setTool(tool) {
       hint.innerHTML = '🧹 点击擦除，从下拉菜单选择擦除内容：全部/仅地形/仅定居点/仅标签/仅道路。拖拽连续擦除';
       coord.textContent = '🧹 擦除模式';
       break;
+    case 'paint-region':
+      const regionInfo = selectedRegion ? regions[selectedRegion] : null;
+      hint.innerHTML = `👑 点击格子涂上王国 <b>${regionInfo?.name || ''}</b>，或按住拖拽连续涂色`;
+      coord.textContent = `👑 ${regionInfo?.name || ''} 王国笔刷`;
+      break;
   }
   render();
 }
@@ -2327,7 +2426,123 @@ document.getElementById('label-modal-text').addEventListener('keydown', function
   if (e.key === 'Escape') document.getElementById('label-modal').style.display = 'none';
 });
 
+// ======== 王国边境管理 ========
+let selectedRegion = null;
 
+function rebuildRegionPalette() {
+  const palette = document.getElementById('region-palette');
+  if (!palette) return;
+  palette.innerHTML = '';
+  const ids = regionOrder || Object.keys(regions);
+  ids.forEach(id => {
+    const r = regions[id];
+    if (!r) return;
+    const btn = document.createElement('button');
+    btn.dataset.region = id;
+    btn.title = r.name;
+    const isActive = selectedRegion === id;
+    btn.style.cssText = `background:${r.color};color:#fff;padding:4px 6px;border:${isActive ? '2px solid #fff' : '2px solid transparent'};border-radius:4px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:3px;`;
+    btn.innerHTML = `<span>${r.icon}</span><span>${r.name}</span>`;
+    btn.addEventListener('click', () => {
+      selectedRegion = id;
+      if (selectedTool !== 'paint-region') setTool('paint-region');
+      else rebuildRegionPalette();
+    });
+    palette.appendChild(btn);
+  });
+}
+
+// Paint-region 覆盖 hex click 处理王国涂色
+const _origHandleHexClick = handleHexClick;
+handleHexClick = function(q, r, e) {
+  if (selectedTool === 'paint-region') {
+    if (!selectedRegion) {
+      showDiceResult('⚠️', '请先在王国面板中选择一个王国');
+      return;
+    }
+    if (isLocked && getHex(q, r).region) { /* locked */ } else {
+      setHex(q, r, { region: selectedRegion });
+      render();
+      updateInfo();
+    }
+    selectedHex = { q, r };
+    return;
+  }
+  _origHandleHexClick(q, r, e);
+};
+
+// Region editor modal
+function openRegionEditor() {
+  const modal = document.getElementById('region-editor-modal');
+  if (!modal) return;
+  rebuildRegionEditorList();
+  modal.style.display = 'block';
+}
+
+function rebuildRegionEditorList() {
+  const list = document.getElementById('region-editor-list');
+  if (!list) return;
+  list.innerHTML = '';
+  const ids = regionOrder || Object.keys(regions);
+  ids.forEach(id => {
+    const r = regions[id];
+    if (!r) return;
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 6px;margin:2px 0;background:#1a1a2e;border-radius:4px;font-size:12px;';
+    const cpreview = document.createElement('span');
+    cpreview.style.cssText = 'display:inline-block;width:20px;height:20px;border-radius:3px;background:' + r.color + ';border:1px solid rgba(255,255,255,0.2);flex-shrink:0;';
+    row.appendChild(cpreview);
+    const nameSpan = document.createElement('span');
+    nameSpan.style.cssText = 'flex:1;color:#fff;';
+    nameSpan.textContent = r.icon + ' ' + r.name + ' (' + id + ')';
+    row.appendChild(nameSpan);
+    const editBtn = document.createElement('button');
+    editBtn.textContent = '\u270F\uFE0F';
+    editBtn.style.cssText = 'padding:2px 6px;background:#0f3460;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
+    editBtn.title = '\u7F16\u8F91';
+    editBtn.addEventListener('click', function() { editRegion(id); });
+    row.appendChild(editBtn);
+    // \u5220\u9664\u6309\u94AE
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '\uD83D\uDDD1\uFE0F';
+    delBtn.style.cssText = 'padding:2px 6px;background:#5a1a2e;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
+    delBtn.title = '\u5220\u9664';
+    delBtn.addEventListener('click', function() {
+      if (confirm('\u786E\u8BA4\u5220\u9664\u738B\u56FD\u300C' + r.name + '\u300D\uFF1F\u5DF2\u6D82\u8272\u7684\u683C\u5B50\u6570\u636E\u4E0D\u4F1A\u81EA\u52A8\u6E05\u9664\u3002')) {
+        delete regions[id];
+        if (selectedRegion === id) selectedRegion = null;
+        rebuildRegionEditorList();
+        rebuildRegionPalette();
+        render();
+      }
+    });
+    row.appendChild(delBtn);
+    list.appendChild(row);
+  });
+}
+
+function editRegion(id) {
+  const r = regions[id];
+  if (!r) return;
+  let name = prompt('编辑王国「' + id + '」的名称：', r.name);
+  if (name === null) return;
+  let icon = prompt('编辑王国「' + id + '」的图标 (emoji)：', r.icon);
+  if (icon === null) return;
+  let color = prompt('编辑王国「' + id + '」的颜色 (hex)：', r.color);
+  if (color === null) return;
+  regions[id] = { name: name.trim() || r.name, icon: icon.trim() || r.icon, color: color.trim() || r.color };
+  rebuildRegionEditorList();
+  rebuildRegionPalette();
+  render();
+}
+
+document.getElementById('re-btn-add')?.addEventListener('click', addRegion);
+document.getElementById('re-btn-close')?.addEventListener('click', function() {
+  document.getElementById('region-editor-modal').style.display = 'none';
+});
+document.getElementById('region-editor-modal')?.addEventListener('click', function(e) {
+  if (e.target === e.currentTarget) e.currentTarget.style.display = 'none';
+});
 
 // Roll dice — with animation
 document.getElementById('btn-roll').addEventListener('click', () => {
@@ -3324,14 +3539,58 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
     exportCtx.beginPath();
     corners.forEach((c, i) => i === 0 ? exportCtx.moveTo(c.x, c.y) : exportCtx.lineTo(c.x, c.y));
     exportCtx.closePath();
+    // 1. Always draw terrain as base fill
     let fillColor = '#3a3a52';
     if (h.terrain && allTerrains[h.terrain]) fillColor = allTerrains[h.terrain].color;
     exportCtx.fillStyle = fillColor;
     exportCtx.fill();
+    // 2. Region layer: overlay semi-transparent region color on top
+    if (h.region && regions[h.region]) {
+      exportCtx.fillStyle = 'rgba(' +
+        parseInt(regions[h.region].color.slice(1,3), 16) + ',' +
+        parseInt(regions[h.region].color.slice(3,5), 16) + ',' +
+        parseInt(regions[h.region].color.slice(5,7), 16) + ',0.3)';
+      exportCtx.fill();
+    }
     exportCtx.strokeStyle = 'rgba(255,255,255,0.12)';
     exportCtx.lineWidth = 1;
     exportCtx.stroke();
   }
+  // Region borders (Pass 1.5)
+  for (const key of keys) {
+      const [q, r] = key.split(',').map(Number);
+      const h = hexData[key];
+      if (!h.region) continue;
+      const p = hexToPixel(q, r);
+      const corners = hexCorners(p.x, p.y, HEX_SIZE);
+      const parity = q & 1;
+      const dirs = parity
+        ? [[1,0],[0,-1],[-1,0],[-1,1],[0,1],[1,1]]
+        : [[1,0],[1,-1],[0,-1],[-1,-1],[-1,0],[0,1]];
+      for (let i = 0; i < 6; i++) {
+        const j = (i + 1) % 6;
+        const [dq, dr] = dirs[(6 - i - parity) % 6];
+        const nq = q + dq, nr = r + dr;
+        const nh = getHex(nq, nr);
+        let drawBorder = false;
+        if (!nh.region) {
+          drawBorder = true;
+        } else if (nh.region !== h.region && h.region < nh.region) {
+          drawBorder = true;
+        }
+        if (drawBorder) {
+          exportCtx.beginPath();
+          exportCtx.moveTo(corners[i].x, corners[i].y);
+          exportCtx.lineTo(corners[j].x, corners[j].y);
+          const cr = parseInt(regions[h.region].color.slice(1,3), 16);
+          const cg = parseInt(regions[h.region].color.slice(3,5), 16);
+          const cb = parseInt(regions[h.region].color.slice(5,7), 16);
+          exportCtx.strokeStyle = `rgba(${cr},${cg},${cb},0.7)`;
+          exportCtx.lineWidth = 2.5;
+          exportCtx.stroke();
+        }
+      }
+    }
   // Draw roads (Pass 2)
   exportCtx.strokeStyle = '#8B4513';
   exportCtx.lineWidth = 3;
@@ -3356,32 +3615,36 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
     const [q, r] = key.split(',').map(Number);
     const h = hexData[key];
     const p = hexToPixel(q, r);
-    // Terrain icon (image or emoji)
+    // Terrain icon (image or emoji) — always show regardless of layer
     const hOTI = h.terrain ? allTerrains[h.terrain] : null;
     if (hOTI) {
-      if (hOTI.imageUrl) {
-        const img = getCachedImage(hOTI.imageUrl);
-        if (img && img.complete && img.naturalWidth > 0) {
-          exportCtx.save();
-          const ec = hexCorners(p.x, p.y, HEX_SIZE * 0.6);
-          exportCtx.beginPath();
-          ec.forEach((c, i) => i === 0 ? exportCtx.moveTo(c.x, c.y) : exportCtx.lineTo(c.x, c.y));
-          exportCtx.closePath();
-          exportCtx.clip();
-          const is = HEX_SIZE * 0.9;
-          exportCtx.drawImage(img, p.x - is/2, p.y - (h.label || h.settlement ? HEX_SIZE * 0.3 : 0) - is/2, is, is);
-          exportCtx.restore();
+        if (hOTI.imageUrl) {
+          const img = getCachedImage(hOTI.imageUrl);
+          if (img && img.complete && img.naturalWidth > 0) {
+            exportCtx.save();
+            const ec = hexCorners(p.x, p.y, HEX_SIZE * 0.6);
+            exportCtx.beginPath();
+            ec.forEach((c, i) => i === 0 ? exportCtx.moveTo(c.x, c.y) : exportCtx.lineTo(c.x, c.y));
+            exportCtx.closePath();
+            exportCtx.clip();
+            const is = HEX_SIZE * 0.9;
+            exportCtx.drawImage(img, p.x - is/2, p.y - (h.label || h.settlement ? HEX_SIZE * 0.3 : 0) - is/2, is, is);
+            exportCtx.restore();
+          } else {
+            exportCtx.font = `${HEX_SIZE * 0.5}px sans-serif`;
+            exportCtx.textAlign = 'center';
+            exportCtx.textBaseline = 'middle';
+            exportCtx.fillStyle = 'rgba(255,255,255,0.85)';
+            exportCtx.fillText(hOTI.icon, p.x, p.y - (h.label || h.settlement ? HEX_SIZE * 0.15 : 0));
+          }
         } else {
+          exportCtx.font = `${HEX_SIZE * 0.5}px sans-serif`;
+          exportCtx.textAlign = 'center';
+          exportCtx.textBaseline = 'middle';
+          exportCtx.fillStyle = 'rgba(255,255,255,0.85)';
           exportCtx.fillText(hOTI.icon, p.x, p.y - (h.label || h.settlement ? HEX_SIZE * 0.15 : 0));
         }
-      } else {
-        exportCtx.font = `${HEX_SIZE * 0.5}px sans-serif`;
-        exportCtx.textAlign = 'center';
-        exportCtx.textBaseline = 'middle';
-        exportCtx.fillStyle = 'rgba(255,255,255,0.85)';
-        exportCtx.fillText(hOTI.icon, p.x, p.y - (h.label || h.settlement ? HEX_SIZE * 0.15 : 0));
       }
-    }
     // Label
     if (h.label) {
       exportCtx.fillStyle = '#fff';
@@ -3409,19 +3672,16 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
           exportCtx.drawImage(img, p.x - is/2, p.y + HEX_SIZE * 0.1 - is/2, is, is);
           exportCtx.restore();
         } else {
+          const ratingIcons = {'-3':'🛖','-2':'🏕️','-1':'🏘️','0':'🏘️','1':'🏛️','2':'🏰','3':'🏙️'};
+          const icon = ratingIcons[String(h.settlement.rating)] || '🏘️';
           exportCtx.font = `${HEX_SIZE * 0.6}px sans-serif`;
           exportCtx.textAlign = 'center';
           exportCtx.textBaseline = 'bottom';
-          exportCtx.fillText('🏘️', p.x, p.y + HEX_SIZE * 0.45);
-        }
-      } else {
-        exportCtx.font = `${HEX_SIZE * 0.6}px sans-serif`;
-        exportCtx.textAlign = 'center';
-        exportCtx.textBaseline = 'bottom';
-        exportCtx.fillText('🏘️', p.x, p.y + HEX_SIZE * 0.45);
-      }
-    } // closes if(h.settlement)
-  } // closes for loop
+          exportCtx.fillText(icon, p.x, p.y + HEX_SIZE * 0.45);
+          }
+        } // closes if(h.settlement.imageUrl)
+      } // closes if(h.settlement)
+    } // closes for loop
   exportCtx.restore();
   const link = document.createElement("a");
   link.download = "hexmap_" + new Date().toISOString().slice(0,10) + ".png";
@@ -3453,6 +3713,9 @@ document.getElementById('chk-coords').addEventListener('change', (e) => { showCo
 document.getElementById('chk-minimap').addEventListener('change', () => render());
 document.getElementById('chk-lock').addEventListener('change', (e) => { isLocked = e.target.checked; });
 
+// Manage regions button
+document.getElementById('btn-manage-regions').addEventListener('click', openRegionEditor);
+
 // Info panel
 function updateInfo() {
   const panel = document.getElementById('info-panel');
@@ -3465,12 +3728,14 @@ function updateInfo() {
   const hInfoTI = h.terrain ? getAllTerrains()[h.terrain] : null;
   const t = h.terrain ? `${hInfoTI?.icon || ''} ${hInfoTI?.name || h.terrain}` : '未探索';
   const settle = h.settlement ? `${h.settlement.name} (${h.settlement.rating >= 0 ? '+' : ''}${h.settlement.rating})` : '—';
+  const regionInfo = h.region && regions[h.region] ? `${regions[h.region].icon} ${regions[h.region].name}` : '—';
   const roads = h.roads?.length || 0;
   const nbrs = neighbors(q, r);
   panel.innerHTML = `<div class="row">
     <span><span class="label">坐标:</span> <span class="val">(${q}, ${r})</span></span>
     <span><span class="label">地形:</span> <span class="val">${t}</span></span>
     <span><span class="label">定居点:</span> <span class="val">${settle}</span></span>
+    <span><span class="label">王国:</span> <span class="val">${regionInfo}</span></span>
     <span><span class="label">标签:</span> <span class="val">${h.label || '—'}</span></span>
     <span><span class="label">道路:</span> <span class="val">${roads} 条连接</span></span>
   </div>`;
@@ -3491,6 +3756,9 @@ loadTerrainConfig();
 rebuildTerrainPalette();
 const allIds = getAllTerrainIds();
 if (!getTerrainInfo(selectedTerrain) && allIds.length > 0) selectedTerrain = allIds[0];
+
+// Build region palette
+rebuildRegionPalette();
 
 // Set initial tool — shows hints and updates coord display
 setTool('select');
@@ -4630,7 +4898,6 @@ function executeOneAICommandNoBatch(cmd) {
   if (cancelBtn) cancelBtn.addEventListener('click', closeAIModal);
   const closeXBtn = document.getElementById('ai-btn-close-x');
   if (closeXBtn) closeXBtn.addEventListener('click', closeAIModal);
-</script>
 
 </script>
 </body>

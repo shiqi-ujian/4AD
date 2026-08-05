@@ -271,6 +271,11 @@ function setTool(tool) {
       hint.innerHTML = '🧹 点击擦除，从下拉菜单选择擦除内容：全部/仅地形/仅定居点/仅标签/仅道路。拖拽连续擦除';
       coord.textContent = '🧹 擦除模式';
       break;
+    case 'paint-region':
+      const regionInfo = selectedRegion ? regions[selectedRegion] : null;
+      hint.innerHTML = `👑 点击格子涂上王国 <b>${regionInfo?.name || ''}</b>，或按住拖拽连续涂色`;
+      coord.textContent = `👑 ${regionInfo?.name || ''} 王国笔刷`;
+      break;
   }
   render();
 }
@@ -654,7 +659,123 @@ document.getElementById('label-modal-text').addEventListener('keydown', function
   if (e.key === 'Escape') document.getElementById('label-modal').style.display = 'none';
 });
 
+// ======== 王国边境管理 ========
+let selectedRegion = null;
 
+function rebuildRegionPalette() {
+  const palette = document.getElementById('region-palette');
+  if (!palette) return;
+  palette.innerHTML = '';
+  const ids = regionOrder || Object.keys(regions);
+  ids.forEach(id => {
+    const r = regions[id];
+    if (!r) return;
+    const btn = document.createElement('button');
+    btn.dataset.region = id;
+    btn.title = r.name;
+    const isActive = selectedRegion === id;
+    btn.style.cssText = `background:${r.color};color:#fff;padding:4px 6px;border:${isActive ? '2px solid #fff' : '2px solid transparent'};border-radius:4px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:3px;`;
+    btn.innerHTML = `<span>${r.icon}</span><span>${r.name}</span>`;
+    btn.addEventListener('click', () => {
+      selectedRegion = id;
+      if (selectedTool !== 'paint-region') setTool('paint-region');
+      else rebuildRegionPalette();
+    });
+    palette.appendChild(btn);
+  });
+}
+
+// Paint-region 覆盖 hex click 处理王国涂色
+const _origHandleHexClick = handleHexClick;
+handleHexClick = function(q, r, e) {
+  if (selectedTool === 'paint-region') {
+    if (!selectedRegion) {
+      showDiceResult('⚠️', '请先在王国面板中选择一个王国');
+      return;
+    }
+    if (isLocked && getHex(q, r).region) { /* locked */ } else {
+      setHex(q, r, { region: selectedRegion });
+      render();
+      updateInfo();
+    }
+    selectedHex = { q, r };
+    return;
+  }
+  _origHandleHexClick(q, r, e);
+};
+
+// Region editor modal
+function openRegionEditor() {
+  const modal = document.getElementById('region-editor-modal');
+  if (!modal) return;
+  rebuildRegionEditorList();
+  modal.style.display = 'block';
+}
+
+function rebuildRegionEditorList() {
+  const list = document.getElementById('region-editor-list');
+  if (!list) return;
+  list.innerHTML = '';
+  const ids = regionOrder || Object.keys(regions);
+  ids.forEach(id => {
+    const r = regions[id];
+    if (!r) return;
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 6px;margin:2px 0;background:#1a1a2e;border-radius:4px;font-size:12px;';
+    const cpreview = document.createElement('span');
+    cpreview.style.cssText = 'display:inline-block;width:20px;height:20px;border-radius:3px;background:' + r.color + ';border:1px solid rgba(255,255,255,0.2);flex-shrink:0;';
+    row.appendChild(cpreview);
+    const nameSpan = document.createElement('span');
+    nameSpan.style.cssText = 'flex:1;color:#fff;';
+    nameSpan.textContent = r.icon + ' ' + r.name + ' (' + id + ')';
+    row.appendChild(nameSpan);
+    const editBtn = document.createElement('button');
+    editBtn.textContent = '\u270F\uFE0F';
+    editBtn.style.cssText = 'padding:2px 6px;background:#0f3460;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
+    editBtn.title = '\u7F16\u8F91';
+    editBtn.addEventListener('click', function() { editRegion(id); });
+    row.appendChild(editBtn);
+    // \u5220\u9664\u6309\u94AE
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '\uD83D\uDDD1\uFE0F';
+    delBtn.style.cssText = 'padding:2px 6px;background:#5a1a2e;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
+    delBtn.title = '\u5220\u9664';
+    delBtn.addEventListener('click', function() {
+      if (confirm('\u786E\u8BA4\u5220\u9664\u738B\u56FD\u300C' + r.name + '\u300D\uFF1F\u5DF2\u6D82\u8272\u7684\u683C\u5B50\u6570\u636E\u4E0D\u4F1A\u81EA\u52A8\u6E05\u9664\u3002')) {
+        delete regions[id];
+        if (selectedRegion === id) selectedRegion = null;
+        rebuildRegionEditorList();
+        rebuildRegionPalette();
+        render();
+      }
+    });
+    row.appendChild(delBtn);
+    list.appendChild(row);
+  });
+}
+
+function editRegion(id) {
+  const r = regions[id];
+  if (!r) return;
+  let name = prompt('编辑王国「' + id + '」的名称：', r.name);
+  if (name === null) return;
+  let icon = prompt('编辑王国「' + id + '」的图标 (emoji)：', r.icon);
+  if (icon === null) return;
+  let color = prompt('编辑王国「' + id + '」的颜色 (hex)：', r.color);
+  if (color === null) return;
+  regions[id] = { name: name.trim() || r.name, icon: icon.trim() || r.icon, color: color.trim() || r.color };
+  rebuildRegionEditorList();
+  rebuildRegionPalette();
+  render();
+}
+
+document.getElementById('re-btn-add')?.addEventListener('click', addRegion);
+document.getElementById('re-btn-close')?.addEventListener('click', function() {
+  document.getElementById('region-editor-modal').style.display = 'none';
+});
+document.getElementById('region-editor-modal')?.addEventListener('click', function(e) {
+  if (e.target === e.currentTarget) e.currentTarget.style.display = 'none';
+});
 
 // Roll dice — with animation
 document.getElementById('btn-roll').addEventListener('click', () => {

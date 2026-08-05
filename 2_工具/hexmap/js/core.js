@@ -160,7 +160,7 @@ function hexKey(q, r) { return `${q},${r}`; }
 
 function getHex(q, r) {
   const k = hexKey(q, r);
-  return hexData[k] || { terrain: null, label: '', settlement: null, roads: [] };
+  return hexData[k] || { terrain: null, label: '', settlement: null, roads: [], region: null };
 }
 
 let settlementIndex = []; // [{q, r}] — fast lookup for rankSettlementLocation
@@ -169,8 +169,8 @@ let settlementIndex = []; // [{q, r}] — fast lookup for rankSettlementLocation
 // Returns the merged hex data, or null if the key was deleted (empty).
 function writeHexData(key, data) {
   const old = hexData[key];
-  const merged = { ...(old || { terrain: null, label: '', settlement: null, roads: [] }), ...data };
-  if (!merged.terrain && !merged.label && !merged.settlement && (!merged.roads || merged.roads.length === 0)) {
+  const merged = { ...(old || { terrain: null, label: '', settlement: null, roads: [], region: null }), ...data };
+  if (!merged.terrain && !merged.label && !merged.settlement && !merged.region && (!merged.roads || merged.roads.length === 0)) {
     delete hexData[key];
     // Update settlementIndex if old had a settlement
     if (old && old.settlement) {
@@ -204,7 +204,7 @@ function setHex(q, r, data) {
 function cleanHexData() {
   for (const key of Object.keys(hexData)) {
     const h = hexData[key];
-    if (!h.terrain && !h.label && !h.settlement && (!h.roads || h.roads.length === 0)) {
+    if (!h.terrain && !h.label && !h.settlement && !h.region && (!h.roads || h.roads.length === 0)) {
       delete hexData[key];
     }
   }
@@ -217,8 +217,8 @@ function hasRoad(q1, r1, q2, r2) {
 function addRoad(q1, r1, q2, r2) {
   const k1 = hexKey(q1, r1);
   const k2 = hexKey(q2, r2);
-  if (!hexData[k1]) hexData[k1] = { terrain: null, label: '', settlement: null, roads: [] };
-  if (!hexData[k2]) hexData[k2] = { terrain: null, label: '', settlement: null, roads: [] };
+  if (!hexData[k1]) hexData[k1] = { terrain: null, label: '', settlement: null, roads: [], region: null };
+  if (!hexData[k2]) hexData[k2] = { terrain: null, label: '', settlement: null, roads: [], region: null };
   pushUndo(k1);
   pushUndo(k2);
   const h1 = hexData[k1];

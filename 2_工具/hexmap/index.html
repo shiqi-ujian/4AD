@@ -108,7 +108,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     <div class="tool-group">
       <button class="tool-btn active" data-tool="select" title="选择/查看 (V)"><span class="icon">👆</span><span class="label">选择(V)</span></button>
       <button class="tool-btn" data-tool="select-rect" title="框选 (X)"><span class="icon">🔲</span><span class="label">框选(X)</span></button>
-      <button class="tool-btn" data-tool="paint" title="地形笔刷 (B)"><span class="icon">🖌️</span><span class="label">笔刷(B)</span></button>
+      <button class="tool-btn" data-tool="paint" title="地形笔刷 (B)"><span class="icon">🖌️</span><span class="label">地形(B)</span></button>
+      <button class="tool-btn" data-tool="paint-region" title="王国笔刷"><span class="icon">👑</span><span class="label">王国</span></button>
       <button class="tool-btn" data-tool="settlement" title="放置定居点 (S)"><span class="icon">🏘️</span><span class="label">定居(S)</span></button>
       <button class="tool-btn" data-tool="road" title="画道路 (R)"><span class="icon">🛤️</span><span class="label">道路(R)</span></button>
       <button class="tool-btn" data-tool="label" title="标文字 (L)"><span class="icon">🏷️</span><span class="label">标签(L)</span></button>
@@ -142,6 +143,10 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
         <button id="btn-manage-terrains" style="flex:1;padding:3px;background:#0f3460;color:#ccc;border:none;border-radius:4px;cursor:pointer;font-size:11px;">🎨 管理地形</button>
         <button id="btn-gen-rules" style="flex:1;padding:3px;background:#0f3460;color:#ccc;border:none;border-radius:4px;cursor:pointer;font-size:11px;">🎲 生成规则</button>
       </div>
+
+    <h3>👑 王国边境 <span style="font-weight:normal;font-size:11px;color:#888;float:right;">选王国后涂</span></h3>
+    <div id="region-palette" style="display:flex;flex-wrap:wrap;gap:3px;"></div>
+    <button id="btn-manage-regions" style="margin-top:3px;padding:3px 6px;background:#0f3460;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;width:100%;">✏️ 管理王国</button>
 
 	    <h3>🎲 生成工具</h3>
 	    <label style="display:flex;align-items:center;gap:6px;margin:2px 0;">

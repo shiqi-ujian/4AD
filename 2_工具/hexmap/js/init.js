@@ -13,6 +13,9 @@ rebuildTerrainPalette();
 const allIds = getAllTerrainIds();
 if (!getTerrainInfo(selectedTerrain) && allIds.length > 0) selectedTerrain = allIds[0];
 
+// Build region palette
+rebuildRegionPalette();
+
 // Set initial tool — shows hints and updates coord display
 setTool('select');
 render();
