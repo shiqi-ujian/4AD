@@ -6,12 +6,6 @@
 
 ```
 四战黑/
-├── 源 PDF（根目录）
-│   ├── 0_四战黑_基础规则工具书-自译版.pdf
-│   ├── 6_四战黑_官方战役-四战渊lv5-9-自译版.pdf
-│   ├── 四战黑_四战遗弃深渊_琉璃汉化(禁止商用).pdf
-│   ├── 四战黑_拓展模块-恋爱与生活.pdf
-│   └── 专家级神术私设 v0.2.docx
 ├── 1_翻译/                        # 中文翻译（Markdown）
 │   ├── 四战黑_基础规则工具书-自译版.md
 │   ├── 四战黑_基础设定-沙盒模式索引_中文翻译.md
@@ -21,16 +15,15 @@
 │   └── 四战黑_拓展模块-恋爱与生活_翻译.md
 ├── 2_工具/                        # 辅助工具
 │   ├── hexmap.html                # 六角格沙盒地图（单文件版）
-│   ├── hexmap/                    # 六角格沙盒地图（模块化版，含 AI 绘图）
+│   ├── hexmap/                    # 六角格沙盒地图（模块化版）
 │   │   ├── index.html
 │   │   ├── build.js
 │   │   └── js/                    # config / core / render / generate / ai / …
 │   ├── citymap.html               # 城市地图工具
 │   ├── squaremap.html             # 方格地图工具
 │   ├── brace_check.js             # JS 大括号平衡检查
-│   ├── AI绘图功能_开发记录.txt    # AI 绘图功能开发记录
+│   ├── README.md                 # 工具说明文档
 │   ├── _build_glossary.py         # 术语表构建脚本
-│   ├── _replace_walls.py          # 墙壁替换脚本
 │   ├── download_pymupdf.py
 │   └── extract_pdf.py             # PDF 提取脚本
 ├── 3_术语与数据/                  # 术语对照表与结构化数据
@@ -43,7 +36,7 @@
 ├── room_annotator.html            # 房间标注工具
 ├── CLAUDE.md                      # AI 辅助开发指南
 ├── README.md
-└── fix_d12.py                     # d12 骰面修复脚本
+└── 专家级神术私设 v0.2.docx       # 神术规则文档
 ```
 
 ## 地图工具
@@ -65,7 +58,7 @@
 
 - **[citymap.html](2_工具/citymap.html)** — 城市地图编辑器
 - **[squaremap.html](2_工具/squaremap.html)** — 方格地图编辑器
-- **[room_annotator.html](room_annotator.html)** — 房间标注工具（根目录）
+
 
 ## 许可
 
