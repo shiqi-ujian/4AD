@@ -203,6 +203,15 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     <label style="font-size:12px;border-top:1px solid #0f3460;padding-top:4px;margin-top:2px;">
       <input type="checkbox" id="chk-lock"> 🔒 锁定（已编辑格子不受笔刷/擦除影响）
     </label>
+    <label style="font-size:12px;">
+      <input type="checkbox" id="chk-region-layer" checked> 👑 显示王国边境
+    </label>
+    <label style="font-size:12px;margin-left:12px;">
+      <input type="checkbox" id="chk-region-names" checked> 📛 显示王国名称
+    </label>
+    <label style="font-size:12px;display:block;margin-top:2px;">
+      边境透明度: <input type="range" id="border-opacity" min="20" max="100" value="85" style="width:80px;vertical-align:middle;"> <span id="border-opacity-val">85%</span>
+    </label>
     <div style="margin-top:auto;font-size:11px;color:#666;text-align:center;padding-top:8px;">
       四战黑 · 沙盒六角格地图 v1.0<br>
       滚轮缩放 · 拖拽平移 · 右键菜单
@@ -459,19 +468,74 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   </div>
 </div>
 
-<!-- Label Modal -->
+<!-- Label / Annotation Modal -->
 <div id="label-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
-  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:360px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
-    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">🏷️ 地标/标签 <span id="label-modal-coord" style="font-size:13px;color:#888;font-weight:normal;"></span></h3>
-    <label style="font-size:12px;color:#ccc;display:block;margin-bottom:4px;">文字</label>
-    <input id="label-modal-text" type="text" style="width:100%;padding:6px 8px;margin-bottom:14px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:14px;" placeholder="例：古墓、龙巢、传送门">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:420px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">📋 标注管理 <span id="label-modal-coord" style="font-size:13px;color:#888;font-weight:normal;"></span></h3>
+
+    <!-- Quick label section -->
+    <div style="margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #0f3460;">
+      <label style="font-size:12px;color:#ccc;display:block;margin-bottom:4px;">快捷标签 <span style="color:#888;font-weight:normal;">(始终在地图上显示)</span></label>
+      <div style="display:flex;gap:6px;">
+        <input id="label-modal-text" type="text" style="flex:1;padding:6px 8px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:14px;" placeholder="例：古墓、龙巢、传送门">
+        <button id="label-modal-quick-save" style="padding:6px 12px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">保存</button>
+      </div>
+    </div>
+
+    <!-- Annotation list -->
+    <div id="ann-list" style="margin-bottom:10px;">
+      <div style="font-size:12px;color:#888;margin-bottom:6px;">详细标注 <span id="ann-count" style="color:#666;">(0条)</span></div>
+    </div>
+
+    <!-- Add annotation form (hidden by default) -->
+    <div id="ann-add-form" style="display:none;margin-bottom:12px;padding:10px;background:#1a1a2e;border-radius:6px;border:1px solid #0f3460;">
+      <div style="display:flex;gap:6px;margin-bottom:8px;">
+        <select id="ann-add-type" style="flex:1;padding:4px 6px;background:#16213e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:12px;">
+          <option value="poi">📍 地标</option>
+          <option value="hazard">⚠️ 危险</option>
+          <option value="lore">📜 剧情</option>
+          <option value="note">📝 备注</option>
+          <option value="marker">🚩 标记</option>
+        </select>
+        <label style="display:flex;align-items:center;gap:4px;color:#ccc;font-size:12px;cursor:pointer;">
+          <input id="ann-add-visible" type="checkbox" checked> 显示
+        </label>
+      </div>
+      <textarea id="ann-add-text" rows="2" style="width:100%;padding:6px;background:#16213e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;font-family:inherit;resize:vertical;" placeholder="输入标注文字（剧情、备注等）"></textarea>
+      <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:6px;">
+        <button id="ann-add-cancel" style="padding:4px 10px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">取消</button>
+        <button id="ann-add-confirm" style="padding:4px 10px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">✓ 添加</button>
+      </div>
+    </div>
+
+    <button id="ann-show-add-btn" style="display:block;width:100%;padding:6px;background:#3a3a5e;color:#aaa;border:1px dashed #555;border-radius:4px;cursor:pointer;font-size:13px;margin-bottom:12px;">+ 添加标注</button>
+
     <div style="display:flex;gap:6px;justify-content:flex-end;">
-      <button id="label-modal-cancel" style="padding:6px 16px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">取消</button>
-      <button id="label-modal-confirm" style="padding:6px 16px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">✓ 确认</button>
+      <button id="label-modal-cancel" style="padding:6px 16px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">关闭</button>
     </div>
     <input id="label-modal-q" type="hidden">
     <input id="label-modal-r" type="hidden">
+  </div>
+</div>
+
+<!-- Region Editor Modal -->
+<div id="region-editor-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:480px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">👑 管理王国</h3>
+    <div id="region-editor-list" style="max-height:300px;overflow-y:auto;margin-bottom:10px;"></div>
+    <div style="border-top:1px solid #0f3460;padding-top:10px;margin-bottom:10px;">
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <input id="re-new-id" placeholder="王国ID (英文)" style="width:100px;padding:4px 6px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:12px;">
+        <input id="re-new-name" placeholder="名称" style="width:80px;padding:4px 6px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:12px;">
+        <input id="re-new-icon" placeholder="图标(emoji)" style="width:60px;padding:4px 6px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:12px;">
+        <input id="re-new-color" type="color" value="#4a7fb5" style="width:40px;height:28px;padding:0;border:1px solid #0f3460;border-radius:4px;cursor:pointer;">
+        <button id="re-btn-add" style="padding:4px 10px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">➕ 添加</button>
+      </div>
     </div>
+    <div style="display:flex;gap:6px;justify-content:flex-end;">
+      <button id="re-btn-close" style="padding:5px 12px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">✓ 完成</button>
+    </div>
+  </div>
 </div>
 
 

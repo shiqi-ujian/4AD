@@ -121,10 +121,10 @@ canvas.addEventListener('mousemove', (e) => {
         if (_eraseDragLast.has(k)) return; // skip same hex
         _eraseDragLast.add(k);
         const h = getHex(hex.q, hex.r);
-        if (isLocked && (h.terrain || h.settlement || h.label || h.roads?.length)) return;
+        if (isLocked && (h.terrain || h.settlement || h.label || h.roads?.length || (h.annotations && h.annotations.length))) return;
         const mode = document.getElementById('erase-mode').value;
         if (mode === 'all') {
-          setHex(hex.q, hex.r, { terrain: null, label: '', settlement: null, roads: [] });
+          setHex(hex.q, hex.r, { terrain: null, label: '', settlement: null, roads: [], annotations: [] });
         } else if (mode === 'terrain') {
           setHex(hex.q, hex.r, { terrain: null });
         } else if (mode === 'settlement') {
@@ -316,12 +316,12 @@ function handleHexClick(q, r, e) {
     const mode = document.getElementById('erase-mode').value;
     const h = getHex(q, r);
     // Locked: don't erase hexes with any content
-    if (isLocked && (h.terrain || h.settlement || h.label || h.roads?.length)) {
+    if (isLocked && (h.terrain || h.settlement || h.label || h.roads?.length || (h.annotations && h.annotations.length))) {
       showDiceResult('🔒', '已锁定，取消勾选锁定后擦除');
       return;
     }
     if (mode === 'all') {
-      setHex(q, r, { terrain: null, label: '', settlement: null, roads: [] });
+      setHex(q, r, { terrain: null, label: '', settlement: null, roads: [], annotations: [] });
     } else if (mode === 'terrain') {
       setHex(q, r, { terrain: null });
     } else if (mode === 'settlement') {

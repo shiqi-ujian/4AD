@@ -88,7 +88,9 @@ function redo() {
   updateUndoButtons();
 }
 let showGrid = true, showCoords = true;
-let currentLayer = 'region'; // 始终显示王国边境
+let showRegionLayer = true; // 王国图层可见性开关
+let regionBorderOpacity = 0.85; // 王国边境不透明度 (0~1)
+let showRegionNames = true;     // 是否显示王国名称（领土中心浮动标签）
 
 // 王国边境配置 (一个六角格 = 一天路程)
 const DEFAULT_REGIONS = {
@@ -98,6 +100,30 @@ const DEFAULT_REGIONS = {
   west:   { name: '西境王国', color: '#b54a6a', icon: '⛰️' },
   central:{ name: '中央王国', color: '#c9a84c', icon: '👑' },
 };
+
+// 王国模板池 — 一键生成时随机抽取，每次阵容不同
+const REGION_TEMPLATES = [
+  { id: 'iron_keep',     name: '铁砧堡',     color: '#8b4513', icon: '⚒️' },
+  { id: 'silver_crown',  name: '银冠领',     color: '#4a7fb5', icon: '👑' },
+  { id: 'thorn_wild',    name: '棘林境',     color: '#2d5a2e', icon: '🌲' },
+  { id: 'ash_marches',   name: '灰烬边疆',   color: '#8a3a2a', icon: '🔥' },
+  { id: 'dusk_fen',      name: '暮沼',       color: '#5a4a3a', icon: '🌿' },
+  { id: 'frost_teeth',   name: '霜牙隘',     color: '#b0c8e0', icon: '❄️' },
+  { id: 'sands_end',     name: '沙尽城',     color: '#d4b872', icon: '🏜️' },
+  { id: 'blood_rock',    name: '血岩要塞',   color: '#6b2a2a', icon: '🪨' },
+  { id: 'mist_hold',     name: '雾隐之地',   color: '#6a6a8a', icon: '🌫️' },
+  { id: 'shadow_blade',  name: '影刃荒野',   color: '#4a2a4a', icon: '⚔️' },
+  { id: 'dragon_bones',  name: '龙骨山脉',   color: '#7a6a4a', icon: '🦴' },
+  { id: 'wind_howl',     name: '风吼平原',   color: '#8aaa5a', icon: '🌬️' },
+  { id: 'thunder_fall',  name: '雷殒堡',     color: '#8a7a2a', icon: '⚡' },
+  { id: 'ember_mire',    name: '烬灭沼泽',   color: '#5a3a2a', icon: '🕳️' },
+  { id: 'deep_spring',   name: '幽潭境',     color: '#2a5a6a', icon: '💧' },
+  { id: 'crystal_spire', name: '晶辉峰',     color: '#7ab8c8', icon: '💎' },
+  { id: 'black_port',    name: '黑港城',     color: '#4a4a5a', icon: '⚓' },
+  { id: 'weeping_vale',  name: '泣谷之地',   color: '#6a5a4a', icon: '🕯️' },
+  { id: 'gilded_ruin',   name: '金蚀废墟',   color: '#b8a84a', icon: '🏚️' },
+  { id: 'hollow_keep',   name: '虚空堡',     color: '#3a2a5a', icon: '🔮' },
+];
 let regions = JSON.parse(JSON.stringify(DEFAULT_REGIONS));
 let regionOrder = null; // array of region IDs in display order
 let roadStart = null; // { q, r } for road drawing
@@ -162,7 +188,7 @@ function buildImageRegistry(sourceHexData, sourceCustomTerrains) {
   }
   const exportHex = {};
   for (const [k, h] of Object.entries(sourceHexData)) {
-    const eh = { terrain: h.terrain, label: h.label };
+    const eh = { terrain: h.terrain, label: h.label, annotations: h.annotations }; // annotations preserved in save
     if (h.settlement) {
       eh.settlement = { name: h.settlement.name, rating: h.settlement.rating };
       if (h.settlement.imageUrl) eh.settlement.imageHash = register(h.settlement.imageUrl);
@@ -189,7 +215,7 @@ function resolveImageRegistry(sourceHexData, sourceCustomTerrains, registry) {
   }
   const resultHex = {};
   for (const [k, h] of Object.entries(sourceHexData)) {
-    const rh = { terrain: h.terrain, label: h.label };
+    const rh = { terrain: h.terrain, label: h.label, annotations: h.annotations };
     if (h.settlement) {
       rh.settlement = { name: h.settlement.name, rating: h.settlement.rating };
       const img = h.settlement.imageHash ? resolve(h.settlement.imageHash) : h.settlement.imageUrl;

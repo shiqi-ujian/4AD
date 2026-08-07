@@ -43,41 +43,7 @@ function render() {
   }
 
   // Pass 2: Region borders (between fills and roads)
-  for (let q = qMin; q <= qMax; q++) {
-    for (let r = rMin; r <= rMax; r++) {
-      const h = getHex(q, r);
-      if (!h.region) continue;
-      const p = hexToPixel(q, r);
-      const corners = hexCorners(p.x, p.y, HEX_SIZE);
-      const parity = q & 1;
-      const dirs = parity
-        ? [[1,0],[0,-1],[-1,0],[-1,1],[0,1],[1,1]]
-        : [[1,0],[1,-1],[0,-1],[-1,-1],[-1,0],[0,1]];
-      for (let i = 0; i < 6; i++) {
-        const j = (i + 1) % 6;
-        // 边 i→j 对应的邻居方向：偶数列用 dirs[(i+1)%6]，奇数列用 dirs[i]
-        const [dq, dr] = dirs[(6 - i - parity) % 6];
-        const nq = q + dq, nr = r + dr;
-        const nh = getHex(nq, nr);
-        let drawBorder = false;
-        if (!nh.region) {
-          // Wilderness border: this hex's region boundary to unclaimed land
-          drawBorder = true;
-        } else if (nh.region !== h.region && h.region < nh.region) {
-          // Inter-region border: draw once per edge (alphabetical comparison)
-          drawBorder = true;
-        }
-        if (drawBorder) {
-          ctx.beginPath();
-          ctx.moveTo(corners[i].x, corners[i].y);
-          ctx.lineTo(corners[j].x, corners[j].y);
-          ctx.strokeStyle = hexToRGBA(regions[h.region].color, 0.7);
-          ctx.lineWidth = 2.5;
-          ctx.stroke();
-        }
-      }
-    }
-  }
+  drawRegionBorders(ctx, qMin, qMax, rMin, rMax, getHex);
 
   // Pass 3: Draw roads (between hexes)
   ctx.strokeStyle = '#8B4513';
@@ -107,6 +73,9 @@ function render() {
       drawHexOverlay(q, r, allTerrains);
     }
   }
+
+  // Pass 4: Region names (Worldbox style — center of territory)
+  drawRegionNames(ctx);
 
   // Draw selection outline
   if (selectedHex) {
@@ -192,8 +161,8 @@ function drawHexBase(q, r, allTerrains) {
   ctx.fill();
 
   // 2. Region layer: overlay semi-transparent region color on top of terrain
-  if (h.region && regions[h.region]) {
-    ctx.fillStyle = hexToRGBA(regions[h.region].color, 0.3);
+  if (showRegionLayer && h.region && regions[h.region]) {
+    ctx.fillStyle = hexToRGBA(regions[h.region].color, 0.2);
     ctx.fill();
   }
 
@@ -228,7 +197,24 @@ function drawHexOverlay(q, r, allTerrains) {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = 'rgba(255,255,255,0.85)';
-      ctx.fillText(hOverlayTI.icon, p.x, p.y - (h.label || h.settlement ? HEX_SIZE * 0.15 : 0));
+      ctx.fillText(hOverlayTI.icon, p.x, p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.15 : 0));
+    }
+  }
+
+  // Annotation icons (visible ones)
+  if (h.annotations && h.annotations.length) {
+    const visibleIcons = h.annotations.filter(a => a.visible).map(a => ANNOTATION_TYPES[a.type]?.icon || '📍');
+    if (visibleIcons.length) {
+      // Draw small icons in top-right corner of hex
+      const startX = p.x + HEX_SIZE * 0.3;
+      const startY = p.y - HEX_SIZE * 0.65;
+      ctx.font = `${HEX_SIZE * 0.25}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      visibleIcons.forEach((icon, idx) => {
+        ctx.fillText(icon, startX + idx * (HEX_SIZE * 0.28), startY);
+      });
     }
   }
 

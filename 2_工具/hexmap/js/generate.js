@@ -475,6 +475,13 @@ async function oneClickGenerate(config) {
     centerR = selectedHex.r;
   }
 
+  // Step 0: Randomly pick kingdoms for this map
+  var newRegions = pickRandomKingdoms(seed, width, height);
+  Object.keys(regions).forEach(function(k) { delete regions[k]; });
+  Object.assign(regions, newRegions);
+  regionOrder = Object.keys(newRegions);
+  rebuildRegionPalette();
+
   const totalHexes = width * height;
   showProgress('🏗️', '生成地形中', 0, totalHexes);
 
@@ -484,6 +491,12 @@ async function oneClickGenerate(config) {
   await generateTerrainRegionAsync(seed, centerQ, centerR, width, height, scale,
     function(done, total) { showProgress('🏗️', '生成地形中', done, total); }
   );
+
+  // Step 1.5: Assign kingdoms (Voronoi tessellation from random centers)
+  showProgress('👑', '分配王国边境...', 0, 1);
+  await new Promise(function(resolve) { setTimeout(resolve, 20); });
+  assignRegions(seed, centerQ, centerR, width, height);
+  render();
 
   showProgress('🏘️', '放置定居点...', 0, 1);
 
@@ -641,6 +654,64 @@ function hexDistance(q1, r1, q2, r2) {
   return Math.max(Math.abs(x1 - x2), Math.abs(y1 - y2), Math.abs(z1 - z2));
 }
 
+// Assign kingdoms (regions) to hexes using Voronoi tessellation
+function assignRegions(seed, centerQ, centerR, width, height) {
+  const regionIds = regionOrder || Object.keys(regions);
+  if (regionIds.length === 0) return;
+
+  var rng = mulberry32(seed + 999);
+  var halfW = Math.floor(width / 2);
+  var halfH = Math.floor(height / 2);
+
+  // Generate random center points for each region
+  var centers = [];
+  for (var ri = 0; ri < regionIds.length; ri++) {
+    var cq, cr, retries = 0;
+    do {
+      cq = centerQ + Math.floor(rng() * width - halfW);
+      cr = centerR + Math.floor(rng() * height - halfH);
+      retries++;
+    } while (retries < 5 && getHex(cq, cr).terrain === 'water');
+    centers.push({ q: cq, r: cr, id: regionIds[ri] });
+  }
+
+  // Assign each hex to its nearest region center (skip water)
+  for (var q = centerQ - halfW; q <= centerQ + halfW; q++) {
+    for (var r = centerR - halfH; r <= centerR + halfH; r++) {
+      var key = hexKey(q, r);
+      var h = getHex(q, r);
+      if (!h.terrain || h.terrain === 'water') continue;
+      var bestDist = Infinity, bestId = null;
+      for (var ci = 0; ci < centers.length; ci++) {
+        var d = hexDistance(q, r, centers[ci].q, centers[ci].r);
+        if (d < bestDist) { bestDist = d; bestId = centers[ci].id; }
+      }
+      writeHexData(key, { region: bestId });
+    }
+  }
+}
+
+// Pick random kingdoms from the template pool based on map size
+function pickRandomKingdoms(seed, mapWidth, mapHeight) {
+  var total = mapWidth * mapHeight;
+  var count;
+  if (total < 400) count = 3 + (seed % 2);       // <20×20: 3~4
+  else if (total < 1600) count = 4 + (seed % 3); // 20~40: 4~6
+  else count = 5 + (seed % 3);                   // >40: 5~7
+
+  var rng = mulberry32(seed + 888);
+  var pool = REGION_TEMPLATES.slice(); // copy
+  // Fisher-Yates shuffle
+  for (var i = pool.length - 1; i > 0; i--) {
+    var j = Math.floor(rng() * (i + 1));
+    var tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
+  }
+  var picked = pool.slice(0, Math.min(count, pool.length));
+  var result = {};
+  picked.forEach(function(t) { result[t.id] = { name: t.name, color: t.color, icon: t.icon }; });
+  return result;
+}
+
 // Undo/Redo buttons
 document.getElementById('btn-undo').addEventListener('click', undo);
 document.getElementById('btn-redo').addEventListener('click', redo);
@@ -669,7 +740,7 @@ document.getElementById('btn-save').addEventListener('click', async function() {
   await new Promise(function(resolve) { setTimeout(resolve, 20); });
 
   var ex = buildImageRegistry(hexData, customTerrains);
-  var data = { hexData: ex.exportHex, imageRegistry: ex.registry, viewX: viewX, viewY: viewY, zoom: zoom, customTerrains: ex.exportCT, deletedTerrains: deletedTerrains, terrainOrder: terrainOrder, generationRules: generationRules };
+  var data = { hexData: ex.exportHex, imageRegistry: ex.registry, viewX: viewX, viewY: viewY, zoom: zoom, customTerrains: ex.exportCT, deletedTerrains: deletedTerrains, terrainOrder: terrainOrder, generationRules: generationRules, regions: regions, regionOrder: regionOrder };
   var json = JSON.stringify(data);
 
   var blob;
@@ -733,6 +804,9 @@ document.getElementById('btn-load').addEventListener('click', function() {
       if (data.deletedTerrains) deletedTerrains = data.deletedTerrains;
       if (data.terrainOrder) terrainOrder = data.terrainOrder;
       if (data.generationRules) generationRules = { ...DEFAULT_GEN_RULES, ...data.generationRules };
+      if (data.regions) regions = data.regions;
+      if (data.regionOrder) regionOrder = data.regionOrder;
+      rebuildRegionPalette();
       saveTerrainConfig();
       rebuildTerrainPalette();
       document.getElementById('zoom-indicator').textContent = '🔍 ' + Math.round(zoom * 100) + '%';
@@ -803,52 +877,20 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
     exportCtx.fillStyle = fillColor;
     exportCtx.fill();
     // 2. Region layer: overlay semi-transparent region color on top
-    if (h.region && regions[h.region]) {
+    if (showRegionLayer && h.region && regions[h.region]) {
       exportCtx.fillStyle = 'rgba(' +
         parseInt(regions[h.region].color.slice(1,3), 16) + ',' +
         parseInt(regions[h.region].color.slice(3,5), 16) + ',' +
-        parseInt(regions[h.region].color.slice(5,7), 16) + ',0.3)';
+        parseInt(regions[h.region].color.slice(5,7), 16) + ',0.2)';
       exportCtx.fill();
     }
     exportCtx.strokeStyle = 'rgba(255,255,255,0.12)';
     exportCtx.lineWidth = 1;
     exportCtx.stroke();
   }
-  // Region borders (Pass 1.5)
-  for (const key of keys) {
-      const [q, r] = key.split(',').map(Number);
-      const h = hexData[key];
-      if (!h.region) continue;
-      const p = hexToPixel(q, r);
-      const corners = hexCorners(p.x, p.y, HEX_SIZE);
-      const parity = q & 1;
-      const dirs = parity
-        ? [[1,0],[0,-1],[-1,0],[-1,1],[0,1],[1,1]]
-        : [[1,0],[1,-1],[0,-1],[-1,-1],[-1,0],[0,1]];
-      for (let i = 0; i < 6; i++) {
-        const j = (i + 1) % 6;
-        const [dq, dr] = dirs[(6 - i - parity) % 6];
-        const nq = q + dq, nr = r + dr;
-        const nh = getHex(nq, nr);
-        let drawBorder = false;
-        if (!nh.region) {
-          drawBorder = true;
-        } else if (nh.region !== h.region && h.region < nh.region) {
-          drawBorder = true;
-        }
-        if (drawBorder) {
-          exportCtx.beginPath();
-          exportCtx.moveTo(corners[i].x, corners[i].y);
-          exportCtx.lineTo(corners[j].x, corners[j].y);
-          const cr = parseInt(regions[h.region].color.slice(1,3), 16);
-          const cg = parseInt(regions[h.region].color.slice(3,5), 16);
-          const cb = parseInt(regions[h.region].color.slice(5,7), 16);
-          exportCtx.strokeStyle = `rgba(${cr},${cg},${cb},0.7)`;
-          exportCtx.lineWidth = 2.5;
-          exportCtx.stroke();
-        }
-      }
-    }
+  // Region borders (shared function)
+  drawRegionBorders(exportCtx, minQ - 1, maxQ + 1, minR - 1, maxR + 1, (q, r) => hexData[hexKey(q, r)] || { region: null });
+  // Draw roads (Pass 2)
   // Draw roads (Pass 2)
   exportCtx.strokeStyle = '#8B4513';
   exportCtx.lineWidth = 3;
@@ -886,23 +928,38 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
             exportCtx.closePath();
             exportCtx.clip();
             const is = HEX_SIZE * 0.9;
-            exportCtx.drawImage(img, p.x - is/2, p.y - (h.label || h.settlement ? HEX_SIZE * 0.3 : 0) - is/2, is, is);
+            exportCtx.drawImage(img, p.x - is/2, p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.3 : 0) - is/2, is, is);
             exportCtx.restore();
           } else {
             exportCtx.font = `${HEX_SIZE * 0.5}px sans-serif`;
             exportCtx.textAlign = 'center';
             exportCtx.textBaseline = 'middle';
             exportCtx.fillStyle = 'rgba(255,255,255,0.85)';
-            exportCtx.fillText(hOTI.icon, p.x, p.y - (h.label || h.settlement ? HEX_SIZE * 0.15 : 0));
+            exportCtx.fillText(hOTI.icon, p.x, p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.15 : 0));
           }
         } else {
           exportCtx.font = `${HEX_SIZE * 0.5}px sans-serif`;
           exportCtx.textAlign = 'center';
           exportCtx.textBaseline = 'middle';
           exportCtx.fillStyle = 'rgba(255,255,255,0.85)';
-          exportCtx.fillText(hOTI.icon, p.x, p.y - (h.label || h.settlement ? HEX_SIZE * 0.15 : 0));
+          exportCtx.fillText(hOTI.icon, p.x, p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.15 : 0));
         }
       }
+    // Annotation icons (visible ones)
+    if (h.annotations && h.annotations.length) {
+      const visibleIcons = h.annotations.filter(a => a.visible).map(a => ANNOTATION_TYPES[a.type]?.icon || '📍');
+      if (visibleIcons.length) {
+        const startX = p.x + HEX_SIZE * 0.3;
+        const startY = p.y - HEX_SIZE * 0.65;
+        exportCtx.font = `${HEX_SIZE * 0.25}px sans-serif`;
+        exportCtx.textAlign = 'center';
+        exportCtx.textBaseline = 'middle';
+        exportCtx.fillStyle = 'rgba(255,255,255,0.9)';
+        visibleIcons.forEach((icon, idx) => {
+          exportCtx.fillText(icon, startX + idx * (HEX_SIZE * 0.28), startY);
+        });
+      }
+    }
     // Label
     if (h.label) {
       exportCtx.fillStyle = '#fff';
@@ -940,6 +997,8 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
         } // closes if(h.settlement.imageUrl)
       } // closes if(h.settlement)
     } // closes for loop
+  // Region names (Pass 3.5)
+  drawRegionNames(exportCtx);
   exportCtx.restore();
   const link = document.createElement("a");
   link.download = "hexmap_" + new Date().toISOString().slice(0,10) + ".png";
@@ -970,6 +1029,7 @@ document.getElementById('chk-grid').addEventListener('change', (e) => { showGrid
 document.getElementById('chk-coords').addEventListener('change', (e) => { showCoords = e.target.checked; render(); });
 document.getElementById('chk-minimap').addEventListener('change', () => render());
 document.getElementById('chk-lock').addEventListener('change', (e) => { isLocked = e.target.checked; });
+document.getElementById('chk-region-layer').addEventListener('change', (e) => { showRegionLayer = e.target.checked; render(); });
 
 // Manage regions button
 document.getElementById('btn-manage-regions').addEventListener('click', openRegionEditor);
@@ -989,13 +1049,19 @@ function updateInfo() {
   const regionInfo = h.region && regions[h.region] ? `${regions[h.region].icon} ${regions[h.region].name}` : '—';
   const roads = h.roads?.length || 0;
   const nbrs = neighbors(q, r);
+  const annInfo = h.annotations && h.annotations.length ?
+    h.annotations.map(a => {
+      const t = ANNOTATION_TYPES[a.type] || ANNOTATION_TYPES.note;
+      return (a.visible ? '' : '🙈') + t.icon + ' ' + escHtml(a.text);
+    }).join('<br>') : '—';
   panel.innerHTML = `<div class="row">
     <span><span class="label">坐标:</span> <span class="val">(${q}, ${r})</span></span>
     <span><span class="label">地形:</span> <span class="val">${t}</span></span>
     <span><span class="label">定居点:</span> <span class="val">${settle}</span></span>
     <span><span class="label">王国:</span> <span class="val">${regionInfo}</span></span>
-    <span><span class="label">标签:</span> <span class="val">${h.label || '—'}</span></span>
+    <span><span class="label">快捷标签:</span> <span class="val">${h.label || '—'}</span></span>
     <span><span class="label">道路:</span> <span class="val">${roads} 条连接</span></span>
+    <span><span class="label">标注 (${h.annotations ? h.annotations.length : 0}条):</span> <span class="val" style="font-size:11px;">${annInfo}</span></span>
   </div>`;
 }
 

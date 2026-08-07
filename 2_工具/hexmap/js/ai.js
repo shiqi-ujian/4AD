@@ -74,6 +74,9 @@ function buildSystemPrompt() {
   const terrainDesc = Object.entries(allT).map(([id, info]) =>
     `  - "${id}": ${info.name || id}${info.icon ? ' (' + info.icon + ')' : ''}`
   ).join('\n');
+  const regionDesc = Object.entries(regions || {}).map(([id, r]) =>
+    `  - "${id}": ${r.name || id}${r.icon ? ' (' + r.icon + ')' : ''}`
+  ).join('\n');
   return `你是地图编辑AI。你通过JSON命令数组来控制六角格地图。
 
 可用地形ID：
@@ -86,6 +89,13 @@ ${terrainDesc}
 4. 定居点：{"action":"settlement","q":<数字>,"r":<数字>,"name":"<名称>","rating":<-3到3的整数>}
 5. 道路：{"action":"road","q1":<数字>,"r1":<数字>,"q2":<数字>,"r2":<数字>}
 6. 矩形区域涂色：{"action":"paintRect","q1":<数字>,"r1":<数字>,"q2":<数字>,"r2":<数字>,"terrain":"<地形ID>"}
+7. 标注：{"action":"annotate","q":<数字>,"r":<数字>,"type":"分类","text":"<文字>","visible":true或false}
+   分类可选值: poi(地标), hazard(危险), lore(剧情), note(备注), marker(标记)
+8. 设置王国：{"action":"setRegion","q":<数字>,"r":<数字>,"region":"<王国ID>"}
+9. 矩形区域设置王国：{"action":"setRegionRect","q1":<数字>,"r1":<数字>,"q2":<数字>,"r2":<数字>,"region":"<王国ID>"}
+
+可用王国ID：
+${regionDesc}
 
 重要规则：
 - 坐标 (q, r) 使用 odd-r 六角格系统
@@ -517,7 +527,7 @@ function executeOneAICommand(cmd) {
   // Each command is its own undo batch
   beginBatch();
   try {
-    const { action, q, r, terrain, text, name, rating, q1, r1, q2, r2 } = cmd;
+    const { action, q, r, terrain, text, name, rating, q1, r1, q2, r2, type, visible, region } = cmd;
     let count = 0;
     if (action === 'paint' && q !== undefined && r !== undefined && terrain) {
       const key = hexKey(q, r);
@@ -543,6 +553,19 @@ function executeOneAICommand(cmd) {
       if (!hexData[key]) hexData[key] = {};
       hexData[key].settlement = { name, rating: rating || 0 };
       count++;
+    } else if (action === 'annotate' && q !== undefined && r !== undefined && text !== undefined) {
+      const key = hexKey(q, r);
+      pushUndo(key);
+      if (!hexData[key]) hexData[key] = {};
+      if (!hexData[key].annotations) hexData[key].annotations = [];
+      hexData[key].annotations.push({
+        id: genAnnId(),
+        type: type || 'note',
+        text: text,
+        visible: visible !== undefined ? visible : false,
+        createdAt: Date.now()
+      });
+      if (text) count++;
     } else if (action === 'road' && q1 !== undefined && r1 !== undefined && q2 !== undefined && r2 !== undefined) {
       // If not adjacent, auto-pathfind and build road segment by segment
       if (!neighbors(q1, r1).some(n => n.q === q2 && n.r === r2)) {
@@ -599,6 +622,30 @@ function executeOneAICommand(cmd) {
           count++;
         }
       }
+    } else if (action === 'setRegion' && q !== undefined && r !== undefined && region) {
+      const key = hexKey(q, r);
+      pushUndo(key);
+      if (!hexData[key]) hexData[key] = {};
+      hexData[key].region = region;
+      count++;
+    } else if (action === 'setRegionRect' && q1 !== undefined && r1 !== undefined && q2 !== undefined && r2 !== undefined && region) {
+      let minQ = Math.min(q1, q2), maxQ = Math.max(q1, q2);
+      let minR = Math.min(r1, r2), maxR = Math.max(r1, r2);
+      if (Math.abs(maxQ - minQ) > 100) {
+        if (q1 < q2) maxQ = minQ + 100; else minQ = maxQ - 100;
+      }
+      if (Math.abs(maxR - minR) > 100) {
+        if (r1 < r2) maxR = minR + 100; else minR = maxR - 100;
+      }
+      for (let qq = minQ; qq <= maxQ; qq++) {
+        for (let rr = minR; rr <= maxR; rr++) {
+          const key = hexKey(qq, rr);
+          pushUndo(key);
+          if (!hexData[key]) hexData[key] = {};
+          hexData[key].region = region;
+          count++;
+        }
+      }
     }
     return count;
   } finally {
@@ -622,7 +669,7 @@ function executeAICommands(commands) {
 
 // Internal: execute one command without beginBatch/endBatch (caller batches)
 function executeOneAICommandNoBatch(cmd) {
-  const { action, q, r, terrain, text, name, rating, q1, r1, q2, r2 } = cmd;
+  const { action, q, r, terrain, text, name, rating, q1, r1, q2, r2, type, visible, region } = cmd;
   let count = 0;
   if (action === 'paint' && q !== undefined && r !== undefined && terrain) {
     const key = hexKey(q, r);
@@ -648,6 +695,19 @@ function executeOneAICommandNoBatch(cmd) {
     if (!hexData[key]) hexData[key] = {};
     hexData[key].settlement = { name, rating: rating || 0 };
     count++;
+  } else if (action === 'annotate' && q !== undefined && r !== undefined && text !== undefined) {
+    const key = hexKey(q, r);
+    pushUndo(key);
+    if (!hexData[key]) hexData[key] = {};
+    if (!hexData[key].annotations) hexData[key].annotations = [];
+    hexData[key].annotations.push({
+      id: genAnnId(),
+      type: type || 'note',
+      text: text,
+      visible: visible !== undefined ? visible : false,
+      createdAt: Date.now()
+    });
+    if (text) count++;
   } else if (action === 'road' && q1 !== undefined && r1 !== undefined && q2 !== undefined && r2 !== undefined) {
     // If not adjacent, auto-pathfind
     if (!neighbors(q1, r1).some(n => n.q === q2 && n.r === r2)) {
@@ -702,11 +762,33 @@ function executeOneAICommandNoBatch(cmd) {
         count++;
       }
     }
+  } else if (action === 'setRegion' && q !== undefined && r !== undefined && region) {
+    const key = hexKey(q, r);
+    pushUndo(key);
+    if (!hexData[key]) hexData[key] = {};
+    hexData[key].region = region;
+    count++;
+  } else if (action === 'setRegionRect' && q1 !== undefined && r1 !== undefined && q2 !== undefined && r2 !== undefined && region) {
+    let minQ = Math.min(q1, q2), maxQ = Math.max(q1, q2);
+    let minR = Math.min(r1, r2), maxR = Math.max(r1, r2);
+    if (Math.abs(maxQ - minQ) > 100) {
+      if (q1 < q2) maxQ = minQ + 100; else minQ = maxQ - 100;
+    }
+    if (Math.abs(maxR - minR) > 100) {
+      if (r1 < r2) maxR = minR + 100; else minR = maxR - 100;
+    }
+    for (let qq = minQ; qq <= maxQ; qq++) {
+      for (let rr = minR; rr <= maxR; rr++) {
+        const key = hexKey(qq, rr);
+        pushUndo(key);
+        if (!hexData[key]) hexData[key] = {};
+        hexData[key].region = region;
+        count++;
+      }
+    }
   }
   return count;
 }
-
-// --- Event bindings ---
 // Open AI dialog
   const btnAI = document.getElementById('btn-ai-draw');
   if (btnAI) {

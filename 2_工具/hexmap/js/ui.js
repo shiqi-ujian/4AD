@@ -43,7 +43,7 @@ function showContextMenu(cx, cy, mx, my) {
   items.push({ text: '—' });
   items.push({
     text: '🧹 清除',
-    action: () => { setHex(hex.q, hex.r, { terrain: null, label: '', settlement: null, roads: [] }); render(); updateInfo(); }
+    action: () => { setHex(hex.q, hex.r, { terrain: null, label: '', settlement: null, roads: [], annotations: [] }); render(); updateInfo(); }
   });
 
   items.forEach(item => {
@@ -116,8 +116,8 @@ document.getElementById('btn-batch-erase').addEventListener('click', () => {
   for (const key of selectedHexes) {
     const [q, r] = key.split(',').map(Number);
     const h = getHex(q, r);
-    if (isLocked && (h.terrain || h.settlement || h.label || h.roads?.length)) continue;
-    setHex(q, r, { terrain: null, label: '', settlement: null, roads: [] });
+    if (isLocked && (h.terrain || h.settlement || h.label || h.roads?.length || (h.annotations && h.annotations.length))) continue;
+    setHex(q, r, { terrain: null, label: '', settlement: null, roads: [], annotations: [] });
   }
   endBatch();
   showDiceResult('🧹', `已批量清除 ${selectedHexes.size} 格`);
@@ -179,8 +179,77 @@ function showLabelDialog(q, r) {
   document.getElementById('label-modal-r').value = r;
   document.getElementById('label-modal-coord').textContent = `(${q}, ${r})`;
   document.getElementById('label-modal-text').value = h.label || '';
+  rebuildAnnotationList();
+  document.getElementById('ann-add-form').style.display = 'none';
+  document.getElementById('ann-show-add-btn').style.display = 'block';
   document.getElementById('label-modal').style.display = 'block';
   setTimeout(() => document.getElementById('label-modal-text').focus(), 50);
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function rebuildAnnotationList() {
+  const q = parseInt(document.getElementById('label-modal-q').value);
+  const r = parseInt(document.getElementById('label-modal-r').value);
+  const h = getHex(q, r);
+  const anns = h.annotations || [];
+  const list = document.getElementById('ann-list');
+  const count = document.getElementById('ann-count');
+  if (count) count.textContent = `(${anns.length}条)`;
+
+  if (!list) return;
+  let html = '<div style="font-size:12px;color:#888;margin-bottom:6px;">详细标注 <span id="ann-count" style="color:#666;">(' + anns.length + '条)</span></div>';
+
+  if (anns.length === 0) {
+    html += '<div style="font-size:12px;color:#555;text-align:center;padding:10px;">暂无详细标注</div>';
+  } else {
+    anns.forEach(a => {
+      const t = ANNOTATION_TYPES[a.type] || ANNOTATION_TYPES.note;
+      const eye = a.visible ? '👁️' : '🙈';
+      const visLabel = a.visible ? '显示' : '隐藏';
+      html += '<div style="display:flex;align-items:flex-start;gap:6px;padding:6px 8px;margin:4px 0;background:#1a1a2e;border-radius:4px;border-left:3px solid ' + t.color + ';">';
+      html += '<span style="font-size:14px;line-height:1.4;">' + t.icon + '</span>';
+      html += '<div style="flex:1;min-width:0;">';
+      html += '<div style="font-size:11px;color:' + t.color + ';">' + t.name + '</div>';
+      html += '<div style="font-size:13px;color:#e0e0e0;word-break:break-word;white-space:pre-wrap;">' + escHtml(a.text) + '</div>';
+      html += '</div>';
+      html += '<div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0;">';
+      html += '<button class="ann-vis-btn" data-id="' + a.id + '" title="' + visLabel + '" style="padding:2px 6px;background:none;border:none;cursor:pointer;font-size:14px;">' + eye + '</button>';
+      html += '<button class="ann-del-btn" data-id="' + a.id + '" title="删除" style="padding:2px 6px;background:none;border:none;cursor:pointer;font-size:14px;color:#e94560;">✕</button>';
+      html += '</div></div>';
+    });
+  }
+
+  list.innerHTML = html;
+
+  // Visibility toggle
+  list.querySelectorAll('.ann-vis-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const id = this.dataset.id;
+      const h2 = getHex(q, r);
+      const ann = h2.annotations?.find(a => a.id === id);
+      if (ann) {
+        updateAnnotation(q, r, id, { visible: !ann.visible });
+        rebuildAnnotationList();
+        render();
+        updateInfo();
+      }
+    });
+  });
+
+  // Delete
+  list.querySelectorAll('.ann-del-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      if (!confirm('删除此标注？')) return;
+      removeAnnotation(q, r, this.dataset.id);
+      rebuildAnnotationList();
+      render();
+      updateInfo();
+    });
+  });
 }
 
 function showDiceResult(line1, line2) {
@@ -635,19 +704,49 @@ document.getElementById('settlement-modal-rating').addEventListener('keydown', f
   if (e.key === 'Escape') document.getElementById('settlement-modal').style.display = 'none';
 });
 
-// ======== Label Modal ========
-function labelModalConfirm() {
+// ======== Label / Annotation Modal ========
+
+// Quick label save
+document.getElementById('label-modal-quick-save').addEventListener('click', function() {
   const q = parseInt(document.getElementById('label-modal-q').value);
   const r = parseInt(document.getElementById('label-modal-r').value);
   const text = document.getElementById('label-modal-text').value.trim();
   setHex(q, r, { label: text });
-  document.getElementById('label-modal').style.display = 'none';
+  showDiceResult('🏷️ 快捷标签已保存', text || '(空)');
   render();
   updateInfo();
-  showDiceResult('🏷️ 已保存', text || '(空)');
-}
+});
 
-document.getElementById('label-modal-confirm').addEventListener('click', labelModalConfirm);
+// Show add form
+document.getElementById('ann-show-add-btn').addEventListener('click', function() {
+  document.getElementById('ann-add-form').style.display = 'block';
+  this.style.display = 'none';
+  document.getElementById('ann-add-text').focus();
+});
+
+// Cancel add
+document.getElementById('ann-add-cancel').addEventListener('click', function() {
+  document.getElementById('ann-add-form').style.display = 'none';
+  document.getElementById('ann-show-add-btn').style.display = 'block';
+  document.getElementById('ann-add-text').value = '';
+});
+
+// Confirm add
+document.getElementById('ann-add-confirm').addEventListener('click', function() {
+  const q = parseInt(document.getElementById('label-modal-q').value);
+  const r = parseInt(document.getElementById('label-modal-r').value);
+  const text = document.getElementById('ann-add-text').value.trim();
+  if (!text) { alert('请输入标注文字'); return; }
+  const type = document.getElementById('ann-add-type').value;
+  const visible = document.getElementById('ann-add-visible').checked;
+  addAnnotation(q, r, { type, text, visible });
+  document.getElementById('ann-add-text').value = '';
+  rebuildAnnotationList();
+  render();
+  updateInfo();
+  showDiceResult('📋 已添加标注', (ANNOTATION_TYPES[type]?.icon || '') + ' ' + text.slice(0, 40));
+});
+
 document.getElementById('label-modal-cancel').addEventListener('click', function() {
   document.getElementById('label-modal').style.display = 'none';
 });
@@ -655,7 +754,15 @@ document.getElementById('label-modal').addEventListener('click', function(e) {
   if (e.target === e.currentTarget) e.currentTarget.style.display = 'none';
 });
 document.getElementById('label-modal-text').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') labelModalConfirm();
+  if (e.key === 'Enter') {
+    const q = parseInt(document.getElementById('label-modal-q').value);
+    const r = parseInt(document.getElementById('label-modal-r').value);
+    const text = document.getElementById('label-modal-text').value.trim();
+    setHex(q, r, { label: text });
+    showDiceResult('🏷️ 快捷标签已保存', text || '(空)');
+    render();
+    updateInfo();
+  }
   if (e.key === 'Escape') document.getElementById('label-modal').style.display = 'none';
 });
 
@@ -769,12 +876,52 @@ function editRegion(id) {
   render();
 }
 
+function addRegion() {
+  const idInput = document.getElementById('re-new-id');
+  const nameInput = document.getElementById('re-new-name');
+  const iconInput = document.getElementById('re-new-icon');
+  const colorInput = document.getElementById('re-new-color');
+  if (!idInput || !idInput.value.trim()) {
+    showDiceResult('⚠️', '请输入王国ID');
+    return;
+  }
+  const id = idInput.value.trim().toLowerCase().replace(/\s+/g, '-');
+  if (regions[id]) {
+    showDiceResult('⚠️', '王国ID已存在');
+    return;
+  }
+  regions[id] = {
+    name: nameInput.value.trim() || id,
+    icon: iconInput.value.trim() || '👑',
+    color: colorInput.value || '#4a7fb5'
+  };
+  idInput.value = '';
+  nameInput.value = '';
+  iconInput.value = '';
+  rebuildRegionEditorList();
+  rebuildRegionPalette();
+  render();
+}
+
 document.getElementById('re-btn-add')?.addEventListener('click', addRegion);
 document.getElementById('re-btn-close')?.addEventListener('click', function() {
   document.getElementById('region-editor-modal').style.display = 'none';
 });
 document.getElementById('region-editor-modal')?.addEventListener('click', function(e) {
   if (e.target === e.currentTarget) e.currentTarget.style.display = 'none';
+});
+
+// 边境透明度控制
+document.getElementById('border-opacity')?.addEventListener('input', function(e) {
+  regionBorderOpacity = parseInt(e.target.value) / 100;
+  document.getElementById('border-opacity-val').textContent = e.target.value + '%';
+  render();
+});
+
+// 王国名称显示切换
+document.getElementById('chk-region-names')?.addEventListener('change', function(e) {
+  showRegionNames = e.target.checked;
+  render();
 });
 
 // Roll dice — with animation

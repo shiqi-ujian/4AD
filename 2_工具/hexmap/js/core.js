@@ -160,7 +160,7 @@ function hexKey(q, r) { return `${q},${r}`; }
 
 function getHex(q, r) {
   const k = hexKey(q, r);
-  return hexData[k] || { terrain: null, label: '', settlement: null, roads: [], region: null };
+  return hexData[k] || { terrain: null, label: '', settlement: null, roads: [], region: null, annotations: [] };
 }
 
 let settlementIndex = []; // [{q, r}] — fast lookup for rankSettlementLocation
@@ -169,8 +169,8 @@ let settlementIndex = []; // [{q, r}] — fast lookup for rankSettlementLocation
 // Returns the merged hex data, or null if the key was deleted (empty).
 function writeHexData(key, data) {
   const old = hexData[key];
-  const merged = { ...(old || { terrain: null, label: '', settlement: null, roads: [], region: null }), ...data };
-  if (!merged.terrain && !merged.label && !merged.settlement && !merged.region && (!merged.roads || merged.roads.length === 0)) {
+  const merged = { ...(old || { terrain: null, label: '', settlement: null, roads: [], region: null, annotations: [] }), ...data };
+  if (!merged.terrain && !merged.label && !merged.settlement && !merged.region && (!merged.roads || merged.roads.length === 0) && (!merged.annotations || merged.annotations.length === 0)) {
     delete hexData[key];
     // Update settlementIndex if old had a settlement
     if (old && old.settlement) {
@@ -200,14 +200,63 @@ function setHex(q, r, data) {
   writeHexData(key, data);
 }
 
-// Remove hexes with no terrain, label, settlement, or roads
+// Remove hexes with no terrain, label, settlement, roads, or annotations
 function cleanHexData() {
   for (const key of Object.keys(hexData)) {
     const h = hexData[key];
-    if (!h.terrain && !h.label && !h.settlement && !h.region && (!h.roads || h.roads.length === 0)) {
+    if (!h.terrain && !h.label && !h.settlement && !h.region && (!h.roads || h.roads.length === 0) && (!h.annotations || h.annotations.length === 0)) {
       delete hexData[key];
     }
   }
+}
+
+// ======== Annotations API ========
+let _annIdCounter = 0;
+function genAnnId() { return 'a' + (++_annIdCounter) + '_' + Date.now().toString(36); }
+
+const ANNOTATION_TYPES = {
+  poi:     { name: '地标',  icon: '📍', color: '#ffd700' },
+  hazard:  { name: '危险',  icon: '⚠️', color: '#e94560' },
+  lore:    { name: '剧情',  icon: '📜', color: '#c9a84c' },
+  note:    { name: '备注',  icon: '📝', color: '#888' },
+  marker:  { name: '标记',  icon: '🚩', color: '#4a7fb5' }
+};
+
+function addAnnotation(q, r, ann) {
+  const key = hexKey(q, r);
+  pushUndo(key);
+  const h = hexData[key];
+  if (!h) {
+    hexData[key] = { terrain: null, label: '', settlement: null, roads: [], region: null, annotations: [ann] };
+    return;
+  }
+  if (!h.annotations) h.annotations = [];
+  h.annotations.push({ id: genAnnId(), type: 'note', visible: false, createdAt: Date.now(), ...ann });
+}
+
+function removeAnnotation(q, r, id) {
+  const key = hexKey(q, r);
+  pushUndo(key);
+  const h = hexData[key];
+  if (!h || !h.annotations) return;
+  h.annotations = h.annotations.filter(a => a.id !== id);
+  if (h.annotations.length === 0) { delete h.annotations; }
+}
+
+function updateAnnotation(q, r, id, updates) {
+  const key = hexKey(q, r);
+  pushUndo(key);
+  const h = hexData[key];
+  if (!h || !h.annotations) return;
+  const idx = h.annotations.findIndex(a => a.id === id);
+  if (idx === -1) return;
+  h.annotations[idx] = { ...h.annotations[idx], ...updates };
+}
+
+function getVisibleAnnotationIcons(q, r) {
+  const h = hexData[hexKey(q, r)];
+  if (!h || !h.annotations) return [];
+  return h.annotations.filter(a => a.visible).map(a => ANNOTATION_TYPES[a.type]?.icon || '📍');
 }
 
 function hasRoad(q1, r1, q2, r2) {
@@ -252,4 +301,129 @@ function neighbors(q, r) {
     [1,0],[1,-1],[0,-1],[-1,-1],[-1,0],[0,1]
   ];
   return dirs.map(([dq, dr]) => ({ q: q + dq, r: r + dr }));
+}
+
+// ======== Shared region border rendering (used by render.js and generate.js) ========
+
+// Draw double-layered borders between regions/kingdoms.
+//   ctx: canvas 2D context (already transformed to hex coordinate space)
+//   hexDataSource(q, r): callback returning hex object { region, ... }
+function drawRegionBorders(ctx, qMin, qMax, rMin, rMax, hexDataSource) {
+  if (!showRegionLayer) return;
+  for (let q = qMin; q <= qMax; q++) {
+    for (let r = rMin; r <= rMax; r++) {
+      const h = hexDataSource(q, r);
+      if (!h || !h.region) continue;
+      const p = hexToPixel(q, r);
+      const corners = hexCorners(p.x, p.y, HEX_SIZE);
+      const parity = q & 1;
+      const dirs = parity
+        ? [[1,0],[0,-1],[-1,0],[-1,1],[0,1],[1,1]]
+        : [[1,0],[1,-1],[0,-1],[-1,-1],[-1,0],[0,1]];
+      for (let i = 0; i < 6; i++) {
+        const j = (i + 1) % 6;
+        const [dq, dr] = dirs[(6 - i - parity) % 6];
+        const nq = q + dq, nr = r + dr;
+        const nh = hexDataSource(nq, nr) || { region: null };
+        let isWildBorder = false;
+        if (!nh.region) {
+          isWildBorder = true;
+        } else if (nh.region === h.region) {
+          continue; // same region, skip
+        } else if (h.region >= nh.region) {
+          continue; // draw only once per edge (when h.region < nh.region)
+        }
+        const opacity = regionBorderOpacity;
+        const color = regions[h.region].color;
+
+        // Outer glow (wide, low opacity)
+        ctx.beginPath();
+        ctx.moveTo(corners[i].x, corners[i].y);
+        ctx.lineTo(corners[j].x, corners[j].y);
+        ctx.strokeStyle = hexToRGBA(color, opacity * 0.25);
+        ctx.lineWidth = 6;
+        ctx.setLineDash([]);
+        ctx.stroke();
+
+        // Main line
+        ctx.beginPath();
+        ctx.moveTo(corners[i].x, corners[i].y);
+        ctx.lineTo(corners[j].x, corners[j].y);
+        ctx.strokeStyle = hexToRGBA(color, opacity);
+        ctx.lineWidth = 2.5;
+        if (isWildBorder) {
+          ctx.setLineDash([8, 6]);
+        } else {
+          ctx.setLineDash([]);
+        }
+        ctx.stroke();
+      }
+    }
+  }
+  ctx.setLineDash([]); // reset dash after all border drawing
+}
+
+// Draw region/kingdom names at the center of each territory (Worldbox style).
+//   ctx: canvas 2D context (already transformed to hex coordinate space)
+function drawRegionNames(ctx) {
+  if (!showRegionLayer || !showRegionNames) return;
+
+  // Collect hex coordinates per region
+  const regionHexes = {};
+  for (const key of Object.keys(hexData)) {
+    const h = hexData[key];
+    if (h && h.region && regions[h.region]) {
+      if (!regionHexes[h.region]) regionHexes[h.region] = [];
+      const [q, r] = key.split(',').map(Number);
+      const p = hexToPixel(q, r);
+      regionHexes[h.region].push(p);
+    }
+  }
+
+  // For each region, calculate center and draw label
+  for (const [id, points] of Object.entries(regionHexes)) {
+    if (points.length === 0) continue;
+    const r = regions[id];
+    if (!r) continue;
+
+    // Calculate centroid
+    let cx = 0, cy = 0;
+    for (const pt of points) { cx += pt.x; cy += pt.y; }
+    cx /= points.length;
+    cy /= points.length;
+
+    const label = `${r.icon} ${r.name}`;
+    const fontSize = Math.max(14, Math.min(28, HEX_SIZE * 0.8));
+    ctx.font = `bold ${fontSize}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Background pill
+    const tw = ctx.measureText(label).width;
+    const pad = fontSize * 0.6;
+    const bw = tw + pad * 2;
+    const bh = fontSize * 1.4;
+
+    // Draw background with rounded rect approximation
+    const rx = cx - bw / 2;
+    const ry = cy - bh / 2;
+    const radius = 8;
+    ctx.beginPath();
+    ctx.moveTo(rx + radius, ry);
+    ctx.lineTo(rx + bw - radius, ry);
+    ctx.quadraticCurveTo(rx + bw, ry, rx + bw, ry + radius);
+    ctx.lineTo(rx + bw, ry + bh - radius);
+    ctx.quadraticCurveTo(rx + bw, ry + bh, rx + bw - radius, ry + bh);
+    ctx.lineTo(rx + radius, ry + bh);
+    ctx.quadraticCurveTo(rx, ry + bh, rx, ry + bh - radius);
+    ctx.lineTo(rx, ry + radius);
+    ctx.quadraticCurveTo(rx, ry, rx + radius, ry);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(0,0,0,0.65)';
+    ctx.fill();
+
+    // Draw text
+    ctx.fillStyle = '#fff';
+    ctx.fillText(label, cx, cy);
+  }
 }
