@@ -34,7 +34,12 @@ const DEFAULT_GEN_RULES = {
     { terrainId: 'abyss', weight: 1 },
     { terrainId: 'ruins', weight: 1 },
     { terrainId: 'plain', weight: 1 },
-  ]
+  ],
+  // --- Rivers ---
+  generateRivers: true,          // auto-derive river network from elevation on one-click gen
+  streamThreshold: 25,           // accumulation needed for a stream (width 1) to appear
+  riverThreshold: 140,           // accumulation needed for a river (width 2) to appear
+  riverTravel: 0,                // extra movement cost to cross a river edge (0 = no game-rule effect)
 };
 
 // Pick a terrain from specialTable by weight (for noise-based generation)

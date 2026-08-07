@@ -160,7 +160,7 @@ function hexKey(q, r) { return `${q},${r}`; }
 
 function getHex(q, r) {
   const k = hexKey(q, r);
-  return hexData[k] || { terrain: null, label: '', settlement: null, roads: [], region: null, annotations: [] };
+  return hexData[k] || { terrain: null, label: '', settlement: null, roads: [], region: null, annotations: [], rivers: [] };
 }
 
 let settlementIndex = []; // [{q, r}] — fast lookup for rankSettlementLocation
@@ -169,8 +169,9 @@ let settlementIndex = []; // [{q, r}] — fast lookup for rankSettlementLocation
 // Returns the merged hex data, or null if the key was deleted (empty).
 function writeHexData(key, data) {
   const old = hexData[key];
-  const merged = { ...(old || { terrain: null, label: '', settlement: null, roads: [], region: null, annotations: [] }), ...data };
-  if (!merged.terrain && !merged.label && !merged.settlement && !merged.region && (!merged.roads || merged.roads.length === 0) && (!merged.annotations || merged.annotations.length === 0)) {
+  const base = { terrain: null, label: '', settlement: null, roads: [], region: null, annotations: [], rivers: [] };
+  const merged = { ...(old || base), ...data };
+  if (!merged.terrain && !merged.label && !merged.settlement && !merged.region && (!merged.roads || merged.roads.length === 0) && (!merged.annotations || merged.annotations.length === 0) && (!merged.rivers || merged.rivers.length === 0)) {
     delete hexData[key];
     // Update settlementIndex if old had a settlement
     if (old && old.settlement) {
@@ -204,7 +205,7 @@ function setHex(q, r, data) {
 function cleanHexData() {
   for (const key of Object.keys(hexData)) {
     const h = hexData[key];
-    if (!h.terrain && !h.label && !h.settlement && !h.region && (!h.roads || h.roads.length === 0) && (!h.annotations || h.annotations.length === 0)) {
+    if (!h.terrain && !h.label && !h.settlement && !h.region && (!h.roads || h.roads.length === 0) && (!h.annotations || h.annotations.length === 0) && (!h.rivers || h.rivers.length === 0)) {
       delete hexData[key];
     }
   }
@@ -290,6 +291,70 @@ function removeRoad(q1, r1, q2, r2) {
   if (h2.roads) {
     pushUndo(k2);
     h2.roads = h2.roads.filter(r => !(r.q === q1 && r.r === r1));
+  }
+}
+
+// ======== Rivers API (edge-based, mirrors roads) ========
+// Each hex stores `rivers: [{q, r, width}]` where {q,r} is a neighboring hex
+// and width is 1 (溪流) or 2 (河). Stored bidirectionally like roads.
+
+function hasRiver(q1, r1, q2, r2) {
+  return getHex(q1, r1).rivers?.some(rr => rr.q === q2 && rr.r === r2) ?? false;
+}
+
+function getRiverWidth(q1, r1, q2, r2) {
+  const rr = getHex(q1, r1).rivers?.find(r => r.q === q2 && r.r === r2);
+  return rr ? (rr.width || 1) : null;
+}
+
+function addRiver(q1, r1, q2, r2, width) {
+  const w = width || 1;
+  const k1 = hexKey(q1, r1);
+  const k2 = hexKey(q2, r2);
+  if (!hexData[k1]) hexData[k1] = { terrain: null, label: '', settlement: null, roads: [], region: null, annotations: [], rivers: [] };
+  if (!hexData[k2]) hexData[k2] = { terrain: null, label: '', settlement: null, roads: [], region: null, annotations: [], rivers: [] };
+  pushUndo(k1);
+  pushUndo(k2);
+  const h1 = hexData[k1];
+  const h2 = hexData[k2];
+  if (!h1.rivers) h1.rivers = [];
+  if (!h1.rivers.some(r => r.q === q2 && r.r === r2)) h1.rivers.push({ q: q2, r: r2, width: w });
+  else h1.rivers.find(r => r.q === q2 && r.r === r2).width = w;
+  if (!h2.rivers) h2.rivers = [];
+  if (!h2.rivers.some(r => r.q === q1 && r.r === r1)) h2.rivers.push({ q: q1, r: r1, width: w });
+  else h2.rivers.find(r => r.q === q1 && r.r === r1).width = w;
+}
+
+function removeRiver(q1, r1, q2, r2) {
+  const k1 = hexKey(q1, r1);
+  const k2 = hexKey(q2, r2);
+  const h1 = getHex(q1, r1);
+  if (h1.rivers && h1.rivers.length) {
+    pushUndo(k1);
+    h1.rivers = h1.rivers.filter(r => !(r.q === q2 && r.r === r2));
+  }
+  const h2 = getHex(q2, r2);
+  if (h2.rivers && h2.rivers.length) {
+    pushUndo(k2);
+    h2.rivers = h2.rivers.filter(r => !(r.q === q1 && r.r === r1));
+  }
+}
+
+// Remove all river edges touching (q,r) — strips this hex from each neighbor's
+// rivers, then clears its own. Used by erase to avoid dangling references.
+function removeAllRiverEdges(q, r) {
+  const h = getHex(q, r);
+  if (h.rivers) {
+    pushUndo(hexKey(q, r));
+    const refs = [...h.rivers];
+    h.rivers = [];
+    for (const rd of refs) {
+      const nh = getHex(rd.q, rd.r);
+      if (nh.rivers) {
+        pushUndo(hexKey(rd.q, rd.r));
+        nh.rivers = nh.rivers.filter(r => !(r.q === q && r.r === r));
+      }
+    }
   }
 }
 

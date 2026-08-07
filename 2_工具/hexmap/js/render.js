@@ -8,6 +8,48 @@ function hexToRGBA(hex, alpha) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
+// Elevation color ramp (deep water → lowland → highland → peak) with RGB stops.
+const ELEVATION_RAMP = [
+  { t: -0.5, c: '#16255c' },
+  { t: -0.25, c: '#2a4a7a' },
+  { t: 0, c: '#4a6a3a' },
+  { t: 0.3, c: '#8a7a3a' },
+  { t: 0.6, c: '#9a9a9a' },
+  { t: 0.9, c: '#e8e8e8' }
+];
+
+// Map an elevation float to a color by lerping between the two surrounding stops.
+function elevationColor(elev) {
+  const v = Math.max(-0.5, Math.min(0.9, elev));
+  let a = ELEVATION_RAMP[0], b = ELEVATION_RAMP[ELEVATION_RAMP.length - 1];
+  for (let i = 0; i < ELEVATION_RAMP.length - 1; i++) {
+    if (v >= ELEVATION_RAMP[i].t && v <= ELEVATION_RAMP[i + 1].t) { a = ELEVATION_RAMP[i]; b = ELEVATION_RAMP[i + 1]; break; }
+  }
+  const f = b.t === a.t ? 0 : (v - a.t) / (b.t - a.t);
+  const ca = a.c.replace('#','').match(/.{2}/g).map(x => parseInt(x, 16));
+  const cb = b.c.replace('#','').match(/.{2}/g).map(x => parseInt(x, 16));
+  const r = Math.round(ca[0] + (cb[0] - ca[0]) * f);
+  const g = Math.round(ca[1] + (cb[1] - ca[1]) * f);
+  const bl = Math.round(ca[2] + (cb[2] - ca[2]) * f);
+  return `rgb(${r},${g},${bl})`;
+}
+
+// Draw the shared-edge segment between two adjacent hexes (for rivers).
+function riverEdgeSegment(p1, nOff, p2) {
+  const a = hexCorners(p1.x, p1.y, HEX_SIZE);
+  const b = hexCorners(p2.x, p2.y, HEX_SIZE);
+  // Find the two corners shared by both hexes
+  const shared = [];
+  for (const ca of a) {
+    for (const cb of b) {
+      if (Math.abs(ca.x - cb.x) < 0.01 && Math.abs(ca.y - cb.y) < 0.01) shared.push(ca);
+    }
+  }
+  if (shared.length >= 2) return [shared[0], shared[1]];
+  // Fallback: middle of the two centers
+  return [{ x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }];
+}
+
 function resizeCanvas() {
   canvas.width = container.clientWidth;
   canvas.height = container.clientHeight;
@@ -44,6 +86,9 @@ function render() {
 
   // Pass 2: Region borders (between fills and roads)
   drawRegionBorders(ctx, qMin, qMax, rMin, rMax, getHex);
+
+  // Pass 2.5: Rivers (under roads/labels/settlements)
+  drawRivers(ctx, qMin, qMax, rMin, rMax);
 
   // Pass 3: Draw roads (between hexes)
   ctx.strokeStyle = '#8B4513';
@@ -103,6 +148,44 @@ function render() {
     ctx.stroke();
   }
 
+  // Draw river start indicator (blue)
+  if (riverStart) {
+    const p = hexToPixel(riverStart.q, riverStart.r);
+    const corners = hexCorners(p.x, p.y, HEX_SIZE + 4);
+    ctx.beginPath();
+    corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
+    ctx.closePath();
+    ctx.strokeStyle = '#2f6fd0';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // Draw measure start + path overlay
+  if (measureStart) {
+    const p = hexToPixel(measureStart.q, measureStart.r);
+    const corners = hexCorners(p.x, p.y, HEX_SIZE + 4);
+    ctx.beginPath();
+    corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
+    ctx.closePath();
+    ctx.strokeStyle = '#00e5ff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+  if (measurePath && measurePath.length > 1) {
+    ctx.beginPath();
+    const sp = hexToPixel(measurePath[0].q, measurePath[0].r);
+    ctx.moveTo(sp.x, sp.y);
+    for (let i = 1; i < measurePath.length; i++) {
+      const pp = hexToPixel(measurePath[i].q, measurePath[i].r);
+      ctx.lineTo(pp.x, pp.y);
+    }
+    ctx.strokeStyle = '#00e5ff';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([6, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
   // Draw box-selected hex highlights
   if (selectedHexes.size > 0) {
     for (const key of selectedHexes) {
@@ -160,6 +243,12 @@ function drawHexBase(q, r, allTerrains) {
   ctx.fillStyle = fillColor;
   ctx.fill();
 
+  // 1.5 Elevation layer: translucent elevation tint over terrain (under region)
+  if (showElevationLayer && typeof h.elev === 'number') {
+    ctx.fillStyle = hexToRGBA(elevationColor(h.elev), 0.55);
+    ctx.fill();
+  }
+
   // 2. Region layer: overlay semi-transparent region color on top of terrain
   if (showRegionLayer && h.region && regions[h.region]) {
     ctx.fillStyle = hexToRGBA(regions[h.region].color, 0.2);
@@ -171,6 +260,35 @@ function drawHexBase(q, r, allTerrains) {
     ctx.strokeStyle = 'rgba(255,255,255,0.12)';
     ctx.lineWidth = 1;
     ctx.stroke();
+  }
+}
+
+// Draw all river edges in the visible range. Rivers are drawn along the shared
+// edge between adjacent hexes (like roads but inset to the edge line).
+function drawRivers(ctx, qMin, qMax, rMin, rMax) {
+  for (let q = qMin; q <= qMax; q++) {
+    for (let r = rMin; r <= rMax; r++) {
+      const h = getHex(q, r);
+      if (!h.rivers || !h.rivers.length) continue;
+      const p1 = hexToPixel(q, r);
+      for (const rd of h.rivers) {
+        // Draw each river edge once (only when q,r < rd in some ordering)
+        if (rd.q > q || (rd.q === q && rd.r > r)) {
+          const p2 = hexToPixel(rd.q, rd.r);
+          const seg = riverEdgeSegment(p1, null, p2);
+          if (seg.length < 2) continue;
+          const width = rd.width || 1;
+          ctx.beginPath();
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.strokeStyle = width >= 2 ? '#1f4fa0' : '#2f6fd0';
+          ctx.lineWidth = width >= 2 ? 6 : 3;
+          ctx.moveTo(seg[0].x, seg[0].y);
+          ctx.lineTo(seg[1].x, seg[1].y);
+          ctx.stroke();
+        }
+      }
+    }
   }
 }
 

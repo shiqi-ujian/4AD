@@ -117,7 +117,8 @@ document.getElementById('btn-batch-erase').addEventListener('click', () => {
     const [q, r] = key.split(',').map(Number);
     const h = getHex(q, r);
     if (isLocked && (h.terrain || h.settlement || h.label || h.roads?.length || (h.annotations && h.annotations.length))) continue;
-    setHex(q, r, { terrain: null, label: '', settlement: null, roads: [], annotations: [] });
+    setHex(q, r, { terrain: null, elev: null, moist: null, label: '', settlement: null, roads: [], annotations: [] });
+    removeAllRiverEdges(q, r);
   }
   endBatch();
   showDiceResult('🧹', `已批量清除 ${selectedHexes.size} 格`);
@@ -287,7 +288,7 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if ((e.ctrlKey || e.metaKey) && e.key === 'y') { redo(); e.preventDefault(); return; }
-  const keyMap = { 'v': 'select', 'x': 'select-rect', 'b': 'paint', 's': 'settlement', 'r': 'road', 'l': 'label', 'e': 'erase' };
+  const keyMap = { 'v': 'select', 'x': 'select-rect', 'b': 'paint', 's': 'settlement', 'r': 'road', 'w': 'river', 'm': 'measure', 'l': 'label', 'e': 'erase' };
   if (keyMap[e.key?.toLowerCase()]) {
     setTool(keyMap[e.key.toLowerCase()]);
     e.preventDefault();
@@ -308,6 +309,8 @@ function setTool(tool) {
     updateBatchPanel();
   }
   if (tool !== 'road') roadStart = null;
+  if (tool !== 'river') riverStart = null;
+  if (tool !== 'measure') { measureStart = null; measurePath = null; }
   const hint = document.getElementById('tool-hint');
   const coord = document.getElementById('coord-indicator');
   switch (tool) {
@@ -332,12 +335,20 @@ function setTool(tool) {
       hint.innerHTML = '🛤️ <b>点击第一个六角格</b>设为起点(橙色高亮)，再<b>点击相邻格</b>连线。再次点击起点可取消';
       coord.textContent = roadStart ? `🛤️ 起点 (${roadStart.q}, ${roadStart.r})` : '🛤️ 点击选择道路起点';
       break;
+    case 'river':
+      hint.innerHTML = '🌊 <b>点击第一个六角格</b>设为起点(蓝色高亮)，再<b>点击相邻格</b>画河。再次点击起点可取消';
+      coord.textContent = riverStart ? `🌊 起点 (${riverStart.q}, ${riverStart.r})` : '🌊 点击选择河流起点';
+      break;
+    case 'measure':
+      hint.innerHTML = '📏 点击两个六角格，显示直线距离、最短路径和旅行消耗';
+      coord.textContent = measureStart ? `📏 起点 (${measureStart.q}, ${measureStart.r})` : '📏 点击选择起点';
+      break;
     case 'label':
       hint.innerHTML = '🏷️ 点击六角格 → 弹出窗口输入地标名称（如：古墓、龙巢）';
       coord.textContent = '🏷️ 点击添加标签';
       break;
     case 'erase':
-      hint.innerHTML = '🧹 点击擦除，从下拉菜单选择擦除内容：全部/仅地形/仅定居点/仅标签/仅道路。拖拽连续擦除';
+      hint.innerHTML = '🧹 点击擦除，从下拉菜单选择擦除内容：全部/仅地形/仅定居点/仅标签/仅河流/仅道路。拖拽连续擦除';
       coord.textContent = '🧹 擦除模式';
       break;
     case 'paint-region':
@@ -514,6 +525,8 @@ function openGenRulesEditor() {
   var chanceVal = Math.round((generationRules.specialTerrainChance || 0.05) * 100);
   document.getElementById('gr-special-chance').value = chanceVal;
   document.getElementById('gr-special-chance-val').textContent = chanceVal + '%';
+  document.getElementById('gr-river-travel').value = generationRules.riverTravel != null ? generationRules.riverTravel : 0;
+  document.getElementById('gr-gen-rivers').checked = generationRules.generateRivers !== false;
   let defaultSelect = document.getElementById('gr-default-terrain');
   defaultSelect.innerHTML = '';
   let ids = getAllTerrainIds();
@@ -621,6 +634,17 @@ document.getElementById('gr-special-chance').addEventListener('input', function(
   saveTerrainConfig();
 });
 
+document.getElementById('gr-river-travel').addEventListener('change', function(e) {
+  generationRules.riverTravel = Math.max(0, Math.min(20, parseInt(e.target.value) || 0));
+  saveTerrainConfig();
+  render();
+});
+
+document.getElementById('gr-gen-rivers').addEventListener('change', function(e) {
+  generationRules.generateRivers = e.target.checked;
+  saveTerrainConfig();
+});
+
 document.getElementById('gr-btn-reset').addEventListener('click', function() {
   generationRules = JSON.parse(JSON.stringify(DEFAULT_GEN_RULES));
   saveTerrainConfig();
@@ -628,6 +652,9 @@ document.getElementById('gr-btn-reset').addEventListener('click', function() {
   document.getElementById('gr-threshold').value = generationRules.d6Threshold;
   document.getElementById('gr-special-chance').value = Math.round((generationRules.specialTerrainChance || 0.05) * 100);
   document.getElementById('gr-special-chance-val').textContent = document.getElementById('gr-special-chance').value + '%';
+  document.getElementById('gr-river-travel').value = generationRules.riverTravel != null ? generationRules.riverTravel : 0;
+  document.getElementById('gr-gen-rivers').checked = generationRules.generateRivers !== false;
+  render();
   let defaultSelect = document.getElementById('gr-default-terrain');
   [].slice.call(defaultSelect.options).forEach(function(opt) {
     opt.selected = opt.value === generationRules.defaultTerrain;

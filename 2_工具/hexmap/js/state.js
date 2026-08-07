@@ -91,6 +91,7 @@ let showGrid = true, showCoords = true;
 let showRegionLayer = true; // 王国图层可见性开关
 let regionBorderOpacity = 0.85; // 王国边境不透明度 (0~1)
 let showRegionNames = true;     // 是否显示王国名称（领土中心浮动标签）
+let showElevationLayer = false; // 海拔图层可见性开关（默认关，旧图观感不变）
 
 // 王国边境配置 (一个六角格 = 一天路程)
 const DEFAULT_REGIONS = {
@@ -127,6 +128,9 @@ const REGION_TEMPLATES = [
 let regions = JSON.parse(JSON.stringify(DEFAULT_REGIONS));
 let regionOrder = null; // array of region IDs in display order
 let roadStart = null; // { q, r } for road drawing
+let riverStart = null; // { q, r } for river drawing
+let measureStart = null; // { q, r } for measure tool
+let measurePath = null; // [{q,r},...] last measured path
 let _eraseDragLast = new Set(); // dedup erase-drag per drag session
 // Box select state
 let selectedHexes = new Set(); // Set of "q,r" keys
@@ -189,11 +193,15 @@ function buildImageRegistry(sourceHexData, sourceCustomTerrains) {
   const exportHex = {};
   for (const [k, h] of Object.entries(sourceHexData)) {
     const eh = { terrain: h.terrain, label: h.label, annotations: h.annotations }; // annotations preserved in save
+    if (typeof h.elev === 'number') eh.elev = h.elev;
+    if (typeof h.moist === 'number') eh.moist = h.moist;
+    if (h.region) eh.region = h.region;
     if (h.settlement) {
       eh.settlement = { name: h.settlement.name, rating: h.settlement.rating };
       if (h.settlement.imageUrl) eh.settlement.imageHash = register(h.settlement.imageUrl);
     }
     if (h.roads && h.roads.length) eh.roads = h.roads.map(function(r) { return { q: r.q, r: r.r }; });
+    if (h.rivers && h.rivers.length) eh.rivers = h.rivers.map(function(r) { return { q: r.q, r: r.r, width: r.width }; });
     exportHex[k] = eh;
   }
   const exportCT = {};
@@ -216,12 +224,16 @@ function resolveImageRegistry(sourceHexData, sourceCustomTerrains, registry) {
   const resultHex = {};
   for (const [k, h] of Object.entries(sourceHexData)) {
     const rh = { terrain: h.terrain, label: h.label, annotations: h.annotations };
+    if (typeof h.elev === 'number') rh.elev = h.elev;
+    if (typeof h.moist === 'number') rh.moist = h.moist;
+    if (h.region) rh.region = h.region;
     if (h.settlement) {
       rh.settlement = { name: h.settlement.name, rating: h.settlement.rating };
       const img = h.settlement.imageHash ? resolve(h.settlement.imageHash) : h.settlement.imageUrl;
       if (img) rh.settlement.imageUrl = img;
     }
     if (h.roads) rh.roads = h.roads;
+    if (h.rivers) rh.rivers = h.rivers;
     resultHex[k] = rh;
   }
   const resultCT = {};

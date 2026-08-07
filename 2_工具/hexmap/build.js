@@ -45,41 +45,34 @@ output = output.replace('</body>', '<script>\n' + jsContent + '</script>\n</body
 const outputPath = path.join('..', 'hexmap.html');
 fs.writeFileSync(outputPath, output, 'utf8');
 
-// 6. 验证 brace 平衡
-const jsLines = jsContent.split('\n');
-let braceCount = 0;
-let inString = false, stringChar = null, inBlockComment = false;
-for (const line of jsLines) {
-  let j = 0;
-  while (j < line.length) {
-    const c = line[j], n = line[j + 1] || '';
-    if (inBlockComment) {
-      if (c === '*' && n === '/') { inBlockComment = false; j += 2; }
-      else j++;
-      continue;
-    }
-    if (!inString && c === '/' && n === '*') { inBlockComment = true; j += 2; continue; }
-    if (!inString && c === '/' && n === '/') break;
-    if (inString) {
-      if (c === '\\') { j += 2; continue; }
-      if (c === stringChar) inString = false;
-      j++;
-      continue;
-    }
-    if (c === '"' || c === "'" || c === '`') { inString = true; stringChar = c; j++; continue; }
-    if (c === '{') braceCount++;
-    if (c === '}') braceCount--;
-    j++;
+// 6. 验证 JS 语法 + brace 平衡
+// Use a real JS parse (new Function) — far more reliable than hand-rolling a
+// brace counter, which gets confused by regex literals that contain `"` or
+// `{`/`}` (e.g. escHtml's .replace(/"/g), ai.js's {...} extraction regex).
+let syntaxOk = true, braceCount = 0, parseError = null;
+try {
+  new Function(jsContent);
+} catch (e) {
+  syntaxOk = false;
+  parseError = e;
+  // Fall back to a best-effort brace count for the error message
+  for (let ch of jsContent) {
+    if (ch === '{') braceCount++;
+    else if (ch === '}') braceCount--;
   }
 }
 
 const stats = fs.statSync(outputPath);
 console.log(`\n✅ 打包完成: ${outputPath}`);
 console.log(`   文件大小: ${(stats.size / 1024).toFixed(1)} KB`);
-console.log(`   JS 行数: ${jsLines.length}`);
-console.log(`   大括号平衡: ${braceCount === 0 ? '✅ 通过' : '❌ 不平衡 (' + braceCount + ')'}`);
+console.log(`   JS 行数: ${jsContent.split('\n').length}`);
+if (syntaxOk) {
+  console.log('   JS 语法: ✅ 通过');
+} else {
+  console.log(`   JS 语法: ❌ 错误 (${parseError.message})`);
+}
 
-if (braceCount !== 0) {
-  console.log('\n⚠️  警告: 大括号不平衡，请检查最近修改的 JS 文件！');
+if (!syntaxOk || braceCount !== 0) {
+  console.log('\n⚠️  警告: JS 语法或大括号不平衡，请检查最近修改的 JS 文件！');
   process.exit(1);
 }
