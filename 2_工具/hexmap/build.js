@@ -1,6 +1,6 @@
-// build.js — 将模块化文件合并为单个可分发的 hexmap.html
+// build.js — 将模块化文件合并为单个可分发的 hexmap.dist.html
 // 用法: node build.js
-// 输出: ../hexmap.html（覆盖）
+// 输出: ../hexmap.dist.html（覆盖）
 
 const fs = require('fs');
 const path = require('path');
@@ -42,7 +42,7 @@ let output = indexContent.replace(/<script src="js\/[^"]+"><\/script>\n?/g, '');
 output = output.replace('</body>', '<script>\n' + jsContent + '</script>\n</body>');
 
 // 5. 写入输出文件
-const outputPath = path.join('..', 'hexmap.html');
+const outputPath = path.join('..', 'hexmap.dist.html');
 fs.writeFileSync(outputPath, output, 'utf8');
 
 // 6. 验证 JS 语法 + brace 平衡

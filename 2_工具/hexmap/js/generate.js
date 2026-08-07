@@ -1002,22 +1002,34 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
     exportCtx.beginPath();
     corners.forEach((c, i) => i === 0 ? exportCtx.moveTo(c.x, c.y) : exportCtx.lineTo(c.x, c.y));
     exportCtx.closePath();
-    // 1. Always draw terrain as base fill
-    let fillColor = '#3a3a52';
-    if (h.terrain && allTerrains[h.terrain]) fillColor = allTerrains[h.terrain].color;
-    exportCtx.fillStyle = fillColor;
-    exportCtx.fill();
-    // 1.5 Elevation layer
-    if (showElevationLayer && typeof h.elev === 'number') {
-      exportCtx.fillStyle = hexToRGBA(elevationColor(h.elev), 0.55);
+    // Layer composition (matches render.js drawHexBase): 0 -> dark gray, 1 -> opaque, 2+ -> stacking
+    const hTerrainInfo = h.terrain ? allTerrains[h.terrain] : null;
+    const terrainActive = !!(showTerrainLayer && hTerrainInfo);
+    const elevActive = !!(showElevationLayer && typeof h.elev === 'number');
+    const regionActive = !!(showRegionLayer && h.region && regions[h.region]);
+    const activeCount = (terrainActive ? 1 : 0) + (elevActive ? 1 : 0) + (regionActive ? 1 : 0);
+    const regionColor = regions[h.region] ? regions[h.region].color : null;
+    if (activeCount >= 2) {
+      exportCtx.fillStyle = hTerrainInfo ? hTerrainInfo.color : '#3a3a52';
       exportCtx.fill();
-    }
-    // 2. Region layer: overlay semi-transparent region color on top
-    if (showRegionLayer && h.region && regions[h.region]) {
-      exportCtx.fillStyle = 'rgba(' +
-        parseInt(regions[h.region].color.slice(1,3), 16) + ',' +
-        parseInt(regions[h.region].color.slice(3,5), 16) + ',' +
-        parseInt(regions[h.region].color.slice(5,7), 16) + ',0.2)';
+      if (elevActive) {
+        exportCtx.fillStyle = hexToRGBA(elevationColor(h.elev), 0.55);
+        exportCtx.fill();
+      }
+      if (regionActive) {
+        exportCtx.fillStyle = 'rgba(' +
+          parseInt(regionColor.slice(1,3), 16) + ',' +
+          parseInt(regionColor.slice(3,5), 16) + ',' +
+          parseInt(regionColor.slice(5,7), 16) + ',0.2)';
+        exportCtx.fill();
+      }
+    } else if (activeCount === 1) {
+      const solo = terrainActive ? hTerrainInfo.color
+        : (elevActive ? elevationColor(h.elev) : regionColor);
+      exportCtx.fillStyle = solo;
+      exportCtx.fill();
+    } else {
+      exportCtx.fillStyle = '#3a3a52';
       exportCtx.fill();
     }
     exportCtx.strokeStyle = 'rgba(255,255,255,0.12)';
@@ -1053,9 +1065,9 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
     const [q, r] = key.split(',').map(Number);
     const h = hexData[key];
     const p = hexToPixel(q, r);
-    // Terrain icon (image or emoji) — always show regardless of layer
+    // Terrain icon (image or emoji) — hidden when the terrain layer is off
     const hOTI = h.terrain ? allTerrains[h.terrain] : null;
-    if (hOTI) {
+    if (showTerrainLayer && hOTI) {
         if (hOTI.imageUrl) {
           const img = getCachedImage(hOTI.imageUrl);
           if (img && img.complete && img.naturalWidth > 0) {
@@ -1167,6 +1179,7 @@ document.getElementById('chk-grid').addEventListener('change', (e) => { showGrid
 document.getElementById('chk-coords').addEventListener('change', (e) => { showCoords = e.target.checked; render(); });
 document.getElementById('chk-minimap').addEventListener('change', () => render());
 document.getElementById('chk-lock').addEventListener('change', (e) => { isLocked = e.target.checked; });
+document.getElementById('chk-terrain').addEventListener('change', (e) => { showTerrainLayer = e.target.checked; render(); });
 document.getElementById('chk-region-layer').addEventListener('change', (e) => { showRegionLayer = e.target.checked; render(); });
 document.getElementById('chk-elevation').addEventListener('change', (e) => { showElevationLayer = e.target.checked; render(); });
 

@@ -4,14 +4,31 @@
 
 - `0_规则书/` — 规则文档
 - `1_翻译/` — 翻译文件
-- `2_工具/` — 工具文件（如 hexmap.html）
+- `2_工具/` — 工具文件（如 hexmap.dist.html）
 - `3_术语与数据/` — 术语表与数据文件
 
-## hexmap.html — 六角格沙盒地图
+## hexmap — 六角格沙盒地图
 
-单文件应用（~2400 行），Canvas 渲染，无外部依赖。
+**源码位于 `2_工具/hexmap/`（模块化）**：`index.html`(HTML+CSS) + `js/*.js`（config/state/core/render/interact/ui/generate/stats/init/ai）。Canvas 渲染，无外部依赖。**测试入口 = `2_工具/hexmap/index.html`。**
+
+**发布产物 = `2_工具/hexmap.dist.html`**，由 `2_工具/hexmap/build.js` 打包生成（内联所有 js 模块 + 语法校验）。**绝不手改产物**——只改源码，发布时才跑 `node build.js` 重新生成。
 
 ### 文件结构
+
+| 文件 | 作用 |
+|-------|-------|
+| `hexmap/index.html` | HTML + CSS + script 标签 |
+| `hexmap/js/config.js` | 配置（TERRAIN, ELEVATION_RAMP, 生成规则） |
+| `hexmap/js/state.js` | 全局状态、撤销、图层开关、region 数据 |
+| `hexmap/js/core.js` | 数据 CRUD、邻接、路径、边境绘制 |
+| `hexmap/js/render.js` | 主渲染（drawHexBase / drawHexOverlay / drawRivers） |
+| `hexmap/js/interact.js` | 鼠标/触摸/滚轮事件 |
+| `hexmap/js/ui.js` | 面板、对话框、工具切换 |
+| `hexmap/js/generate.js` | 生成 + 一键生成 + 导出 PNG + 部分事件绑定 |
+| `hexmap/js/stats.js` | 地图统计面板 |
+| `hexmap/js/init.js` | 初始化 |
+| `hexmap/js/ai.js` | AI 绘图（自然语言描述 → 地图） |
+| `hexmap/build.js` | 打包脚本（生成 hexmap.dist.html） |
 
 | Lines | Section |
 |-------|---------|
@@ -42,7 +59,7 @@
 ```bash
 node -e "
 const fs = require('fs');
-let html = fs.readFileSync('2_工具/hexmap.html', 'utf8');
+let html = fs.readFileSync('2_工具/hexmap.dist.html', 'utf8');
 let lines = html.split('\n');
 // 找到 JS 起始行
 let s = lines.findIndex(l => l.trim().startsWith('<script') && !l.trim().startsWith('</script'));
@@ -71,9 +88,9 @@ console.log('Brace count:', bc, '| Last zero at HTML line:', lastZero + 1);
 
 #### 常见不匹配位置
 
-1. **导出 PNG 回调**（`btn-export-img` 的 click handler，~line 2170）：内部有三个 for 循环 + `if(h.settlement)`，容易少一个 `}`。症状：brace count = 1。
-2. **`handleHexClick`**（~line 1162）：函数很大，包含 paint/erase/road 多个分支，结尾容易少 `}`。
-3. **渲染循环**（render → drawHexOverlay，~line 666-880）：多层嵌套，增删代码时容易破坏平衡。
+1. **导出 PNG 回调**（`btn-export-img` 的 click handler，在 `js/generate.js`）：内部有多个 for 循环 + `if(h.settlement)`，容易少一个 `}`。症状：brace count = 1。
+2. **`handleHexClick`**（在 `js/interact.js`）：函数很大，包含 paint/erase/road 多个分支，结尾容易少 `}`。
+3. **渲染循环**（render → drawHexOverlay，在 `js/render.js`）：多层嵌套，增删代码时容易破坏平衡。
 
 #### 修复步骤
 
@@ -85,7 +102,9 @@ console.log('Brace count:', bc, '| Last zero at HTML line:', lastZero + 1);
 
 ### 关键约定
 
-- 编辑 hexmap.html 时必须保证 brace 平衡，修改后立即运行 brace_check 验证
+- 改 hex 只动 `2_工具/hexmap/` 源码（index.html + js/*.js），**绝不手改 `hexmap.dist.html` 产物**；要发布才在 `hexmap/` 下跑 `node build.js`
+- 改 JS 后跑 `node --check` 或用 build 的 `new Function` 校验语法（build.js 已内置）
 - 撤销系统：`beginBatch()` / `endBatch()` 包裹批量操作，不可嵌套
 - 六角格坐标：odd-r flat-top 系统，`neighbors()` 函数分 even/odd 列
+- 图层开关变量在 `js/state.js`（showTerrainLayer/showRegionLayer/showElevationLayer/showGrid…）
 - 导出 PNG 有三段式渲染：fill pass → road pass → overlay pass

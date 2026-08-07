@@ -1,5 +1,5 @@
 /**
- * hexmap.html 大括号平衡检查器
+ * hexmap.dist.html 大括号平衡检查器
  * 用法: node brace_check.js
  * 输出: 最终 brace count，最后归零的行号
  *
@@ -10,7 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const html = fs.readFileSync(path.join(__dirname, 'hexmap.html'), 'utf8');
+const html = fs.readFileSync(path.join(__dirname, 'hexmap.dist.html'), 'utf8');
 const lines = html.split('\n');
 
 // 找到 JS 起始行

@@ -236,23 +236,27 @@ function drawHexBase(q, r, allTerrains) {
   corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
   ctx.closePath();
 
-  // 1. Always draw terrain as base fill
-  let fillColor = '#3a3a52';
+  // Layer composition: terrain (base) + elevation tint + region tint.
+  // - 0 layers on  -> neutral dark gray base (#3a3a52), grid still visible
+  // - exactly 1 on -> opaque main color fills the whole hex (single-layer mode)
+  // - 2+ on        -> previous semi-transparent stacking (terrain base + translucent overlays)
   const hTerrainInfo = h.terrain ? allTerrains[h.terrain] : null;
-  if (hTerrainInfo) fillColor = hTerrainInfo.color;
-  ctx.fillStyle = fillColor;
-  ctx.fill();
+  const terrainActive = !!(showTerrainLayer && hTerrainInfo);
+  const elevActive = !!(showElevationLayer && typeof h.elev === 'number');
+  const regionActive = !!(showRegionLayer && h.region && regions[h.region]);
+  const activeCount = (terrainActive ? 1 : 0) + (elevActive ? 1 : 0) + (regionActive ? 1 : 0);
 
-  // 1.5 Elevation layer: translucent elevation tint over terrain (under region)
-  if (showElevationLayer && typeof h.elev === 'number') {
-    ctx.fillStyle = hexToRGBA(elevationColor(h.elev), 0.55);
+  if (activeCount >= 2) {
+    ctx.fillStyle = hTerrainInfo ? hTerrainInfo.color : '#3a3a52';
     ctx.fill();
-  }
-
-  // 2. Region layer: overlay semi-transparent region color on top of terrain
-  if (showRegionLayer && h.region && regions[h.region]) {
-    ctx.fillStyle = hexToRGBA(regions[h.region].color, 0.2);
-    ctx.fill();
+    if (elevActive) { ctx.fillStyle = hexToRGBA(elevationColor(h.elev), 0.55); ctx.fill(); }
+    if (regionActive) { ctx.fillStyle = hexToRGBA(regions[h.region].color, 0.2); ctx.fill(); }
+  } else if (activeCount === 1) {
+    const solo = terrainActive ? hTerrainInfo.color
+      : (elevActive ? elevationColor(h.elev) : regions[h.region].color);
+    ctx.fillStyle = solo; ctx.fill();
+  } else {
+    ctx.fillStyle = '#3a3a52'; ctx.fill();
   }
 
   // Grid stroke
@@ -305,9 +309,9 @@ function drawHexOverlay(q, r, allTerrains) {
     ctx.fillText(`${q},${r}`, p.x, p.y + HEX_SIZE * 0.4);
   }
 
-  // Terrain icon (image or emoji) — always show terrain, regardless of layer
+  // Terrain icon (image or emoji) — hidden when the terrain layer is off
   const hOverlayTI = h.terrain ? allTerrains[h.terrain] : null;
-  if (hOverlayTI) {
+  if (showTerrainLayer && hOverlayTI) {
     if (hOverlayTI.imageUrl) {
       drawHexImage(p.x, p.y, HEX_SIZE * 1.1, hOverlayTI.imageUrl);
     } else {

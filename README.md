@@ -14,8 +14,8 @@
 │   ├── 四战黑_四战遗弃深渊_琉璃汉化.md
 │   └── 四战黑_拓展模块-恋爱与生活_翻译.md
 ├── 2_工具/                        # 辅助工具
-│   ├── hexmap.html                # 六角格沙盒地图（单文件版）
-│   ├── hexmap/                    # 六角格沙盒地图（模块化版）
+│   ├── hexmap.dist.html           # 六角格沙盒地图（发布版，由 build.js 打包）
+│   ├── hexmap/                    # 六角格沙盒地图（模块化源码，测试用 index.html）
 │   │   ├── index.html
 │   │   ├── build.js
 │   │   └── js/                    # config / core / render / generate / ai / …
@@ -41,9 +41,9 @@
 
 ## 地图工具
 
-### hexmap.html — 六角格沙盒地图
+### hexmap — 六角格沙盒地图
 
-[`2_工具/hexmap.html`](2_工具/hexmap.html) 是单文件版本，[`2_工具/hexmap/`](2_工具/hexmap/) 是模块化版本（含 AI 绘图功能）。主要特性：
+开发**只改 [`2_工具/hexmap/`](2_工具/hexmap/) 模块化源码**（测试入口 [`index.html`](2_工具/hexmap/index.html)，含 AI 绘图功能）；发布版由 [`build.js`](2_工具/hexmap/build.js) 打包为 [`2_工具/hexmap.dist.html`](2_工具/hexmap.dist.html)。主要特性：
 
 - **无限大地图**：拖拽平移 + 滚轮缩放
 - **多种地形**：平原、森林、丘陵、山地、深渊、死灵之地、废墟、神庙、水域、沙漠、沼泽、雪地等

@@ -88,6 +88,7 @@ function redo() {
   updateUndoButtons();
 }
 let showGrid = true, showCoords = true;
+let showTerrainLayer = true; // 地形图层可见性开关
 let showRegionLayer = true; // 王国图层可见性开关
 let regionBorderOpacity = 0.85; // 王国边境不透明度 (0~1)
 let showRegionNames = true;     // 是否显示王国名称（领土中心浮动标签）
