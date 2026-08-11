@@ -112,7 +112,9 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
       <button class="tool-btn" data-tool="paint-region" title="王国笔刷"><span class="icon">👑</span><span class="label">王国</span></button>
       <button class="tool-btn" data-tool="settlement" title="放置定居点 (S)"><span class="icon">🏘️</span><span class="label">定居(S)</span></button>
       <button class="tool-btn" data-tool="road" title="画道路 (R)"><span class="icon">🛤️</span><span class="label">道路(R)</span></button>
+      <button class="tool-btn" data-tool="river" title="画河流 (W)"><span class="icon">🌊</span><span class="label">河流(W)</span></button>
       <button class="tool-btn" data-tool="label" title="标文字 (L)"><span class="icon">🏷️</span><span class="label">标签(L)</span></button>
+      <button class="tool-btn" data-tool="measure" title="测距 (M)"><span class="icon">📏</span><span class="label">测距(M)</span></button>
       <button class="tool-btn" data-tool="erase" title="擦除 (E)"><span class="icon">🧹</span><span class="label">擦除(E)</span></button>
     </div>
     <div id="erase-options" style="display:none;margin:2px 0 0 2px;font-size:12px;">
@@ -121,6 +123,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
         <option value="terrain">仅地形</option>
         <option value="settlement">仅定居点</option>
         <option value="label">仅标签</option>
+        <option value="river">仅河流</option>
         <option value="roads">仅道路</option>
       </select>
     </div>
@@ -182,10 +185,11 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     </div>
     <div style="display:flex;gap:4px;">
       <button id="btn-export-img" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;">🖼️ 导出PNG</button>
-      <button id="btn-clear" style="flex:1;padding:4px;background:#6b5b4f;color:#ccc;border:none;border-radius:4px;cursor:pointer;">🗑️ 清空</button>
+      <button id="btn-stats" style="flex:1;padding:4px;background:#0f3460;color:#ccc;border:none;border-radius:4px;cursor:pointer;" title="查看地图统计">📊 统计</button>
     </div>
-    <div style="display:flex;gap:4px;margin-top:2px;">
-      <button id="btn-fit" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="缩放到显示全部内容">🔎 缩放至全图</button>
+    <div style="display:flex;gap:4px;">
+      <button id="btn-clear" style="flex:1;padding:4px;background:#6b5b4f;color:#ccc;border:none;border-radius:4px;cursor:pointer;">🗑️ 清空</button>
+      <button id="btn-fit" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="缩放到显示全部内容">🔎 缩放全图</button>
     </div>
     <div style="display:flex;gap:4px;margin-top:2px;">
       <button id="btn-undo" style="flex:1;padding:4px;background:#3a3a5e;color:#fff;border:none;border-radius:4px;cursor:pointer;opacity:0.4;" disabled>↩️ 撤销</button>
@@ -204,7 +208,16 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
       <input type="checkbox" id="chk-lock"> 🔒 锁定（已编辑格子不受笔刷/擦除影响）
     </label>
     <label style="font-size:12px;">
+      <input type="checkbox" id="chk-terrain" checked> 🌍 地形图层
+    </label>
+    <label style="font-size:12px;">
       <input type="checkbox" id="chk-region-layer" checked> 👑 显示王国边境
+    </label>
+    <label style="font-size:12px;">
+      <input type="checkbox" id="chk-elevation"> ⛰️ 海拔图层
+    </label>
+    <label style="font-size:12px;">
+      <input type="checkbox" id="chk-icon-style" checked> 🎨 矢量图标
     </label>
     <label style="font-size:12px;margin-left:12px;">
       <input type="checkbox" id="chk-region-names" checked> 📛 显示王国名称
@@ -284,6 +297,16 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     <div style="margin-bottom:6px;">
       <label style="font-size:12px;color:#ccc;display:block;margin-bottom:4px;">特殊地形权重表 (抽中时按权重随机)：</label>
       <div id="gr-weight-list" style="max-height:200px;overflow-y:auto;border:1px solid #0f3460;border-radius:4px;padding:4px;"></div>
+    </div>
+    <div style="margin-bottom:6px;border-top:1px solid #0f3460;padding-top:8px;">
+      <label style="font-size:12px;color:#ccc;display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+        <input type="checkbox" id="gr-gen-rivers" checked> 🌊 一键生成时自动生成河流（据海拔）
+      </label>
+      <label style="font-size:12px;color:#ccc;display:block;margin:6px 0 2px;">
+        渡河移动消耗 (0=不影响移动，用于测距):
+        <input id="gr-river-travel" type="number" min="0" max="20" value="0" style="width:56px;padding:3px 6px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;text-align:center;">
+      </label>
+      <div style="font-size:10px;color:#888;">默认 0：河流仅作视觉/地形叠加，不改变行军规则（避免与战斗系统冲突）。调高后该值作为跨河额外消耗，测距时自动计入。</div>
     </div>
     <div style="display:flex;gap:6px;justify-content:flex-end;">
       <button id="gr-btn-reset" style="padding:5px 12px;background:#6b5b4f;color:#ccc;border:none;border-radius:4px;cursor:pointer;font-size:12px;">↺ 默认</button>
@@ -539,13 +562,27 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 </div>
 
 
+<!-- Map Statistics Modal -->
+<div id="stats-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:400px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">📊 地图统计</h3>
+    <div id="stats-body" style="font-size:13px;"></div>
+    <div style="display:flex;gap:6px;justify-content:flex-end;border-top:1px solid #0f3460;padding-top:12px;">
+      <button id="stats-close" style="padding:6px 14px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">✓ 完成</button>
+    </div>
+  </div>
+</div>
+
+
 <script src="js/config.js"></script>
+<script src="js/icons.js"></script>
 <script src="js/state.js"></script>
 <script src="js/core.js"></script>
 <script src="js/render.js"></script>
 <script src="js/interact.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/generate.js"></script>
+<script src="js/stats.js"></script>
 <script src="js/init.js"></script>
 <script src="js/ai.js"></script>
 </body>

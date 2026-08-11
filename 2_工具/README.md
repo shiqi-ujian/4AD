@@ -4,8 +4,8 @@
 
 | 文件 | 说明 |
 |------|------|
-| `hexmap/` | 六角格沙盒地图工具（重构版，多文件） |
-| `hexmap.html` | 六角格沙盒地图工具（单文件，共享版） |
+| `hexmap/` | 六角格沙盒地图工具（模块化源码，测试入口 index.html） |
+| `hexmap.dist.html` | 六角格沙盒地图工具（发布版，由 build.js 打包生成，勿手改） |
 | `citymap.html` | 城市地图生成器 |
 | `squaremap.html` | 方格地图工具 |
 | `room_annotator.html` | 房间目录编辑器 |

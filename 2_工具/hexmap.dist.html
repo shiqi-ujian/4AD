@@ -112,7 +112,9 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
       <button class="tool-btn" data-tool="paint-region" title="王国笔刷"><span class="icon">👑</span><span class="label">王国</span></button>
       <button class="tool-btn" data-tool="settlement" title="放置定居点 (S)"><span class="icon">🏘️</span><span class="label">定居(S)</span></button>
       <button class="tool-btn" data-tool="road" title="画道路 (R)"><span class="icon">🛤️</span><span class="label">道路(R)</span></button>
+      <button class="tool-btn" data-tool="river" title="画河流 (W)"><span class="icon">🌊</span><span class="label">河流(W)</span></button>
       <button class="tool-btn" data-tool="label" title="标文字 (L)"><span class="icon">🏷️</span><span class="label">标签(L)</span></button>
+      <button class="tool-btn" data-tool="measure" title="测距 (M)"><span class="icon">📏</span><span class="label">测距(M)</span></button>
       <button class="tool-btn" data-tool="erase" title="擦除 (E)"><span class="icon">🧹</span><span class="label">擦除(E)</span></button>
     </div>
     <div id="erase-options" style="display:none;margin:2px 0 0 2px;font-size:12px;">
@@ -121,6 +123,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
         <option value="terrain">仅地形</option>
         <option value="settlement">仅定居点</option>
         <option value="label">仅标签</option>
+        <option value="river">仅河流</option>
         <option value="roads">仅道路</option>
       </select>
     </div>
@@ -182,10 +185,11 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     </div>
     <div style="display:flex;gap:4px;">
       <button id="btn-export-img" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;">🖼️ 导出PNG</button>
-      <button id="btn-clear" style="flex:1;padding:4px;background:#6b5b4f;color:#ccc;border:none;border-radius:4px;cursor:pointer;">🗑️ 清空</button>
+      <button id="btn-stats" style="flex:1;padding:4px;background:#0f3460;color:#ccc;border:none;border-radius:4px;cursor:pointer;" title="查看地图统计">📊 统计</button>
     </div>
-    <div style="display:flex;gap:4px;margin-top:2px;">
-      <button id="btn-fit" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="缩放到显示全部内容">🔎 缩放至全图</button>
+    <div style="display:flex;gap:4px;">
+      <button id="btn-clear" style="flex:1;padding:4px;background:#6b5b4f;color:#ccc;border:none;border-radius:4px;cursor:pointer;">🗑️ 清空</button>
+      <button id="btn-fit" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="缩放到显示全部内容">🔎 缩放全图</button>
     </div>
     <div style="display:flex;gap:4px;margin-top:2px;">
       <button id="btn-undo" style="flex:1;padding:4px;background:#3a3a5e;color:#fff;border:none;border-radius:4px;cursor:pointer;opacity:0.4;" disabled>↩️ 撤销</button>
@@ -202,6 +206,21 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     </label>
     <label style="font-size:12px;border-top:1px solid #0f3460;padding-top:4px;margin-top:2px;">
       <input type="checkbox" id="chk-lock"> 🔒 锁定（已编辑格子不受笔刷/擦除影响）
+    </label>
+    <label style="font-size:12px;">
+      <input type="checkbox" id="chk-terrain" checked> 🌍 地形图层
+    </label>
+    <label style="font-size:12px;">
+      <input type="checkbox" id="chk-region-layer" checked> 👑 显示王国边境
+    </label>
+    <label style="font-size:12px;">
+      <input type="checkbox" id="chk-elevation"> ⛰️ 海拔图层
+    </label>
+    <label style="font-size:12px;margin-left:12px;">
+      <input type="checkbox" id="chk-region-names" checked> 📛 显示王国名称
+    </label>
+    <label style="font-size:12px;display:block;margin-top:2px;">
+      边境透明度: <input type="range" id="border-opacity" min="20" max="100" value="85" style="width:80px;vertical-align:middle;"> <span id="border-opacity-val">85%</span>
     </label>
     <div style="margin-top:auto;font-size:11px;color:#666;text-align:center;padding-top:8px;">
       四战黑 · 沙盒六角格地图 v1.0<br>
@@ -275,6 +294,16 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     <div style="margin-bottom:6px;">
       <label style="font-size:12px;color:#ccc;display:block;margin-bottom:4px;">特殊地形权重表 (抽中时按权重随机)：</label>
       <div id="gr-weight-list" style="max-height:200px;overflow-y:auto;border:1px solid #0f3460;border-radius:4px;padding:4px;"></div>
+    </div>
+    <div style="margin-bottom:6px;border-top:1px solid #0f3460;padding-top:8px;">
+      <label style="font-size:12px;color:#ccc;display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+        <input type="checkbox" id="gr-gen-rivers" checked> 🌊 一键生成时自动生成河流（据海拔）
+      </label>
+      <label style="font-size:12px;color:#ccc;display:block;margin:6px 0 2px;">
+        渡河移动消耗 (0=不影响移动，用于测距):
+        <input id="gr-river-travel" type="number" min="0" max="20" value="0" style="width:56px;padding:3px 6px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;text-align:center;">
+      </label>
+      <div style="font-size:10px;color:#888;">默认 0：河流仅作视觉/地形叠加，不改变行军规则（避免与战斗系统冲突）。调高后该值作为跨河额外消耗，测距时自动计入。</div>
     </div>
     <div style="display:flex;gap:6px;justify-content:flex-end;">
       <button id="gr-btn-reset" style="padding:5px 12px;background:#6b5b4f;color:#ccc;border:none;border-radius:4px;cursor:pointer;font-size:12px;">↺ 默认</button>
@@ -459,19 +488,54 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   </div>
 </div>
 
-<!-- Label Modal -->
+<!-- Label / Annotation Modal -->
 <div id="label-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
-  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:360px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
-    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">🏷️ 地标/标签 <span id="label-modal-coord" style="font-size:13px;color:#888;font-weight:normal;"></span></h3>
-    <label style="font-size:12px;color:#ccc;display:block;margin-bottom:4px;">文字</label>
-    <input id="label-modal-text" type="text" style="width:100%;padding:6px 8px;margin-bottom:14px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:14px;" placeholder="例：古墓、龙巢、传送门">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:420px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">📋 标注管理 <span id="label-modal-coord" style="font-size:13px;color:#888;font-weight:normal;"></span></h3>
+
+    <!-- Quick label section -->
+    <div style="margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #0f3460;">
+      <label style="font-size:12px;color:#ccc;display:block;margin-bottom:4px;">快捷标签 <span style="color:#888;font-weight:normal;">(始终在地图上显示)</span></label>
+      <div style="display:flex;gap:6px;">
+        <input id="label-modal-text" type="text" style="flex:1;padding:6px 8px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:14px;" placeholder="例：古墓、龙巢、传送门">
+        <button id="label-modal-quick-save" style="padding:6px 12px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">保存</button>
+      </div>
+    </div>
+
+    <!-- Annotation list -->
+    <div id="ann-list" style="margin-bottom:10px;">
+      <div style="font-size:12px;color:#888;margin-bottom:6px;">详细标注 <span id="ann-count" style="color:#666;">(0条)</span></div>
+    </div>
+
+    <!-- Add annotation form (hidden by default) -->
+    <div id="ann-add-form" style="display:none;margin-bottom:12px;padding:10px;background:#1a1a2e;border-radius:6px;border:1px solid #0f3460;">
+      <div style="display:flex;gap:6px;margin-bottom:8px;">
+        <select id="ann-add-type" style="flex:1;padding:4px 6px;background:#16213e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:12px;">
+          <option value="poi">📍 地标</option>
+          <option value="hazard">⚠️ 危险</option>
+          <option value="lore">📜 剧情</option>
+          <option value="note">📝 备注</option>
+          <option value="marker">🚩 标记</option>
+        </select>
+        <label style="display:flex;align-items:center;gap:4px;color:#ccc;font-size:12px;cursor:pointer;">
+          <input id="ann-add-visible" type="checkbox" checked> 显示
+        </label>
+      </div>
+      <textarea id="ann-add-text" rows="2" style="width:100%;padding:6px;background:#16213e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;font-family:inherit;resize:vertical;" placeholder="输入标注文字（剧情、备注等）"></textarea>
+      <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:6px;">
+        <button id="ann-add-cancel" style="padding:4px 10px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">取消</button>
+        <button id="ann-add-confirm" style="padding:4px 10px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">✓ 添加</button>
+      </div>
+    </div>
+
+    <button id="ann-show-add-btn" style="display:block;width:100%;padding:6px;background:#3a3a5e;color:#aaa;border:1px dashed #555;border-radius:4px;cursor:pointer;font-size:13px;margin-bottom:12px;">+ 添加标注</button>
+
     <div style="display:flex;gap:6px;justify-content:flex-end;">
-      <button id="label-modal-cancel" style="padding:6px 16px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">取消</button>
-      <button id="label-modal-confirm" style="padding:6px 16px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">✓ 确认</button>
+      <button id="label-modal-cancel" style="padding:6px 16px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">关闭</button>
     </div>
     <input id="label-modal-q" type="hidden">
     <input id="label-modal-r" type="hidden">
-    </div>
+  </div>
 </div>
 
 <!-- Region Editor Modal -->
@@ -493,6 +557,19 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     </div>
   </div>
 </div>
+
+
+<!-- Map Statistics Modal -->
+<div id="stats-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:400px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">📊 地图统计</h3>
+    <div id="stats-body" style="font-size:13px;"></div>
+    <div style="display:flex;gap:6px;justify-content:flex-end;border-top:1px solid #0f3460;padding-top:12px;">
+      <button id="stats-close" style="padding:6px 14px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">✓ 完成</button>
+    </div>
+  </div>
+</div>
+
 
 
 
@@ -541,7 +618,12 @@ const DEFAULT_GEN_RULES = {
     { terrainId: 'abyss', weight: 1 },
     { terrainId: 'ruins', weight: 1 },
     { terrainId: 'plain', weight: 1 },
-  ]
+  ],
+  // --- Rivers ---
+  generateRivers: true,          // auto-derive river network from elevation on one-click gen
+  streamThreshold: 25,           // accumulation needed for a stream (width 1) to appear
+  riverThreshold: 140,           // accumulation needed for a river (width 2) to appear
+  riverTravel: 0,                // extra movement cost to cross a river edge (0 = no game-rule effect)
 };
 
 // Pick a terrain from specialTable by weight (for noise-based generation)
@@ -747,7 +829,11 @@ function redo() {
   updateUndoButtons();
 }
 let showGrid = true, showCoords = true;
-let currentLayer = 'region'; // 始终显示王国边境
+let showTerrainLayer = true; // 地形图层可见性开关
+let showRegionLayer = true; // 王国图层可见性开关
+let regionBorderOpacity = 0.85; // 王国边境不透明度 (0~1)
+let showRegionNames = true;     // 是否显示王国名称（领土中心浮动标签）
+let showElevationLayer = false; // 海拔图层可见性开关（默认关，旧图观感不变）
 
 // 王国边境配置 (一个六角格 = 一天路程)
 const DEFAULT_REGIONS = {
@@ -757,9 +843,36 @@ const DEFAULT_REGIONS = {
   west:   { name: '西境王国', color: '#b54a6a', icon: '⛰️' },
   central:{ name: '中央王国', color: '#c9a84c', icon: '👑' },
 };
+
+// 王国模板池 — 一键生成时随机抽取，每次阵容不同
+const REGION_TEMPLATES = [
+  { id: 'iron_keep',     name: '铁砧堡',     color: '#8b4513', icon: '⚒️' },
+  { id: 'silver_crown',  name: '银冠领',     color: '#4a7fb5', icon: '👑' },
+  { id: 'thorn_wild',    name: '棘林境',     color: '#2d5a2e', icon: '🌲' },
+  { id: 'ash_marches',   name: '灰烬边疆',   color: '#8a3a2a', icon: '🔥' },
+  { id: 'dusk_fen',      name: '暮沼',       color: '#5a4a3a', icon: '🌿' },
+  { id: 'frost_teeth',   name: '霜牙隘',     color: '#b0c8e0', icon: '❄️' },
+  { id: 'sands_end',     name: '沙尽城',     color: '#d4b872', icon: '🏜️' },
+  { id: 'blood_rock',    name: '血岩要塞',   color: '#6b2a2a', icon: '🪨' },
+  { id: 'mist_hold',     name: '雾隐之地',   color: '#6a6a8a', icon: '🌫️' },
+  { id: 'shadow_blade',  name: '影刃荒野',   color: '#4a2a4a', icon: '⚔️' },
+  { id: 'dragon_bones',  name: '龙骨山脉',   color: '#7a6a4a', icon: '🦴' },
+  { id: 'wind_howl',     name: '风吼平原',   color: '#8aaa5a', icon: '🌬️' },
+  { id: 'thunder_fall',  name: '雷殒堡',     color: '#8a7a2a', icon: '⚡' },
+  { id: 'ember_mire',    name: '烬灭沼泽',   color: '#5a3a2a', icon: '🕳️' },
+  { id: 'deep_spring',   name: '幽潭境',     color: '#2a5a6a', icon: '💧' },
+  { id: 'crystal_spire', name: '晶辉峰',     color: '#7ab8c8', icon: '💎' },
+  { id: 'black_port',    name: '黑港城',     color: '#4a4a5a', icon: '⚓' },
+  { id: 'weeping_vale',  name: '泣谷之地',   color: '#6a5a4a', icon: '🕯️' },
+  { id: 'gilded_ruin',   name: '金蚀废墟',   color: '#b8a84a', icon: '🏚️' },
+  { id: 'hollow_keep',   name: '虚空堡',     color: '#3a2a5a', icon: '🔮' },
+];
 let regions = JSON.parse(JSON.stringify(DEFAULT_REGIONS));
 let regionOrder = null; // array of region IDs in display order
 let roadStart = null; // { q, r } for road drawing
+let riverStart = null; // { q, r } for river drawing
+let measureStart = null; // { q, r } for measure tool
+let measurePath = null; // [{q,r},...] last measured path
 let _eraseDragLast = new Set(); // dedup erase-drag per drag session
 // Box select state
 let selectedHexes = new Set(); // Set of "q,r" keys
@@ -821,12 +934,16 @@ function buildImageRegistry(sourceHexData, sourceCustomTerrains) {
   }
   const exportHex = {};
   for (const [k, h] of Object.entries(sourceHexData)) {
-    const eh = { terrain: h.terrain, label: h.label };
+    const eh = { terrain: h.terrain, label: h.label, annotations: h.annotations }; // annotations preserved in save
+    if (typeof h.elev === 'number') eh.elev = h.elev;
+    if (typeof h.moist === 'number') eh.moist = h.moist;
+    if (h.region) eh.region = h.region;
     if (h.settlement) {
       eh.settlement = { name: h.settlement.name, rating: h.settlement.rating };
       if (h.settlement.imageUrl) eh.settlement.imageHash = register(h.settlement.imageUrl);
     }
     if (h.roads && h.roads.length) eh.roads = h.roads.map(function(r) { return { q: r.q, r: r.r }; });
+    if (h.rivers && h.rivers.length) eh.rivers = h.rivers.map(function(r) { return { q: r.q, r: r.r, width: r.width }; });
     exportHex[k] = eh;
   }
   const exportCT = {};
@@ -848,13 +965,17 @@ function resolveImageRegistry(sourceHexData, sourceCustomTerrains, registry) {
   }
   const resultHex = {};
   for (const [k, h] of Object.entries(sourceHexData)) {
-    const rh = { terrain: h.terrain, label: h.label };
+    const rh = { terrain: h.terrain, label: h.label, annotations: h.annotations };
+    if (typeof h.elev === 'number') rh.elev = h.elev;
+    if (typeof h.moist === 'number') rh.moist = h.moist;
+    if (h.region) rh.region = h.region;
     if (h.settlement) {
       rh.settlement = { name: h.settlement.name, rating: h.settlement.rating };
       const img = h.settlement.imageHash ? resolve(h.settlement.imageHash) : h.settlement.imageUrl;
       if (img) rh.settlement.imageUrl = img;
     }
     if (h.roads) rh.roads = h.roads;
+    if (h.rivers) rh.rivers = h.rivers;
     resultHex[k] = rh;
   }
   const resultCT = {};
@@ -1029,7 +1150,7 @@ function hexKey(q, r) { return `${q},${r}`; }
 
 function getHex(q, r) {
   const k = hexKey(q, r);
-  return hexData[k] || { terrain: null, label: '', settlement: null, roads: [], region: null };
+  return hexData[k] || { terrain: null, label: '', settlement: null, roads: [], region: null, annotations: [], rivers: [] };
 }
 
 let settlementIndex = []; // [{q, r}] — fast lookup for rankSettlementLocation
@@ -1038,8 +1159,9 @@ let settlementIndex = []; // [{q, r}] — fast lookup for rankSettlementLocation
 // Returns the merged hex data, or null if the key was deleted (empty).
 function writeHexData(key, data) {
   const old = hexData[key];
-  const merged = { ...(old || { terrain: null, label: '', settlement: null, roads: [], region: null }), ...data };
-  if (!merged.terrain && !merged.label && !merged.settlement && !merged.region && (!merged.roads || merged.roads.length === 0)) {
+  const base = { terrain: null, label: '', settlement: null, roads: [], region: null, annotations: [], rivers: [] };
+  const merged = { ...(old || base), ...data };
+  if (!merged.terrain && !merged.label && !merged.settlement && !merged.region && (!merged.roads || merged.roads.length === 0) && (!merged.annotations || merged.annotations.length === 0) && (!merged.rivers || merged.rivers.length === 0)) {
     delete hexData[key];
     // Update settlementIndex if old had a settlement
     if (old && old.settlement) {
@@ -1069,14 +1191,63 @@ function setHex(q, r, data) {
   writeHexData(key, data);
 }
 
-// Remove hexes with no terrain, label, settlement, or roads
+// Remove hexes with no terrain, label, settlement, roads, or annotations
 function cleanHexData() {
   for (const key of Object.keys(hexData)) {
     const h = hexData[key];
-    if (!h.terrain && !h.label && !h.settlement && !h.region && (!h.roads || h.roads.length === 0)) {
+    if (!h.terrain && !h.label && !h.settlement && !h.region && (!h.roads || h.roads.length === 0) && (!h.annotations || h.annotations.length === 0) && (!h.rivers || h.rivers.length === 0)) {
       delete hexData[key];
     }
   }
+}
+
+// ======== Annotations API ========
+let _annIdCounter = 0;
+function genAnnId() { return 'a' + (++_annIdCounter) + '_' + Date.now().toString(36); }
+
+const ANNOTATION_TYPES = {
+  poi:     { name: '地标',  icon: '📍', color: '#ffd700' },
+  hazard:  { name: '危险',  icon: '⚠️', color: '#e94560' },
+  lore:    { name: '剧情',  icon: '📜', color: '#c9a84c' },
+  note:    { name: '备注',  icon: '📝', color: '#888' },
+  marker:  { name: '标记',  icon: '🚩', color: '#4a7fb5' }
+};
+
+function addAnnotation(q, r, ann) {
+  const key = hexKey(q, r);
+  pushUndo(key);
+  const h = hexData[key];
+  if (!h) {
+    hexData[key] = { terrain: null, label: '', settlement: null, roads: [], region: null, annotations: [ann] };
+    return;
+  }
+  if (!h.annotations) h.annotations = [];
+  h.annotations.push({ id: genAnnId(), type: 'note', visible: false, createdAt: Date.now(), ...ann });
+}
+
+function removeAnnotation(q, r, id) {
+  const key = hexKey(q, r);
+  pushUndo(key);
+  const h = hexData[key];
+  if (!h || !h.annotations) return;
+  h.annotations = h.annotations.filter(a => a.id !== id);
+  if (h.annotations.length === 0) { delete h.annotations; }
+}
+
+function updateAnnotation(q, r, id, updates) {
+  const key = hexKey(q, r);
+  pushUndo(key);
+  const h = hexData[key];
+  if (!h || !h.annotations) return;
+  const idx = h.annotations.findIndex(a => a.id === id);
+  if (idx === -1) return;
+  h.annotations[idx] = { ...h.annotations[idx], ...updates };
+}
+
+function getVisibleAnnotationIcons(q, r) {
+  const h = hexData[hexKey(q, r)];
+  if (!h || !h.annotations) return [];
+  return h.annotations.filter(a => a.visible).map(a => ANNOTATION_TYPES[a.type]?.icon || '📍');
 }
 
 function hasRoad(q1, r1, q2, r2) {
@@ -1113,6 +1284,70 @@ function removeRoad(q1, r1, q2, r2) {
   }
 }
 
+// ======== Rivers API (edge-based, mirrors roads) ========
+// Each hex stores `rivers: [{q, r, width}]` where {q,r} is a neighboring hex
+// and width is 1 (溪流) or 2 (河). Stored bidirectionally like roads.
+
+function hasRiver(q1, r1, q2, r2) {
+  return getHex(q1, r1).rivers?.some(rr => rr.q === q2 && rr.r === r2) ?? false;
+}
+
+function getRiverWidth(q1, r1, q2, r2) {
+  const rr = getHex(q1, r1).rivers?.find(r => r.q === q2 && r.r === r2);
+  return rr ? (rr.width || 1) : null;
+}
+
+function addRiver(q1, r1, q2, r2, width) {
+  const w = width || 1;
+  const k1 = hexKey(q1, r1);
+  const k2 = hexKey(q2, r2);
+  if (!hexData[k1]) hexData[k1] = { terrain: null, label: '', settlement: null, roads: [], region: null, annotations: [], rivers: [] };
+  if (!hexData[k2]) hexData[k2] = { terrain: null, label: '', settlement: null, roads: [], region: null, annotations: [], rivers: [] };
+  pushUndo(k1);
+  pushUndo(k2);
+  const h1 = hexData[k1];
+  const h2 = hexData[k2];
+  if (!h1.rivers) h1.rivers = [];
+  if (!h1.rivers.some(r => r.q === q2 && r.r === r2)) h1.rivers.push({ q: q2, r: r2, width: w });
+  else h1.rivers.find(r => r.q === q2 && r.r === r2).width = w;
+  if (!h2.rivers) h2.rivers = [];
+  if (!h2.rivers.some(r => r.q === q1 && r.r === r1)) h2.rivers.push({ q: q1, r: r1, width: w });
+  else h2.rivers.find(r => r.q === q1 && r.r === r1).width = w;
+}
+
+function removeRiver(q1, r1, q2, r2) {
+  const k1 = hexKey(q1, r1);
+  const k2 = hexKey(q2, r2);
+  const h1 = getHex(q1, r1);
+  if (h1.rivers && h1.rivers.length) {
+    pushUndo(k1);
+    h1.rivers = h1.rivers.filter(r => !(r.q === q2 && r.r === r2));
+  }
+  const h2 = getHex(q2, r2);
+  if (h2.rivers && h2.rivers.length) {
+    pushUndo(k2);
+    h2.rivers = h2.rivers.filter(r => !(r.q === q1 && r.r === r1));
+  }
+}
+
+// Remove all river edges touching (q,r) — strips this hex from each neighbor's
+// rivers, then clears its own. Used by erase to avoid dangling references.
+function removeAllRiverEdges(q, r) {
+  const h = getHex(q, r);
+  if (h.rivers) {
+    pushUndo(hexKey(q, r));
+    const refs = [...h.rivers];
+    h.rivers = [];
+    for (const rd of refs) {
+      const nh = getHex(rd.q, rd.r);
+      if (nh.rivers) {
+        pushUndo(hexKey(rd.q, rd.r));
+        nh.rivers = nh.rivers.filter(r => !(r.q === q && r.r === r));
+      }
+    }
+  }
+}
+
 function neighbors(q, r) {
   const parity = q & 1;
   const dirs = parity ? [
@@ -1123,6 +1358,131 @@ function neighbors(q, r) {
   return dirs.map(([dq, dr]) => ({ q: q + dq, r: r + dr }));
 }
 
+// ======== Shared region border rendering (used by render.js and generate.js) ========
+
+// Draw double-layered borders between regions/kingdoms.
+//   ctx: canvas 2D context (already transformed to hex coordinate space)
+//   hexDataSource(q, r): callback returning hex object { region, ... }
+function drawRegionBorders(ctx, qMin, qMax, rMin, rMax, hexDataSource) {
+  if (!showRegionLayer) return;
+  for (let q = qMin; q <= qMax; q++) {
+    for (let r = rMin; r <= rMax; r++) {
+      const h = hexDataSource(q, r);
+      if (!h || !h.region) continue;
+      const p = hexToPixel(q, r);
+      const corners = hexCorners(p.x, p.y, HEX_SIZE);
+      const parity = q & 1;
+      const dirs = parity
+        ? [[1,0],[0,-1],[-1,0],[-1,1],[0,1],[1,1]]
+        : [[1,0],[1,-1],[0,-1],[-1,-1],[-1,0],[0,1]];
+      for (let i = 0; i < 6; i++) {
+        const j = (i + 1) % 6;
+        const [dq, dr] = dirs[(6 - i - parity) % 6];
+        const nq = q + dq, nr = r + dr;
+        const nh = hexDataSource(nq, nr) || { region: null };
+        let isWildBorder = false;
+        if (!nh.region) {
+          isWildBorder = true;
+        } else if (nh.region === h.region) {
+          continue; // same region, skip
+        } else if (h.region >= nh.region) {
+          continue; // draw only once per edge (when h.region < nh.region)
+        }
+        const opacity = regionBorderOpacity;
+        const color = regions[h.region].color;
+
+        // Outer glow (wide, low opacity)
+        ctx.beginPath();
+        ctx.moveTo(corners[i].x, corners[i].y);
+        ctx.lineTo(corners[j].x, corners[j].y);
+        ctx.strokeStyle = hexToRGBA(color, opacity * 0.25);
+        ctx.lineWidth = 6;
+        ctx.setLineDash([]);
+        ctx.stroke();
+
+        // Main line
+        ctx.beginPath();
+        ctx.moveTo(corners[i].x, corners[i].y);
+        ctx.lineTo(corners[j].x, corners[j].y);
+        ctx.strokeStyle = hexToRGBA(color, opacity);
+        ctx.lineWidth = 2.5;
+        if (isWildBorder) {
+          ctx.setLineDash([8, 6]);
+        } else {
+          ctx.setLineDash([]);
+        }
+        ctx.stroke();
+      }
+    }
+  }
+  ctx.setLineDash([]); // reset dash after all border drawing
+}
+
+// Draw region/kingdom names at the center of each territory (Worldbox style).
+//   ctx: canvas 2D context (already transformed to hex coordinate space)
+function drawRegionNames(ctx) {
+  if (!showRegionLayer || !showRegionNames) return;
+
+  // Collect hex coordinates per region
+  const regionHexes = {};
+  for (const key of Object.keys(hexData)) {
+    const h = hexData[key];
+    if (h && h.region && regions[h.region]) {
+      if (!regionHexes[h.region]) regionHexes[h.region] = [];
+      const [q, r] = key.split(',').map(Number);
+      const p = hexToPixel(q, r);
+      regionHexes[h.region].push(p);
+    }
+  }
+
+  // For each region, calculate center and draw label
+  for (const [id, points] of Object.entries(regionHexes)) {
+    if (points.length === 0) continue;
+    const r = regions[id];
+    if (!r) continue;
+
+    // Calculate centroid
+    let cx = 0, cy = 0;
+    for (const pt of points) { cx += pt.x; cy += pt.y; }
+    cx /= points.length;
+    cy /= points.length;
+
+    const label = `${r.icon} ${r.name}`;
+    const fontSize = Math.max(14, Math.min(28, HEX_SIZE * 0.8));
+    ctx.font = `bold ${fontSize}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Background pill
+    const tw = ctx.measureText(label).width;
+    const pad = fontSize * 0.6;
+    const bw = tw + pad * 2;
+    const bh = fontSize * 1.4;
+
+    // Draw background with rounded rect approximation
+    const rx = cx - bw / 2;
+    const ry = cy - bh / 2;
+    const radius = 8;
+    ctx.beginPath();
+    ctx.moveTo(rx + radius, ry);
+    ctx.lineTo(rx + bw - radius, ry);
+    ctx.quadraticCurveTo(rx + bw, ry, rx + bw, ry + radius);
+    ctx.lineTo(rx + bw, ry + bh - radius);
+    ctx.quadraticCurveTo(rx + bw, ry + bh, rx + bw - radius, ry + bh);
+    ctx.lineTo(rx + radius, ry + bh);
+    ctx.quadraticCurveTo(rx, ry + bh, rx, ry + bh - radius);
+    ctx.lineTo(rx, ry + radius);
+    ctx.quadraticCurveTo(rx, ry, rx + radius, ry);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(0,0,0,0.65)';
+    ctx.fill();
+
+    // Draw text
+    ctx.fillStyle = '#fff';
+    ctx.fillText(label, cx, cy);
+  }
+}
+
 // ======== Rendering ========
 function hexToRGBA(hex, alpha) {
   let h = hex.replace('#', '');
@@ -1131,6 +1491,48 @@ function hexToRGBA(hex, alpha) {
   const g = parseInt(h.slice(2, 4), 16);
   const b = parseInt(h.slice(4, 6), 16);
   return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// Elevation color ramp (deep water → lowland → highland → peak) with RGB stops.
+const ELEVATION_RAMP = [
+  { t: -0.5, c: '#16255c' },
+  { t: -0.25, c: '#2a4a7a' },
+  { t: 0, c: '#4a6a3a' },
+  { t: 0.3, c: '#8a7a3a' },
+  { t: 0.6, c: '#9a9a9a' },
+  { t: 0.9, c: '#e8e8e8' }
+];
+
+// Map an elevation float to a color by lerping between the two surrounding stops.
+function elevationColor(elev) {
+  const v = Math.max(-0.5, Math.min(0.9, elev));
+  let a = ELEVATION_RAMP[0], b = ELEVATION_RAMP[ELEVATION_RAMP.length - 1];
+  for (let i = 0; i < ELEVATION_RAMP.length - 1; i++) {
+    if (v >= ELEVATION_RAMP[i].t && v <= ELEVATION_RAMP[i + 1].t) { a = ELEVATION_RAMP[i]; b = ELEVATION_RAMP[i + 1]; break; }
+  }
+  const f = b.t === a.t ? 0 : (v - a.t) / (b.t - a.t);
+  const ca = a.c.replace('#','').match(/.{2}/g).map(x => parseInt(x, 16));
+  const cb = b.c.replace('#','').match(/.{2}/g).map(x => parseInt(x, 16));
+  const r = Math.round(ca[0] + (cb[0] - ca[0]) * f);
+  const g = Math.round(ca[1] + (cb[1] - ca[1]) * f);
+  const bl = Math.round(ca[2] + (cb[2] - ca[2]) * f);
+  return `rgb(${r},${g},${bl})`;
+}
+
+// Draw the shared-edge segment between two adjacent hexes (for rivers).
+function riverEdgeSegment(p1, nOff, p2) {
+  const a = hexCorners(p1.x, p1.y, HEX_SIZE);
+  const b = hexCorners(p2.x, p2.y, HEX_SIZE);
+  // Find the two corners shared by both hexes
+  const shared = [];
+  for (const ca of a) {
+    for (const cb of b) {
+      if (Math.abs(ca.x - cb.x) < 0.01 && Math.abs(ca.y - cb.y) < 0.01) shared.push(ca);
+    }
+  }
+  if (shared.length >= 2) return [shared[0], shared[1]];
+  // Fallback: middle of the two centers
+  return [{ x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }];
 }
 
 function resizeCanvas() {
@@ -1168,41 +1570,10 @@ function render() {
   }
 
   // Pass 2: Region borders (between fills and roads)
-  for (let q = qMin; q <= qMax; q++) {
-    for (let r = rMin; r <= rMax; r++) {
-      const h = getHex(q, r);
-      if (!h.region) continue;
-      const p = hexToPixel(q, r);
-      const corners = hexCorners(p.x, p.y, HEX_SIZE);
-      const parity = q & 1;
-      const dirs = parity
-        ? [[1,0],[0,-1],[-1,0],[-1,1],[0,1],[1,1]]
-        : [[1,0],[1,-1],[0,-1],[-1,-1],[-1,0],[0,1]];
-      for (let i = 0; i < 6; i++) {
-        const j = (i + 1) % 6;
-        // 边 i→j 对应的邻居方向：偶数列用 dirs[(i+1)%6]，奇数列用 dirs[i]
-        const [dq, dr] = dirs[(6 - i - parity) % 6];
-        const nq = q + dq, nr = r + dr;
-        const nh = getHex(nq, nr);
-        let drawBorder = false;
-        if (!nh.region) {
-          // Wilderness border: this hex's region boundary to unclaimed land
-          drawBorder = true;
-        } else if (nh.region !== h.region && h.region < nh.region) {
-          // Inter-region border: draw once per edge (alphabetical comparison)
-          drawBorder = true;
-        }
-        if (drawBorder) {
-          ctx.beginPath();
-          ctx.moveTo(corners[i].x, corners[i].y);
-          ctx.lineTo(corners[j].x, corners[j].y);
-          ctx.strokeStyle = hexToRGBA(regions[h.region].color, 0.7);
-          ctx.lineWidth = 2.5;
-          ctx.stroke();
-        }
-      }
-    }
-  }
+  drawRegionBorders(ctx, qMin, qMax, rMin, rMax, getHex);
+
+  // Pass 2.5: Rivers (under roads/labels/settlements)
+  drawRivers(ctx, qMin, qMax, rMin, rMax);
 
   // Pass 3: Draw roads (between hexes)
   ctx.strokeStyle = '#8B4513';
@@ -1233,6 +1604,9 @@ function render() {
     }
   }
 
+  // Pass 4: Region names (Worldbox style — center of territory)
+  drawRegionNames(ctx);
+
   // Draw selection outline
   if (selectedHex) {
     const p = hexToPixel(selectedHex.q, selectedHex.r);
@@ -1257,6 +1631,44 @@ function render() {
     ctx.strokeStyle = '#ff6600';
     ctx.lineWidth = 2;
     ctx.stroke();
+  }
+
+  // Draw river start indicator (blue)
+  if (riverStart) {
+    const p = hexToPixel(riverStart.q, riverStart.r);
+    const corners = hexCorners(p.x, p.y, HEX_SIZE + 4);
+    ctx.beginPath();
+    corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
+    ctx.closePath();
+    ctx.strokeStyle = '#2f6fd0';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // Draw measure start + path overlay
+  if (measureStart) {
+    const p = hexToPixel(measureStart.q, measureStart.r);
+    const corners = hexCorners(p.x, p.y, HEX_SIZE + 4);
+    ctx.beginPath();
+    corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
+    ctx.closePath();
+    ctx.strokeStyle = '#00e5ff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+  if (measurePath && measurePath.length > 1) {
+    ctx.beginPath();
+    const sp = hexToPixel(measurePath[0].q, measurePath[0].r);
+    ctx.moveTo(sp.x, sp.y);
+    for (let i = 1; i < measurePath.length; i++) {
+      const pp = hexToPixel(measurePath[i].q, measurePath[i].r);
+      ctx.lineTo(pp.x, pp.y);
+    }
+    ctx.strokeStyle = '#00e5ff';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([6, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
   }
 
   // Draw box-selected hex highlights
@@ -1309,17 +1721,27 @@ function drawHexBase(q, r, allTerrains) {
   corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
   ctx.closePath();
 
-  // 1. Always draw terrain as base fill
-  let fillColor = '#3a3a52';
+  // Layer composition: terrain (base) + elevation tint + region tint.
+  // - 0 layers on  -> neutral dark gray base (#3a3a52), grid still visible
+  // - exactly 1 on -> opaque main color fills the whole hex (single-layer mode)
+  // - 2+ on        -> previous semi-transparent stacking (terrain base + translucent overlays)
   const hTerrainInfo = h.terrain ? allTerrains[h.terrain] : null;
-  if (hTerrainInfo) fillColor = hTerrainInfo.color;
-  ctx.fillStyle = fillColor;
-  ctx.fill();
+  const terrainActive = !!(showTerrainLayer && hTerrainInfo);
+  const elevActive = !!(showElevationLayer && typeof h.elev === 'number');
+  const regionActive = !!(showRegionLayer && h.region && regions[h.region]);
+  const activeCount = (terrainActive ? 1 : 0) + (elevActive ? 1 : 0) + (regionActive ? 1 : 0);
 
-  // 2. Region layer: overlay semi-transparent region color on top of terrain
-  if (h.region && regions[h.region]) {
-    ctx.fillStyle = hexToRGBA(regions[h.region].color, 0.3);
+  if (activeCount >= 2) {
+    ctx.fillStyle = hTerrainInfo ? hTerrainInfo.color : '#3a3a52';
     ctx.fill();
+    if (elevActive) { ctx.fillStyle = hexToRGBA(elevationColor(h.elev), 0.55); ctx.fill(); }
+    if (regionActive) { ctx.fillStyle = hexToRGBA(regions[h.region].color, 0.2); ctx.fill(); }
+  } else if (activeCount === 1) {
+    const solo = terrainActive ? hTerrainInfo.color
+      : (elevActive ? elevationColor(h.elev) : regions[h.region].color);
+    ctx.fillStyle = solo; ctx.fill();
+  } else {
+    ctx.fillStyle = '#3a3a52'; ctx.fill();
   }
 
   // Grid stroke
@@ -1327,6 +1749,35 @@ function drawHexBase(q, r, allTerrains) {
     ctx.strokeStyle = 'rgba(255,255,255,0.12)';
     ctx.lineWidth = 1;
     ctx.stroke();
+  }
+}
+
+// Draw all river edges in the visible range. Rivers are drawn along the shared
+// edge between adjacent hexes (like roads but inset to the edge line).
+function drawRivers(ctx, qMin, qMax, rMin, rMax) {
+  for (let q = qMin; q <= qMax; q++) {
+    for (let r = rMin; r <= rMax; r++) {
+      const h = getHex(q, r);
+      if (!h.rivers || !h.rivers.length) continue;
+      const p1 = hexToPixel(q, r);
+      for (const rd of h.rivers) {
+        // Draw each river edge once (only when q,r < rd in some ordering)
+        if (rd.q > q || (rd.q === q && rd.r > r)) {
+          const p2 = hexToPixel(rd.q, rd.r);
+          const seg = riverEdgeSegment(p1, null, p2);
+          if (seg.length < 2) continue;
+          const width = rd.width || 1;
+          ctx.beginPath();
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.strokeStyle = width >= 2 ? '#1f4fa0' : '#2f6fd0';
+          ctx.lineWidth = width >= 2 ? 6 : 3;
+          ctx.moveTo(seg[0].x, seg[0].y);
+          ctx.lineTo(seg[1].x, seg[1].y);
+          ctx.stroke();
+        }
+      }
+    }
   }
 }
 
@@ -1343,9 +1794,9 @@ function drawHexOverlay(q, r, allTerrains) {
     ctx.fillText(`${q},${r}`, p.x, p.y + HEX_SIZE * 0.4);
   }
 
-  // Terrain icon (image or emoji) — always show terrain, regardless of layer
+  // Terrain icon (image or emoji) — hidden when the terrain layer is off
   const hOverlayTI = h.terrain ? allTerrains[h.terrain] : null;
-  if (hOverlayTI) {
+  if (showTerrainLayer && hOverlayTI) {
     if (hOverlayTI.imageUrl) {
       drawHexImage(p.x, p.y, HEX_SIZE * 1.1, hOverlayTI.imageUrl);
     } else {
@@ -1353,7 +1804,24 @@ function drawHexOverlay(q, r, allTerrains) {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = 'rgba(255,255,255,0.85)';
-      ctx.fillText(hOverlayTI.icon, p.x, p.y - (h.label || h.settlement ? HEX_SIZE * 0.15 : 0));
+      ctx.fillText(hOverlayTI.icon, p.x, p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.15 : 0));
+    }
+  }
+
+  // Annotation icons (visible ones)
+  if (h.annotations && h.annotations.length) {
+    const visibleIcons = h.annotations.filter(a => a.visible).map(a => ANNOTATION_TYPES[a.type]?.icon || '📍');
+    if (visibleIcons.length) {
+      // Draw small icons in top-right corner of hex
+      const startX = p.x + HEX_SIZE * 0.3;
+      const startY = p.y - HEX_SIZE * 0.65;
+      ctx.font = `${HEX_SIZE * 0.25}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      visibleIcons.forEach((icon, idx) => {
+        ctx.fillText(icon, startX + idx * (HEX_SIZE * 0.28), startY);
+      });
     }
   }
 
@@ -1553,16 +2021,19 @@ canvas.addEventListener('mousemove', (e) => {
         if (_eraseDragLast.has(k)) return; // skip same hex
         _eraseDragLast.add(k);
         const h = getHex(hex.q, hex.r);
-        if (isLocked && (h.terrain || h.settlement || h.label || h.roads?.length)) return;
+        if (isLocked && (h.terrain || h.settlement || h.label || h.roads?.length || (h.annotations && h.annotations.length))) return;
         const mode = document.getElementById('erase-mode').value;
         if (mode === 'all') {
-          setHex(hex.q, hex.r, { terrain: null, label: '', settlement: null, roads: [] });
+          setHex(hex.q, hex.r, { terrain: null, elev: null, moist: null, label: '', settlement: null, roads: [], annotations: [] });
+          removeAllRiverEdges(hex.q, hex.r);
         } else if (mode === 'terrain') {
-          setHex(hex.q, hex.r, { terrain: null });
+          setHex(hex.q, hex.r, { terrain: null, elev: null, moist: null });
         } else if (mode === 'settlement') {
           setHex(hex.q, hex.r, { settlement: null });
         } else if (mode === 'label') {
           setHex(hex.q, hex.r, { label: '' });
+        } else if (mode === 'river') {
+          removeAllRiverEdges(hex.q, hex.r);
         } else if (mode === 'roads') {
           const cur = getHex(hex.q, hex.r);
           if (cur.roads) {
@@ -1742,25 +2213,91 @@ function handleHexClick(q, r, e) {
       updateInfo();
       return; // skip extra render below
     }
+  } else if (selectedTool === 'river') {
+    const hint = document.getElementById('tool-hint');
+    if (!riverStart) {
+      riverStart = { q, r };
+      hint.innerHTML = `🌊 起点已选 <b>(${q}, ${r})</b>，点击相邻六角格连线。再次点击起点可取消`;
+      document.getElementById('coord-indicator').textContent = `🌊 起点 (${q}, ${r})`;
+    } else {
+      if (riverStart.q === q && riverStart.r === r) {
+        riverStart = null;
+        hint.innerHTML = '🌊 <b>点击第一个六角格</b>设为起点(蓝色高亮)，再<b>点击相邻格</b>画河';
+        document.getElementById('coord-indicator').textContent = '🌊 点击选择河流起点';
+      } else {
+        const nbrs = neighbors(q, r);
+        if (nbrs.some(n => n.q === riverStart.q && n.r === riverStart.r)) {
+          if (hasRiver(q, r, riverStart.q, riverStart.r)) {
+            removeRiver(q, r, riverStart.q, riverStart.r);
+            hint.innerHTML = `🌊 已移除河流 [(${riverStart.q},${riverStart.r}) ⇄ (${q},${r})]`;
+          } else {
+            addRiver(q, r, riverStart.q, riverStart.r, 1);
+            hint.innerHTML = `🌊 ✅ 已建立河流 [(${riverStart.q},${riverStart.r}) ⇄ (${q},${r})]`;
+          }
+          riverStart = null;
+          document.getElementById('coord-indicator').textContent = '🌊 点击选择河流起点';
+        } else {
+          riverStart = { q, r };
+          hint.innerHTML = `🌊 ⚠️ 不相邻！重新设起点为 <b>(${q}, ${r})</b>，点击相邻格连线`;
+          document.getElementById('coord-indicator').textContent = `🌊 起点 (${q}, ${r})`;
+        }
+      }
+      render();
+      updateInfo();
+      return; // skip extra render below
+    }
+  } else if (selectedTool === 'measure') {
+    if (!measureStart) {
+      measureStart = { q, r };
+      measurePath = null;
+      document.getElementById('coord-indicator').textContent = `📏 起点 (${q}, ${r})，点击终点测距`;
+    } else if (measureStart.q === q && measureStart.r === r) {
+      measureStart = null;
+      measurePath = null;
+      document.getElementById('coord-indicator').textContent = '📏 点击选择起点';
+    } else {
+      const path = aStarPathfind(measureStart.q, measureStart.r, q, r, 5000);
+      measurePath = path;
+      const straight = hexDistance(measureStart.q, measureStart.r, q, r);
+      const pathLen = path ? path.length : 0;
+      const cost = path ? pathTravelCost(path) : 0;
+      const dir = measureDirection(measureStart.q, measureStart.r, q, r);
+      let html = `<div class="row" style="justify-content:center;">
+        <span style="font-size:20px;font-weight:bold;color:#e94560;">📏 直线 ${straight} 格 · 路径 ${pathLen} 格 · 消耗 ${cost}</span>
+      </div>
+      <div class="row" style="justify-content:center;margin-top:4px;">
+        <span style="color:#aaa;font-size:13px;">方向 ${dir}</span>
+        ${generationRules.riverTravel > 0 ? `<span style="color:#2f6fd0;font-size:13px;">· 含渡河消耗(riverTravel=${generationRules.riverTravel})</span>` : ''}
+      </div>`;
+      const panel = document.getElementById('info-panel');
+      if (panel) panel.innerHTML = html;
+      document.getElementById('coord-indicator').textContent = `📏 (${measureStart.q},${measureStart.r}) → (${q},${r})`;
+      measureStart = null;
+    }
+    render();
+    return;
   } else if (selectedTool === 'label') {
     showLabelDialog(q, r);
   } else if (selectedTool === 'erase') {
     const mode = document.getElementById('erase-mode').value;
     const h = getHex(q, r);
     // Locked: don't erase hexes with any content
-    if (isLocked && (h.terrain || h.settlement || h.label || h.roads?.length)) {
+    if (isLocked && (h.terrain || h.settlement || h.label || h.roads?.length || (h.annotations && h.annotations.length))) {
       showDiceResult('🔒', '已锁定，取消勾选锁定后擦除');
       return;
     }
     if (mode === 'all') {
-      setHex(q, r, { terrain: null, label: '', settlement: null, roads: [] });
+      setHex(q, r, { terrain: null, elev: null, moist: null, label: '', settlement: null, roads: [], annotations: [] });
+      removeAllRiverEdges(q, r);
     } else if (mode === 'terrain') {
-      setHex(q, r, { terrain: null });
+      setHex(q, r, { terrain: null, elev: null, moist: null });
     } else if (mode === 'settlement') {
       // Keep roads to/from this hex when removing settlement
       setHex(q, r, { settlement: null });
     } else if (mode === 'label') {
       setHex(q, r, { label: '' });
+    } else if (mode === 'river') {
+      removeAllRiverEdges(q, r);
     } else if (mode === 'roads') {
       // Remove all roads from this hex and corresponding roads from neighbors
       beginBatch();
@@ -1830,7 +2367,7 @@ function showContextMenu(cx, cy, mx, my) {
   items.push({ text: '—' });
   items.push({
     text: '🧹 清除',
-    action: () => { setHex(hex.q, hex.r, { terrain: null, label: '', settlement: null, roads: [] }); render(); updateInfo(); }
+    action: () => { setHex(hex.q, hex.r, { terrain: null, label: '', settlement: null, roads: [], annotations: [] }); render(); updateInfo(); }
   });
 
   items.forEach(item => {
@@ -1903,8 +2440,9 @@ document.getElementById('btn-batch-erase').addEventListener('click', () => {
   for (const key of selectedHexes) {
     const [q, r] = key.split(',').map(Number);
     const h = getHex(q, r);
-    if (isLocked && (h.terrain || h.settlement || h.label || h.roads?.length)) continue;
-    setHex(q, r, { terrain: null, label: '', settlement: null, roads: [] });
+    if (isLocked && (h.terrain || h.settlement || h.label || h.roads?.length || (h.annotations && h.annotations.length))) continue;
+    setHex(q, r, { terrain: null, elev: null, moist: null, label: '', settlement: null, roads: [], annotations: [] });
+    removeAllRiverEdges(q, r);
   }
   endBatch();
   showDiceResult('🧹', `已批量清除 ${selectedHexes.size} 格`);
@@ -1966,8 +2504,77 @@ function showLabelDialog(q, r) {
   document.getElementById('label-modal-r').value = r;
   document.getElementById('label-modal-coord').textContent = `(${q}, ${r})`;
   document.getElementById('label-modal-text').value = h.label || '';
+  rebuildAnnotationList();
+  document.getElementById('ann-add-form').style.display = 'none';
+  document.getElementById('ann-show-add-btn').style.display = 'block';
   document.getElementById('label-modal').style.display = 'block';
   setTimeout(() => document.getElementById('label-modal-text').focus(), 50);
+}
+
+function escHtml(s) {
+  if (!s) return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function rebuildAnnotationList() {
+  const q = parseInt(document.getElementById('label-modal-q').value);
+  const r = parseInt(document.getElementById('label-modal-r').value);
+  const h = getHex(q, r);
+  const anns = h.annotations || [];
+  const list = document.getElementById('ann-list');
+  const count = document.getElementById('ann-count');
+  if (count) count.textContent = `(${anns.length}条)`;
+
+  if (!list) return;
+  let html = '<div style="font-size:12px;color:#888;margin-bottom:6px;">详细标注 <span id="ann-count" style="color:#666;">(' + anns.length + '条)</span></div>';
+
+  if (anns.length === 0) {
+    html += '<div style="font-size:12px;color:#555;text-align:center;padding:10px;">暂无详细标注</div>';
+  } else {
+    anns.forEach(a => {
+      const t = ANNOTATION_TYPES[a.type] || ANNOTATION_TYPES.note;
+      const eye = a.visible ? '👁️' : '🙈';
+      const visLabel = a.visible ? '显示' : '隐藏';
+      html += '<div style="display:flex;align-items:flex-start;gap:6px;padding:6px 8px;margin:4px 0;background:#1a1a2e;border-radius:4px;border-left:3px solid ' + t.color + ';">';
+      html += '<span style="font-size:14px;line-height:1.4;">' + t.icon + '</span>';
+      html += '<div style="flex:1;min-width:0;">';
+      html += '<div style="font-size:11px;color:' + t.color + ';">' + t.name + '</div>';
+      html += '<div style="font-size:13px;color:#e0e0e0;word-break:break-word;white-space:pre-wrap;">' + escHtml(a.text) + '</div>';
+      html += '</div>';
+      html += '<div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0;">';
+      html += '<button class="ann-vis-btn" data-id="' + a.id + '" title="' + visLabel + '" style="padding:2px 6px;background:none;border:none;cursor:pointer;font-size:14px;">' + eye + '</button>';
+      html += '<button class="ann-del-btn" data-id="' + a.id + '" title="删除" style="padding:2px 6px;background:none;border:none;cursor:pointer;font-size:14px;color:#e94560;">✕</button>';
+      html += '</div></div>';
+    });
+  }
+
+  list.innerHTML = html;
+
+  // Visibility toggle
+  list.querySelectorAll('.ann-vis-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const id = this.dataset.id;
+      const h2 = getHex(q, r);
+      const ann = h2.annotations?.find(a => a.id === id);
+      if (ann) {
+        updateAnnotation(q, r, id, { visible: !ann.visible });
+        rebuildAnnotationList();
+        render();
+        updateInfo();
+      }
+    });
+  });
+
+  // Delete
+  list.querySelectorAll('.ann-del-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      if (!confirm('删除此标注？')) return;
+      removeAnnotation(q, r, this.dataset.id);
+      rebuildAnnotationList();
+      render();
+      updateInfo();
+    });
+  });
 }
 
 function showDiceResult(line1, line2) {
@@ -2005,7 +2612,7 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if ((e.ctrlKey || e.metaKey) && e.key === 'y') { redo(); e.preventDefault(); return; }
-  const keyMap = { 'v': 'select', 'x': 'select-rect', 'b': 'paint', 's': 'settlement', 'r': 'road', 'l': 'label', 'e': 'erase' };
+  const keyMap = { 'v': 'select', 'x': 'select-rect', 'b': 'paint', 's': 'settlement', 'r': 'road', 'w': 'river', 'm': 'measure', 'l': 'label', 'e': 'erase' };
   if (keyMap[e.key?.toLowerCase()]) {
     setTool(keyMap[e.key.toLowerCase()]);
     e.preventDefault();
@@ -2026,6 +2633,8 @@ function setTool(tool) {
     updateBatchPanel();
   }
   if (tool !== 'road') roadStart = null;
+  if (tool !== 'river') riverStart = null;
+  if (tool !== 'measure') { measureStart = null; measurePath = null; }
   const hint = document.getElementById('tool-hint');
   const coord = document.getElementById('coord-indicator');
   switch (tool) {
@@ -2050,12 +2659,20 @@ function setTool(tool) {
       hint.innerHTML = '🛤️ <b>点击第一个六角格</b>设为起点(橙色高亮)，再<b>点击相邻格</b>连线。再次点击起点可取消';
       coord.textContent = roadStart ? `🛤️ 起点 (${roadStart.q}, ${roadStart.r})` : '🛤️ 点击选择道路起点';
       break;
+    case 'river':
+      hint.innerHTML = '🌊 <b>点击第一个六角格</b>设为起点(蓝色高亮)，再<b>点击相邻格</b>画河。再次点击起点可取消';
+      coord.textContent = riverStart ? `🌊 起点 (${riverStart.q}, ${riverStart.r})` : '🌊 点击选择河流起点';
+      break;
+    case 'measure':
+      hint.innerHTML = '📏 点击两个六角格，显示直线距离、最短路径和旅行消耗';
+      coord.textContent = measureStart ? `📏 起点 (${measureStart.q}, ${measureStart.r})` : '📏 点击选择起点';
+      break;
     case 'label':
       hint.innerHTML = '🏷️ 点击六角格 → 弹出窗口输入地标名称（如：古墓、龙巢）';
       coord.textContent = '🏷️ 点击添加标签';
       break;
     case 'erase':
-      hint.innerHTML = '🧹 点击擦除，从下拉菜单选择擦除内容：全部/仅地形/仅定居点/仅标签/仅道路。拖拽连续擦除';
+      hint.innerHTML = '🧹 点击擦除，从下拉菜单选择擦除内容：全部/仅地形/仅定居点/仅标签/仅河流/仅道路。拖拽连续擦除';
       coord.textContent = '🧹 擦除模式';
       break;
     case 'paint-region':
@@ -2232,6 +2849,8 @@ function openGenRulesEditor() {
   var chanceVal = Math.round((generationRules.specialTerrainChance || 0.05) * 100);
   document.getElementById('gr-special-chance').value = chanceVal;
   document.getElementById('gr-special-chance-val').textContent = chanceVal + '%';
+  document.getElementById('gr-river-travel').value = generationRules.riverTravel != null ? generationRules.riverTravel : 0;
+  document.getElementById('gr-gen-rivers').checked = generationRules.generateRivers !== false;
   let defaultSelect = document.getElementById('gr-default-terrain');
   defaultSelect.innerHTML = '';
   let ids = getAllTerrainIds();
@@ -2339,6 +2958,17 @@ document.getElementById('gr-special-chance').addEventListener('input', function(
   saveTerrainConfig();
 });
 
+document.getElementById('gr-river-travel').addEventListener('change', function(e) {
+  generationRules.riverTravel = Math.max(0, Math.min(20, parseInt(e.target.value) || 0));
+  saveTerrainConfig();
+  render();
+});
+
+document.getElementById('gr-gen-rivers').addEventListener('change', function(e) {
+  generationRules.generateRivers = e.target.checked;
+  saveTerrainConfig();
+});
+
 document.getElementById('gr-btn-reset').addEventListener('click', function() {
   generationRules = JSON.parse(JSON.stringify(DEFAULT_GEN_RULES));
   saveTerrainConfig();
@@ -2346,6 +2976,9 @@ document.getElementById('gr-btn-reset').addEventListener('click', function() {
   document.getElementById('gr-threshold').value = generationRules.d6Threshold;
   document.getElementById('gr-special-chance').value = Math.round((generationRules.specialTerrainChance || 0.05) * 100);
   document.getElementById('gr-special-chance-val').textContent = document.getElementById('gr-special-chance').value + '%';
+  document.getElementById('gr-river-travel').value = generationRules.riverTravel != null ? generationRules.riverTravel : 0;
+  document.getElementById('gr-gen-rivers').checked = generationRules.generateRivers !== false;
+  render();
   let defaultSelect = document.getElementById('gr-default-terrain');
   [].slice.call(defaultSelect.options).forEach(function(opt) {
     opt.selected = opt.value === generationRules.defaultTerrain;
@@ -2422,19 +3055,49 @@ document.getElementById('settlement-modal-rating').addEventListener('keydown', f
   if (e.key === 'Escape') document.getElementById('settlement-modal').style.display = 'none';
 });
 
-// ======== Label Modal ========
-function labelModalConfirm() {
+// ======== Label / Annotation Modal ========
+
+// Quick label save
+document.getElementById('label-modal-quick-save').addEventListener('click', function() {
   const q = parseInt(document.getElementById('label-modal-q').value);
   const r = parseInt(document.getElementById('label-modal-r').value);
   const text = document.getElementById('label-modal-text').value.trim();
   setHex(q, r, { label: text });
-  document.getElementById('label-modal').style.display = 'none';
+  showDiceResult('🏷️ 快捷标签已保存', text || '(空)');
   render();
   updateInfo();
-  showDiceResult('🏷️ 已保存', text || '(空)');
-}
+});
 
-document.getElementById('label-modal-confirm').addEventListener('click', labelModalConfirm);
+// Show add form
+document.getElementById('ann-show-add-btn').addEventListener('click', function() {
+  document.getElementById('ann-add-form').style.display = 'block';
+  this.style.display = 'none';
+  document.getElementById('ann-add-text').focus();
+});
+
+// Cancel add
+document.getElementById('ann-add-cancel').addEventListener('click', function() {
+  document.getElementById('ann-add-form').style.display = 'none';
+  document.getElementById('ann-show-add-btn').style.display = 'block';
+  document.getElementById('ann-add-text').value = '';
+});
+
+// Confirm add
+document.getElementById('ann-add-confirm').addEventListener('click', function() {
+  const q = parseInt(document.getElementById('label-modal-q').value);
+  const r = parseInt(document.getElementById('label-modal-r').value);
+  const text = document.getElementById('ann-add-text').value.trim();
+  if (!text) { alert('请输入标注文字'); return; }
+  const type = document.getElementById('ann-add-type').value;
+  const visible = document.getElementById('ann-add-visible').checked;
+  addAnnotation(q, r, { type, text, visible });
+  document.getElementById('ann-add-text').value = '';
+  rebuildAnnotationList();
+  render();
+  updateInfo();
+  showDiceResult('📋 已添加标注', (ANNOTATION_TYPES[type]?.icon || '') + ' ' + text.slice(0, 40));
+});
+
 document.getElementById('label-modal-cancel').addEventListener('click', function() {
   document.getElementById('label-modal').style.display = 'none';
 });
@@ -2442,7 +3105,15 @@ document.getElementById('label-modal').addEventListener('click', function(e) {
   if (e.target === e.currentTarget) e.currentTarget.style.display = 'none';
 });
 document.getElementById('label-modal-text').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') labelModalConfirm();
+  if (e.key === 'Enter') {
+    const q = parseInt(document.getElementById('label-modal-q').value);
+    const r = parseInt(document.getElementById('label-modal-r').value);
+    const text = document.getElementById('label-modal-text').value.trim();
+    setHex(q, r, { label: text });
+    showDiceResult('🏷️ 快捷标签已保存', text || '(空)');
+    render();
+    updateInfo();
+  }
   if (e.key === 'Escape') document.getElementById('label-modal').style.display = 'none';
 });
 
@@ -2589,6 +3260,19 @@ document.getElementById('re-btn-close')?.addEventListener('click', function() {
 });
 document.getElementById('region-editor-modal')?.addEventListener('click', function(e) {
   if (e.target === e.currentTarget) e.currentTarget.style.display = 'none';
+});
+
+// 边境透明度控制
+document.getElementById('border-opacity')?.addEventListener('input', function(e) {
+  regionBorderOpacity = parseInt(e.target.value) / 100;
+  document.getElementById('border-opacity-val').textContent = e.target.value + '%';
+  render();
+});
+
+// 王国名称显示切换
+document.getElementById('chk-region-names')?.addEventListener('change', function(e) {
+  showRegionNames = e.target.checked;
+  render();
 });
 
 // Roll dice — with animation
@@ -2845,6 +3529,25 @@ function fractalNoise(x, y, octaves) {
   return value / max; // -1..1
 }
 
+// Unify the elevation/moisture → terrain classification chain (also returns the
+// two noise values so callers can persist them). Single source of truth for the
+// thresholds; the inline Web Worker re-implements it inline (workers can't call
+// this), but must stay identical.
+function classifyElevMoist(nx, ny, rng) {
+  const elev = fractalNoise(nx, ny, 4);
+  const moist = fractalNoise(nx + 100, ny + 100, 3);
+  let terrain;
+  if (elev < -0.20) terrain = 'water';
+  else if (elev > 0.50 && moist < -0.05) terrain = 'snow';
+  else if (elev > 0.40) terrain = 'mountain';
+  else if (elev > 0.20) terrain = 'hill';
+  else if (moist < -0.15) terrain = 'desert';
+  else if (moist > 0.15 && elev < 0.30) terrain = 'forest';
+  else if (elev < -0.05 && moist > 0.10) terrain = 'swamp';
+  else terrain = generationRules.defaultTerrain || 'plain';
+  return { elev, moist, terrain };
+}
+
 // Generate terrain for a bounded region (synchronous — kept for backward compat)
 // ======== Web Worker for off-thread Perlin noise ========
 var _noiseWorker = null;
@@ -2868,7 +3571,7 @@ function getNoiseWorker() {
     'var res=[];for(var i=0;i<coords.length;i++){var c=coords[i],nx=c.px*0.005/scale,ny=c.py*0.005/scale;',
     'var elev=fn(nx,ny,4),moist=fn(nx+100,ny+100,3),t;',
     'if(elev<-0.20)t="water";else if(elev>0.50&&moist<-0.05)t="snow";else if(elev>0.40)t="mountain";else if(elev>0.20)t="hill";else if(moist<-0.15)t="desert";else if(moist>0.15&&elev<0.30)t="forest";else if(elev<-0.05&&moist>0.10)t="swamp";else t="plain";',
-    'res.push({q:c.q,r:c.r,terrain:t});}',
+    'res.push({q:c.q,r:c.r,terrain:t,elev:elev,moist:moist});}',
     'self.postMessage({results:res,id:d.id});};'
   ].join('\n');
 
@@ -2895,17 +3598,8 @@ function classifyBatchWithWorker(seed, coords, scale) {
       for (var i = 0; i < coords.length; i++) {
         var c = coords[i];
         var nx = c.px * 0.005 / scale, ny = c.py * 0.005 / scale;
-        var elev = fractalNoise(nx, ny, 4), moist = fractalNoise(nx + 100, ny + 100, 3);
-        var t;
-        if (elev < -0.20) t = 'water';
-        else if (elev > 0.50 && moist < -0.05) t = 'snow';
-        else if (elev > 0.40) t = 'mountain';
-        else if (elev > 0.20) t = 'hill';
-        else if (moist < -0.15) t = 'desert';
-        else if (moist > 0.15 && elev < 0.30) t = 'forest';
-        else if (elev < -0.05 && moist > 0.10) t = 'swamp';
-        else t = generationRules.defaultTerrain || 'plain';
-        results.push({ q: c.q, r: c.r, terrain: t });
+        var em = classifyElevMoist(nx, ny);
+        results.push({ q: c.q, r: c.r, terrain: em.terrain, elev: em.elev, moist: em.moist });
       }
       resolve(results);
       return;
@@ -2948,26 +3642,9 @@ function generateTerrainRegion(seed, centerQ, centerR, width, height, scale) {
     const nx = p.x * 0.005 / scale;
     const ny = p.y * 0.005 / scale;
 
-    const elev = fractalNoise(nx, ny, 4);
-    const moist = fractalNoise(nx + 100, ny + 100, 3);
-
-    let terrainId;
-    if (elev < -0.20) {
-      terrainId = 'water';
-    } else if (elev > 0.50 && moist < -0.05) {
-      terrainId = 'snow';
-    } else if (elev > 0.40) {
-      terrainId = 'mountain';
-    } else if (elev > 0.20) {
-      terrainId = 'hill';
-    } else if (moist < -0.15) {
-      terrainId = 'desert';
-    } else if (moist > 0.15 && elev < 0.30) {
-      terrainId = 'forest';
-    } else if (elev < -0.05 && moist > 0.10) {
-      terrainId = 'swamp';
-    } else {      terrainId = generationRules.defaultTerrain || 'plain';
-    }
+    const em = classifyElevMoist(nx, ny, rng);
+    const elev = em.elev, moist = em.moist;
+    let terrainId = em.terrain;
 
     // Special terrain injection
     var chance = generationRules.specialTerrainChance != null ? generationRules.specialTerrainChance : 0.05;
@@ -2976,7 +3653,7 @@ function generateTerrainRegion(seed, centerQ, centerR, width, height, scale) {
       if (special) terrainId = special;
     }
 
-    writeHexData(hexKey(q, r), { terrain: terrainId });
+    writeHexData(hexKey(q, r), { terrain: terrainId, elev, moist });
   }
 }
 
@@ -3019,7 +3696,7 @@ async function generateTerrainRegionAsync(seed, centerQ, centerR, width, height,
         var special = pickSpecialTerrain(rng);
         if (special) terrainId = special;
       }
-      writeHexData(hexKey(res.q, res.r), { terrain: terrainId });
+      writeHexData(hexKey(res.q, res.r), { terrain: terrainId, elev: res.elev, moist: res.moist });
     }
     if (onProgress) onProgress(end, total);
     render();
@@ -3101,7 +3778,8 @@ function aStarPathfind(q1, r1, q2, r2, maxSteps) {
       var tInfo = hData.terrain ? allTerrains[hData.terrain] : null;
       var moveCost = tInfo ? tInfo.travel : 1;
       var waterPenalty = hData.terrain === 'water' ? 10 : 0;
-      var totalCost = moveCost + waterPenalty;
+      var riverPenalty = (generationRules.riverTravel > 0 && hasRiver(cq, cr, n.q, n.r)) ? generationRules.riverTravel : 0;
+      var totalCost = moveCost + waterPenalty + riverPenalty;
       var tentativeG = gScore[current] + totalCost;
       if (gScore[nk] === undefined || tentativeG < gScore[nk]) {
         cameFrom[nk] = current;
@@ -3250,6 +3928,121 @@ function buildRoadNetwork(settlements) {
   return roadsBuilt;
 }
 
+// ======== River auto-generation ========
+// Derives a river network from per-hex elevation (D8-style flow accumulation on
+// the hex grid). Deterministic — driven purely by the seeded Perlin elev floats,
+// no PRNG drift. Strictly downhill (each hex flows to a strictly lower neighbor)
+// so the flow field is acyclic; rivers carve naturally as downstream cells
+// accumulate upstream area.
+function generateRivers(seed, centerQ, centerR, width, height) {
+  const halfW = Math.floor(width / 2);
+  const halfH = Math.floor(height / 2);
+
+  // Clear existing auto rivers in this region only (one-click = fresh map).
+  // Hand-drawn rivers outside the region are untouched.
+  for (let q = centerQ - halfW; q <= centerQ + halfW; q++) {
+    for (let r = centerR - halfH; r <= centerR + halfH; r++) {
+      const h = getHex(q, r);
+      if (h.rivers && h.rivers.length) removeAllRiverEdges(q, r);
+    }
+  }
+
+  // Nodes = hexes that have stored elevation in the region
+  const nodes = new Map();
+  for (let q = centerQ - halfW; q <= centerQ + halfW; q++) {
+    for (let r = centerR - halfH; r <= centerR + halfH; r++) {
+      const h = getHex(q, r);
+      if (typeof h.elev === 'number') nodes.set(hexKey(q, r), { q, r, elev: h.elev, flowTo: null, acc: 0 });
+    }
+  }
+
+  // PASS 1: flow field — each hex drains to its lowest strictly-lower neighbor
+  for (const [, me] of nodes) {
+    let best = null, bestKey = null;
+    const nbrs = neighbors(me.q, me.r);
+    for (const nb of nbrs) {
+      const nk = hexKey(nb.q, nb.r);
+      const dn = nodes.get(nk);
+      if (!dn) continue;
+      if (dn.elev < me.elev && (best === null || dn.elev < best || (dn.elev === best && nk < bestKey))) {
+        best = dn.elev; bestKey = nk; best = dn.elev;
+      }
+    }
+    me.flowTo = bestKey;
+  }
+
+  // PASS 2: accumulation — process from highest to lowest (downstream is strictly
+  // later than upstream because flow is strictly downhill), each node adds its
+  // accumulated area to its downstream target.
+  const sorted = [...nodes.values()];
+  sorted.sort(function(a, b) { return b.elev - a.elev || (a.q - b.q) || (a.r - b.r); });
+  for (const n of sorted) n.acc = 1;
+  for (const n of sorted) {
+    if (n.flowTo) {
+      const dn = nodes.get(n.flowTo);
+      if (dn) dn.acc += n.acc;
+    }
+  }
+
+  // PASS 3: emit edges — one river edge per flow edge, width by downstream area.
+  const streamThreshold = generationRules.streamThreshold != null ? generationRules.streamThreshold : 25;
+  const riverThreshold = generationRules.riverThreshold != null ? generationRules.riverThreshold : 140;
+  for (const n of sorted) {
+    if (!n.flowTo) continue;
+    const dn = nodes.get(n.flowTo);
+    if (!dn) continue;
+    if (dn.acc < streamThreshold) continue;
+    const width = dn.acc >= riverThreshold ? 2 : 1;
+    addRiver(n.q, n.r, dn.q, dn.r, width);
+  }
+}
+
+// Sum the travel cost along a path (mirrors the aStar edge cost exactly, so
+// riverTravel applies automatically). aStar returns only the path, not the sum.
+function pathTravelCost(path) {
+  if (!path || path.length < 2) return 0;
+  const allTerrains = getAllTerrains();
+  let cost = 0;
+  for (let i = 0; i < path.length - 1; i++) {
+    const a = path[i], b = path[i + 1];
+    const hB = getHex(b.q, b.r);
+    const tInfo = hB.terrain ? allTerrains[hB.terrain] : null;
+    let c = tInfo ? tInfo.travel : 1;
+    if (hB.terrain === 'water') c += 10;
+    if (generationRules.riverTravel > 0 && hasRiver(a.q, a.r, b.q, b.r)) c += generationRules.riverTravel;
+    cost += c;
+  }
+  return cost;
+}
+
+// Draw river edges on an arbitrary canvas context (used by PNG export).
+// keys = array of "q,r" strings. Rivers drawn between the shared edge of hex
+// pairs, each once (same ordering as roads).
+function drawRiverEdgesOnContext(exportCtx, keys) {
+  exportCtx.lineCap = 'round';
+  exportCtx.lineJoin = 'round';
+  for (const key of keys) {
+    const h = hexData[key];
+    if (!h.rivers || !h.rivers.length) continue;
+    const [q1, r1] = key.split(',').map(Number);
+    const p1 = hexToPixel(q1, r1);
+    for (const rd of h.rivers) {
+      if (rd.q > q1 || (rd.q === q1 && rd.r > r1)) {
+        const p2 = hexToPixel(rd.q, rd.r);
+        const seg = riverEdgeSegment(p1, null, p2);
+        if (seg.length < 2) continue;
+        const width = rd.width || 1;
+        exportCtx.beginPath();
+        exportCtx.strokeStyle = width >= 2 ? '#1f4fa0' : '#2f6fd0';
+        exportCtx.lineWidth = width >= 2 ? 6 : 3;
+        exportCtx.moveTo(seg[0].x, seg[0].y);
+        exportCtx.lineTo(seg[1].x, seg[1].y);
+        exportCtx.stroke();
+      }
+    }
+  }
+}
+
 // One-click generate orchestrator (async)
 async function oneClickGenerate(config) {
   if (isGenerating) return;
@@ -3264,6 +4057,13 @@ async function oneClickGenerate(config) {
     centerR = selectedHex.r;
   }
 
+  // Step 0: Randomly pick kingdoms for this map
+  var newRegions = pickRandomKingdoms(seed, width, height);
+  Object.keys(regions).forEach(function(k) { delete regions[k]; });
+  Object.assign(regions, newRegions);
+  regionOrder = Object.keys(newRegions);
+  rebuildRegionPalette();
+
   const totalHexes = width * height;
   showProgress('🏗️', '生成地形中', 0, totalHexes);
 
@@ -3273,6 +4073,21 @@ async function oneClickGenerate(config) {
   await generateTerrainRegionAsync(seed, centerQ, centerR, width, height, scale,
     function(done, total) { showProgress('🏗️', '生成地形中', done, total); }
   );
+
+  // Step 1.5: Assign kingdoms (Voronoi tessellation from random centers)
+  showProgress('👑', '分配王国边境...', 0, 1);
+  await new Promise(function(resolve) { setTimeout(resolve, 20); });
+  assignRegions(seed, centerQ, centerR, width, height);
+  render();
+
+  // Step 1.6: Derive rivers from elevation (one-click = fresh map, so clear any
+  // auto rivers already in THIS region only — hand-drawn rivers elsewhere are kept)
+  if (generationRules.generateRivers) {
+    showProgress('🌊', '生成河流...', 0, 1);
+    await new Promise(function(resolve) { setTimeout(resolve, 20); });
+    generateRivers(seed, centerQ, centerR, width, height);
+    render();
+  }
 
   showProgress('🏘️', '放置定居点...', 0, 1);
 
@@ -3430,6 +4245,77 @@ function hexDistance(q1, r1, q2, r2) {
   return Math.max(Math.abs(x1 - x2), Math.abs(y1 - y2), Math.abs(z1 - z2));
 }
 
+// Compass direction from one hex to another (odd-r flat-top, x→E, y→N).
+function measureDirection(q1, r1, q2, r2) {
+  const p1 = hexToPixel(q1, r1);
+  const p2 = hexToPixel(q2, r2);
+  const dx = p2.x - p1.x, dy = p1.y - p2.y; // screen-y is down, so N is -y
+  const ang = Math.atan2(dx, dy) * 180 / Math.PI; // 0 = N, + = E
+  const dirs = ['北', '东北', '东', '东南', '南', '西南', '西', '西北'];
+  let i = Math.round(ang / 45);
+  if (i < 0) i += 8;
+  if (i === 8) i = 0;
+  return dirs[i];
+}
+
+// Assign kingdoms (regions) to hexes using Voronoi tessellation
+function assignRegions(seed, centerQ, centerR, width, height) {
+  const regionIds = regionOrder || Object.keys(regions);
+  if (regionIds.length === 0) return;
+
+  var rng = mulberry32(seed + 999);
+  var halfW = Math.floor(width / 2);
+  var halfH = Math.floor(height / 2);
+
+  // Generate random center points for each region
+  var centers = [];
+  for (var ri = 0; ri < regionIds.length; ri++) {
+    var cq, cr, retries = 0;
+    do {
+      cq = centerQ + Math.floor(rng() * width - halfW);
+      cr = centerR + Math.floor(rng() * height - halfH);
+      retries++;
+    } while (retries < 5 && getHex(cq, cr).terrain === 'water');
+    centers.push({ q: cq, r: cr, id: regionIds[ri] });
+  }
+
+  // Assign each hex to its nearest region center (skip water)
+  for (var q = centerQ - halfW; q <= centerQ + halfW; q++) {
+    for (var r = centerR - halfH; r <= centerR + halfH; r++) {
+      var key = hexKey(q, r);
+      var h = getHex(q, r);
+      if (!h.terrain || h.terrain === 'water') continue;
+      var bestDist = Infinity, bestId = null;
+      for (var ci = 0; ci < centers.length; ci++) {
+        var d = hexDistance(q, r, centers[ci].q, centers[ci].r);
+        if (d < bestDist) { bestDist = d; bestId = centers[ci].id; }
+      }
+      writeHexData(key, { region: bestId });
+    }
+  }
+}
+
+// Pick random kingdoms from the template pool based on map size
+function pickRandomKingdoms(seed, mapWidth, mapHeight) {
+  var total = mapWidth * mapHeight;
+  var count;
+  if (total < 400) count = 3 + (seed % 2);       // <20×20: 3~4
+  else if (total < 1600) count = 4 + (seed % 3); // 20~40: 4~6
+  else count = 5 + (seed % 3);                   // >40: 5~7
+
+  var rng = mulberry32(seed + 888);
+  var pool = REGION_TEMPLATES.slice(); // copy
+  // Fisher-Yates shuffle
+  for (var i = pool.length - 1; i > 0; i--) {
+    var j = Math.floor(rng() * (i + 1));
+    var tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
+  }
+  var picked = pool.slice(0, Math.min(count, pool.length));
+  var result = {};
+  picked.forEach(function(t) { result[t.id] = { name: t.name, color: t.color, icon: t.icon }; });
+  return result;
+}
+
 // Undo/Redo buttons
 document.getElementById('btn-undo').addEventListener('click', undo);
 document.getElementById('btn-redo').addEventListener('click', redo);
@@ -3458,7 +4344,7 @@ document.getElementById('btn-save').addEventListener('click', async function() {
   await new Promise(function(resolve) { setTimeout(resolve, 20); });
 
   var ex = buildImageRegistry(hexData, customTerrains);
-  var data = { hexData: ex.exportHex, imageRegistry: ex.registry, viewX: viewX, viewY: viewY, zoom: zoom, customTerrains: ex.exportCT, deletedTerrains: deletedTerrains, terrainOrder: terrainOrder, generationRules: generationRules };
+  var data = { hexData: ex.exportHex, imageRegistry: ex.registry, viewX: viewX, viewY: viewY, zoom: zoom, customTerrains: ex.exportCT, deletedTerrains: deletedTerrains, terrainOrder: terrainOrder, generationRules: generationRules, regions: regions, regionOrder: regionOrder };
   var json = JSON.stringify(data);
 
   var blob;
@@ -3522,6 +4408,9 @@ document.getElementById('btn-load').addEventListener('click', function() {
       if (data.deletedTerrains) deletedTerrains = data.deletedTerrains;
       if (data.terrainOrder) terrainOrder = data.terrainOrder;
       if (data.generationRules) generationRules = { ...DEFAULT_GEN_RULES, ...data.generationRules };
+      if (data.regions) regions = data.regions;
+      if (data.regionOrder) regionOrder = data.regionOrder;
+      rebuildRegionPalette();
       saveTerrainConfig();
       rebuildTerrainPalette();
       document.getElementById('zoom-indicator').textContent = '🔍 ' + Math.round(zoom * 100) + '%';
@@ -3586,58 +4475,45 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
     exportCtx.beginPath();
     corners.forEach((c, i) => i === 0 ? exportCtx.moveTo(c.x, c.y) : exportCtx.lineTo(c.x, c.y));
     exportCtx.closePath();
-    // 1. Always draw terrain as base fill
-    let fillColor = '#3a3a52';
-    if (h.terrain && allTerrains[h.terrain]) fillColor = allTerrains[h.terrain].color;
-    exportCtx.fillStyle = fillColor;
-    exportCtx.fill();
-    // 2. Region layer: overlay semi-transparent region color on top
-    if (h.region && regions[h.region]) {
-      exportCtx.fillStyle = 'rgba(' +
-        parseInt(regions[h.region].color.slice(1,3), 16) + ',' +
-        parseInt(regions[h.region].color.slice(3,5), 16) + ',' +
-        parseInt(regions[h.region].color.slice(5,7), 16) + ',0.3)';
+    // Layer composition (matches render.js drawHexBase): 0 -> dark gray, 1 -> opaque, 2+ -> stacking
+    const hTerrainInfo = h.terrain ? allTerrains[h.terrain] : null;
+    const terrainActive = !!(showTerrainLayer && hTerrainInfo);
+    const elevActive = !!(showElevationLayer && typeof h.elev === 'number');
+    const regionActive = !!(showRegionLayer && h.region && regions[h.region]);
+    const activeCount = (terrainActive ? 1 : 0) + (elevActive ? 1 : 0) + (regionActive ? 1 : 0);
+    const regionColor = regions[h.region] ? regions[h.region].color : null;
+    if (activeCount >= 2) {
+      exportCtx.fillStyle = hTerrainInfo ? hTerrainInfo.color : '#3a3a52';
+      exportCtx.fill();
+      if (elevActive) {
+        exportCtx.fillStyle = hexToRGBA(elevationColor(h.elev), 0.55);
+        exportCtx.fill();
+      }
+      if (regionActive) {
+        exportCtx.fillStyle = 'rgba(' +
+          parseInt(regionColor.slice(1,3), 16) + ',' +
+          parseInt(regionColor.slice(3,5), 16) + ',' +
+          parseInt(regionColor.slice(5,7), 16) + ',0.2)';
+        exportCtx.fill();
+      }
+    } else if (activeCount === 1) {
+      const solo = terrainActive ? hTerrainInfo.color
+        : (elevActive ? elevationColor(h.elev) : regionColor);
+      exportCtx.fillStyle = solo;
+      exportCtx.fill();
+    } else {
+      exportCtx.fillStyle = '#3a3a52';
       exportCtx.fill();
     }
     exportCtx.strokeStyle = 'rgba(255,255,255,0.12)';
     exportCtx.lineWidth = 1;
     exportCtx.stroke();
   }
-  // Region borders (Pass 1.5)
-  for (const key of keys) {
-      const [q, r] = key.split(',').map(Number);
-      const h = hexData[key];
-      if (!h.region) continue;
-      const p = hexToPixel(q, r);
-      const corners = hexCorners(p.x, p.y, HEX_SIZE);
-      const parity = q & 1;
-      const dirs = parity
-        ? [[1,0],[0,-1],[-1,0],[-1,1],[0,1],[1,1]]
-        : [[1,0],[1,-1],[0,-1],[-1,-1],[-1,0],[0,1]];
-      for (let i = 0; i < 6; i++) {
-        const j = (i + 1) % 6;
-        const [dq, dr] = dirs[(6 - i - parity) % 6];
-        const nq = q + dq, nr = r + dr;
-        const nh = getHex(nq, nr);
-        let drawBorder = false;
-        if (!nh.region) {
-          drawBorder = true;
-        } else if (nh.region !== h.region && h.region < nh.region) {
-          drawBorder = true;
-        }
-        if (drawBorder) {
-          exportCtx.beginPath();
-          exportCtx.moveTo(corners[i].x, corners[i].y);
-          exportCtx.lineTo(corners[j].x, corners[j].y);
-          const cr = parseInt(regions[h.region].color.slice(1,3), 16);
-          const cg = parseInt(regions[h.region].color.slice(3,5), 16);
-          const cb = parseInt(regions[h.region].color.slice(5,7), 16);
-          exportCtx.strokeStyle = `rgba(${cr},${cg},${cb},0.7)`;
-          exportCtx.lineWidth = 2.5;
-          exportCtx.stroke();
-        }
-      }
-    }
+  // Region borders (shared function)
+  drawRegionBorders(exportCtx, minQ - 1, maxQ + 1, minR - 1, maxR + 1, (q, r) => hexData[hexKey(q, r)] || { region: null });
+  // Rivers (Pass 2.5, under roads)
+  drawRiverEdgesOnContext(exportCtx, keys);
+  // Draw roads (Pass 2)
   // Draw roads (Pass 2)
   exportCtx.strokeStyle = '#8B4513';
   exportCtx.lineWidth = 3;
@@ -3662,9 +4538,9 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
     const [q, r] = key.split(',').map(Number);
     const h = hexData[key];
     const p = hexToPixel(q, r);
-    // Terrain icon (image or emoji) — always show regardless of layer
+    // Terrain icon (image or emoji) — hidden when the terrain layer is off
     const hOTI = h.terrain ? allTerrains[h.terrain] : null;
-    if (hOTI) {
+    if (showTerrainLayer && hOTI) {
         if (hOTI.imageUrl) {
           const img = getCachedImage(hOTI.imageUrl);
           if (img && img.complete && img.naturalWidth > 0) {
@@ -3675,23 +4551,38 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
             exportCtx.closePath();
             exportCtx.clip();
             const is = HEX_SIZE * 0.9;
-            exportCtx.drawImage(img, p.x - is/2, p.y - (h.label || h.settlement ? HEX_SIZE * 0.3 : 0) - is/2, is, is);
+            exportCtx.drawImage(img, p.x - is/2, p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.3 : 0) - is/2, is, is);
             exportCtx.restore();
           } else {
             exportCtx.font = `${HEX_SIZE * 0.5}px sans-serif`;
             exportCtx.textAlign = 'center';
             exportCtx.textBaseline = 'middle';
             exportCtx.fillStyle = 'rgba(255,255,255,0.85)';
-            exportCtx.fillText(hOTI.icon, p.x, p.y - (h.label || h.settlement ? HEX_SIZE * 0.15 : 0));
+            exportCtx.fillText(hOTI.icon, p.x, p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.15 : 0));
           }
         } else {
           exportCtx.font = `${HEX_SIZE * 0.5}px sans-serif`;
           exportCtx.textAlign = 'center';
           exportCtx.textBaseline = 'middle';
           exportCtx.fillStyle = 'rgba(255,255,255,0.85)';
-          exportCtx.fillText(hOTI.icon, p.x, p.y - (h.label || h.settlement ? HEX_SIZE * 0.15 : 0));
+          exportCtx.fillText(hOTI.icon, p.x, p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.15 : 0));
         }
       }
+    // Annotation icons (visible ones)
+    if (h.annotations && h.annotations.length) {
+      const visibleIcons = h.annotations.filter(a => a.visible).map(a => ANNOTATION_TYPES[a.type]?.icon || '📍');
+      if (visibleIcons.length) {
+        const startX = p.x + HEX_SIZE * 0.3;
+        const startY = p.y - HEX_SIZE * 0.65;
+        exportCtx.font = `${HEX_SIZE * 0.25}px sans-serif`;
+        exportCtx.textAlign = 'center';
+        exportCtx.textBaseline = 'middle';
+        exportCtx.fillStyle = 'rgba(255,255,255,0.9)';
+        visibleIcons.forEach((icon, idx) => {
+          exportCtx.fillText(icon, startX + idx * (HEX_SIZE * 0.28), startY);
+        });
+      }
+    }
     // Label
     if (h.label) {
       exportCtx.fillStyle = '#fff';
@@ -3729,6 +4620,8 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
         } // closes if(h.settlement.imageUrl)
       } // closes if(h.settlement)
     } // closes for loop
+  // Region names (Pass 3.5)
+  drawRegionNames(exportCtx);
   exportCtx.restore();
   const link = document.createElement("a");
   link.download = "hexmap_" + new Date().toISOString().slice(0,10) + ".png";
@@ -3759,6 +4652,9 @@ document.getElementById('chk-grid').addEventListener('change', (e) => { showGrid
 document.getElementById('chk-coords').addEventListener('change', (e) => { showCoords = e.target.checked; render(); });
 document.getElementById('chk-minimap').addEventListener('change', () => render());
 document.getElementById('chk-lock').addEventListener('change', (e) => { isLocked = e.target.checked; });
+document.getElementById('chk-terrain').addEventListener('change', (e) => { showTerrainLayer = e.target.checked; render(); });
+document.getElementById('chk-region-layer').addEventListener('change', (e) => { showRegionLayer = e.target.checked; render(); });
+document.getElementById('chk-elevation').addEventListener('change', (e) => { showElevationLayer = e.target.checked; render(); });
 
 // Manage regions button
 document.getElementById('btn-manage-regions').addEventListener('click', openRegionEditor);
@@ -3777,18 +4673,169 @@ function updateInfo() {
   const settle = h.settlement ? `${h.settlement.name} (${h.settlement.rating >= 0 ? '+' : ''}${h.settlement.rating})` : '—';
   const regionInfo = h.region && regions[h.region] ? `${regions[h.region].icon} ${regions[h.region].name}` : '—';
   const roads = h.roads?.length || 0;
+  const elevInfo = typeof h.elev === 'number' ? h.elev.toFixed(2) : '—';
+  const rivers = h.rivers?.length || 0;
   const nbrs = neighbors(q, r);
+  const annInfo = h.annotations && h.annotations.length ?
+    h.annotations.map(a => {
+      const t = ANNOTATION_TYPES[a.type] || ANNOTATION_TYPES.note;
+      return (a.visible ? '' : '🙈') + t.icon + ' ' + escHtml(a.text);
+    }).join('<br>') : '—';
   panel.innerHTML = `<div class="row">
     <span><span class="label">坐标:</span> <span class="val">(${q}, ${r})</span></span>
     <span><span class="label">地形:</span> <span class="val">${t}</span></span>
+    <span><span class="label">海拔:</span> <span class="val">${elevInfo}</span></span>
     <span><span class="label">定居点:</span> <span class="val">${settle}</span></span>
     <span><span class="label">王国:</span> <span class="val">${regionInfo}</span></span>
-    <span><span class="label">标签:</span> <span class="val">${h.label || '—'}</span></span>
+    <span><span class="label">快捷标签:</span> <span class="val">${h.label || '—'}</span></span>
     <span><span class="label">道路:</span> <span class="val">${roads} 条连接</span></span>
+    <span><span class="label">河流:</span> <span class="val">${rivers} 条边</span></span>
+    <span><span class="label">标注 (${h.annotations ? h.annotations.length : 0}条):</span> <span class="val" style="font-size:11px;">${annInfo}</span></span>
   </div>`;
 }
 
 
+// ======== Map Statistics Panel ========
+
+// Compute aggregate stats over all hexData.
+function computeMapStats() {
+  const allT = getAllTerrains();
+  const total = Object.keys(hexData).length;
+  const terrainCount = {};   // terrainId -> count
+  const regionArea = {};     // regionId -> count
+  let settlements = 0;
+  let roadEdges = 0;
+  let riverStream = 0, riverWide = 0;
+  let annotations = 0;
+  let minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
+  let minElev = Infinity, maxElev = -Infinity, hasElev = false;
+  const seenRoads = new Set();
+  const seenRivers = new Set();
+
+  for (const [key, h] of Object.entries(hexData)) {
+    const [q, r] = key.split(',').map(Number);
+    if (q < minQ) minQ = q; if (q > maxQ) maxQ = q;
+    if (r < minR) minR = r; if (r > maxR) maxR = r;
+
+    if (h.terrain) terrainCount[h.terrain] = (terrainCount[h.terrain] || 0) + 1;
+    if (h.region) regionArea[h.region] = (regionArea[h.region] || 0) + 1;
+    if (h.settlement) settlements++;
+    if (h.annotations) annotations += h.annotations.length;
+    if (typeof h.elev === 'number') {
+      hasElev = true;
+      if (h.elev < minElev) minElev = h.elev;
+      if (h.elev > maxElev) maxElev = h.elev;
+    }
+
+    if (h.roads) {
+      for (const rd of h.roads) {
+        const a = q + ',' + r, b = rd.q + ',' + rd.r;
+        const rk = a < b ? a + '-' + b : b + '-' + a;
+        if (!seenRoads.has(rk)) { seenRoads.add(rk); roadEdges++; }
+      }
+    }
+    if (h.rivers) {
+      for (const rv of h.rivers) {
+        const a = q + ',' + r, b = rv.q + ',' + rv.r;
+        const rk = a < b ? a + '-' + b : b + '-' + a;
+        if (!seenRivers.has(rk)) {
+          seenRivers.add(rk);
+          if ((rv.width || 1) >= 2) riverWide++; else riverStream++;
+        }
+      }
+    }
+  }
+
+  return {
+    total,
+    terrainCount,
+    regionArea,
+    settlements,
+    roadEdges,
+    riverStream,
+    riverWide,
+    riverEdges: riverStream + riverWide,
+    annotations,
+    bounds: (total === 0) ? null : { minQ, maxQ, minR, maxR },
+    elevationRange: hasElev ? { min: minElev, max: maxElev } : null
+  };
+}
+
+// Render stats into the modal body and open it.
+function openStatsModal() {
+  const s = computeMapStats();
+  const body = document.getElementById('stats-body');
+  if (!body) return;
+
+  const allT = getAllTerrains();
+  const terrainIds = getAllTerrainIds();
+
+  let html = '';
+  if (s.total === 0) {
+    html = '<div style="font-size:13px;color:#888;text-align:center;padding:24px 0;">地图为空，尚未生成任何六角格。</div>';
+  } else {
+    html += `<div style="margin-bottom:10px;">
+      <span style="font-size:15px;font-weight:bold;color:#e94560;">总格数 ${s.total}</span>
+      <span style="color:#aaa;font-size:12px;"> · 坐标 q[${s.bounds.minQ}..${s.bounds.maxQ}] r[${s.bounds.minR}..${s.bounds.maxR}]</span>
+    </div>`;
+
+    // Terrain distribution
+    html += '<div style="margin-bottom:10px;"><div style="font-size:12px;color:#888;margin-bottom:4px;">🗺️ 地形分布</div>';
+    for (const id of terrainIds) {
+      const t = allT[id];
+      if (!t) continue;
+      const n = s.terrainCount[id] || 0;
+      if (n === 0) continue;
+      const pct = (n / s.total * 100).toFixed(1);
+      html += `<div style="display:flex;align-items:center;gap:6px;padding:2px 0;font-size:12px;">
+        <span style="width:22px;height:14px;border-radius:3px;background:${t.color};display:inline-block;flex-shrink:0;"></span>
+        <span style="color:#ddd;flex:1;">${t.icon} ${t.name}</span>
+        <span style="color:#aaa;">${n} 格</span>
+        <span style="color:#666;width:42px;text-align:right;">${pct}%</span>
+      </div>`;
+    }
+    html += '</div>';
+
+    // Region area
+    const regionIds = regionOrder || Object.keys(regions);
+    html += '<div style="margin-bottom:10px;"><div style="font-size:12px;color:#888;margin-bottom:4px;">👑 王国面积</div>';
+    let regionRow = '';
+    for (const id of regionIds) {
+      const r = regions[id];
+      if (!r) continue;
+      const n = s.regionArea[id] || 0;
+      if (n === 0) continue;
+      regionRow += `<div style="display:flex;align-items:center;gap:6px;padding:2px 0;font-size:12px;">
+        <span style="width:22px;height:14px;border-radius:3px;background:${r.color};display:inline-block;flex-shrink:0;"></span>
+        <span style="color:#ddd;flex:1;">${r.icon} ${r.name}</span>
+        <span style="color:#aaa;">${n} 格 (${(n / s.total * 100).toFixed(1)}%)</span>
+      </div>`;
+    }
+    html += regionRow || '<div style="font-size:12px;color:#555;">尚未分配王国</div>';
+    html += '</div>';
+
+    // Counts
+    html += `<div style="margin-bottom:6px;font-size:12px;color:#ccc;">
+      <div style="padding:2px 0;">🏘️ 定居点：<span style="color:#fff;">${s.settlements}</span></div>
+      <div style="padding:2px 0;">🛤️ 道路：<span style="color:#fff;">${s.roadEdges}</span> 条边</div>
+      <div style="padding:2px 0;">🌊 河流：<span style="color:#fff;">${s.riverStream} 溪流 + ${s.riverWide} 河 = ${s.riverEdges}</span> 条边</div>
+      <div style="padding:2px 0;">📋 详细标注：<span style="color:#fff;">${s.annotations}</span> 条</div>
+      <div style="padding:2px 0;">⛰️ 海拔范围：<span style="color:#fff;">${s.elevationRange ? `${s.elevationRange.min.toFixed(2)} ~ ${s.elevationRange.max.toFixed(2)}` : '—'}</span></div>
+    </div>`;
+  }
+
+  body.innerHTML = html;
+  document.getElementById('stats-modal').style.display = 'block';
+}
+
+// Button wire
+document.getElementById('btn-stats')?.addEventListener('click', openStatsModal);
+document.getElementById('stats-close')?.addEventListener('click', function() {
+  document.getElementById('stats-modal').style.display = 'none';
+});
+document.getElementById('stats-modal')?.addEventListener('click', function(e) {
+  if (e.target === e.currentTarget) this.style.display = 'none';
+});
 // ======== Init ========
 cleanHexData();
 window.addEventListener('resize', resizeCanvas);
@@ -3892,6 +4939,9 @@ function buildSystemPrompt() {
   const terrainDesc = Object.entries(allT).map(([id, info]) =>
     `  - "${id}": ${info.name || id}${info.icon ? ' (' + info.icon + ')' : ''}`
   ).join('\n');
+  const regionDesc = Object.entries(regions || {}).map(([id, r]) =>
+    `  - "${id}": ${r.name || id}${r.icon ? ' (' + r.icon + ')' : ''}`
+  ).join('\n');
   return `你是地图编辑AI。你通过JSON命令数组来控制六角格地图。
 
 可用地形ID：
@@ -3904,6 +4954,13 @@ ${terrainDesc}
 4. 定居点：{"action":"settlement","q":<数字>,"r":<数字>,"name":"<名称>","rating":<-3到3的整数>}
 5. 道路：{"action":"road","q1":<数字>,"r1":<数字>,"q2":<数字>,"r2":<数字>}
 6. 矩形区域涂色：{"action":"paintRect","q1":<数字>,"r1":<数字>,"q2":<数字>,"r2":<数字>,"terrain":"<地形ID>"}
+7. 标注：{"action":"annotate","q":<数字>,"r":<数字>,"type":"分类","text":"<文字>","visible":true或false}
+   分类可选值: poi(地标), hazard(危险), lore(剧情), note(备注), marker(标记)
+8. 设置王国：{"action":"setRegion","q":<数字>,"r":<数字>,"region":"<王国ID>"}
+9. 矩形区域设置王国：{"action":"setRegionRect","q1":<数字>,"r1":<数字>,"q2":<数字>,"r2":<数字>,"region":"<王国ID>"}
+
+可用王国ID：
+${regionDesc}
 
 重要规则：
 - 坐标 (q, r) 使用 odd-r 六角格系统
@@ -3979,17 +5036,20 @@ function resolveZonePosition(at, centerQ, centerR, halfW, halfH) {
 }
 
 // --- Classify terrain by Perlin noise (extracted from generateTerrainRegion) ---
+// Returns { terrain, elev, moist } — elevation persisted alongside terrain.
 function classifyTerrainByNoise(nx, ny, rng) {
   const elev = fractalNoise(nx, ny, 4);
   const moist = fractalNoise(nx + 100, ny + 100, 3);
-  if (elev < -0.20) return 'water';
-  if (elev > 0.50 && moist < -0.05) return 'snow';
-  if (elev > 0.40) return 'mountain';
-  if (elev > 0.20) return 'hill';
-  if (moist < -0.15) return 'desert';
-  if (moist > 0.15 && elev < 0.30) return 'forest';
-  if (elev < -0.05 && moist > 0.10) return 'swamp';
-  return generationRules.defaultTerrain || 'plain';
+  let terrain;
+  if (elev < -0.20) terrain = 'water';
+  else if (elev > 0.50 && moist < -0.05) terrain = 'snow';
+  else if (elev > 0.40) terrain = 'mountain';
+  else if (elev > 0.20) terrain = 'hill';
+  else if (moist < -0.15) terrain = 'desert';
+  else if (moist > 0.15 && elev < 0.30) terrain = 'forest';
+  else if (elev < -0.05 && moist > 0.10) terrain = 'swamp';
+  else terrain = generationRules.defaultTerrain || 'plain';
+  return { terrain, elev, moist };
 }
 
 // --- Execute a map plan (AI-designed, procedurally generated) ---
@@ -4070,7 +5130,15 @@ async function executeMapPlan(plan) {
         }
       }
       if (!terrainId && bgZone) terrainId = bgZone.terrain;
-      if (!terrainId) terrainId = classifyTerrainByNoise(nx, ny, rng);
+      let elev, moist;
+      if (!terrainId) {
+        const em = classifyTerrainByNoise(nx, ny, rng);
+        terrainId = em.terrain; elev = em.elev; moist = em.moist;
+      } else {
+        // Zone-forced terrain — still compute elevation for river/gradient layers
+        const em = classifyElevMoist(nx, ny);
+        elev = em.elev; moist = em.moist;
+      }
 
       var chance = generationRules.specialTerrainChance != null ? generationRules.specialTerrainChance : 0.05;
       if (rng() < chance && terrainId !== 'water' && terrainId !== 'mountain') {
@@ -4078,7 +5146,7 @@ async function executeMapPlan(plan) {
         if (special) terrainId = special;
       }
 
-      writeHexData(hexKey(q, r), { terrain: terrainId });
+      writeHexData(hexKey(q, r), { terrain: terrainId, elev, moist });
       painted++;
     }
     render();
@@ -4335,7 +5403,7 @@ function executeOneAICommand(cmd) {
   // Each command is its own undo batch
   beginBatch();
   try {
-    const { action, q, r, terrain, text, name, rating, q1, r1, q2, r2 } = cmd;
+    const { action, q, r, terrain, text, name, rating, q1, r1, q2, r2, type, visible, region } = cmd;
     let count = 0;
     if (action === 'paint' && q !== undefined && r !== undefined && terrain) {
       const key = hexKey(q, r);
@@ -4361,6 +5429,19 @@ function executeOneAICommand(cmd) {
       if (!hexData[key]) hexData[key] = {};
       hexData[key].settlement = { name, rating: rating || 0 };
       count++;
+    } else if (action === 'annotate' && q !== undefined && r !== undefined && text !== undefined) {
+      const key = hexKey(q, r);
+      pushUndo(key);
+      if (!hexData[key]) hexData[key] = {};
+      if (!hexData[key].annotations) hexData[key].annotations = [];
+      hexData[key].annotations.push({
+        id: genAnnId(),
+        type: type || 'note',
+        text: text,
+        visible: visible !== undefined ? visible : false,
+        createdAt: Date.now()
+      });
+      if (text) count++;
     } else if (action === 'road' && q1 !== undefined && r1 !== undefined && q2 !== undefined && r2 !== undefined) {
       // If not adjacent, auto-pathfind and build road segment by segment
       if (!neighbors(q1, r1).some(n => n.q === q2 && n.r === r2)) {
@@ -4417,6 +5498,30 @@ function executeOneAICommand(cmd) {
           count++;
         }
       }
+    } else if (action === 'setRegion' && q !== undefined && r !== undefined && region) {
+      const key = hexKey(q, r);
+      pushUndo(key);
+      if (!hexData[key]) hexData[key] = {};
+      hexData[key].region = region;
+      count++;
+    } else if (action === 'setRegionRect' && q1 !== undefined && r1 !== undefined && q2 !== undefined && r2 !== undefined && region) {
+      let minQ = Math.min(q1, q2), maxQ = Math.max(q1, q2);
+      let minR = Math.min(r1, r2), maxR = Math.max(r1, r2);
+      if (Math.abs(maxQ - minQ) > 100) {
+        if (q1 < q2) maxQ = minQ + 100; else minQ = maxQ - 100;
+      }
+      if (Math.abs(maxR - minR) > 100) {
+        if (r1 < r2) maxR = minR + 100; else minR = maxR - 100;
+      }
+      for (let qq = minQ; qq <= maxQ; qq++) {
+        for (let rr = minR; rr <= maxR; rr++) {
+          const key = hexKey(qq, rr);
+          pushUndo(key);
+          if (!hexData[key]) hexData[key] = {};
+          hexData[key].region = region;
+          count++;
+        }
+      }
     }
     return count;
   } finally {
@@ -4440,7 +5545,7 @@ function executeAICommands(commands) {
 
 // Internal: execute one command without beginBatch/endBatch (caller batches)
 function executeOneAICommandNoBatch(cmd) {
-  const { action, q, r, terrain, text, name, rating, q1, r1, q2, r2 } = cmd;
+  const { action, q, r, terrain, text, name, rating, q1, r1, q2, r2, type, visible, region } = cmd;
   let count = 0;
   if (action === 'paint' && q !== undefined && r !== undefined && terrain) {
     const key = hexKey(q, r);
@@ -4466,6 +5571,19 @@ function executeOneAICommandNoBatch(cmd) {
     if (!hexData[key]) hexData[key] = {};
     hexData[key].settlement = { name, rating: rating || 0 };
     count++;
+  } else if (action === 'annotate' && q !== undefined && r !== undefined && text !== undefined) {
+    const key = hexKey(q, r);
+    pushUndo(key);
+    if (!hexData[key]) hexData[key] = {};
+    if (!hexData[key].annotations) hexData[key].annotations = [];
+    hexData[key].annotations.push({
+      id: genAnnId(),
+      type: type || 'note',
+      text: text,
+      visible: visible !== undefined ? visible : false,
+      createdAt: Date.now()
+    });
+    if (text) count++;
   } else if (action === 'road' && q1 !== undefined && r1 !== undefined && q2 !== undefined && r2 !== undefined) {
     // If not adjacent, auto-pathfind
     if (!neighbors(q1, r1).some(n => n.q === q2 && n.r === r2)) {
@@ -4520,11 +5638,33 @@ function executeOneAICommandNoBatch(cmd) {
         count++;
       }
     }
+  } else if (action === 'setRegion' && q !== undefined && r !== undefined && region) {
+    const key = hexKey(q, r);
+    pushUndo(key);
+    if (!hexData[key]) hexData[key] = {};
+    hexData[key].region = region;
+    count++;
+  } else if (action === 'setRegionRect' && q1 !== undefined && r1 !== undefined && q2 !== undefined && r2 !== undefined && region) {
+    let minQ = Math.min(q1, q2), maxQ = Math.max(q1, q2);
+    let minR = Math.min(r1, r2), maxR = Math.max(r1, r2);
+    if (Math.abs(maxQ - minQ) > 100) {
+      if (q1 < q2) maxQ = minQ + 100; else minQ = maxQ - 100;
+    }
+    if (Math.abs(maxR - minR) > 100) {
+      if (r1 < r2) maxR = minR + 100; else minR = maxR - 100;
+    }
+    for (let qq = minQ; qq <= maxQ; qq++) {
+      for (let rr = minR; rr <= maxR; rr++) {
+        const key = hexKey(qq, rr);
+        pushUndo(key);
+        if (!hexData[key]) hexData[key] = {};
+        hexData[key].region = region;
+        count++;
+      }
+    }
   }
   return count;
 }
-
-// --- Event bindings ---
 // Open AI dialog
   const btnAI = document.getElementById('btn-ai-draw');
   if (btnAI) {

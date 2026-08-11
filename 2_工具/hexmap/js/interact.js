@@ -124,13 +124,16 @@ canvas.addEventListener('mousemove', (e) => {
         if (isLocked && (h.terrain || h.settlement || h.label || h.roads?.length || (h.annotations && h.annotations.length))) return;
         const mode = document.getElementById('erase-mode').value;
         if (mode === 'all') {
-          setHex(hex.q, hex.r, { terrain: null, label: '', settlement: null, roads: [], annotations: [] });
+          setHex(hex.q, hex.r, { terrain: null, elev: null, moist: null, label: '', settlement: null, roads: [], annotations: [] });
+          removeAllRiverEdges(hex.q, hex.r);
         } else if (mode === 'terrain') {
-          setHex(hex.q, hex.r, { terrain: null });
+          setHex(hex.q, hex.r, { terrain: null, elev: null, moist: null });
         } else if (mode === 'settlement') {
           setHex(hex.q, hex.r, { settlement: null });
         } else if (mode === 'label') {
           setHex(hex.q, hex.r, { label: '' });
+        } else if (mode === 'river') {
+          removeAllRiverEdges(hex.q, hex.r);
         } else if (mode === 'roads') {
           const cur = getHex(hex.q, hex.r);
           if (cur.roads) {
@@ -310,6 +313,69 @@ function handleHexClick(q, r, e) {
       updateInfo();
       return; // skip extra render below
     }
+  } else if (selectedTool === 'river') {
+    const hint = document.getElementById('tool-hint');
+    if (!riverStart) {
+      riverStart = { q, r };
+      hint.innerHTML = `🌊 起点已选 <b>(${q}, ${r})</b>，点击相邻六角格连线。再次点击起点可取消`;
+      document.getElementById('coord-indicator').textContent = `🌊 起点 (${q}, ${r})`;
+    } else {
+      if (riverStart.q === q && riverStart.r === r) {
+        riverStart = null;
+        hint.innerHTML = '🌊 <b>点击第一个六角格</b>设为起点(蓝色高亮)，再<b>点击相邻格</b>画河';
+        document.getElementById('coord-indicator').textContent = '🌊 点击选择河流起点';
+      } else {
+        const nbrs = neighbors(q, r);
+        if (nbrs.some(n => n.q === riverStart.q && n.r === riverStart.r)) {
+          if (hasRiver(q, r, riverStart.q, riverStart.r)) {
+            removeRiver(q, r, riverStart.q, riverStart.r);
+            hint.innerHTML = `🌊 已移除河流 [(${riverStart.q},${riverStart.r}) ⇄ (${q},${r})]`;
+          } else {
+            addRiver(q, r, riverStart.q, riverStart.r, 1);
+            hint.innerHTML = `🌊 ✅ 已建立河流 [(${riverStart.q},${riverStart.r}) ⇄ (${q},${r})]`;
+          }
+          riverStart = null;
+          document.getElementById('coord-indicator').textContent = '🌊 点击选择河流起点';
+        } else {
+          riverStart = { q, r };
+          hint.innerHTML = `🌊 ⚠️ 不相邻！重新设起点为 <b>(${q}, ${r})</b>，点击相邻格连线`;
+          document.getElementById('coord-indicator').textContent = `🌊 起点 (${q}, ${r})`;
+        }
+      }
+      render();
+      updateInfo();
+      return; // skip extra render below
+    }
+  } else if (selectedTool === 'measure') {
+    if (!measureStart) {
+      measureStart = { q, r };
+      measurePath = null;
+      document.getElementById('coord-indicator').textContent = `📏 起点 (${q}, ${r})，点击终点测距`;
+    } else if (measureStart.q === q && measureStart.r === r) {
+      measureStart = null;
+      measurePath = null;
+      document.getElementById('coord-indicator').textContent = '📏 点击选择起点';
+    } else {
+      const path = aStarPathfind(measureStart.q, measureStart.r, q, r, 5000);
+      measurePath = path;
+      const straight = hexDistance(measureStart.q, measureStart.r, q, r);
+      const pathLen = path ? path.length : 0;
+      const cost = path ? pathTravelCost(path) : 0;
+      const dir = measureDirection(measureStart.q, measureStart.r, q, r);
+      let html = `<div class="row" style="justify-content:center;">
+        <span style="font-size:20px;font-weight:bold;color:#e94560;">📏 直线 ${straight} 格 · 路径 ${pathLen} 格 · 消耗 ${cost}</span>
+      </div>
+      <div class="row" style="justify-content:center;margin-top:4px;">
+        <span style="color:#aaa;font-size:13px;">方向 ${dir}</span>
+        ${generationRules.riverTravel > 0 ? `<span style="color:#2f6fd0;font-size:13px;">· 含渡河消耗(riverTravel=${generationRules.riverTravel})</span>` : ''}
+      </div>`;
+      const panel = document.getElementById('info-panel');
+      if (panel) panel.innerHTML = html;
+      document.getElementById('coord-indicator').textContent = `📏 (${measureStart.q},${measureStart.r}) → (${q},${r})`;
+      measureStart = null;
+    }
+    render();
+    return;
   } else if (selectedTool === 'label') {
     showLabelDialog(q, r);
   } else if (selectedTool === 'erase') {
@@ -321,14 +387,17 @@ function handleHexClick(q, r, e) {
       return;
     }
     if (mode === 'all') {
-      setHex(q, r, { terrain: null, label: '', settlement: null, roads: [], annotations: [] });
+      setHex(q, r, { terrain: null, elev: null, moist: null, label: '', settlement: null, roads: [], annotations: [] });
+      removeAllRiverEdges(q, r);
     } else if (mode === 'terrain') {
-      setHex(q, r, { terrain: null });
+      setHex(q, r, { terrain: null, elev: null, moist: null });
     } else if (mode === 'settlement') {
       // Keep roads to/from this hex when removing settlement
       setHex(q, r, { settlement: null });
     } else if (mode === 'label') {
       setHex(q, r, { label: '' });
+    } else if (mode === 'river') {
+      removeAllRiverEdges(q, r);
     } else if (mode === 'roads') {
       // Remove all roads from this hex and corresponding roads from neighbors
       beginBatch();

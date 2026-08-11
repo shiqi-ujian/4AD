@@ -8,6 +8,48 @@ function hexToRGBA(hex, alpha) {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
+// Elevation color ramp (deep water → lowland → highland → peak) with RGB stops.
+const ELEVATION_RAMP = [
+  { t: -0.5, c: '#16255c' },
+  { t: -0.25, c: '#2a4a7a' },
+  { t: 0, c: '#4a6a3a' },
+  { t: 0.3, c: '#8a7a3a' },
+  { t: 0.6, c: '#9a9a9a' },
+  { t: 0.9, c: '#e8e8e8' }
+];
+
+// Map an elevation float to a color by lerping between the two surrounding stops.
+function elevationColor(elev) {
+  const v = Math.max(-0.5, Math.min(0.9, elev));
+  let a = ELEVATION_RAMP[0], b = ELEVATION_RAMP[ELEVATION_RAMP.length - 1];
+  for (let i = 0; i < ELEVATION_RAMP.length - 1; i++) {
+    if (v >= ELEVATION_RAMP[i].t && v <= ELEVATION_RAMP[i + 1].t) { a = ELEVATION_RAMP[i]; b = ELEVATION_RAMP[i + 1]; break; }
+  }
+  const f = b.t === a.t ? 0 : (v - a.t) / (b.t - a.t);
+  const ca = a.c.replace('#','').match(/.{2}/g).map(x => parseInt(x, 16));
+  const cb = b.c.replace('#','').match(/.{2}/g).map(x => parseInt(x, 16));
+  const r = Math.round(ca[0] + (cb[0] - ca[0]) * f);
+  const g = Math.round(ca[1] + (cb[1] - ca[1]) * f);
+  const bl = Math.round(ca[2] + (cb[2] - ca[2]) * f);
+  return `rgb(${r},${g},${bl})`;
+}
+
+// Draw the shared-edge segment between two adjacent hexes (for rivers).
+function riverEdgeSegment(p1, nOff, p2) {
+  const a = hexCorners(p1.x, p1.y, HEX_SIZE);
+  const b = hexCorners(p2.x, p2.y, HEX_SIZE);
+  // Find the two corners shared by both hexes
+  const shared = [];
+  for (const ca of a) {
+    for (const cb of b) {
+      if (Math.abs(ca.x - cb.x) < 0.01 && Math.abs(ca.y - cb.y) < 0.01) shared.push(ca);
+    }
+  }
+  if (shared.length >= 2) return [shared[0], shared[1]];
+  // Fallback: middle of the two centers
+  return [{ x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 }];
+}
+
 function resizeCanvas() {
   canvas.width = container.clientWidth;
   canvas.height = container.clientHeight;
@@ -44,6 +86,9 @@ function render() {
 
   // Pass 2: Region borders (between fills and roads)
   drawRegionBorders(ctx, qMin, qMax, rMin, rMax, getHex);
+
+  // Pass 2.5: Rivers (under roads/labels/settlements)
+  drawRivers(ctx, qMin, qMax, rMin, rMax);
 
   // Pass 3: Draw roads (between hexes)
   ctx.strokeStyle = '#8B4513';
@@ -103,6 +148,44 @@ function render() {
     ctx.stroke();
   }
 
+  // Draw river start indicator (blue)
+  if (riverStart) {
+    const p = hexToPixel(riverStart.q, riverStart.r);
+    const corners = hexCorners(p.x, p.y, HEX_SIZE + 4);
+    ctx.beginPath();
+    corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
+    ctx.closePath();
+    ctx.strokeStyle = '#2f6fd0';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  // Draw measure start + path overlay
+  if (measureStart) {
+    const p = hexToPixel(measureStart.q, measureStart.r);
+    const corners = hexCorners(p.x, p.y, HEX_SIZE + 4);
+    ctx.beginPath();
+    corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
+    ctx.closePath();
+    ctx.strokeStyle = '#00e5ff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+  if (measurePath && measurePath.length > 1) {
+    ctx.beginPath();
+    const sp = hexToPixel(measurePath[0].q, measurePath[0].r);
+    ctx.moveTo(sp.x, sp.y);
+    for (let i = 1; i < measurePath.length; i++) {
+      const pp = hexToPixel(measurePath[i].q, measurePath[i].r);
+      ctx.lineTo(pp.x, pp.y);
+    }
+    ctx.strokeStyle = '#00e5ff';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([6, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
   // Draw box-selected hex highlights
   if (selectedHexes.size > 0) {
     for (const key of selectedHexes) {
@@ -153,17 +236,27 @@ function drawHexBase(q, r, allTerrains) {
   corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
   ctx.closePath();
 
-  // 1. Always draw terrain as base fill
-  let fillColor = '#3a3a52';
+  // Layer composition: terrain (base) + elevation tint + region tint.
+  // - 0 layers on  -> neutral dark gray base (#3a3a52), grid still visible
+  // - exactly 1 on -> opaque main color fills the whole hex (single-layer mode)
+  // - 2+ on        -> previous semi-transparent stacking (terrain base + translucent overlays)
   const hTerrainInfo = h.terrain ? allTerrains[h.terrain] : null;
-  if (hTerrainInfo) fillColor = hTerrainInfo.color;
-  ctx.fillStyle = fillColor;
-  ctx.fill();
+  const terrainActive = !!(showTerrainLayer && hTerrainInfo);
+  const elevActive = !!(showElevationLayer && typeof h.elev === 'number');
+  const regionActive = !!(showRegionLayer && h.region && regions[h.region]);
+  const activeCount = (terrainActive ? 1 : 0) + (elevActive ? 1 : 0) + (regionActive ? 1 : 0);
 
-  // 2. Region layer: overlay semi-transparent region color on top of terrain
-  if (showRegionLayer && h.region && regions[h.region]) {
-    ctx.fillStyle = hexToRGBA(regions[h.region].color, 0.2);
+  if (activeCount >= 2) {
+    ctx.fillStyle = hTerrainInfo ? hTerrainInfo.color : '#3a3a52';
     ctx.fill();
+    if (elevActive) { ctx.fillStyle = hexToRGBA(elevationColor(h.elev), 0.55); ctx.fill(); }
+    if (regionActive) { ctx.fillStyle = hexToRGBA(regions[h.region].color, 0.2); ctx.fill(); }
+  } else if (activeCount === 1) {
+    const solo = terrainActive ? hTerrainInfo.color
+      : (elevActive ? elevationColor(h.elev) : regions[h.region].color);
+    ctx.fillStyle = solo; ctx.fill();
+  } else {
+    ctx.fillStyle = '#3a3a52'; ctx.fill();
   }
 
   // Grid stroke
@@ -171,6 +264,35 @@ function drawHexBase(q, r, allTerrains) {
     ctx.strokeStyle = 'rgba(255,255,255,0.12)';
     ctx.lineWidth = 1;
     ctx.stroke();
+  }
+}
+
+// Draw all river edges in the visible range. Rivers are drawn along the shared
+// edge between adjacent hexes (like roads but inset to the edge line).
+function drawRivers(ctx, qMin, qMax, rMin, rMax) {
+  for (let q = qMin; q <= qMax; q++) {
+    for (let r = rMin; r <= rMax; r++) {
+      const h = getHex(q, r);
+      if (!h.rivers || !h.rivers.length) continue;
+      const p1 = hexToPixel(q, r);
+      for (const rd of h.rivers) {
+        // Draw each river edge once (only when q,r < rd in some ordering)
+        if (rd.q > q || (rd.q === q && rd.r > r)) {
+          const p2 = hexToPixel(rd.q, rd.r);
+          const seg = riverEdgeSegment(p1, null, p2);
+          if (seg.length < 2) continue;
+          const width = rd.width || 1;
+          ctx.beginPath();
+          ctx.lineCap = 'round';
+          ctx.lineJoin = 'round';
+          ctx.strokeStyle = width >= 2 ? '#1f4fa0' : '#2f6fd0';
+          ctx.lineWidth = width >= 2 ? 6 : 3;
+          ctx.moveTo(seg[0].x, seg[0].y);
+          ctx.lineTo(seg[1].x, seg[1].y);
+          ctx.stroke();
+        }
+      }
+    }
   }
 }
 
@@ -187,33 +309,38 @@ function drawHexOverlay(q, r, allTerrains) {
     ctx.fillText(`${q},${r}`, p.x, p.y + HEX_SIZE * 0.4);
   }
 
-  // Terrain icon (image or emoji) — always show terrain, regardless of layer
+  // Terrain icon (vector or emoji) — hidden when the terrain layer is off
   const hOverlayTI = h.terrain ? allTerrains[h.terrain] : null;
-  if (hOverlayTI) {
+  if (showTerrainLayer && hOverlayTI) {
     if (hOverlayTI.imageUrl) {
       drawHexImage(p.x, p.y, HEX_SIZE * 1.1, hOverlayTI.imageUrl);
     } else {
-      ctx.font = `${HEX_SIZE * 0.5}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'rgba(255,255,255,0.85)';
-      ctx.fillText(hOverlayTI.icon, p.x, p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.15 : 0));
+      drawIconOrEmoji(ctx, {
+        key: h.terrain, emoji: hOverlayTI.icon,
+        x: p.x, y: p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.15 : 0),
+        size: HEX_SIZE * 0.62, color: '#f4f4f4',
+        outline: 'rgba(0,0,0,0.55)', textBaseline: 'middle'
+      });
     }
   }
 
   // Annotation icons (visible ones)
   if (h.annotations && h.annotations.length) {
-    const visibleIcons = h.annotations.filter(a => a.visible).map(a => ANNOTATION_TYPES[a.type]?.icon || '📍');
-    if (visibleIcons.length) {
+    const visibleAnn = h.annotations.filter(a => a.visible);
+    if (visibleAnn.length) {
       // Draw small icons in top-right corner of hex
       const startX = p.x + HEX_SIZE * 0.3;
-      const startY = p.y - HEX_SIZE * 0.65;
-      ctx.font = `${HEX_SIZE * 0.25}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'rgba(255,255,255,0.9)';
-      visibleIcons.forEach((icon, idx) => {
-        ctx.fillText(icon, startX + idx * (HEX_SIZE * 0.28), startY);
+      const startY = p.y - HEX_SIZE * 0.55;
+      visibleAnn.forEach((a, idx) => {
+        const at = ANNOTATION_TYPES[a.type] || ANNOTATION_TYPES.note;
+        drawIconOrEmoji(ctx, {
+          key: a.type, emoji: at.icon,
+          x: startX + (idx + 0.5) * (HEX_SIZE * 0.5) - (visibleAnn.length > 1 ? HEX_SIZE * 0.15 : 0),
+          y: startY,
+          size: HEX_SIZE * 0.4, color: at.color || '#fff',
+          outline: 'rgba(0,0,0,0.65)',
+          textBaseline: 'middle'
+        });
       });
     }
   }
@@ -238,10 +365,12 @@ function drawHexOverlay(q, r, allTerrains) {
     } else {
       const ratingIcons = {'-3':'🛖','-2':'🏕️','-1':'🏘️','0':'🏘️','1':'🏛️','2':'🏰','3':'🏙️'};
       const icon = ratingIcons[String(h.settlement.rating)] || '🏘️';
-      ctx.font = `${HEX_SIZE * 0.6}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText(icon, p.x, p.y + HEX_SIZE * 0.45);
+      drawIconOrEmoji(ctx, {
+        key: SETTLEMENT_ICON_KEYS[String(h.settlement.rating)], emoji: icon,
+        x: p.x, y: p.y + HEX_SIZE * 0.45,
+        size: HEX_SIZE * 0.78, color: '#ffd98a',
+        outline: 'rgba(0,0,0,0.55)', textBaseline: 'bottom'
+      });
     }
 
     // Settlement name & rating
@@ -253,9 +382,9 @@ function drawHexOverlay(q, r, allTerrains) {
     const stext = `${sname} (${srating >= 0 ? '+' : ''}${srating})`;
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
     const sw = ctx.measureText(stext).width;
-    ctx.fillRect(p.x - sw/2 - 3, p.y + HEX_SIZE * 0.3, sw + 6, HEX_SIZE * 0.38);
+    ctx.fillRect(p.x - sw/2 - 3, p.y + HEX_SIZE * 0.68, sw + 6, HEX_SIZE * 0.38);
     ctx.fillStyle = '#ffd700';
-    ctx.fillText(stext, p.x, p.y + HEX_SIZE * 0.35);
+    ctx.fillText(stext, p.x, p.y + HEX_SIZE * 0.72);
   }
 }
 

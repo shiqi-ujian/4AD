@@ -56,6 +56,25 @@ function fractalNoise(x, y, octaves) {
   return value / max; // -1..1
 }
 
+// Unify the elevation/moisture → terrain classification chain (also returns the
+// two noise values so callers can persist them). Single source of truth for the
+// thresholds; the inline Web Worker re-implements it inline (workers can't call
+// this), but must stay identical.
+function classifyElevMoist(nx, ny, rng) {
+  const elev = fractalNoise(nx, ny, 4);
+  const moist = fractalNoise(nx + 100, ny + 100, 3);
+  let terrain;
+  if (elev < -0.20) terrain = 'water';
+  else if (elev > 0.50 && moist < -0.05) terrain = 'snow';
+  else if (elev > 0.40) terrain = 'mountain';
+  else if (elev > 0.20) terrain = 'hill';
+  else if (moist < -0.15) terrain = 'desert';
+  else if (moist > 0.15 && elev < 0.30) terrain = 'forest';
+  else if (elev < -0.05 && moist > 0.10) terrain = 'swamp';
+  else terrain = generationRules.defaultTerrain || 'plain';
+  return { elev, moist, terrain };
+}
+
 // Generate terrain for a bounded region (synchronous — kept for backward compat)
 // ======== Web Worker for off-thread Perlin noise ========
 var _noiseWorker = null;
@@ -79,7 +98,7 @@ function getNoiseWorker() {
     'var res=[];for(var i=0;i<coords.length;i++){var c=coords[i],nx=c.px*0.005/scale,ny=c.py*0.005/scale;',
     'var elev=fn(nx,ny,4),moist=fn(nx+100,ny+100,3),t;',
     'if(elev<-0.20)t="water";else if(elev>0.50&&moist<-0.05)t="snow";else if(elev>0.40)t="mountain";else if(elev>0.20)t="hill";else if(moist<-0.15)t="desert";else if(moist>0.15&&elev<0.30)t="forest";else if(elev<-0.05&&moist>0.10)t="swamp";else t="plain";',
-    'res.push({q:c.q,r:c.r,terrain:t});}',
+    'res.push({q:c.q,r:c.r,terrain:t,elev:elev,moist:moist});}',
     'self.postMessage({results:res,id:d.id});};'
   ].join('\n');
 
@@ -106,17 +125,8 @@ function classifyBatchWithWorker(seed, coords, scale) {
       for (var i = 0; i < coords.length; i++) {
         var c = coords[i];
         var nx = c.px * 0.005 / scale, ny = c.py * 0.005 / scale;
-        var elev = fractalNoise(nx, ny, 4), moist = fractalNoise(nx + 100, ny + 100, 3);
-        var t;
-        if (elev < -0.20) t = 'water';
-        else if (elev > 0.50 && moist < -0.05) t = 'snow';
-        else if (elev > 0.40) t = 'mountain';
-        else if (elev > 0.20) t = 'hill';
-        else if (moist < -0.15) t = 'desert';
-        else if (moist > 0.15 && elev < 0.30) t = 'forest';
-        else if (elev < -0.05 && moist > 0.10) t = 'swamp';
-        else t = generationRules.defaultTerrain || 'plain';
-        results.push({ q: c.q, r: c.r, terrain: t });
+        var em = classifyElevMoist(nx, ny);
+        results.push({ q: c.q, r: c.r, terrain: em.terrain, elev: em.elev, moist: em.moist });
       }
       resolve(results);
       return;
@@ -159,26 +169,9 @@ function generateTerrainRegion(seed, centerQ, centerR, width, height, scale) {
     const nx = p.x * 0.005 / scale;
     const ny = p.y * 0.005 / scale;
 
-    const elev = fractalNoise(nx, ny, 4);
-    const moist = fractalNoise(nx + 100, ny + 100, 3);
-
-    let terrainId;
-    if (elev < -0.20) {
-      terrainId = 'water';
-    } else if (elev > 0.50 && moist < -0.05) {
-      terrainId = 'snow';
-    } else if (elev > 0.40) {
-      terrainId = 'mountain';
-    } else if (elev > 0.20) {
-      terrainId = 'hill';
-    } else if (moist < -0.15) {
-      terrainId = 'desert';
-    } else if (moist > 0.15 && elev < 0.30) {
-      terrainId = 'forest';
-    } else if (elev < -0.05 && moist > 0.10) {
-      terrainId = 'swamp';
-    } else {      terrainId = generationRules.defaultTerrain || 'plain';
-    }
+    const em = classifyElevMoist(nx, ny, rng);
+    const elev = em.elev, moist = em.moist;
+    let terrainId = em.terrain;
 
     // Special terrain injection
     var chance = generationRules.specialTerrainChance != null ? generationRules.specialTerrainChance : 0.05;
@@ -187,7 +180,7 @@ function generateTerrainRegion(seed, centerQ, centerR, width, height, scale) {
       if (special) terrainId = special;
     }
 
-    writeHexData(hexKey(q, r), { terrain: terrainId });
+    writeHexData(hexKey(q, r), { terrain: terrainId, elev, moist });
   }
 }
 
@@ -230,7 +223,7 @@ async function generateTerrainRegionAsync(seed, centerQ, centerR, width, height,
         var special = pickSpecialTerrain(rng);
         if (special) terrainId = special;
       }
-      writeHexData(hexKey(res.q, res.r), { terrain: terrainId });
+      writeHexData(hexKey(res.q, res.r), { terrain: terrainId, elev: res.elev, moist: res.moist });
     }
     if (onProgress) onProgress(end, total);
     render();
@@ -312,7 +305,8 @@ function aStarPathfind(q1, r1, q2, r2, maxSteps) {
       var tInfo = hData.terrain ? allTerrains[hData.terrain] : null;
       var moveCost = tInfo ? tInfo.travel : 1;
       var waterPenalty = hData.terrain === 'water' ? 10 : 0;
-      var totalCost = moveCost + waterPenalty;
+      var riverPenalty = (generationRules.riverTravel > 0 && hasRiver(cq, cr, n.q, n.r)) ? generationRules.riverTravel : 0;
+      var totalCost = moveCost + waterPenalty + riverPenalty;
       var tentativeG = gScore[current] + totalCost;
       if (gScore[nk] === undefined || tentativeG < gScore[nk]) {
         cameFrom[nk] = current;
@@ -461,6 +455,121 @@ function buildRoadNetwork(settlements) {
   return roadsBuilt;
 }
 
+// ======== River auto-generation ========
+// Derives a river network from per-hex elevation (D8-style flow accumulation on
+// the hex grid). Deterministic — driven purely by the seeded Perlin elev floats,
+// no PRNG drift. Strictly downhill (each hex flows to a strictly lower neighbor)
+// so the flow field is acyclic; rivers carve naturally as downstream cells
+// accumulate upstream area.
+function generateRivers(seed, centerQ, centerR, width, height) {
+  const halfW = Math.floor(width / 2);
+  const halfH = Math.floor(height / 2);
+
+  // Clear existing auto rivers in this region only (one-click = fresh map).
+  // Hand-drawn rivers outside the region are untouched.
+  for (let q = centerQ - halfW; q <= centerQ + halfW; q++) {
+    for (let r = centerR - halfH; r <= centerR + halfH; r++) {
+      const h = getHex(q, r);
+      if (h.rivers && h.rivers.length) removeAllRiverEdges(q, r);
+    }
+  }
+
+  // Nodes = hexes that have stored elevation in the region
+  const nodes = new Map();
+  for (let q = centerQ - halfW; q <= centerQ + halfW; q++) {
+    for (let r = centerR - halfH; r <= centerR + halfH; r++) {
+      const h = getHex(q, r);
+      if (typeof h.elev === 'number') nodes.set(hexKey(q, r), { q, r, elev: h.elev, flowTo: null, acc: 0 });
+    }
+  }
+
+  // PASS 1: flow field — each hex drains to its lowest strictly-lower neighbor
+  for (const [, me] of nodes) {
+    let best = null, bestKey = null;
+    const nbrs = neighbors(me.q, me.r);
+    for (const nb of nbrs) {
+      const nk = hexKey(nb.q, nb.r);
+      const dn = nodes.get(nk);
+      if (!dn) continue;
+      if (dn.elev < me.elev && (best === null || dn.elev < best || (dn.elev === best && nk < bestKey))) {
+        best = dn.elev; bestKey = nk; best = dn.elev;
+      }
+    }
+    me.flowTo = bestKey;
+  }
+
+  // PASS 2: accumulation — process from highest to lowest (downstream is strictly
+  // later than upstream because flow is strictly downhill), each node adds its
+  // accumulated area to its downstream target.
+  const sorted = [...nodes.values()];
+  sorted.sort(function(a, b) { return b.elev - a.elev || (a.q - b.q) || (a.r - b.r); });
+  for (const n of sorted) n.acc = 1;
+  for (const n of sorted) {
+    if (n.flowTo) {
+      const dn = nodes.get(n.flowTo);
+      if (dn) dn.acc += n.acc;
+    }
+  }
+
+  // PASS 3: emit edges — one river edge per flow edge, width by downstream area.
+  const streamThreshold = generationRules.streamThreshold != null ? generationRules.streamThreshold : 25;
+  const riverThreshold = generationRules.riverThreshold != null ? generationRules.riverThreshold : 140;
+  for (const n of sorted) {
+    if (!n.flowTo) continue;
+    const dn = nodes.get(n.flowTo);
+    if (!dn) continue;
+    if (dn.acc < streamThreshold) continue;
+    const width = dn.acc >= riverThreshold ? 2 : 1;
+    addRiver(n.q, n.r, dn.q, dn.r, width);
+  }
+}
+
+// Sum the travel cost along a path (mirrors the aStar edge cost exactly, so
+// riverTravel applies automatically). aStar returns only the path, not the sum.
+function pathTravelCost(path) {
+  if (!path || path.length < 2) return 0;
+  const allTerrains = getAllTerrains();
+  let cost = 0;
+  for (let i = 0; i < path.length - 1; i++) {
+    const a = path[i], b = path[i + 1];
+    const hB = getHex(b.q, b.r);
+    const tInfo = hB.terrain ? allTerrains[hB.terrain] : null;
+    let c = tInfo ? tInfo.travel : 1;
+    if (hB.terrain === 'water') c += 10;
+    if (generationRules.riverTravel > 0 && hasRiver(a.q, a.r, b.q, b.r)) c += generationRules.riverTravel;
+    cost += c;
+  }
+  return cost;
+}
+
+// Draw river edges on an arbitrary canvas context (used by PNG export).
+// keys = array of "q,r" strings. Rivers drawn between the shared edge of hex
+// pairs, each once (same ordering as roads).
+function drawRiverEdgesOnContext(exportCtx, keys) {
+  exportCtx.lineCap = 'round';
+  exportCtx.lineJoin = 'round';
+  for (const key of keys) {
+    const h = hexData[key];
+    if (!h.rivers || !h.rivers.length) continue;
+    const [q1, r1] = key.split(',').map(Number);
+    const p1 = hexToPixel(q1, r1);
+    for (const rd of h.rivers) {
+      if (rd.q > q1 || (rd.q === q1 && rd.r > r1)) {
+        const p2 = hexToPixel(rd.q, rd.r);
+        const seg = riverEdgeSegment(p1, null, p2);
+        if (seg.length < 2) continue;
+        const width = rd.width || 1;
+        exportCtx.beginPath();
+        exportCtx.strokeStyle = width >= 2 ? '#1f4fa0' : '#2f6fd0';
+        exportCtx.lineWidth = width >= 2 ? 6 : 3;
+        exportCtx.moveTo(seg[0].x, seg[0].y);
+        exportCtx.lineTo(seg[1].x, seg[1].y);
+        exportCtx.stroke();
+      }
+    }
+  }
+}
+
 // One-click generate orchestrator (async)
 async function oneClickGenerate(config) {
   if (isGenerating) return;
@@ -497,6 +606,15 @@ async function oneClickGenerate(config) {
   await new Promise(function(resolve) { setTimeout(resolve, 20); });
   assignRegions(seed, centerQ, centerR, width, height);
   render();
+
+  // Step 1.6: Derive rivers from elevation (one-click = fresh map, so clear any
+  // auto rivers already in THIS region only — hand-drawn rivers elsewhere are kept)
+  if (generationRules.generateRivers) {
+    showProgress('🌊', '生成河流...', 0, 1);
+    await new Promise(function(resolve) { setTimeout(resolve, 20); });
+    generateRivers(seed, centerQ, centerR, width, height);
+    render();
+  }
 
   showProgress('🏘️', '放置定居点...', 0, 1);
 
@@ -652,6 +770,19 @@ function hexDistance(q1, r1, q2, r2) {
   const x1 = q1, z1 = r1 - (q1 - (q1 & 1)) / 2, y1 = -x1 - z1;
   const x2 = q2, z2 = r2 - (q2 - (q2 & 1)) / 2, y2 = -x2 - z2;
   return Math.max(Math.abs(x1 - x2), Math.abs(y1 - y2), Math.abs(z1 - z2));
+}
+
+// Compass direction from one hex to another (odd-r flat-top, x→E, y→N).
+function measureDirection(q1, r1, q2, r2) {
+  const p1 = hexToPixel(q1, r1);
+  const p2 = hexToPixel(q2, r2);
+  const dx = p2.x - p1.x, dy = p1.y - p2.y; // screen-y is down, so N is -y
+  const ang = Math.atan2(dx, dy) * 180 / Math.PI; // 0 = N, + = E
+  const dirs = ['北', '东北', '东', '东南', '南', '西南', '西', '西北'];
+  let i = Math.round(ang / 45);
+  if (i < 0) i += 8;
+  if (i === 8) i = 0;
+  return dirs[i];
 }
 
 // Assign kingdoms (regions) to hexes using Voronoi tessellation
@@ -871,17 +1002,34 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
     exportCtx.beginPath();
     corners.forEach((c, i) => i === 0 ? exportCtx.moveTo(c.x, c.y) : exportCtx.lineTo(c.x, c.y));
     exportCtx.closePath();
-    // 1. Always draw terrain as base fill
-    let fillColor = '#3a3a52';
-    if (h.terrain && allTerrains[h.terrain]) fillColor = allTerrains[h.terrain].color;
-    exportCtx.fillStyle = fillColor;
-    exportCtx.fill();
-    // 2. Region layer: overlay semi-transparent region color on top
-    if (showRegionLayer && h.region && regions[h.region]) {
-      exportCtx.fillStyle = 'rgba(' +
-        parseInt(regions[h.region].color.slice(1,3), 16) + ',' +
-        parseInt(regions[h.region].color.slice(3,5), 16) + ',' +
-        parseInt(regions[h.region].color.slice(5,7), 16) + ',0.2)';
+    // Layer composition (matches render.js drawHexBase): 0 -> dark gray, 1 -> opaque, 2+ -> stacking
+    const hTerrainInfo = h.terrain ? allTerrains[h.terrain] : null;
+    const terrainActive = !!(showTerrainLayer && hTerrainInfo);
+    const elevActive = !!(showElevationLayer && typeof h.elev === 'number');
+    const regionActive = !!(showRegionLayer && h.region && regions[h.region]);
+    const activeCount = (terrainActive ? 1 : 0) + (elevActive ? 1 : 0) + (regionActive ? 1 : 0);
+    const regionColor = regions[h.region] ? regions[h.region].color : null;
+    if (activeCount >= 2) {
+      exportCtx.fillStyle = hTerrainInfo ? hTerrainInfo.color : '#3a3a52';
+      exportCtx.fill();
+      if (elevActive) {
+        exportCtx.fillStyle = hexToRGBA(elevationColor(h.elev), 0.55);
+        exportCtx.fill();
+      }
+      if (regionActive) {
+        exportCtx.fillStyle = 'rgba(' +
+          parseInt(regionColor.slice(1,3), 16) + ',' +
+          parseInt(regionColor.slice(3,5), 16) + ',' +
+          parseInt(regionColor.slice(5,7), 16) + ',0.2)';
+        exportCtx.fill();
+      }
+    } else if (activeCount === 1) {
+      const solo = terrainActive ? hTerrainInfo.color
+        : (elevActive ? elevationColor(h.elev) : regionColor);
+      exportCtx.fillStyle = solo;
+      exportCtx.fill();
+    } else {
+      exportCtx.fillStyle = '#3a3a52';
       exportCtx.fill();
     }
     exportCtx.strokeStyle = 'rgba(255,255,255,0.12)';
@@ -890,6 +1038,8 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
   }
   // Region borders (shared function)
   drawRegionBorders(exportCtx, minQ - 1, maxQ + 1, minR - 1, maxR + 1, (q, r) => hexData[hexKey(q, r)] || { region: null });
+  // Rivers (Pass 2.5, under roads)
+  drawRiverEdgesOnContext(exportCtx, keys);
   // Draw roads (Pass 2)
   // Draw roads (Pass 2)
   exportCtx.strokeStyle = '#8B4513';
@@ -915,9 +1065,9 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
     const [q, r] = key.split(',').map(Number);
     const h = hexData[key];
     const p = hexToPixel(q, r);
-    // Terrain icon (image or emoji) — always show regardless of layer
+    // Terrain icon (image or emoji) — hidden when the terrain layer is off
     const hOTI = h.terrain ? allTerrains[h.terrain] : null;
-    if (hOTI) {
+    if (showTerrainLayer && hOTI) {
         if (hOTI.imageUrl) {
           const img = getCachedImage(hOTI.imageUrl);
           if (img && img.complete && img.naturalWidth > 0) {
@@ -931,32 +1081,36 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
             exportCtx.drawImage(img, p.x - is/2, p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.3 : 0) - is/2, is, is);
             exportCtx.restore();
           } else {
-            exportCtx.font = `${HEX_SIZE * 0.5}px sans-serif`;
-            exportCtx.textAlign = 'center';
-            exportCtx.textBaseline = 'middle';
-            exportCtx.fillStyle = 'rgba(255,255,255,0.85)';
-            exportCtx.fillText(hOTI.icon, p.x, p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.15 : 0));
+            drawIconOrEmoji(exportCtx, {
+              key: h.terrain, emoji: hOTI.icon,
+              x: p.x, y: p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.15 : 0),
+              size: HEX_SIZE * 0.62, color: '#f4f4f4',
+              outline: 'rgba(0,0,0,0.55)', textBaseline: 'middle'
+            });
           }
         } else {
-          exportCtx.font = `${HEX_SIZE * 0.5}px sans-serif`;
-          exportCtx.textAlign = 'center';
-          exportCtx.textBaseline = 'middle';
-          exportCtx.fillStyle = 'rgba(255,255,255,0.85)';
-          exportCtx.fillText(hOTI.icon, p.x, p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.15 : 0));
+          drawIconOrEmoji(exportCtx, {
+            key: h.terrain, emoji: hOTI.icon,
+            x: p.x, y: p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.15 : 0),
+            size: HEX_SIZE * 0.62, color: '#f4f4f4',
+            outline: 'rgba(0,0,0,0.55)', textBaseline: 'middle'
+          });
         }
       }
     // Annotation icons (visible ones)
     if (h.annotations && h.annotations.length) {
-      const visibleIcons = h.annotations.filter(a => a.visible).map(a => ANNOTATION_TYPES[a.type]?.icon || '📍');
-      if (visibleIcons.length) {
+      const visibleAnn = h.annotations.filter(a => a.visible);
+      if (visibleAnn.length) {
         const startX = p.x + HEX_SIZE * 0.3;
-        const startY = p.y - HEX_SIZE * 0.65;
-        exportCtx.font = `${HEX_SIZE * 0.25}px sans-serif`;
-        exportCtx.textAlign = 'center';
-        exportCtx.textBaseline = 'middle';
-        exportCtx.fillStyle = 'rgba(255,255,255,0.9)';
-        visibleIcons.forEach((icon, idx) => {
-          exportCtx.fillText(icon, startX + idx * (HEX_SIZE * 0.28), startY);
+        const startY = p.y - HEX_SIZE * 0.55;
+        visibleAnn.forEach((a, idx) => {
+          const at = ANNOTATION_TYPES[a.type] || ANNOTATION_TYPES.note;
+          drawIconOrEmoji(exportCtx, {
+            key: a.type, emoji: at.icon,
+            x: startX + (idx + 0.5) * (HEX_SIZE * 0.5) - (visibleAnn.length > 1 ? HEX_SIZE * 0.15 : 0), y: startY,
+            size: HEX_SIZE * 0.4, color: at.color || '#fff',
+            outline: 'rgba(0,0,0,0.65)', textBaseline: 'middle'
+          });
         });
       }
     }
@@ -989,10 +1143,12 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
         } else {
           const ratingIcons = {'-3':'🛖','-2':'🏕️','-1':'🏘️','0':'🏘️','1':'🏛️','2':'🏰','3':'🏙️'};
           const icon = ratingIcons[String(h.settlement.rating)] || '🏘️';
-          exportCtx.font = `${HEX_SIZE * 0.6}px sans-serif`;
-          exportCtx.textAlign = 'center';
-          exportCtx.textBaseline = 'bottom';
-          exportCtx.fillText(icon, p.x, p.y + HEX_SIZE * 0.45);
+          drawIconOrEmoji(exportCtx, {
+            key: SETTLEMENT_ICON_KEYS[String(h.settlement.rating)], emoji: icon,
+            x: p.x, y: p.y + HEX_SIZE * 0.45,
+            size: HEX_SIZE * 0.78, color: '#ffd98a',
+            outline: 'rgba(0,0,0,0.55)', textBaseline: 'bottom'
+          });
           }
         } // closes if(h.settlement.imageUrl)
       } // closes if(h.settlement)
@@ -1029,7 +1185,17 @@ document.getElementById('chk-grid').addEventListener('change', (e) => { showGrid
 document.getElementById('chk-coords').addEventListener('change', (e) => { showCoords = e.target.checked; render(); });
 document.getElementById('chk-minimap').addEventListener('change', () => render());
 document.getElementById('chk-lock').addEventListener('change', (e) => { isLocked = e.target.checked; });
+document.getElementById('chk-terrain').addEventListener('change', (e) => { showTerrainLayer = e.target.checked; render(); });
 document.getElementById('chk-region-layer').addEventListener('change', (e) => { showRegionLayer = e.target.checked; render(); });
+document.getElementById('chk-elevation').addEventListener('change', (e) => { showElevationLayer = e.target.checked; render(); });
+document.getElementById('chk-icon-style').addEventListener('change', (e) => {
+  iconStyle = e.target.checked ? 'vector' : 'emoji';
+  try { localStorage.setItem('hexmap_iconStyle', iconStyle); } catch(err) {}
+  render();
+  rebuildTerrainPalette();
+  const statsModal = document.getElementById('stats-modal');
+  if (statsModal && statsModal.style.display !== 'none') openStatsModal();
+});
 
 // Manage regions button
 document.getElementById('btn-manage-regions').addEventListener('click', openRegionEditor);
@@ -1048,6 +1214,8 @@ function updateInfo() {
   const settle = h.settlement ? `${h.settlement.name} (${h.settlement.rating >= 0 ? '+' : ''}${h.settlement.rating})` : '—';
   const regionInfo = h.region && regions[h.region] ? `${regions[h.region].icon} ${regions[h.region].name}` : '—';
   const roads = h.roads?.length || 0;
+  const elevInfo = typeof h.elev === 'number' ? h.elev.toFixed(2) : '—';
+  const rivers = h.rivers?.length || 0;
   const nbrs = neighbors(q, r);
   const annInfo = h.annotations && h.annotations.length ?
     h.annotations.map(a => {
@@ -1057,10 +1225,12 @@ function updateInfo() {
   panel.innerHTML = `<div class="row">
     <span><span class="label">坐标:</span> <span class="val">(${q}, ${r})</span></span>
     <span><span class="label">地形:</span> <span class="val">${t}</span></span>
+    <span><span class="label">海拔:</span> <span class="val">${elevInfo}</span></span>
     <span><span class="label">定居点:</span> <span class="val">${settle}</span></span>
     <span><span class="label">王国:</span> <span class="val">${regionInfo}</span></span>
     <span><span class="label">快捷标签:</span> <span class="val">${h.label || '—'}</span></span>
     <span><span class="label">道路:</span> <span class="val">${roads} 条连接</span></span>
+    <span><span class="label">河流:</span> <span class="val">${rivers} 条边</span></span>
     <span><span class="label">标注 (${h.annotations ? h.annotations.length : 0}条):</span> <span class="val" style="font-size:11px;">${annInfo}</span></span>
   </div>`;
 }

@@ -171,17 +171,20 @@ function resolveZonePosition(at, centerQ, centerR, halfW, halfH) {
 }
 
 // --- Classify terrain by Perlin noise (extracted from generateTerrainRegion) ---
+// Returns { terrain, elev, moist } — elevation persisted alongside terrain.
 function classifyTerrainByNoise(nx, ny, rng) {
   const elev = fractalNoise(nx, ny, 4);
   const moist = fractalNoise(nx + 100, ny + 100, 3);
-  if (elev < -0.20) return 'water';
-  if (elev > 0.50 && moist < -0.05) return 'snow';
-  if (elev > 0.40) return 'mountain';
-  if (elev > 0.20) return 'hill';
-  if (moist < -0.15) return 'desert';
-  if (moist > 0.15 && elev < 0.30) return 'forest';
-  if (elev < -0.05 && moist > 0.10) return 'swamp';
-  return generationRules.defaultTerrain || 'plain';
+  let terrain;
+  if (elev < -0.20) terrain = 'water';
+  else if (elev > 0.50 && moist < -0.05) terrain = 'snow';
+  else if (elev > 0.40) terrain = 'mountain';
+  else if (elev > 0.20) terrain = 'hill';
+  else if (moist < -0.15) terrain = 'desert';
+  else if (moist > 0.15 && elev < 0.30) terrain = 'forest';
+  else if (elev < -0.05 && moist > 0.10) terrain = 'swamp';
+  else terrain = generationRules.defaultTerrain || 'plain';
+  return { terrain, elev, moist };
 }
 
 // --- Execute a map plan (AI-designed, procedurally generated) ---
@@ -262,7 +265,15 @@ async function executeMapPlan(plan) {
         }
       }
       if (!terrainId && bgZone) terrainId = bgZone.terrain;
-      if (!terrainId) terrainId = classifyTerrainByNoise(nx, ny, rng);
+      let elev, moist;
+      if (!terrainId) {
+        const em = classifyTerrainByNoise(nx, ny, rng);
+        terrainId = em.terrain; elev = em.elev; moist = em.moist;
+      } else {
+        // Zone-forced terrain — still compute elevation for river/gradient layers
+        const em = classifyElevMoist(nx, ny);
+        elev = em.elev; moist = em.moist;
+      }
 
       var chance = generationRules.specialTerrainChance != null ? generationRules.specialTerrainChance : 0.05;
       if (rng() < chance && terrainId !== 'water' && terrainId !== 'mountain') {
@@ -270,7 +281,7 @@ async function executeMapPlan(plan) {
         if (special) terrainId = special;
       }
 
-      writeHexData(hexKey(q, r), { terrain: terrainId });
+      writeHexData(hexKey(q, r), { terrain: terrainId, elev, moist });
       painted++;
     }
     render();
@@ -562,7 +573,7 @@ function executeOneAICommand(cmd) {
         id: genAnnId(),
         type: type || 'note',
         text: text,
-        visible: visible !== undefined ? visible : false,
+        visible: visible !== undefined ? visible : true,
         createdAt: Date.now()
       });
       if (text) count++;
@@ -704,7 +715,7 @@ function executeOneAICommandNoBatch(cmd) {
       id: genAnnId(),
       type: type || 'note',
       text: text,
-      visible: visible !== undefined ? visible : false,
+      visible: visible !== undefined ? visible : true,
       createdAt: Date.now()
     });
     if (text) count++;
