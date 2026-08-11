@@ -13,6 +13,14 @@ rebuildTerrainPalette();
 const allIds = getAllTerrainIds();
 if (!getTerrainInfo(selectedTerrain) && allIds.length > 0) selectedTerrain = allIds[0];
 
+// Load icon style preference and sync the toggle
+try {
+  const saved = localStorage.getItem('hexmap_iconStyle');
+  if (saved === 'vector' || saved === 'emoji') iconStyle = saved;
+} catch(err) {}
+const iconChk = document.getElementById('chk-icon-style');
+if (iconChk) iconChk.checked = (iconStyle === 'vector');
+
 // Build region palette
 rebuildRegionPalette();
 

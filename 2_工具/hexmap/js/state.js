@@ -93,6 +93,7 @@ let showRegionLayer = true; // 王国图层可见性开关
 let regionBorderOpacity = 0.85; // 王国边境不透明度 (0~1)
 let showRegionNames = true;     // 是否显示王国名称（领土中心浮动标签）
 let showElevationLayer = false; // 海拔图层可见性开关（默认关，旧图观感不变）
+let iconStyle = 'vector';       // 图标风格：'vector'（手绘矢量）| 'emoji'（原始系统 emoji）
 
 // 王国边境配置 (一个六角格 = 一天路程)
 const DEFAULT_REGIONS = {

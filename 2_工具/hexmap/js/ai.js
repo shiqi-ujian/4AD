@@ -573,7 +573,7 @@ function executeOneAICommand(cmd) {
         id: genAnnId(),
         type: type || 'note',
         text: text,
-        visible: visible !== undefined ? visible : false,
+        visible: visible !== undefined ? visible : true,
         createdAt: Date.now()
       });
       if (text) count++;
@@ -715,7 +715,7 @@ function executeOneAICommandNoBatch(cmd) {
       id: genAnnId(),
       type: type || 'note',
       text: text,
-      visible: visible !== undefined ? visible : false,
+      visible: visible !== undefined ? visible : true,
       createdAt: Date.now()
     });
     if (text) count++;

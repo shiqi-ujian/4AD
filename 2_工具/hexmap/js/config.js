@@ -135,7 +135,7 @@ function rebuildTerrainPalette() {
     btn.title = t.name;
     const textColor = isLightColor(t.color) ? '#333' : '#fff';
     btn.style.cssText = `background:${t.color};color:${textColor};text-shadow:${textColor === '#fff' ? '0 1px 3px rgba(0,0,0,0.5)' : 'none'}`;
-    btn.innerHTML = `<span class="icon">${t.icon}</span><span class="label">${t.name}</span>`;
+    btn.innerHTML = `<span class="icon">${iconLegendHTML(id, t.icon, t.color)}</span><span class="label">${t.name}</span>`;
     btn.addEventListener('click', () => {
       selectedTerrain = id;
       document.querySelectorAll('.tool-btn[data-terrain]').forEach(b => b.classList.remove('active'));

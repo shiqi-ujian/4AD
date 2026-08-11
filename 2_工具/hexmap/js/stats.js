@@ -92,7 +92,7 @@ function openStatsModal() {
       const pct = (n / s.total * 100).toFixed(1);
       html += `<div style="display:flex;align-items:center;gap:6px;padding:2px 0;font-size:12px;">
         <span style="width:22px;height:14px;border-radius:3px;background:${t.color};display:inline-block;flex-shrink:0;"></span>
-        <span style="color:#ddd;flex:1;">${t.icon} ${t.name}</span>
+        <span style="color:#ddd;flex:1;">${iconLegendHTML(id, t.icon, t.color, t.name)}</span>
         <span style="color:#aaa;">${n} 格</span>
         <span style="color:#666;width:42px;text-align:right;">${pct}%</span>
       </div>`;
@@ -110,7 +110,7 @@ function openStatsModal() {
       if (n === 0) continue;
       regionRow += `<div style="display:flex;align-items:center;gap:6px;padding:2px 0;font-size:12px;">
         <span style="width:22px;height:14px;border-radius:3px;background:${r.color};display:inline-block;flex-shrink:0;"></span>
-        <span style="color:#ddd;flex:1;">${r.icon} ${r.name}</span>
+        <span style="color:#ddd;flex:1;">${iconLegendHTML(null, r.icon, r.color, r.name)}</span>
         <span style="color:#aaa;">${n} 格 (${(n / s.total * 100).toFixed(1)}%)</span>
       </div>`;
     }

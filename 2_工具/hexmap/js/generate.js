@@ -1081,32 +1081,36 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
             exportCtx.drawImage(img, p.x - is/2, p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.3 : 0) - is/2, is, is);
             exportCtx.restore();
           } else {
-            exportCtx.font = `${HEX_SIZE * 0.5}px sans-serif`;
-            exportCtx.textAlign = 'center';
-            exportCtx.textBaseline = 'middle';
-            exportCtx.fillStyle = 'rgba(255,255,255,0.85)';
-            exportCtx.fillText(hOTI.icon, p.x, p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.15 : 0));
+            drawIconOrEmoji(exportCtx, {
+              key: h.terrain, emoji: hOTI.icon,
+              x: p.x, y: p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.15 : 0),
+              size: HEX_SIZE * 0.62, color: '#f4f4f4',
+              outline: 'rgba(0,0,0,0.55)', textBaseline: 'middle'
+            });
           }
         } else {
-          exportCtx.font = `${HEX_SIZE * 0.5}px sans-serif`;
-          exportCtx.textAlign = 'center';
-          exportCtx.textBaseline = 'middle';
-          exportCtx.fillStyle = 'rgba(255,255,255,0.85)';
-          exportCtx.fillText(hOTI.icon, p.x, p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.15 : 0));
+          drawIconOrEmoji(exportCtx, {
+            key: h.terrain, emoji: hOTI.icon,
+            x: p.x, y: p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.15 : 0),
+            size: HEX_SIZE * 0.62, color: '#f4f4f4',
+            outline: 'rgba(0,0,0,0.55)', textBaseline: 'middle'
+          });
         }
       }
     // Annotation icons (visible ones)
     if (h.annotations && h.annotations.length) {
-      const visibleIcons = h.annotations.filter(a => a.visible).map(a => ANNOTATION_TYPES[a.type]?.icon || '📍');
-      if (visibleIcons.length) {
+      const visibleAnn = h.annotations.filter(a => a.visible);
+      if (visibleAnn.length) {
         const startX = p.x + HEX_SIZE * 0.3;
-        const startY = p.y - HEX_SIZE * 0.65;
-        exportCtx.font = `${HEX_SIZE * 0.25}px sans-serif`;
-        exportCtx.textAlign = 'center';
-        exportCtx.textBaseline = 'middle';
-        exportCtx.fillStyle = 'rgba(255,255,255,0.9)';
-        visibleIcons.forEach((icon, idx) => {
-          exportCtx.fillText(icon, startX + idx * (HEX_SIZE * 0.28), startY);
+        const startY = p.y - HEX_SIZE * 0.55;
+        visibleAnn.forEach((a, idx) => {
+          const at = ANNOTATION_TYPES[a.type] || ANNOTATION_TYPES.note;
+          drawIconOrEmoji(exportCtx, {
+            key: a.type, emoji: at.icon,
+            x: startX + (idx + 0.5) * (HEX_SIZE * 0.5) - (visibleAnn.length > 1 ? HEX_SIZE * 0.15 : 0), y: startY,
+            size: HEX_SIZE * 0.4, color: at.color || '#fff',
+            outline: 'rgba(0,0,0,0.65)', textBaseline: 'middle'
+          });
         });
       }
     }
@@ -1139,10 +1143,12 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
         } else {
           const ratingIcons = {'-3':'🛖','-2':'🏕️','-1':'🏘️','0':'🏘️','1':'🏛️','2':'🏰','3':'🏙️'};
           const icon = ratingIcons[String(h.settlement.rating)] || '🏘️';
-          exportCtx.font = `${HEX_SIZE * 0.6}px sans-serif`;
-          exportCtx.textAlign = 'center';
-          exportCtx.textBaseline = 'bottom';
-          exportCtx.fillText(icon, p.x, p.y + HEX_SIZE * 0.45);
+          drawIconOrEmoji(exportCtx, {
+            key: SETTLEMENT_ICON_KEYS[String(h.settlement.rating)], emoji: icon,
+            x: p.x, y: p.y + HEX_SIZE * 0.45,
+            size: HEX_SIZE * 0.78, color: '#ffd98a',
+            outline: 'rgba(0,0,0,0.55)', textBaseline: 'bottom'
+          });
           }
         } // closes if(h.settlement.imageUrl)
       } // closes if(h.settlement)
@@ -1182,6 +1188,14 @@ document.getElementById('chk-lock').addEventListener('change', (e) => { isLocked
 document.getElementById('chk-terrain').addEventListener('change', (e) => { showTerrainLayer = e.target.checked; render(); });
 document.getElementById('chk-region-layer').addEventListener('change', (e) => { showRegionLayer = e.target.checked; render(); });
 document.getElementById('chk-elevation').addEventListener('change', (e) => { showElevationLayer = e.target.checked; render(); });
+document.getElementById('chk-icon-style').addEventListener('change', (e) => {
+  iconStyle = e.target.checked ? 'vector' : 'emoji';
+  try { localStorage.setItem('hexmap_iconStyle', iconStyle); } catch(err) {}
+  render();
+  rebuildTerrainPalette();
+  const statsModal = document.getElementById('stats-modal');
+  if (statsModal && statsModal.style.display !== 'none') openStatsModal();
+});
 
 // Manage regions button
 document.getElementById('btn-manage-regions').addEventListener('click', openRegionEditor);

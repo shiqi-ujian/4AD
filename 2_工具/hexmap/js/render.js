@@ -309,33 +309,38 @@ function drawHexOverlay(q, r, allTerrains) {
     ctx.fillText(`${q},${r}`, p.x, p.y + HEX_SIZE * 0.4);
   }
 
-  // Terrain icon (image or emoji) — hidden when the terrain layer is off
+  // Terrain icon (vector or emoji) — hidden when the terrain layer is off
   const hOverlayTI = h.terrain ? allTerrains[h.terrain] : null;
   if (showTerrainLayer && hOverlayTI) {
     if (hOverlayTI.imageUrl) {
       drawHexImage(p.x, p.y, HEX_SIZE * 1.1, hOverlayTI.imageUrl);
     } else {
-      ctx.font = `${HEX_SIZE * 0.5}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'rgba(255,255,255,0.85)';
-      ctx.fillText(hOverlayTI.icon, p.x, p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.15 : 0));
+      drawIconOrEmoji(ctx, {
+        key: h.terrain, emoji: hOverlayTI.icon,
+        x: p.x, y: p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.15 : 0),
+        size: HEX_SIZE * 0.62, color: '#f4f4f4',
+        outline: 'rgba(0,0,0,0.55)', textBaseline: 'middle'
+      });
     }
   }
 
   // Annotation icons (visible ones)
   if (h.annotations && h.annotations.length) {
-    const visibleIcons = h.annotations.filter(a => a.visible).map(a => ANNOTATION_TYPES[a.type]?.icon || '📍');
-    if (visibleIcons.length) {
+    const visibleAnn = h.annotations.filter(a => a.visible);
+    if (visibleAnn.length) {
       // Draw small icons in top-right corner of hex
       const startX = p.x + HEX_SIZE * 0.3;
-      const startY = p.y - HEX_SIZE * 0.65;
-      ctx.font = `${HEX_SIZE * 0.25}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'rgba(255,255,255,0.9)';
-      visibleIcons.forEach((icon, idx) => {
-        ctx.fillText(icon, startX + idx * (HEX_SIZE * 0.28), startY);
+      const startY = p.y - HEX_SIZE * 0.55;
+      visibleAnn.forEach((a, idx) => {
+        const at = ANNOTATION_TYPES[a.type] || ANNOTATION_TYPES.note;
+        drawIconOrEmoji(ctx, {
+          key: a.type, emoji: at.icon,
+          x: startX + (idx + 0.5) * (HEX_SIZE * 0.5) - (visibleAnn.length > 1 ? HEX_SIZE * 0.15 : 0),
+          y: startY,
+          size: HEX_SIZE * 0.4, color: at.color || '#fff',
+          outline: 'rgba(0,0,0,0.65)',
+          textBaseline: 'middle'
+        });
       });
     }
   }
@@ -360,10 +365,12 @@ function drawHexOverlay(q, r, allTerrains) {
     } else {
       const ratingIcons = {'-3':'🛖','-2':'🏕️','-1':'🏘️','0':'🏘️','1':'🏛️','2':'🏰','3':'🏙️'};
       const icon = ratingIcons[String(h.settlement.rating)] || '🏘️';
-      ctx.font = `${HEX_SIZE * 0.6}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText(icon, p.x, p.y + HEX_SIZE * 0.45);
+      drawIconOrEmoji(ctx, {
+        key: SETTLEMENT_ICON_KEYS[String(h.settlement.rating)], emoji: icon,
+        x: p.x, y: p.y + HEX_SIZE * 0.45,
+        size: HEX_SIZE * 0.78, color: '#ffd98a',
+        outline: 'rgba(0,0,0,0.55)', textBaseline: 'bottom'
+      });
     }
 
     // Settlement name & rating
@@ -375,9 +382,9 @@ function drawHexOverlay(q, r, allTerrains) {
     const stext = `${sname} (${srating >= 0 ? '+' : ''}${srating})`;
     ctx.fillStyle = 'rgba(0,0,0,0.5)';
     const sw = ctx.measureText(stext).width;
-    ctx.fillRect(p.x - sw/2 - 3, p.y + HEX_SIZE * 0.3, sw + 6, HEX_SIZE * 0.38);
+    ctx.fillRect(p.x - sw/2 - 3, p.y + HEX_SIZE * 0.68, sw + 6, HEX_SIZE * 0.38);
     ctx.fillStyle = '#ffd700';
-    ctx.fillText(stext, p.x, p.y + HEX_SIZE * 0.35);
+    ctx.fillText(stext, p.x, p.y + HEX_SIZE * 0.72);
   }
 }
 
