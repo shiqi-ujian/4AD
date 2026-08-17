@@ -24,5 +24,11 @@ git_pull.sh
 git_pull.bat
 pull.log
 
+# 本地自动同步日志
+logs/
+
+# 本地浏览器测试环境（依赖 node_modules，不提交）
+.browser-test/
+
 # 编辑器临时文件
 *~
