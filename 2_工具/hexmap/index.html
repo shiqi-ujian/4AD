@@ -185,6 +185,11 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     </div>
     <div style="display:flex;gap:4px;">
       <button id="btn-export-img" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;">🖼️ 导出PNG</button>
+      <button id="btn-export-view" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="仅导出当前视野范围">🎯 导出视野</button>
+    </div>
+    <div style="display:flex;gap:4px;">
+      <button id="btn-search" style="flex:1;padding:4px;background:#6a3093;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="搜索定居点/地名/王国/标注并定位">🔍 搜索定位</button>
+      <button id="btn-share" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="导出紧凑数据串/分享链接 或 粘贴导入">🔗 分享/导入</button>
       <button id="btn-stats" style="flex:1;padding:4px;background:#0f3460;color:#ccc;border:none;border-radius:4px;cursor:pointer;" title="查看地图统计">📊 统计</button>
     </div>
     <div style="display:flex;gap:4px;">
@@ -574,6 +579,62 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 </div>
 
 
+<!-- Search / Locate Modal -->
+<div id="search-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:460px;max-height:82vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 12px;">
+      <h3 style="color:#e94560;margin:0;font-size:17px;">🔍 搜索定位</h3>
+      <button id="search-btn-close-x" style="background:none;border:none;color:#aaa;font-size:20px;cursor:pointer;padding:0 4px;line-height:1;" title="关闭">&times;</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:8px;">
+      <input id="search-input" type="text" placeholder="输入定居点/地名/王国/标注关键词…" style="flex:1;padding:7px 10px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;">
+      <button id="search-btn-clear" style="padding:4px 10px;background:#3a3a5e;color:#aaa;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🗑️</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+      <label style="display:flex;align-items:center;gap:4px;color:#ccc;font-size:12px;cursor:pointer;">
+        <input type="checkbox" id="search-f-settle" checked> 定居点
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;color:#ccc;font-size:12px;cursor:pointer;">
+        <input type="checkbox" id="search-f-label" checked> 地名标签
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;color:#ccc;font-size:12px;cursor:pointer;">
+        <input type="checkbox" id="search-f-region" checked> 王国
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;color:#ccc;font-size:12px;cursor:pointer;">
+        <input type="checkbox" id="search-f-ann" checked> 标注
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;color:#ccc;font-size:12px;cursor:pointer;">
+        <input type="checkbox" id="search-f-terrain" checked> 坐标
+      </label>
+    </div>
+    <div id="search-results" style="max-height:360px;overflow-y:auto;font-size:13px;"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:12px;">
+      <button id="search-btn-close" style="padding:6px 16px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- Share / Import Modal -->
+<div id="share-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:520px;max-height:84vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">🔗 分享 / 导入</h3>
+    <div id="share-loading" style="display:none;font-size:12px;color:#aaa;margin-bottom:10px;">⏳ 编码中，请稍候…</div>
+    <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+      <button id="share-btn-copy-link" style="padding:5px 12px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">📋 复制分享链接</button>
+      <button id="share-btn-copy-data" style="padding:5px 12px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">📋 复制数据串</button>
+      <button id="share-btn-copy-all" style="padding:5px 12px;background:#0f3460;color:#ccc;border:none;border-radius:4px;cursor:pointer;font-size:12px;">📋 完整JSON(含图片)</button>
+    </div>
+    <div style="font-size:11px;color:#888;margin-bottom:6px;">分享链接：数据经 gzip+Base64Url 编码后放入 URL 片段（#m=…），不经过服务器。大地图生成较慢。</div>
+    <textarea id="share-text" rows="10" style="width:100%;padding:8px;background:#1a1a2e;color:#9ff;border:1px solid #0f3460;border-radius:4px;font-size:12px;font-family:monospace;resize:vertical;" placeholder="此处显示紧凑数据串；或粘贴一份数据串后点击下方「导入」"></textarea>
+    <div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end;">
+      <button id="share-btn-copy" style="padding:5px 14px;background:#3a3a5e;color:#ccc;border:1px solid #0f3460;border-radius:4px;cursor:pointer;font-size:12px;">📋 复制</button>
+      <button id="share-btn-import" style="padding:6px 16px;background:#c9a84c;color:#000;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;">📂 导入</button>
+      <button id="share-btn-close" style="padding:6px 16px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">关闭</button>
+    </div>
+    <div id="share-status" style="margin-top:8px;font-size:12px;color:#aaa;"></div>
+  </div>
+</div>
+
 <script src="js/config.js"></script>
 <script src="js/icons.js"></script>
 <script src="js/state.js"></script>
@@ -584,6 +645,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 <script src="js/generate.js"></script>
 <script src="js/stats.js"></script>
 <script src="js/init.js"></script>
+<script src="js/search.js"></script>
+<script src="js/export.js"></script>
 <script src="js/ai.js"></script>
 </body>
 </html>

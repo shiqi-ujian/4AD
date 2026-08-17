@@ -185,6 +185,11 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     </div>
     <div style="display:flex;gap:4px;">
       <button id="btn-export-img" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;">🖼️ 导出PNG</button>
+      <button id="btn-export-view" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="仅导出当前视野范围">🎯 导出视野</button>
+    </div>
+    <div style="display:flex;gap:4px;">
+      <button id="btn-search" style="flex:1;padding:4px;background:#6a3093;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="搜索定居点/地名/王国/标注并定位">🔍 搜索定位</button>
+      <button id="btn-share" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="导出紧凑数据串/分享链接 或 粘贴导入">🔗 分享/导入</button>
       <button id="btn-stats" style="flex:1;padding:4px;background:#0f3460;color:#ccc;border:none;border-radius:4px;cursor:pointer;" title="查看地图统计">📊 统计</button>
     </div>
     <div style="display:flex;gap:4px;">
@@ -572,6 +577,64 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     </div>
   </div>
 </div>
+
+
+<!-- Search / Locate Modal -->
+<div id="search-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:460px;max-height:82vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 12px;">
+      <h3 style="color:#e94560;margin:0;font-size:17px;">🔍 搜索定位</h3>
+      <button id="search-btn-close-x" style="background:none;border:none;color:#aaa;font-size:20px;cursor:pointer;padding:0 4px;line-height:1;" title="关闭">&times;</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:8px;">
+      <input id="search-input" type="text" placeholder="输入定居点/地名/王国/标注关键词…" style="flex:1;padding:7px 10px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;">
+      <button id="search-btn-clear" style="padding:4px 10px;background:#3a3a5e;color:#aaa;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🗑️</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+      <label style="display:flex;align-items:center;gap:4px;color:#ccc;font-size:12px;cursor:pointer;">
+        <input type="checkbox" id="search-f-settle" checked> 定居点
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;color:#ccc;font-size:12px;cursor:pointer;">
+        <input type="checkbox" id="search-f-label" checked> 地名标签
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;color:#ccc;font-size:12px;cursor:pointer;">
+        <input type="checkbox" id="search-f-region" checked> 王国
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;color:#ccc;font-size:12px;cursor:pointer;">
+        <input type="checkbox" id="search-f-ann" checked> 标注
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;color:#ccc;font-size:12px;cursor:pointer;">
+        <input type="checkbox" id="search-f-terrain" checked> 坐标
+      </label>
+    </div>
+    <div id="search-results" style="max-height:360px;overflow-y:auto;font-size:13px;"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:12px;">
+      <button id="search-btn-close" style="padding:6px 16px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- Share / Import Modal -->
+<div id="share-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:520px;max-height:84vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">🔗 分享 / 导入</h3>
+    <div id="share-loading" style="display:none;font-size:12px;color:#aaa;margin-bottom:10px;">⏳ 编码中，请稍候…</div>
+    <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+      <button id="share-btn-copy-link" style="padding:5px 12px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">📋 复制分享链接</button>
+      <button id="share-btn-copy-data" style="padding:5px 12px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">📋 复制数据串</button>
+      <button id="share-btn-copy-all" style="padding:5px 12px;background:#0f3460;color:#ccc;border:none;border-radius:4px;cursor:pointer;font-size:12px;">📋 完整JSON(含图片)</button>
+    </div>
+    <div style="font-size:11px;color:#888;margin-bottom:6px;">分享链接：数据经 gzip+Base64Url 编码后放入 URL 片段（#m=…），不经过服务器。大地图生成较慢。</div>
+    <textarea id="share-text" rows="10" style="width:100%;padding:8px;background:#1a1a2e;color:#9ff;border:1px solid #0f3460;border-radius:4px;font-size:12px;font-family:monospace;resize:vertical;" placeholder="此处显示紧凑数据串；或粘贴一份数据串后点击下方「导入」"></textarea>
+    <div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end;">
+      <button id="share-btn-copy" style="padding:5px 14px;background:#3a3a5e;color:#ccc;border:1px solid #0f3460;border-radius:4px;cursor:pointer;font-size:12px;">📋 复制</button>
+      <button id="share-btn-import" style="padding:6px 16px;background:#c9a84c;color:#000;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;">📂 导入</button>
+      <button id="share-btn-close" style="padding:6px 16px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">关闭</button>
+    </div>
+    <div id="share-status" style="margin-top:8px;font-size:12px;color:#aaa;"></div>
+  </div>
+</div>
+
 
 
 
@@ -5022,6 +5085,495 @@ console.log('🏗️ 四战黑六角格地图已加载');
 console.log('快捷键: V=选择 X=框选 B=笔刷 S=定居点 R=道路 L=标签 E=擦除 Ctrl+Z=撤销');
 
 
+// ======== 搜索定位面板 ========
+// 按关键词搜索定居点 / 地名标签 / 王国 / 标注 / 坐标，点击结果定位到对应格子。
+// 依赖: hexData, regions, getAllTerrains(), hexToPixel, render()
+
+// 把视图中心移动到某格 (q, r)
+function centerOnHex(q, r) {
+  const p = hexToPixel(q, r);
+  viewX = canvas.width / 2 - p.x * zoom;
+  viewY = canvas.height / 2 - p.y * zoom;
+  selectedHex = { q, r };
+  render();
+  updateInfo();
+}
+
+function openSearchModal() {
+  const modal = document.getElementById('search-modal');
+  if (!modal) return;
+  const input = document.getElementById('search-input');
+  modal.style.display = 'block';
+  // 清空不聚焦，避免与快捷键冲突；聚焦方便直接输入
+  setTimeout(function() { if (input) input.focus(); }, 50);
+  runSearch();
+}
+
+function closeSearchModal() {
+  const modal = document.getElementById('search-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+// 收集地图上的所有可搜索条目
+function collectSearchEntries() {
+  const entries = [];
+  const fSettle = document.getElementById('search-f-settle').checked;
+  const fLabel = document.getElementById('search-f-label').checked;
+  const fRegion = document.getElementById('search-f-region').checked;
+  const fAnn = document.getElementById('search-f-ann').checked;
+  const fTerrain = document.getElementById('search-f-terrain').checked;
+  const allTerrains = getAllTerrains();
+
+  const seenSettlements = new Set();
+  for (const key of Object.keys(hexData)) {
+    const parts = key.split(',');
+    const q = +parts[0], r = +parts[1];
+    const h = hexData[key];
+    if (!h) continue;
+
+    if (fSettle && h.settlement && h.settlement.name) {
+      seenSettlements.add(key);
+      const ti = h.terrain ? allTerrains[h.terrain] : null;
+      entries.push({
+        type: 'settle',
+        q, r,
+        title: h.settlement.name,
+        detail: (ti ? ti.icon + ' ' + ti.name : '未知地形') + ' · 评级 ' + (h.settlement.rating >= 0 ? '+' : '') + (h.settlement.rating ?? 0),
+        icon: (function() { const ri = {'-3':'🛖','-2':'🏕️','-1':'🏘️','0':'🏘️','1':'🏛️','2':'🏰','3':'🏙️'}; return ri[String(h.settlement.rating)] || '🏘️'; })()
+      });
+    }
+
+    if (fLabel && h.label) {
+      entries.push({ type: 'label', q, r, title: h.label, sub: '地名标签', icon: '🏷️' });
+    }
+
+    if (fRegion && h.region && regions[h.region]) {
+      entries.push({ type: 'region', q, r, title: regions[h.region].name, sub: '王国边境', icon: regions[h.region].icon || '👑' });
+    }
+
+    if (fAnn && h.annotations && h.annotations.length) {
+      h.annotations.forEach(function(a) {
+        if (!a || !a.text) return;
+        const at = ANNOTATION_TYPES[a.type] || ANNOTATION_TYPES.note;
+        entries.push({ type: 'ann', q, r, title: a.text, sub: '标注 · ' + (at.name || '标注'), icon: at.icon || '📍' });
+      });
+    }
+
+    if (fTerrain) {
+      const t = h.terrain ? allTerrains[h.terrain] : null;
+      if (t) {
+        entries.push({ type: 'coord', q, r, title: t.name, sub: '坐标 (' + q + ', ' + r + ')', icon: t.icon || '⬡' });
+      }
+    }
+  }
+
+  // 去重相邻条目（同一格多种属性合并显示，但保留 try 定位）
+  // 按坐标排序，便于浏览
+  entries.sort(function(a, b) { return a.q - b.q || a.r - b.r; });
+  return entries;
+}
+
+function runSearch() {
+  const input = document.getElementById('search-input');
+  const box = document.getElementById('search-results');
+  if (!box) return;
+  const kw = (input.value || '').trim().toLocaleLowerCase();
+
+  const all = collectSearchEntries();
+  let list;
+  if (!kw) {
+    // 无关键词：列出全部，限制数量避免卡顿
+    list = all.slice(0, 200);
+    box.innerHTML = '<div style="color:#888;font-size:12px;margin-bottom:6px;">共 ' + all.length + ' 条，显示前 ' + list.length + ' 条' + (all.length > list.length ? '（输入关键词过滤）' : '') + '</div>';
+  } else {
+    list = all.filter(function(e) {
+      const hay = (e.title + ' ' + (e.sub || '')).toLocaleLowerCase();
+      return hay.indexOf(kw) !== -1;
+    });
+    if (list.length === 0) {
+      box.innerHTML = '<div style="color:#888;font-size:12px;">没有匹配「' + input.value + '」的结果</div>';
+      return;
+    }
+    box.innerHTML = '<div style="color:#888;font-size:12px;margin-bottom:6px;">找到 ' + list.length + ' 个结果</div>';
+  }
+
+  const rowsFrag = document.createDocumentFragment();
+  list.forEach(function(e) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:4px;cursor:pointer;border-bottom:1px solid #1a1a2e;';
+    row.style.background = 'transparent';
+    row.onmouseenter = function() { row.style.background = '#1a1a2e'; };
+    row.ondragstart = function() {};
+    row.addEventListener('mouseleave', function() { row.style.background = 'transparent'; });
+    row.addEventListener('click', function() {
+      centerOnHex(e.q, e.r);
+      closeSearchModal();
+    });
+
+    const icon = document.createElement('span');
+    icon.textContent = e.icon || '📍';
+    icon.style.flex = '0 0 auto';
+
+    const info = document.createElement('div');
+    info.style.flex = '1';
+    info.style.minWidth = '0';
+    const t = document.createElement('div');
+    t.textContent = e.title + '  (' + e.q + ', ' + e.r + ')';
+    t.style.color = '#ffd700';
+    t.style.fontSize = '13px';
+    t.style.fontWeight = 'bold';
+    t.style.whiteSpace = 'nowrap';
+    t.style.overflow = 'hidden';
+    t.style.textOverflow = 'ellipsis';
+    const s = document.createElement('div');
+    s.textContent = e.sub || '';
+    s.style.color = '#aaa';
+    s.style.fontSize = '11px';
+    info.appendChild(t); info.appendChild(s);
+
+    const go = document.createElement('span');
+    go.textContent = '➞';
+    go.style.flex = '0 0 auto';
+    go.style.color = '#555';
+
+    row.appendChild(icon); row.appendChild(info); row.appendChild(go);
+    rowsFrag.appendChild(row);
+  });
+  box.innerHTML = '';
+  box.appendChild(rowsFrag);
+}
+
+// 事件绑定
+document.addEventListener('DOMContentLoaded', function() {
+  const btn = document.getElementById('btn-search');
+  if (btn) btn.addEventListener('click', openSearchModal);
+
+  const input = document.getElementById('search-input');
+  if (input) input.addEventListener('input', runSearch);
+
+  const btnClear = document.getElementById('search-btn-clear');
+  if (btnClear) btnClear.addEventListener('click', function() { input.value = ''; runSearch(); input.focus(); });
+
+  const closeBtn = document.getElementById('search-btn-close');
+  if (closeBtn) closeBtn.addEventListener('click', closeSearchModal);
+  const closeX = document.getElementById('search-btn-close-x');
+  if (closeX) closeX.addEventListener('click', closeSearchModal);
+
+  // 过滤条件变化时重新搜索
+  ['search-f-settle','search-f-label','search-f-region','search-f-ann','search-f-terrain'].forEach(function(id) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', runSearch);
+  });
+
+  // 点击遮罩关闭
+  const modal = document.getElementById('search-modal');
+  if (modal) modal.addEventListener('click', function(e) { if (e.target === modal) closeSearchModal(); });
+  // Esc 关闭
+  if (input) input.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeSearchModal(); });
+});
+// ======== 导出增强：当前视野 PNG + 紧凑分享/导入 ========
+// 依赖: state.js/core.js/render.js 的渲染函数；generate.js 的
+// buildImageRegistry/resolveImageRegistry/gzip* 帮助函数。
+// 注意事项：本模块在 init.js 之后加载，事件用 DOMContentLoaded 绑定。
+
+// ---------------- 当前视野导出 PNG ----------------
+function exportCurrentViewPng() {
+  const W = canvas.width, H = canvas.height;
+  if (!W || !H) { showDiceResult('⚠️', '画布无尺寸'); return; }
+
+  // 当前视野可见的六角格范围（含一圈边界，与 render() 一致）
+  const margin = HEX_SIZE * 2;
+  const topLeft = pixelToHex((-viewX - margin) / zoom, (-viewY - margin) / zoom);
+  const botRight = pixelToHex((W - viewX + margin) / zoom, (H - viewY + margin) / zoom);
+  const qMin = Math.floor(topLeft.q), qMax = Math.ceil(botRight.q);
+  const rMin = Math.floor(topLeft.r), rMax = Math.ceil(botRight.r);
+
+  const exportCanvas = document.createElement('canvas');
+  exportCanvas.width = W; exportCanvas.height = H;
+  const g = exportCanvas.getContext('2d');
+
+  g.fillStyle = '#2d2d44';
+  g.fillRect(0, 0, W, H);
+  g.save();
+  g.translate(viewX, viewY);
+  g.scale(zoom, zoom);
+
+  const allTerrains = getAllTerrains();
+  const _prevGrid = showGrid, _prevCoords = showCoords;
+
+  // Pass 1: 地形 + 格线
+  for (let q = qMin; q <= qMax; q++) {
+    for (let r = rMin; r <= rMax; r++) {
+      drawHexBase(g, q, r, getHex(q, r), allTerrains);
+    }
+  }
+  // Pass 2: 王国边境
+  drawRegionBorders(g, qMin, qMax, rMin, rMax, getHex);
+  // Pass 2.5: 河流
+  drawRivers(g, qMin, qMax, rMin, rMax);
+  // Pass 2.7: 道路
+  g.strokeStyle = '#8B4513'; g.lineWidth = 3;
+  for (let q = qMin; q <= qMax; q++) {
+    for (let r = rMin; r <= rMax; r++) {
+      const h = getHex(q, r);
+      if (h.roads) {
+        const p1 = hexToPixel(q, r);
+        for (const rd of h.roads) {
+          if (rd.q > q || (rd.q === q && rd.r > r)) {
+            const p2 = hexToPixel(rd.q, rd.r);
+            g.beginPath(); g.moveTo(p1.x, p1.y); g.lineTo(p2.x, p2.y); g.stroke();
+          }
+        }
+      }
+    }
+  }
+  // Pass 3: 覆盖层（图标/标签/定居点/坐标）
+  for (let q = qMin; q <= qMax; q++) {
+    for (let r = rMin; r <= rMax; r++) {
+      drawHexOverlay(g, q, r, getHex(q, r));
+    }
+  }
+  // Pass 4: 王国名称
+  drawRegionNames(g);
+  g.restore();
+  showGrid = _prevGrid; showCoords = _prevCoords;
+
+  const link = document.createElement('a');
+  link.download = 'hexmap_view_' + new Date().toISOString().slice(0, 10) + '.png';
+  link.href = exportCanvas.toDataURL('image/png');
+  link.click();
+  showDiceResult('🎯 视野已导出', W + 'x' + H + ' (' + (qMax - qMin + 1) + '×' + (rMax - rMin + 1) + ' 格)');
+}
+
+// ---------------- Base64URL 帮助函数 ----------------
+function b64UrlEncode(bytes) {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+function b64UrlDecode(str) {
+  let b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (b64.length % 4 !== 0) b64 += '=';
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+function u8toAB(u8) { return u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength); }
+
+// 从当前地图生成紧凑数据串（可分享）：gzip(JSON) → Uint8Array → Base64URL
+async function compactEncodeString() {
+  cleanHexData();
+  const ex = buildImageRegistry(hexData, customTerrains);
+  const data = {
+    hexData: ex.exportHex,
+    imageRegistry: ex.registry,
+    customTerrains: ex.exportCT,
+    deletedTerrains,
+    terrainOrder,
+    generationRules,
+    regions,
+    regionOrder
+  };
+  const json = JSON.stringify(data);
+  let bytes;
+  if (gzipSupported()) {
+    const blob = await gzipCompress(json);
+    bytes = new Uint8Array(await blob.arrayBuffer());
+  } else {
+    bytes = new TextEncoder().encode(json);
+  }
+  return b64UrlEncode(bytes);
+}
+
+// 从用户粘贴的文本里取出紧凑串：接受完整链接、纯串、带 #m=/compact: 前缀
+function extractCompactText(raw) {
+  let s = (raw || '').trim();
+  if (s.indexOf('#') !== -1) {
+    const frag = s.split('#')[1] || '';
+    const m = frag.match(/m=([A-Za-z0-9_-]+)/);
+    if (m) s = m[1];
+  }
+  if (s.startsWith('compact:')) s = s.slice('compact:'.length);
+  if (s.startsWith('m=')) s = s.slice(2);
+  return s.trim();
+}
+
+// 解码紧凑串 → 地图数据对象
+async function decodeCompactText(raw) {
+  const body = extractCompactText(raw);
+  if (!body) throw new Error('空数据');
+  const bytes = b64UrlDecode(body);
+  let text;
+  if (gzipSupported() && bytes.length > 1 && bytes[0] === 0x1F && bytes[1] === 0x8B) {
+    const blob = new Blob([u8toAB(bytes)], { type: 'application/gzip' });
+    text = await gzipDecompress(blob);
+  } else {
+    text = new TextDecoder().decode(bytes);
+  }
+  return JSON.parse(text);
+}
+
+// 把地图数据对象应用到当前画布；返回导入的六角格数
+function applyMapData(data) {
+  if (!data) throw new Error('空数据');
+  const resolved = resolveImageRegistry(data.hexData || {}, data.customTerrains || {}, data.imageRegistry || {});
+  hexData = resolved.resultHex;
+  customTerrains = resolved.resultCT;
+  rebuildSettlementIndex();
+  undoStack = []; redoStack = []; updateUndoButtons();
+  if (data.deletedTerrains) deletedTerrains = data.deletedTerrains;
+  if (data.terrainOrder) terrainOrder = data.terrainOrder;
+  if (data.generationRules) generationRules = { ...DEFAULT_GEN_RULES, ...data.generationRules };
+  if (data.regions) regions = data.regions;
+  if (data.regionOrder) regionOrder = data.regionOrder;
+  if (typeof data.viewX === 'number') viewX = data.viewX;
+  if (typeof data.viewY === 'number') viewY = data.viewY;
+  if (typeof data.zoom === 'number') zoom = data.zoom;
+  rebuildRegionPalette();
+  saveTerrainConfig();
+  rebuildTerrainPalette();
+  const zi = document.getElementById('zoom-indicator');
+  if (zi) zi.textContent = '🔍 ' + Math.round(zoom * 100) + '%';
+  render();
+  updateInfo();
+  return Object.keys(hexData).length;
+}
+
+// 完整 JSON（含图片 dataURL，无压缩）—— 供「完整JSON」复制
+function buildFullJSON() {
+  cleanHexData();
+  const ex = buildImageRegistry(hexData, customTerrains);
+  const data = { hexData: ex.exportHex, imageRegistry: ex.registry, customTerrains: ex.exportCT, deletedTerrains, terrainOrder, generationRules, regions, regionOrder };
+  return JSON.stringify(data);
+}
+
+function setShareStatus(msg) {
+  const s = document.getElementById('share-status');
+  if (s) s.textContent = msg;
+}
+
+function openShareModal() {
+  const modal = document.getElementById('share-modal');
+  if (!modal) return;
+  modal.style.display = 'block';
+  setShareStatus('⏳ 编码中…');
+  document.getElementById('share-loading').style.display = 'block';
+  document.getElementById('share-text').value = '';
+  const box = document.getElementById('share-text');
+  box.placeholder = '正在生成数据串…';
+  box.setAttribute('data-ready', '0');
+
+  setTimeout(async function() {
+    try {
+      const s = await compactEncodeString();
+      const fullLink = location.origin + location.pathname + '?m=1#m=' + encodeURIComponent(s);
+      box.value = s;
+      box.setAttribute('data-ready', '1');
+      document.getElementById('share-loading').style.display = 'none';
+      setShareStatus('✅ 已生成 ' + (s.length / 1024).toFixed(0) + ' KB，可复制链接或数据串。链接形如: ' + fullLink.substring(0, 60) + '…');
+    } catch (err) {
+      document.getElementById('share-loading').style.display = 'none';
+      setShareStatus('⚠️ 编码失败: ' + (err && err.message));
+    }
+  }, 30);
+}
+
+function closeShareModal() {
+  const modal = document.getElementById('share-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  const btnView = document.getElementById('btn-export-view');
+  if (btnView) btnView.addEventListener('click', exportCurrentViewPng);
+
+  const btnShare = document.getElementById('btn-share');
+  if (btnShare) btnShare.addEventListener('click', openShareModal);
+
+  const closeBtn = document.getElementById('share-btn-close');
+  if (closeBtn) closeBtn.addEventListener('click', closeShareModal);
+  const modal = document.getElementById('share-modal');
+  if (modal) modal.addEventListener('click', function(e) { if (e.target === modal) closeShareModal(); });
+
+  const box = document.getElementById('share-text');
+
+  // 复制数据串
+  document.getElementById('share-btn-copy-data').addEventListener('click', function() {
+    const val = box.value;
+    if (!val) { setShareStatus('⚠️ 尚未生成数据'); return; }
+    navigator.clipboard.writeText(val).then(function() { setShareStatus('✅ 数据串已复制'); }, function() {
+      box.select(); document.execCommand('copy'); setShareStatus('✅ 数据串已复制');
+    });
+  });
+
+  // 复制完整链接
+  document.getElementById('share-btn-copy-link').addEventListener('click', function() {
+    const val = box.value;
+    if (!val) { setShareStatus('⚠️ 尚未生成数据'); return; }
+    const link = location.origin + location.pathname + '?m=1#m=' + encodeURIComponent(val);
+    navigator.clipboard.writeText(link).then(function() { setShareStatus('✅ 分享链接已复制（含完整地图数据）'); }, function() {
+      box.select(); document.execCommand('copy'); setShareStatus('✅ 已复制（复制的是数据，请先拼接前缀）');
+    });
+  });
+
+  // 复制完整 JSON（含图片）
+  document.getElementById('share-btn-copy-all').addEventListener('click', function() {
+    try {
+      const json = buildFullJSON();
+      navigator.clipboard.writeText(json).then(function() { setShareStatus('✅ 完整JSON已复制（含图片，较庞大）'); }, function() {
+        box.value = json; box.select(); document.execCommand('copy'); setShareStatus('✅ 完整JSON已复制');
+      });
+    } catch (err) { setShareStatus('⚠️ 失败: ' + (err && err.message)); }
+  });
+
+  // 文本域里的复制按钮
+  document.getElementById('share-btn-copy').addEventListener('click', function() {
+    const val = box.value;
+    if (!val) return;
+    navigator.clipboard.writeText(val).then(function() { setShareStatus('✅ 已复制'); }, function() { box.select(); document.execCommand('copy'); setShareStatus('✅ 已复制'); });
+  });
+
+  // 导入
+  document.getElementById('share-btn-import').addEventListener('click', function() {
+    const val = box.value.trim();
+    if (!val) { setShareStatus('⚠️ 请先粘贴数据串'); return; }
+    setShareStatus('⏳ 解压并导入中…');
+    decodeCompactText(val).then(function(data) {
+      const n = applyMapData(data);
+      setShareStatus('✅ 已导入 ' + n + ' 个六角格');
+      closeShareModal();
+    }).catch(function(err) {
+      // 回退：若用户直接粘贴了完整 JSON，尝试直接解析
+      try {
+        const data = JSON.parse(val);
+        const n = applyMapData(data);
+        setShareStatus('✅ 已导入 ' + n + ' 个六角格');
+        closeShareModal();
+      } catch (err2) {
+        setShareStatus('⚠️ 导入失败: ' + (err && err.message));
+      }
+    });
+  });
+});
+
+// 自动导入：若页面自带 #m= 参数，加载完成后提示导入
+document.addEventListener('DOMContentLoaded', function() {
+  const mIndex = location.hash.indexOf('m=');
+  if (mIndex === -1) return;
+  const code = decodeURIComponent(location.hash.slice(mIndex + 2));
+  if (!code) return;
+  showDiceResult('🔗', '检测到分享地图，正在导入…');
+  decodeCompactText(code).then(function(data) {
+    const n = applyMapData(data);
+    showDiceResult('🔗 导入成功', '共 ' + n + ' 个六角格');
+    // 尝试清理 URL 片段，避免刷新重复导入
+    if (history.replaceState) {
+      const clean = location.origin + location.pathname + location.search;
+      try { history.replaceState(null, '', clean); } catch (e) { /* ignore */ }
+    }
+  }).catch(function(err) { showDiceResult('⚠️ 导入失败', (err && err.message) || '数据无效'); });
+});
 // ======== AI 绘图 ========
 // --- Settings persistence ---
 function loadAISettings() {
