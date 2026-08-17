@@ -77,16 +77,16 @@ function classifyElevMoist(nx, ny, rng) {
 
 // Generate terrain for a bounded region (synchronous — kept for backward compat)
 // ======== Web Worker for off-thread Perlin noise ========
-var _noiseWorker = null;
-var _noiseWorkerReady = false;
-var _workerPending = null; // { resolve, reject }
+let _noiseWorker = null;
+let _noiseWorkerReady = false;
+let _workerPending = null; // { resolve, reject }
 
 function getNoiseWorker() {
   if (_noiseWorker) return _noiseWorker;
   if (typeof Blob === 'undefined' || typeof Worker === 'undefined') return null;
 
   // Inline worker — encapsulates all noise math, no DOM access
-  var workerCode = [
+  const workerCode = [
     'var _perm=new Uint8Array(512);',
     'function m32(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}};',
     'function ip(s){var r=m32(s),p=[],i;for(i=0;i<256;i++)p[i]=i;for(i=255;i>0;i--){var j=Math.floor(r()*(i+1)),t=p[i];p[i]=p[j];p[j]=t;}for(i=0;i<512;i++)_perm[i]=p[i&255]};',
@@ -103,7 +103,7 @@ function getNoiseWorker() {
   ].join('\n');
 
   try {
-    var blob = new Blob([workerCode], { type: 'application/javascript' });
+    const blob = new Blob([workerCode], { type: 'application/javascript' });
     _noiseWorker = new Worker(URL.createObjectURL(blob));
     _noiseWorkerReady = true;
     return _noiseWorker;
@@ -117,23 +117,23 @@ function getNoiseWorker() {
 // Classify terrain from noise using the worker (async). Falls back to sync if no worker.
 function classifyBatchWithWorker(seed, coords, scale) {
   return new Promise(function(resolve) {
-    var w = getNoiseWorker();
+    const w = getNoiseWorker();
     if (!w) {
       // Fallback: compute on main thread
       initPerm(seed);
-      var results = [];
-      for (var i = 0; i < coords.length; i++) {
-        var c = coords[i];
-        var nx = c.px * 0.005 / scale, ny = c.py * 0.005 / scale;
-        var em = classifyElevMoist(nx, ny);
+      const results = [];
+      for (let i = 0; i < coords.length; i++) {
+        const c = coords[i];
+        const nx = c.px * 0.005 / scale, ny = c.py * 0.005 / scale;
+        const em = classifyElevMoist(nx, ny);
         results.push({ q: c.q, r: c.r, terrain: em.terrain, elev: em.elev, moist: em.moist });
       }
       resolve(results);
       return;
     }
 
-    var msgId = Date.now() + Math.random();
-    var handler = function(e) {
+    const msgId = Date.now() + Math.random();
+    const handler = function(e) {
       if (e.data.id === msgId) {
         w.removeEventListener('message', handler);
         resolve(e.data.results);
@@ -174,9 +174,9 @@ function generateTerrainRegion(seed, centerQ, centerR, width, height, scale) {
     let terrainId = em.terrain;
 
     // Special terrain injection
-    var chance = generationRules.specialTerrainChance != null ? generationRules.specialTerrainChance : 0.05;
+    const chance = generationRules.specialTerrainChance != null ? generationRules.specialTerrainChance : 0.05;
     if (rng() < chance) {
-      var special = pickSpecialTerrain(rng);
+      const special = pickSpecialTerrain(rng);
       if (special) terrainId = special;
     }
 
@@ -186,41 +186,41 @@ function generateTerrainRegion(seed, centerQ, centerR, width, height, scale) {
 
 // Async chunked version — use for large maps to keep UI responsive
 async function generateTerrainRegionAsync(seed, centerQ, centerR, width, height, scale, onProgress) {
-  var rng = mulberry32(seed + 1);
-  var halfW = Math.floor(width / 2);
-  var halfH = Math.floor(height / 2);
+  const rng = mulberry32(seed + 1);
+  const halfW = Math.floor(width / 2);
+  const halfH = Math.floor(height / 2);
 
   // Build coord list with pixel positions
-  var coords = [];
-  for (var q = centerQ - halfW; q <= centerQ + halfW; q++) {
-    for (var r = centerR - halfH; r <= centerR + halfH; r++) {
-      var p = hexToPixel(q, r);
-      coords.push({ q: q, r: r, px: p.x, py: p.y });
+  const coords = [];
+  for (let q = centerQ - halfW; q <= centerQ + halfW; q++) {
+    for (let r = centerR - halfH; r <= centerR + halfH; r++) {
+      const p = hexToPixel(q, r);
+      coords.push({ q, r, px: p.x, py: p.y });
     }
   }
 
   // Shuffle
-  for (var i = coords.length - 1; i > 0; i--) {
-    var j = Math.floor(rng() * (i + 1));
-    var tmp = coords[i]; coords[i] = coords[j]; coords[j] = tmp;
+  for (let i = coords.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    const tmp = coords[i]; coords[i] = coords[j]; coords[j] = tmp;
   }
 
-  var total = coords.length;
-  var CHUNK = getNoiseWorker() ? 20000 : 5000; // bigger chunks with worker since noise is off-thread
-  for (var ci = 0; ci < total; ci += CHUNK) {
-    var end = Math.min(ci + CHUNK, total);
-    var batch = coords.slice(ci, end);
+  const total = coords.length;
+  const CHUNK = getNoiseWorker() ? 20000 : 5000; // bigger chunks with worker since noise is off-thread
+  for (let ci = 0; ci < total; ci += CHUNK) {
+    const end = Math.min(ci + CHUNK, total);
+    const batch = coords.slice(ci, end);
 
     // Step 1: Classify terrain (worker if available, else inline)
-    var results = await classifyBatchWithWorker(seed, batch, scale);
+    const results = await classifyBatchWithWorker(seed, batch, scale);
 
     // Step 2: Special terrain injection (main thread, needs generationRules)
-    for (var ri = 0; ri < results.length; ri++) {
-      var res = results[ri];
-      var terrainId = res.terrain;
-      var chance = generationRules.specialTerrainChance != null ? generationRules.specialTerrainChance : 0.05;
+    for (let ri = 0; ri < results.length; ri++) {
+      const res = results[ri];
+      let terrainId = res.terrain;
+      const chance = generationRules.specialTerrainChance != null ? generationRules.specialTerrainChance : 0.05;
       if (rng() < chance) {
-        var special = pickSpecialTerrain(rng);
+        const special = pickSpecialTerrain(rng);
         if (special) terrainId = special;
       }
       writeHexData(hexKey(res.q, res.r), { terrain: terrainId, elev: res.elev, moist: res.moist });
@@ -235,28 +235,29 @@ async function generateTerrainRegionAsync(seed, centerQ, centerR, width, height,
 // Binary min-heap for A* priority queue
 function MinHeap() { this.heap = []; }
 MinHeap.prototype.push = function(key, score) {
-  this.heap.push({ key: key, score: score });
-  var i = this.heap.length - 1;
+  this.heap.push({ key, score });
+  let i = this.heap.length - 1;
   while (i > 0) {
-    var p = (i - 1) >> 1;
+    const p = (i - 1) >> 1;
     if (this.heap[p].score <= this.heap[i].score) break;
-    var tmp = this.heap[p]; this.heap[p] = this.heap[i]; this.heap[i] = tmp;
+    const tmp = this.heap[p]; this.heap[p] = this.heap[i]; this.heap[i] = tmp;
     i = p;
   }
 };
 MinHeap.prototype.pop = function() {
   if (this.heap.length === 0) return null;
-  var top = this.heap[0];
-  var last = this.heap.pop();
+  const top = this.heap[0];
+  const last = this.heap.pop();
   if (this.heap.length > 0) {
     this.heap[0] = last;
-    var i = 0, n = this.heap.length;
+    let i = 0, n = this.heap.length;
     while (true) {
-      var left = (i << 1) + 1, right = left + 1, smallest = i;
+      const left = (i << 1) + 1, right = left + 1;
+      let smallest = i;
       if (left < n && this.heap[left].score < this.heap[smallest].score) smallest = left;
       if (right < n && this.heap[right].score < this.heap[smallest].score) smallest = right;
       if (smallest === i) break;
-      var t = this.heap[i]; this.heap[i] = this.heap[smallest]; this.heap[smallest] = t;
+      const t = this.heap[i]; this.heap[i] = this.heap[smallest]; this.heap[smallest] = t;
       i = smallest;
     }
   }
@@ -269,45 +270,45 @@ MinHeap.prototype.size = function() { return this.heap.length; };
 function aStarPathfind(q1, r1, q2, r2, maxSteps) {
   if (q1 === q2 && r1 === r2) return [{ q: q1, r: r1 }];
   if (!maxSteps) maxSteps = 5000;
-  var startKey = hexKey(q1, r1);
-  var goalKey = hexKey(q2, r2);
-  var allTerrains = getAllTerrains();
-  var h = function(q, r) { return hexDistance(q, r, q2, r2); };
+  const startKey = hexKey(q1, r1);
+  const goalKey = hexKey(q2, r2);
+  const allTerrains = getAllTerrains();
+  const h = (q, r) => hexDistance(q, r, q2, r2);
 
-  var openHeap = new MinHeap();
+  const openHeap = new MinHeap();
   openHeap.push(startKey, h(q1, r1));
-  var cameFrom = {};
-  var gScore = {}; gScore[startKey] = 0;
-  var closedSet = new Set();
-  var steps = 0;
+  const cameFrom = {};
+  const gScore = {}; gScore[startKey] = 0;
+  const closedSet = new Set();
+  let steps = 0;
 
   while (openHeap.size() > 0) {
-    var entry = openHeap.pop();
-    var current = entry.key;
+    const entry = openHeap.pop();
+    const current = entry.key;
     if (closedSet.has(current)) continue; // skip stale entries
     if (current === goalKey) {
-      var path = [];
-      var c = current;
-      while (c) { var parts = c.split(','); path.unshift({ q: +parts[0], r: +parts[1] }); c = cameFrom[c]; }
+      const path = [];
+      let c = current;
+      while (c) { const parts = c.split(','); path.unshift({ q: +parts[0], r: +parts[1] }); c = cameFrom[c]; }
       return path;
     }
     closedSet.add(current);
     steps++;
     if (steps > maxSteps) return null; // give up on very long paths
 
-    var coords = current.split(','); var cq = +coords[0], cr = +coords[1];
-    var nbrs = neighbors(cq, cr);
-    for (var ni = 0; ni < nbrs.length; ni++) {
-      var n = nbrs[ni];
-      var nk = hexKey(n.q, n.r);
+    const coords = current.split(','); const cq = +coords[0], cr = +coords[1];
+    const nbrs = neighbors(cq, cr);
+    for (let ni = 0; ni < nbrs.length; ni++) {
+      const n = nbrs[ni];
+      const nk = hexKey(n.q, n.r);
       if (closedSet.has(nk)) continue;
-      var hData = getHex(n.q, n.r);
-      var tInfo = hData.terrain ? allTerrains[hData.terrain] : null;
-      var moveCost = tInfo ? tInfo.travel : 1;
-      var waterPenalty = hData.terrain === 'water' ? 10 : 0;
-      var riverPenalty = (generationRules.riverTravel > 0 && hasRiver(cq, cr, n.q, n.r)) ? generationRules.riverTravel : 0;
-      var totalCost = moveCost + waterPenalty + riverPenalty;
-      var tentativeG = gScore[current] + totalCost;
+      const hData = getHex(n.q, n.r);
+      const tInfo = hData.terrain ? allTerrains[hData.terrain] : null;
+      const moveCost = tInfo ? tInfo.travel : 1;
+      const waterPenalty = hData.terrain === 'water' ? 10 : 0;
+      const riverPenalty = (generationRules.riverTravel > 0 && hasRiver(cq, cr, n.q, n.r)) ? generationRules.riverTravel : 0;
+      const totalCost = moveCost + waterPenalty + riverPenalty;
+      const tentativeG = gScore[current] + totalCost;
       if (gScore[nk] === undefined || tentativeG < gScore[nk]) {
         cameFrom[nk] = current;
         gScore[nk] = tentativeG;
@@ -406,48 +407,47 @@ function placeSettlements(count, _seed, centerQ, centerR, width, height) {
   return placed;
 }
 
-// Build road network using A* + Minimum Spanning Tree (Prim's)
+// Build road network using A* + Minimum Spanning Tree (Kruskal's)
 function buildRoadNetwork(settlements) {
   if (settlements.length < 2) return 0;
 
   // Compute A* path costs between all pairs (with distance cap for large maps)
-  var n = settlements.length;
-  var MAX_PAIR_DIST = 200;
+  const n = settlements.length;
+  const MAX_PAIR_DIST = 200;
 
-  // Build adjacency list for union-find style connectivity
-  var edges = [];
-  for (var i = 0; i < n; i++) {
-    for (var j = i + 1; j < n; j++) {
-      var d = hexDistance(settlements[i].q, settlements[i].r, settlements[j].q, settlements[j].r);
+  const edges = [];
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const d = hexDistance(settlements[i].q, settlements[i].r, settlements[j].q, settlements[j].r);
       if (d > MAX_PAIR_DIST) continue; // skip very distant pairs
-      var path = aStarPathfind(settlements[i].q, settlements[i].r, settlements[j].q, settlements[j].r, 5000);
+      const path = aStarPathfind(settlements[i].q, settlements[i].r, settlements[j].q, settlements[j].r, 5000);
       if (path) {
-        edges.push({ i: i, j: j, cost: path.length, path: path });
+        edges.push({ i, j, cost: path.length, path });
       }
     }
   }
 
   // Union-find to track connectivity across all settlements
-  var parent = []; for (var k = 0; k < n; k++) parent[k] = k;
+  const parent = []; for (let k = 0; k < n; k++) parent[k] = k;
   function find(x) { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; }
-  function union(a, b) { var ra = find(a), rb = find(b); if (ra !== rb) parent[rb] = ra; }
+  function union(a, b) { const ra = find(a), rb = find(b); if (ra !== rb) parent[rb] = ra; }
 
   // Sort edges by cost for Kruskal-style MST
   edges.sort(function(a, b) { return a.cost - b.cost; });
 
-  var mstEdges = [];
-  for (var ei = 0; ei < edges.length; ei++) {
-    var e = edges[ei];
+  const mstEdges = [];
+  for (let ei = 0; ei < edges.length; ei++) {
+    const e = edges[ei];
     if (find(e.i) !== find(e.j)) {
       union(e.i, e.j);
       mstEdges.push(e);
     }
   }
 
-  var roadsBuilt = 0;
-  for (var mi = 0; mi < mstEdges.length; mi++) {
-    var p = mstEdges[mi].path;
-    for (var k = 0; k < p.length - 1; k++) {
+  let roadsBuilt = 0;
+  for (let mi = 0; mi < mstEdges.length; mi++) {
+    const p = mstEdges[mi].path;
+    for (let k = 0; k < p.length - 1; k++) {
       addRoad(p[k].q, p[k].r, p[k + 1].q, p[k + 1].r);
       roadsBuilt++;
     }
@@ -585,7 +585,7 @@ async function oneClickGenerate(config) {
   }
 
   // Step 0: Randomly pick kingdoms for this map
-  var newRegions = pickRandomKingdoms(seed, width, height);
+  const newRegions = pickRandomKingdoms(seed, width, height);
   Object.keys(regions).forEach(function(k) { delete regions[k]; });
   Object.assign(regions, newRegions);
   regionOrder = Object.keys(newRegions);
@@ -664,8 +664,8 @@ function ocSetHeight(val) {
 }
 
 ['oc-scale', 'oc-settle'].forEach(function(id) {
-  var input = document.getElementById(id);
-  var valSpan = document.getElementById(id + '-val');
+  const input = document.getElementById(id);
+  const valSpan = document.getElementById(id + '-val');
   if (input && valSpan) {
     input.addEventListener('input', function() {
       if (id === 'oc-scale') valSpan.textContent = (input.value / 10).toFixed(1);
@@ -704,13 +704,13 @@ document.getElementById('oc-btn-cancel').addEventListener('click', () => {
 });
 
 document.getElementById('oc-btn-confirm').addEventListener('click', function() {
-  var seed = parseInt(document.getElementById('oc-seed').value) || Date.now();
-  var width = parseInt(document.getElementById('oc-width-num').value) || parseInt(document.getElementById('oc-width').value);
-  var height = parseInt(document.getElementById('oc-height-num').value) || parseInt(document.getElementById('oc-height').value);
-  var scale = parseInt(document.getElementById('oc-scale').value) / 10;
-  var settlementCount = parseInt(document.getElementById('oc-settle').value);
-  var buildRoads = document.getElementById('oc-build-roads').checked;
-  var pos = document.getElementById('oc-position').value;
+  const seed = parseInt(document.getElementById('oc-seed').value) || Date.now();
+  const width = parseInt(document.getElementById('oc-width-num').value) || parseInt(document.getElementById('oc-width').value);
+  const height = parseInt(document.getElementById('oc-height-num').value) || parseInt(document.getElementById('oc-height').value);
+  const scale = parseInt(document.getElementById('oc-scale').value) / 10;
+  const settlementCount = parseInt(document.getElementById('oc-settle').value);
+  const buildRoads = document.getElementById('oc-build-roads').checked;
+  const pos = document.getElementById('oc-position').value;
 
   document.getElementById('oneclick-modal').style.display = 'none';
 
@@ -790,14 +790,14 @@ function assignRegions(seed, centerQ, centerR, width, height) {
   const regionIds = regionOrder || Object.keys(regions);
   if (regionIds.length === 0) return;
 
-  var rng = mulberry32(seed + 999);
-  var halfW = Math.floor(width / 2);
-  var halfH = Math.floor(height / 2);
+  const rng = mulberry32(seed + 999);
+  const halfW = Math.floor(width / 2);
+  const halfH = Math.floor(height / 2);
 
   // Generate random center points for each region
-  var centers = [];
-  for (var ri = 0; ri < regionIds.length; ri++) {
-    var cq, cr, retries = 0;
+  const centers = [];
+  for (let ri = 0; ri < regionIds.length; ri++) {
+    let cq, cr, retries = 0;
     do {
       cq = centerQ + Math.floor(rng() * width - halfW);
       cr = centerR + Math.floor(rng() * height - halfH);
@@ -807,14 +807,14 @@ function assignRegions(seed, centerQ, centerR, width, height) {
   }
 
   // Assign each hex to its nearest region center (skip water)
-  for (var q = centerQ - halfW; q <= centerQ + halfW; q++) {
-    for (var r = centerR - halfH; r <= centerR + halfH; r++) {
-      var key = hexKey(q, r);
-      var h = getHex(q, r);
+  for (let q = centerQ - halfW; q <= centerQ + halfW; q++) {
+    for (let r = centerR - halfH; r <= centerR + halfH; r++) {
+      const key = hexKey(q, r);
+      const h = getHex(q, r);
       if (!h.terrain || h.terrain === 'water') continue;
-      var bestDist = Infinity, bestId = null;
-      for (var ci = 0; ci < centers.length; ci++) {
-        var d = hexDistance(q, r, centers[ci].q, centers[ci].r);
+      let bestDist = Infinity, bestId = null;
+      for (let ci = 0; ci < centers.length; ci++) {
+        const d = hexDistance(q, r, centers[ci].q, centers[ci].r);
         if (d < bestDist) { bestDist = d; bestId = centers[ci].id; }
       }
       writeHexData(key, { region: bestId });
@@ -824,21 +824,21 @@ function assignRegions(seed, centerQ, centerR, width, height) {
 
 // Pick random kingdoms from the template pool based on map size
 function pickRandomKingdoms(seed, mapWidth, mapHeight) {
-  var total = mapWidth * mapHeight;
-  var count;
+  const total = mapWidth * mapHeight;
+  let count;
   if (total < 400) count = 3 + (seed % 2);       // <20×20: 3~4
   else if (total < 1600) count = 4 + (seed % 3); // 20~40: 4~6
   else count = 5 + (seed % 3);                   // >40: 5~7
 
-  var rng = mulberry32(seed + 888);
-  var pool = REGION_TEMPLATES.slice(); // copy
+  const rng = mulberry32(seed + 888);
+  const pool = REGION_TEMPLATES.slice(); // copy
   // Fisher-Yates shuffle
-  for (var i = pool.length - 1; i > 0; i--) {
-    var j = Math.floor(rng() * (i + 1));
-    var tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    const tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
   }
-  var picked = pool.slice(0, Math.min(count, pool.length));
-  var result = {};
+  const picked = pool.slice(0, Math.min(count, pool.length));
+  const result = {};
   picked.forEach(function(t) { result[t.id] = { name: t.name, color: t.color, icon: t.icon }; });
   return result;
 }
@@ -854,28 +854,28 @@ function gzipSupported() {
 }
 
 async function gzipCompress(str) {
-  var blob = new Blob([str]);
-  var compressed = blob.stream().pipeThrough(new CompressionStream('gzip'));
+  const blob = new Blob([str]);
+  const compressed = blob.stream().pipeThrough(new CompressionStream('gzip'));
   return new Response(compressed).blob();
 }
 
 async function gzipDecompress(blob) {
-  var decompressed = blob.stream().pipeThrough(new DecompressionStream('gzip'));
+  const decompressed = blob.stream().pipeThrough(new DecompressionStream('gzip'));
   return new Response(decompressed).text();
 }
 
 document.getElementById('btn-save').addEventListener('click', async function() {
   cleanHexData();
-  var hexCount = Object.keys(hexData).length;
+  const hexCount = Object.keys(hexData).length;
   showProgress('💾', '保存中...', 0, 1);
   await new Promise(function(resolve) { setTimeout(resolve, 20); });
 
-  var ex = buildImageRegistry(hexData, customTerrains);
-  var data = { hexData: ex.exportHex, imageRegistry: ex.registry, viewX: viewX, viewY: viewY, zoom: zoom, customTerrains: ex.exportCT, deletedTerrains: deletedTerrains, terrainOrder: terrainOrder, generationRules: generationRules, regions: regions, regionOrder: regionOrder };
-  var json = JSON.stringify(data);
+  const ex = buildImageRegistry(hexData, customTerrains);
+  const data = { hexData: ex.exportHex, imageRegistry: ex.registry, viewX, viewY, zoom, customTerrains: ex.exportCT, deletedTerrains, terrainOrder, generationRules, regions, regionOrder };
+  const json = JSON.stringify(data);
 
-  var blob;
-  var ext;
+  let blob;
+  let ext;
   if (gzipSupported()) {
     blob = await gzipCompress(json);
     ext = '.hexmap';
@@ -884,31 +884,31 @@ document.getElementById('btn-save').addEventListener('click', async function() {
     ext = '.json';
   }
 
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
   a.href = url;
   a.download = 'hexmap_' + new Date().toISOString().slice(0,10) + ext;
   a.click();
   URL.revokeObjectURL(url);
 
-  var sizeMB = (blob.size / 1024 / 1024).toFixed(2);
+  const sizeMB = (blob.size / 1024 / 1024).toFixed(2);
   showDiceResult('💾 已保存', hexCount + ' 格 · ' + sizeMB + ' MB' + (ext === '.hexmap' ? ' (gzip)' : ''));
 });
 
 document.getElementById('btn-load').addEventListener('click', function() {
-  var input = document.createElement('input');
+  const input = document.createElement('input');
   input.type = 'file';
   input.accept = '.json,.hexmap';
   input.onchange = async function(e) {
-    var file = e.target.files[0];
+    const file = e.target.files[0];
     if (!file) return;
 
     try {
       showProgress('📂', '加载中...', 0, 1);
 
-      var text;
+      let text;
       // Check for gzip magic bytes (1f 8b)
-      var header = new Uint8Array(await file.slice(0, 2).arrayBuffer());
+      const header = new Uint8Array(await file.slice(0, 2).arrayBuffer());
       if (header[0] === 0x1F && header[1] === 0x8B) {
         // gzip compressed
         text = await gzipDecompress(file);
@@ -917,9 +917,9 @@ document.getElementById('btn-load').addEventListener('click', function() {
         text = await file.text();
       }
 
-      var data = JSON.parse(text);
+      const data = JSON.parse(text);
       if (data.imageRegistry) {
-        var resolved = resolveImageRegistry(data.hexData || {}, data.customTerrains || {}, data.imageRegistry);
+        const resolved = resolveImageRegistry(data.hexData || {}, data.customTerrains || {}, data.imageRegistry);
         hexData = resolved.resultHex;
         customTerrains = resolved.resultCT;
       } else {
@@ -993,54 +993,20 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
   exportCtx.translate(offsetX * exportScale, offsetY * exportScale);
   exportCtx.scale(exportScale, exportScale);
   const allTerrains = getAllTerrains();
-  // Draw hex fills + grid (Pass 1)
+  // Export ignores coordinate labels and always keeps the grid (as before), so
+  // pin those globals for the duration of this render and restore afterward.
+  const _prevGrid = showGrid, _prevCoords = showCoords;
+  showGrid = true; showCoords = false;
+  // Draw hex fills + grid (Pass 1) — reused from render.js so live view and PNG
+  // export stay pixel-identical.
   for (const key of keys) {
     const [q, r] = key.split(',').map(Number);
-    const p = hexToPixel(q, r);
-    const corners = hexCorners(p.x, p.y, HEX_SIZE);
-    const h = hexData[key];
-    exportCtx.beginPath();
-    corners.forEach((c, i) => i === 0 ? exportCtx.moveTo(c.x, c.y) : exportCtx.lineTo(c.x, c.y));
-    exportCtx.closePath();
-    // Layer composition (matches render.js drawHexBase): 0 -> dark gray, 1 -> opaque, 2+ -> stacking
-    const hTerrainInfo = h.terrain ? allTerrains[h.terrain] : null;
-    const terrainActive = !!(showTerrainLayer && hTerrainInfo);
-    const elevActive = !!(showElevationLayer && typeof h.elev === 'number');
-    const regionActive = !!(showRegionLayer && h.region && regions[h.region]);
-    const activeCount = (terrainActive ? 1 : 0) + (elevActive ? 1 : 0) + (regionActive ? 1 : 0);
-    const regionColor = regions[h.region] ? regions[h.region].color : null;
-    if (activeCount >= 2) {
-      exportCtx.fillStyle = hTerrainInfo ? hTerrainInfo.color : '#3a3a52';
-      exportCtx.fill();
-      if (elevActive) {
-        exportCtx.fillStyle = hexToRGBA(elevationColor(h.elev), 0.55);
-        exportCtx.fill();
-      }
-      if (regionActive) {
-        exportCtx.fillStyle = 'rgba(' +
-          parseInt(regionColor.slice(1,3), 16) + ',' +
-          parseInt(regionColor.slice(3,5), 16) + ',' +
-          parseInt(regionColor.slice(5,7), 16) + ',0.2)';
-        exportCtx.fill();
-      }
-    } else if (activeCount === 1) {
-      const solo = terrainActive ? hTerrainInfo.color
-        : (elevActive ? elevationColor(h.elev) : regionColor);
-      exportCtx.fillStyle = solo;
-      exportCtx.fill();
-    } else {
-      exportCtx.fillStyle = '#3a3a52';
-      exportCtx.fill();
-    }
-    exportCtx.strokeStyle = 'rgba(255,255,255,0.12)';
-    exportCtx.lineWidth = 1;
-    exportCtx.stroke();
+    drawHexBase(exportCtx, q, r, hexData[key], allTerrains);
   }
   // Region borders (shared function)
   drawRegionBorders(exportCtx, minQ - 1, maxQ + 1, minR - 1, maxR + 1, (q, r) => hexData[hexKey(q, r)] || { region: null });
   // Rivers (Pass 2.5, under roads)
   drawRiverEdgesOnContext(exportCtx, keys);
-  // Draw roads (Pass 2)
   // Draw roads (Pass 2)
   exportCtx.strokeStyle = '#8B4513';
   exportCtx.lineWidth = 3;
@@ -1060,102 +1026,15 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
       }
     }
   }
-  // Draw overlays (Pass 3)
+  // Draw overlays (Pass 3) — icons, labels, settlements; reused from render.js
   for (const key of keys) {
     const [q, r] = key.split(',').map(Number);
-    const h = hexData[key];
-    const p = hexToPixel(q, r);
-    // Terrain icon (image or emoji) — hidden when the terrain layer is off
-    const hOTI = h.terrain ? allTerrains[h.terrain] : null;
-    if (showTerrainLayer && hOTI) {
-        if (hOTI.imageUrl) {
-          const img = getCachedImage(hOTI.imageUrl);
-          if (img && img.complete && img.naturalWidth > 0) {
-            exportCtx.save();
-            const ec = hexCorners(p.x, p.y, HEX_SIZE * 0.6);
-            exportCtx.beginPath();
-            ec.forEach((c, i) => i === 0 ? exportCtx.moveTo(c.x, c.y) : exportCtx.lineTo(c.x, c.y));
-            exportCtx.closePath();
-            exportCtx.clip();
-            const is = HEX_SIZE * 0.9;
-            exportCtx.drawImage(img, p.x - is/2, p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.3 : 0) - is/2, is, is);
-            exportCtx.restore();
-          } else {
-            drawIconOrEmoji(exportCtx, {
-              key: h.terrain, emoji: hOTI.icon,
-              x: p.x, y: p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.15 : 0),
-              size: HEX_SIZE * 0.62, color: '#f4f4f4',
-              outline: 'rgba(0,0,0,0.55)', textBaseline: 'middle'
-            });
-          }
-        } else {
-          drawIconOrEmoji(exportCtx, {
-            key: h.terrain, emoji: hOTI.icon,
-            x: p.x, y: p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.15 : 0),
-            size: HEX_SIZE * 0.62, color: '#f4f4f4',
-            outline: 'rgba(0,0,0,0.55)', textBaseline: 'middle'
-          });
-        }
-      }
-    // Annotation icons (visible ones)
-    if (h.annotations && h.annotations.length) {
-      const visibleAnn = h.annotations.filter(a => a.visible);
-      if (visibleAnn.length) {
-        const startX = p.x + HEX_SIZE * 0.3;
-        const startY = p.y - HEX_SIZE * 0.55;
-        visibleAnn.forEach((a, idx) => {
-          const at = ANNOTATION_TYPES[a.type] || ANNOTATION_TYPES.note;
-          drawIconOrEmoji(exportCtx, {
-            key: a.type, emoji: at.icon,
-            x: startX + (idx + 0.5) * (HEX_SIZE * 0.5) - (visibleAnn.length > 1 ? HEX_SIZE * 0.15 : 0), y: startY,
-            size: HEX_SIZE * 0.4, color: at.color || '#fff',
-            outline: 'rgba(0,0,0,0.65)', textBaseline: 'middle'
-          });
-        });
-      }
-    }
-    // Label
-    if (h.label) {
-      exportCtx.fillStyle = '#fff';
-      exportCtx.font = `bold ${Math.max(9, HEX_SIZE * 0.38)}px sans-serif`;
-      exportCtx.textAlign = 'center';
-      exportCtx.textBaseline = 'bottom';
-      const tw = exportCtx.measureText(h.label).width;
-      exportCtx.fillStyle = 'rgba(0,0,0,0.55)';
-      exportCtx.fillRect(p.x - tw/2 - 3, p.y - HEX_SIZE * 0.65, tw + 6, HEX_SIZE * 0.55);
-      exportCtx.fillStyle = '#fff';
-      exportCtx.fillText(h.label, p.x, p.y - HEX_SIZE * 0.2);
-    }
-    // Settlement
-    if (h.settlement) {
-      if (h.settlement.imageUrl) {
-        const img = getCachedImage(h.settlement.imageUrl);
-        if (img && img.complete && img.naturalWidth > 0) {
-          exportCtx.save();
-          const ec = hexCorners(p.x, p.y + HEX_SIZE * 0.1, HEX_SIZE * 0.5);
-          exportCtx.beginPath();
-          ec.forEach((c, i) => i === 0 ? exportCtx.moveTo(c.x, c.y) : exportCtx.lineTo(c.x, c.y));
-          exportCtx.closePath();
-          exportCtx.clip();
-          const is = HEX_SIZE * 0.8;
-          exportCtx.drawImage(img, p.x - is/2, p.y + HEX_SIZE * 0.1 - is/2, is, is);
-          exportCtx.restore();
-        } else {
-          const ratingIcons = {'-3':'🛖','-2':'🏕️','-1':'🏘️','0':'🏘️','1':'🏛️','2':'🏰','3':'🏙️'};
-          const icon = ratingIcons[String(h.settlement.rating)] || '🏘️';
-          drawIconOrEmoji(exportCtx, {
-            key: SETTLEMENT_ICON_KEYS[String(h.settlement.rating)], emoji: icon,
-            x: p.x, y: p.y + HEX_SIZE * 0.45,
-            size: HEX_SIZE * 0.78, color: '#ffd98a',
-            outline: 'rgba(0,0,0,0.55)', textBaseline: 'bottom'
-          });
-          }
-        } // closes if(h.settlement.imageUrl)
-      } // closes if(h.settlement)
-    } // closes for loop
+    drawHexOverlay(exportCtx, q, r, hexData[key]);
+  }
   // Region names (Pass 3.5)
   drawRegionNames(exportCtx);
   exportCtx.restore();
+  showGrid = _prevGrid; showCoords = _prevCoords;
   const link = document.createElement("a");
   link.download = "hexmap_" + new Date().toISOString().slice(0,10) + ".png";
   link.href = exportCanvas.toDataURL("image/png");

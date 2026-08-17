@@ -9,7 +9,8 @@ function loadAISettings() {
     provider: 'openai',
     apiKey: '',
     endpoint: '',
-    model: ''
+    model: '',
+    tpm: AI_TPM_BUDGET
   };
 }
 function saveAISettings(settings) {
@@ -18,6 +19,75 @@ function saveAISettings(settings) {
   const keyInput = document.getElementById('ai-api-key');
   if (keyInput) keyInput.value = settings.apiKey || '';
 }
+
+// ======== AI Token Rate Limiter (per-minute budget) ========
+// 外购模型 TPM 上限约 303K。这里按 60 秒滑动窗口对 token 消耗做自我限流，
+// 每次请求把"输入(估算)+输出(max_tokens)"记入窗口，超出预算就排队等待
+// 窗口滚动，避免触发 tpm_rate_limit_exceeded (HTTP 429)。同时遇到 429
+// 会自动退避重试，而不是直接抛错。
+const AI_TPM_BUDGET = (function () {
+  try {
+    const v = parseInt(localStorage.getItem('ai_tpm_limit'), 10);
+    if (v && v > 0) return v;
+  } catch (e) { /* ignore */ }
+  return 290000; // 硬上限 303K，留约 4% 余量
+})();
+const AI_TPM_WINDOW = 60;          // 秒
+const AI_MAX_OUTPUT_TOKENS = 4096; // 与请求 max_tokens 一致
+const AI_MAX_RATE_RETRIES = 3;     // 429 退避重试次数上限
+let aiTokenWindow = [];            // [{ ts, tokens }]
+
+// 中英文混合地图/提示词，统一按约 2 字符 ≈ 1 token 估算（偏保守，宁多勿少）。
+function aiEstimateTokens(text) {
+  if (!text) return 0;
+  return Math.max(1, Math.ceil(text.length / 2));
+}
+function aiSleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function aiWindowUsedTokens(now) {
+  const cutoff = (now || Date.now()) - AI_TPM_WINDOW * 1000;
+  let sum = 0;
+  for (let i = aiTokenWindow.length - 1; i >= 0; i--) {
+    if (aiTokenWindow[i].ts < cutoff) aiTokenWindow.splice(i, 1);
+    else sum += aiTokenWindow[i].tokens;
+  }
+  return sum;
+}
+// 等待直到预算足以容纳 tokens 后才记账返回。被取消则抛 AbortError。
+async function aiWaitForBudget(budget, tokens, signal) {
+  for (;;) {
+    if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
+    const used = aiWindowUsedTokens(Date.now());
+    if (used + tokens <= budget) {
+      aiTokenWindow.push({ ts: Date.now(), tokens });
+      return;
+    }
+    const oldest = aiTokenWindow.length ? aiTokenWindow[0] : null;
+    const wait = oldest ? Math.max(250, oldest.ts + AI_TPM_WINDOW * 1000 - Date.now() + 50) : 250;
+    await aiSleep(wait);
+  }
+}
+// 在已记账的前提下，针对 429/RateLimited 做指数退避重试。
+async function withRateRetry(task, onStatus) {
+  let attempt = 0;
+  for (;;) {
+    try {
+      return await task();
+    } catch (err) {
+      if (!err || err.name !== 'AIRateLimit' || attempt >= AI_MAX_RATE_RETRIES) throw err;
+      attempt++;
+      const waitMs = Math.min(20000, 5000 * attempt);
+      if (onStatus) onStatus('⏳', '命中限流(429)，' + Math.ceil(waitMs / 1000) + 's 后自动重试 ' + attempt + '/' + AI_MAX_RATE_RETRIES + '...');
+      await aiSleep(waitMs);
+    }
+  }
+}
+// 判断响应是否为限流。bodyText 传错误体文本。
+function isRateLimit(status, bodyText) {
+  if (status === 429) return true;
+  return /rate\s*limit|tpm|throttl|too\s*many\s*request/i.test(bodyText || '');
+}
+// -------------------------------
+
 // --- Map context ---
 function getScopeHexes(scope) {
   const keys = Object.keys(hexData);
@@ -243,9 +313,9 @@ async function executeMapPlan(plan) {
   // Process in chunks for large maps
   let painted = 0;
   const CHUNK = 5000;
-  for (var ci = 0; ci < hexList.length; ci += CHUNK) {
+  for (let ci = 0; ci < hexList.length; ci += CHUNK) {
     const end = Math.min(ci + CHUNK, hexList.length);
-    for (var idx = ci; idx < end; idx++) {
+    for (let idx = ci; idx < end; idx++) {
       const { q, r } = hexList[idx];
       const p = hexToPixel(q, r);
       const nx = p.x * 0.005 / scale;
@@ -253,7 +323,7 @@ async function executeMapPlan(plan) {
 
       // Check overlay zones first (higher priority)
       let terrainId = null;
-      for (var zi = overlayZones.length - 1; zi >= 0; zi--) {
+      for (let zi = overlayZones.length - 1; zi >= 0; zi--) {
         const zone = overlayZones[zi];
         const dz = hexDistance(q, r, zone.q, zone.r);
         if (dz <= zone.span) {
@@ -275,9 +345,9 @@ async function executeMapPlan(plan) {
         elev = em.elev; moist = em.moist;
       }
 
-      var chance = generationRules.specialTerrainChance != null ? generationRules.specialTerrainChance : 0.05;
+      const chance = generationRules.specialTerrainChance != null ? generationRules.specialTerrainChance : 0.05;
       if (rng() < chance && terrainId !== 'water' && terrainId !== 'mountain') {
-        var special = pickSpecialTerrain(rng);
+        const special = pickSpecialTerrain(rng);
         if (special) terrainId = special;
       }
 
@@ -303,10 +373,21 @@ async function executeMapPlan(plan) {
   return { painted: painted, settlements: placed.length, roads: roadsBuilt };
 }
 // --- API call (streaming) ---
-async function callAIAPI(systemPrompt, userMessage, onChunk, signal) {
+// 带 TPM 自限流：(1) 先估算本次请求 token 并排队占用预算；(2) 429/限流自动退避重试。
+async function callAIAPI(systemPrompt, userMessage, onChunk, signal, onStatus) {
   const settings = loadAISettings();
   if (!settings.apiKey) throw new Error('请先在AI绘图对话框中填写API Key');
 
+  const estTokens = aiEstimateTokens((systemPrompt || '') + (userMessage || '')) + AI_MAX_OUTPUT_TOKENS;
+  const effectiveBudget = settings.tpm && settings.tpm > 0 ? settings.tpm : AI_TPM_BUDGET;
+  // 排队直到本次请求能塞进窗口预算
+  await aiWaitForBudget(effectiveBudget, estTokens, signal);
+
+  const runOnce = () => callAIAPIOnce(settings, systemPrompt, userMessage, onChunk, signal);
+  return withRateRetry(runOnce, onStatus);
+}
+
+async function callAIAPIOnce(settings, systemPrompt, userMessage, onChunk, signal) {
   if (settings.provider === 'anthropic') {
     const endpoint = settings.endpoint || 'https://api.anthropic.com/v1/messages';
     const model = settings.model || 'claude-sonnet-4-20250514';
@@ -330,7 +411,9 @@ async function callAIAPI(systemPrompt, userMessage, onChunk, signal) {
       let errText = '';
       try { const e = await resp.json(); errText = JSON.stringify(e); } catch (e) { errText = await resp.text(); }
       console.error('[AI API Error] HTTP ' + resp.status + ': ' + errText);
-      throw new Error('API错误 (' + resp.status + '): ' + errText);
+      const err = new Error('API错误 (' + resp.status + '): ' + errText);
+      if (isRateLimit(resp.status, errText)) err.name = 'AIRateLimit';
+      throw err;
     }
     return await readAnthropicStream(resp, onChunk);
   } else {
@@ -363,7 +446,9 @@ async function callAIAPI(systemPrompt, userMessage, onChunk, signal) {
       let errText = '';
       try { const e = await resp.json(); errText = JSON.stringify(e); } catch (e) { errText = await resp.text(); }
       console.error('[AI API Error] HTTP ' + resp.status + ': ' + errText);
-      throw new Error('API错误 (' + resp.status + '): ' + errText);
+      const err = new Error('API错误 (' + resp.status + '): ' + errText);
+      if (isRateLimit(resp.status, errText)) err.name = 'AIRateLimit';
+      throw err;
     }
     let result = await readOpenAIStream(resp, onChunk);
     // Fallback: if streaming returned empty, retry without stream
@@ -389,7 +474,9 @@ async function callAIAPI(systemPrompt, userMessage, onChunk, signal) {
         let errText = '';
         try { const e = await resp2.json(); errText = JSON.stringify(e); } catch (e) { errText = await resp2.text(); }
         console.error('[AI API Error] Non-stream HTTP ' + resp2.status + ': ' + errText);
-        throw new Error('API错误 (' + resp2.status + '): ' + errText);
+        const err = new Error('API错误 (' + resp2.status + '): ' + errText);
+        if (isRateLimit(resp2.status, errText)) err.name = 'AIRateLimit';
+        throw err;
       }
       const data = await resp2.json();
       result = data.choices?.[0]?.message?.content || '';
@@ -509,23 +596,23 @@ function parseAIResponse(text) {
 
   // Strategy 4: Line-by-line JSONL (each line is a complete {…} object)
   const jsonlLines = content.split('\n').filter(function(l) {
-    var t = l.trim();
+    const t = l.trim();
     return t.startsWith('{') && t.endsWith('}');
   });
   if (jsonlLines.length) {
-    var commands = [];
-    for (var i = 0; i < jsonlLines.length; i++) {
+    const commands = [];
+    for (let i = 0; i < jsonlLines.length; i++) {
       try { commands.push(JSON.parse(jsonlLines[i].trim())); } catch (e2) { /* skip */ }
     }
     if (commands.length) return commands;
   }
 
   // Strategy 5: Extract all {...} objects from anywhere in the text
-  var objRegex = /\{(?:[^{}]|(?:\{[^{}]*\}))*\}/g;
-  var objMatches = content.match(objRegex);
+  const objRegex = /\{(?:[^{}]|(?:\{[^{}]*\}))*\}/g;
+  const objMatches = content.match(objRegex);
   if (objMatches && objMatches.length) {
-    var cmds = [];
-    for (var j = 0; j < objMatches.length; j++) {
+    const cmds = [];
+    for (let j = 0; j < objMatches.length; j++) {
       try { cmds.push(JSON.parse(objMatches[j])); } catch (e2) { /* skip */ }
     }
     if (cmds.length) return cmds;
@@ -1059,7 +1146,7 @@ function executeOneAICommandNoBatch(cmd) {
             const show = fullText.length > 400 ? '...' + fullText.slice(-400) : fullText;
             statusEl.innerHTML = '<span style="color:#a044ff;">⏳ 思考中</span> <span style="color:#888;font-size:10px;white-space:pre-wrap;">' + show.replace(/</g,'&lt;') + '</span>';
           }
-        }, aiAbortController.signal);
+        }, aiAbortController.signal, function(icon, text) { setFloatingStatus(icon, text, true); });
 
         // Check if user clicked stop during streaming
         if (aiStopRequested) {

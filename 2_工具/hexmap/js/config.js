@@ -44,12 +44,12 @@ const DEFAULT_GEN_RULES = {
 
 // Pick a terrain from specialTable by weight (for noise-based generation)
 function pickSpecialTerrain(rng) {
-  var entries = generationRules.specialTable.filter(function(e) { return getAllTerrains()[e.terrainId]; });
+  const entries = generationRules.specialTable.filter(function(e) { return getAllTerrains()[e.terrainId]; });
   if (entries.length === 0) return null;
-  var totalWeight = 0;
-  for (var i = 0; i < entries.length; i++) totalWeight += entries[i].weight;
-  var roll = rng() * totalWeight;
-  for (var i = 0; i < entries.length; i++) {
+  let totalWeight = 0;
+  for (let i = 0; i < entries.length; i++) totalWeight += entries[i].weight;
+  let roll = rng() * totalWeight;
+  for (let i = 0; i < entries.length; i++) {
     roll -= entries[i].weight;
     if (roll <= 0) return entries[i].terrainId;
   }

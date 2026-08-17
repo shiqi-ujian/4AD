@@ -216,6 +216,9 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     <label style="font-size:12px;">
       <input type="checkbox" id="chk-elevation"> ⛰️ 海拔图层
     </label>
+    <label style="font-size:12px;">
+      <input type="checkbox" id="chk-icon-style" checked> 🎨 矢量图标
+    </label>
     <label style="font-size:12px;margin-left:12px;">
       <input type="checkbox" id="chk-region-names" checked> 📛 显示王国名称
     </label>
@@ -581,6 +584,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 
 
+
 <script>
 // ======== Configuration ========
 const TERRAIN = {
@@ -628,12 +632,12 @@ const DEFAULT_GEN_RULES = {
 
 // Pick a terrain from specialTable by weight (for noise-based generation)
 function pickSpecialTerrain(rng) {
-  var entries = generationRules.specialTable.filter(function(e) { return getAllTerrains()[e.terrainId]; });
+  const entries = generationRules.specialTable.filter(function(e) { return getAllTerrains()[e.terrainId]; });
   if (entries.length === 0) return null;
-  var totalWeight = 0;
-  for (var i = 0; i < entries.length; i++) totalWeight += entries[i].weight;
-  var roll = rng() * totalWeight;
-  for (var i = 0; i < entries.length; i++) {
+  let totalWeight = 0;
+  for (let i = 0; i < entries.length; i++) totalWeight += entries[i].weight;
+  let roll = rng() * totalWeight;
+  for (let i = 0; i < entries.length; i++) {
     roll -= entries[i].weight;
     if (roll <= 0) return entries[i].terrainId;
   }
@@ -719,7 +723,7 @@ function rebuildTerrainPalette() {
     btn.title = t.name;
     const textColor = isLightColor(t.color) ? '#333' : '#fff';
     btn.style.cssText = `background:${t.color};color:${textColor};text-shadow:${textColor === '#fff' ? '0 1px 3px rgba(0,0,0,0.5)' : 'none'}`;
-    btn.innerHTML = `<span class="icon">${t.icon}</span><span class="label">${t.name}</span>`;
+    btn.innerHTML = `<span class="icon">${iconLegendHTML(id, t.icon, t.color)}</span><span class="label">${t.name}</span>`;
     btn.addEventListener('click', () => {
       selectedTerrain = id;
       document.querySelectorAll('.tool-btn[data-terrain]').forEach(b => b.classList.remove('active'));
@@ -739,6 +743,249 @@ function isLightColor(hex) {
   return (r * 299 + g * 587 + b * 114) / 1000 > 160;
 }
 
+// ======== Vector Icon System ========
+// Replaces emoji terrain/settlement/annotation icons with hand-drawn vector art.
+// Icons are defined as a small list of primitives in a 24x24 normalized viewbox:
+//   { t:'c', x, y, r }            circle (filled)
+//   { t:'r', x, y, w, h }         rectangle (filled)
+//   { t:'p', d:'M...L...Z' }      closed polygon (filled)  — only M/L/Z supported
+//   { t:'l', d:'M...L...' }       open polyline (stroked)
+//
+// Primitives are drawn on ANY canvas context (live render + PNG export), scaled
+// by size/24. Each shape gets its fill color plus a subtle dark outline for
+// legibility against colored hexes. iconStyle ('vector' | 'emoji', in state.js)
+// decides whether these are used; when vector is off we fall back to emoji text.
+
+const ICONS = {
+  // ---------- Terrain (key = terrain id in config.js TERRAIN) ----------
+  plain: [  // grass blades
+    { t:'p', d:'M7 20 L9.5 12 L12 20 Z' },
+    { t:'p', d:'M11 20 L12.4 13 L13.8 20 Z' },
+    { t:'p', d:'M15 20 L17.5 11 L20 20 Z' }
+  ],
+  forest: [  // three conifers
+    { t:'p', d:'M12 4 L16.5 12 L7.5 12 Z' }, { t:'r', x:11.2, y:12, w:1.6, h:3.5 },
+    { t:'p', d:'M5.5 13 L8.8 7 L12 13 Z' }, { t:'r', x:7.6, y:13, w:1.3, h:3 },
+    { t:'p', d:'M18.5 13 L15.2 7 L12 13 Z' }, { t:'r', x:14.4, y:13, w:1.3, h:3 }
+  ],
+  hill: [  // rounded mounds
+    { t:'p', d:'M3 20 Q12 5 21 20 Z' },
+    { t:'p', d:'M0.5 20 Q6 12 12 20 Z' }
+  ],
+  mountain: [  // peaks
+    { t:'p', d:'M4 20 L12 5 L20 20 Z' },
+    { t:'p', d:'M1.5 20 L6.5 11 L10.5 20 Z' },
+    { t:'p', d:'M13.5 20 L18.5 9 L22.5 20 Z' }
+  ],
+  abyss: [  // pit (concentric)
+    { t:'c', x:12, y:13, r:6 },
+    { t:'c', x:12, y:13, r:2.6 }
+  ],
+  necromantic: [  // dark rune cross
+    { t:'l', d:'M12 4 V20' },
+    { t:'l', d:'M6 8 H18' },
+    { t:'l', d:'M9 16 H15' },
+    { t:'c', x:12, y:12, r:1.4 }
+  ],
+  ruins: [  // broken columns
+    { t:'r', x:6, y:7, w:4.5, h:10 },
+    { t:'r', x:14.5, y:9, w:3.5, h:8 },
+    { t:'p', d:'M5 6.5 H11.5 L14 3.5 L16 6.5 H19' },
+    { t:'r', x:5, y:16.5, w:14, h:2 }
+  ],
+  temple: [  // facade + columns
+    { t:'p', d:'M12 4 L2.5 12 H21.5 Z' },
+    { t:'r', x:4.5, y:12, w:15, h:8 },
+    { t:'r', x:6.5, y:14.5, w:3.2, h:5.5 },
+    { t:'r', x:10.6, y:14.5, w:2.8, h:5.5 },
+    { t:'r', x:14.6, y:14.5, w:3.2, h:5.5 }
+  ],
+  water: [  // waves
+    { t:'l', d:'M3 9 L7 6 L11 9 L15 6 L19 9' },
+    { t:'l', d:'M3 14 L7 11 L11 14 L15 11 L19 14' },
+    { t:'l', d:'M5 19 L9 16 L13 19 L17 16 L20 19' }
+  ],
+  desert: [  // sun + dunes
+    { t:'c', x:8, y:7, r:3 },
+    { t:'p', d:'M3.5 20 Q12 12 20.5 20 Z' },
+    { t:'p', d:'M10 20 Q15 16.5 21 19 Z' }
+  ],
+  swamp: [  // cattails + reeds
+    { t:'r', x:6.5, y:13, w:1.1, h:7 }, { t:'c', x:7, y:11.5, r:1.9 },
+    { t:'r', x:11.4, y:12, w:1.2, h:8 }, { t:'c', x:12, y:9.8, r:2.3 },
+    { t:'r', x:16.4, y:13, w:1.1, h:7 }, { t:'c', x:17, y:11.5, r:1.9 },
+    { t:'l', d:'M2 20 H22' }
+  ],
+  snow: [  // snowflake
+    { t:'l', d:'M12 4 V20' },
+    { t:'l', d:'M4 8 V16' },
+    { t:'l', d:'M20 8 V16' },
+    { t:'c', x:12, y:12, r:1.8 }
+  ],
+
+  // ---------- Settlements (key = SETTLEMENT_ICON_KEYS[rating]) ----------
+  hut: [  // shack
+    { t:'p', d:'M4 20 V14 L12 9 L20 14 V20 Z' },
+    { t:'r', x:8, y:14, w:8, h:6 },
+    { t:'r', x:11, y:16, w:2, h:4 }
+  ],
+  camp: [  // tent
+    { t:'p', d:'M4 19 L12 8 L20 19 Z' },
+    { t:'p', d:'M6 19 H18' },
+    { t:'r', x:11, y:13.5, w:2, h:3.5 }
+  ],
+  hamlet: [  // two small houses
+    { t:'p', d:'M3 17 L7.5 11 L12 17 Z' }, { t:'r', x:4.3, y:17, w:6.4, h:4 },
+    { t:'p', d:'M13.5 18 L17.5 13.5 L21.5 18 Z' }, { t:'r', x:14.7, y:18, w:5.6, h:3 }
+  ],
+  village: [  // three houses
+    { t:'p', d:'M2.5 18 L6.5 12 L10.5 18 Z' }, { t:'r', x:3.8, y:18, w:5.4, h:3.5 },
+    { t:'p', d:'M9 19 L12.8 14.5 L16.6 19 Z' }, { t:'r', x:10.2, y:19, w:5.2, h:2.8 },
+    { t:'p', d:'M14 18.5 L17.5 14 L21 18.5 Z' }, { t:'r', x:15.2, y:18.5, w:4.6, h:3 }
+  ],
+  town: [  // walled buildings
+    { t:'r', x:4, y:10, w:16, h:9 },
+    { t:'p', d:'M4 10 L4 6 H8 V10' }, { t:'p', d:'M11 10 V6 H13 V10' }, { t:'p', d:'M16 10 V6 H20 V10' },
+    { t:'p', d:'M6 19 L6 13 H11 L11 19 Z' }, { t:'p', d:'M13 19 V14 H18 V19 Z' },
+    { t:'r', x:2, y:19, w:20, h:1.5 }
+  ],
+  castle: [  // towers + keep
+    { t:'r', x:5, y:8, w:14, h:11 },
+    { t:'r', x:6.5, y:4.5, w:3.2, h:5 }, { t:'r', x:14.3, y:4.5, w:3.2, h:5 },
+    { t:'r', x:9, y:13, w:2.4, h:6 },
+    { t:'p', d:'M6.5 4.5 V3 H9.7 V4.5 M14.3 4.5 V3 H17.5 V4.5 M5 8 H3.5 V10 H5 M20 8 H21.5 V10 H20' },
+    { t:'r', x:2, y:19, w:20, h:1.5 }
+  ],
+  city: [  // skyline
+    { t:'r', x:3.5, y:11, w:3.5, h:9 }, { t:'r', x:7.8, y:8, w:3.2, h:12 },
+    { t:'r', x:11.8, y:12, w:3.4, h:8 }, { t:'r', x:16, y:7, w:3.6, h:13 },
+    { t:'r', x:19.5, y:12, w:2.5, h:8 },
+    { t:'r', x:3.5, y:20, w:18.5, h:1.5 }
+  ],
+
+  // ---------- Annotations (key = ANNOTATION_TYPES id in core.js) ----------
+  poi: [  // landmark pin
+    { t:'c', x:12, y:8, r:5 },
+    { t:'p', d:'M8.5 11 L12 20 L15.5 11 Z' }
+  ],
+  hazard: [  // warning triangle + !
+    { t:'p', d:'M12 5 L21 19 H3 Z' },
+    { t:'r', x:11, y:11, w:2, h:4 },
+    { t:'c', x:12, y:17, r:1.2 }
+  ],
+  lore: [  // scroll
+    { t:'r', x:6, y:6, w:12, h:12 },
+    { t:'c', x:6, y:6, r:2 }, { t:'c', x:18, y:6, r:2 },
+    { t:'c', x:6, y:18, r:2 }, { t:'c', x:18, y:18, r:2 },
+    { t:'l', d:'M9 11 H15 M9 14 H15' }
+  ],
+  note: [  // paper with writing
+    { t:'r', x:6, y:4, w:12, h:16 },
+    { t:'p', d:'M14 4 V8 H18 Z' },
+    { t:'l', d:'M9 11 H14 M9 14 H15 M9 17 H13' }
+  ],
+  marker: [  // flag + pole
+    { t:'l', d:'M6.5 3 V21' },
+    { t:'p', d:'M6.5 4 H18 L15 7.5 L18 11 H6.5 Z' }
+  ]
+};
+
+// rating -> vector icon key (map index + rating+3)
+const SETTLEMENT_ICON_KEYS = { '-3':'hut', '-2':'camp', '-1':'hamlet', '0':'village', '1':'town', '2':'castle', '3':'city' };
+
+function tracePath(ctx, d) {
+  const toks = d.trim().split(/[\s,]+/);
+  let i = 0;
+  while (i < toks.length) {
+    const cmd = toks[i++];
+    if (cmd === 'Z' || cmd === 'z') { ctx.closePath(); continue; }
+    const x = parseFloat(toks[i++]);
+    const y = parseFloat(toks[i++]);
+    if (cmd === 'M') ctx.moveTo(x, y);
+    else if (cmd === 'L') ctx.lineTo(x, y);
+  }
+}
+
+// Draw a vector icon on any 2D context. Returns true if drawn, false if no such key.
+function drawIcon(ctx, key, x, y, size, color, opts) {
+  const parts = ICONS[key];
+  if (!parts) return false;
+  opts = opts || {};
+  const outline = opts.outline !== undefined ? opts.outline : 'rgba(0,0,0,0.5)';
+  const lw = opts.lineWidth !== undefined ? opts.lineWidth : 1.2;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(size / 24, size / 24);
+  for (const p of parts) {
+    ctx.beginPath();
+    if (p.t === 'c') ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    else if (p.t === 'r') ctx.rect(p.x, p.y, p.w, p.h);
+    else tracePath(ctx, p.d);
+    if (p.t === 'l') {
+      ctx.strokeStyle = p.color || color;
+      ctx.lineWidth = lw * 1.5;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = p.color || color;
+      ctx.fill();
+      ctx.strokeStyle = outline;
+      ctx.lineWidth = lw;
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+  return true;
+}
+
+// Icon as an SVG data URI for <img> in DOM legends/palettes (same art as canvas).
+function iconDataURI(key, color, size) {
+  const parts = ICONS[key];
+  if (!parts) return '';
+  size = size || 18;
+  const outline = 'rgba(0,0,0,0.5)';
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${size}" height="${size}">`;
+  for (const p of parts) {
+    if (p.t === 'c') {
+      svg += `<circle cx="${p.x}" cy="${p.y}" r="${p.r}" fill="${p.color || color}" stroke="${outline}" stroke-width="1"/>`;
+    } else if (p.t === 'r') {
+      svg += `<rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" fill="${p.color || color}" stroke="${outline}" stroke-width="1"/>`;
+    } else if (p.t === 'l') {
+      svg += `<path d="${p.d}" fill="none" stroke="${p.color || color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`;
+    } else {
+      svg += `<path d="${p.d}" fill="${p.color || color}" stroke="${outline}" stroke-width="1"/>`;
+    }
+  }
+  svg += '</svg>';
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+}
+
+// Unified dispatch: vector if iconStyle==='vector' and a vector icon exists,
+// otherwise falls back to emoji text (original look). Used by live render + PNG export.
+function drawIconOrEmoji(ctx, opt) {
+  const key = opt.key;
+  const emoji = opt.emoji;
+  const color = opt.color || '#fff';
+  if (iconStyle === 'vector' && key && ICONS[key]) {
+    return drawIcon(ctx, key, opt.x, opt.y, opt.size, color, opt);
+  }
+  // emoji fallback
+  ctx.font = `${opt.size}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = opt.textBaseline || 'middle';
+  ctx.fillStyle = opt.fillStyle || 'rgba(255,255,255,0.85)';
+  ctx.fillText(emoji, opt.x, opt.y);
+  return true;
+}
+
+// Legend <span> helper for terrain/annotation lists: vector img or emoji text.
+function iconLegendHTML(key, emoji, color, bodyHtml) {
+  if (iconStyle === 'vector' && key && ICONS[key]) {
+    return `<img src="${iconDataURI(key, color, 15)}" style="vertical-align:middle;margin-right:4px;"/>${bodyHtml || ''}`;
+  }
+  return `<span style="margin-right:4px;">${emoji}</span>${bodyHtml || ''}`;
+}
 // ======== State ========
 let hexData = {}; // key: "q,r" -> { terrain, label, settlement, road, color }
 let selectedTool = 'select';
@@ -834,6 +1081,7 @@ let showRegionLayer = true; // 王国图层可见性开关
 let regionBorderOpacity = 0.85; // 王国边境不透明度 (0~1)
 let showRegionNames = true;     // 是否显示王国名称（领土中心浮动标签）
 let showElevationLayer = false; // 海拔图层可见性开关（默认关，旧图观感不变）
+let iconStyle = 'vector';       // 图标风格：'vector'（手绘矢量）| 'emoji'（原始系统 emoji）
 
 // 王国边境配置 (一个六角格 = 一天路程)
 const DEFAULT_REGIONS = {
@@ -1000,20 +1248,20 @@ const minimapCtx = minimapCanvas.getContext('2d');
 
 // Fit view to show all hex content
 function fitToContent() {
-  var keys = Object.keys(hexData);
+  const keys = Object.keys(hexData);
   if (keys.length === 0) { showDiceResult('⚠️', '没有数据'); return; }
-  var minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
-  for (var i = 0; i < keys.length; i++) {
-    var parts = keys[i].split(','); var q = +parts[0], r = +parts[1];
+  let minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
+  for (let i = 0; i < keys.length; i++) {
+    const parts = keys[i].split(','); const q = +parts[0], r = +parts[1];
     if (q < minQ) minQ = q; if (q > maxQ) maxQ = q;
     if (r < minR) minR = r; if (r > maxR) maxR = r;
   }
-  var tl = hexToPixel(minQ, minR), br = hexToPixel(maxQ, maxR);
-  var mapW = br.x - tl.x + HEX_SIZE * 2;
-  var mapH = br.y - tl.y + HEX_SIZE * 2;
-  var pad = 40;
-  var sx = (canvas.width - pad * 2) / mapW;
-  var sy = (canvas.height - pad * 2) / mapH;
+  const tl = hexToPixel(minQ, minR), br = hexToPixel(maxQ, maxR);
+  const mapW = br.x - tl.x + HEX_SIZE * 2;
+  const mapH = br.y - tl.y + HEX_SIZE * 2;
+  const pad = 40;
+  const sx = (canvas.width - pad * 2) / mapW;
+  const sy = (canvas.height - pad * 2) / mapH;
   zoom = Math.max(0.02, Math.min(3, Math.min(sx, sy)));
   viewX = canvas.width / 2 - (tl.x + br.x) / 2 * zoom;
   viewY = canvas.height / 2 - (tl.y + br.y) / 2 * zoom;
@@ -1021,55 +1269,55 @@ function fitToContent() {
   render();
 }
 
-var _lastMinimapRender = 0;
+let _lastMinimapRender = 0;
 
 // Minimap: draws all hexes at tiny scale with a viewport rect overlay
 function renderMinimap(force) {
-  var enabled = document.getElementById('chk-minimap').checked;
+  const enabled = document.getElementById('chk-minimap').checked;
   if (!enabled) { minimapCanvas.style.display = 'none'; return; }
   if (!force && Date.now() - _lastMinimapRender < 200) return; // throttle to 5fps
   _lastMinimapRender = Date.now();
-  var keys = Object.keys(hexData);
+  const keys = Object.keys(hexData);
   if (keys.length === 0) { minimapCanvas.style.display = 'none'; return; }
   minimapCanvas.style.display = 'block';
-  var w = minimapCanvas.width = 180 * (window.devicePixelRatio || 1);
-  var h = minimapCanvas.height = 135 * (window.devicePixelRatio || 1);
-  var ctxM = minimapCtx;
+  const w = minimapCanvas.width = 180 * (window.devicePixelRatio || 1);
+  const h = minimapCanvas.height = 135 * (window.devicePixelRatio || 1);
+  const ctxM = minimapCtx;
   ctxM.clearRect(0, 0, w, h);
 
   // Compute bounding box
-  var minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
-  for (var i = 0; i < keys.length; i++) {
-    var parts = keys[i].split(','); var q = +parts[0], r = +parts[1];
+  let minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
+  for (let i = 0; i < keys.length; i++) {
+    const parts = keys[i].split(','); const q = +parts[0], r = +parts[1];
     if (q < minQ) minQ = q; if (q > maxQ) maxQ = q;
     if (r < minR) minR = r; if (r > maxR) maxR = r;
   }
-  var tl = hexToPixel(minQ, minR), br = hexToPixel(maxQ, maxR);
-  var fullW = br.x - tl.x + HEX_SIZE * 2;
-  var fullH = br.y - tl.y + HEX_SIZE * 2;
-  var scale = Math.min((w - 8) / fullW, (h - 8) / fullH);
-  var offX = (w - fullW * scale) / 2 - tl.x * scale + HEX_SIZE * scale;
-  var offY = (h - fullH * scale) / 2 - tl.y * scale + HEX_SIZE * scale;
+  const tl = hexToPixel(minQ, minR), br = hexToPixel(maxQ, maxR);
+  const fullW = br.x - tl.x + HEX_SIZE * 2;
+  const fullH = br.y - tl.y + HEX_SIZE * 2;
+  const scale = Math.min((w - 8) / fullW, (h - 8) / fullH);
+  const offX = (w - fullW * scale) / 2 - tl.x * scale + HEX_SIZE * scale;
+  const offY = (h - fullH * scale) / 2 - tl.y * scale + HEX_SIZE * scale;
 
   // Fill hex cells (sample every Nth hex on very large maps for performance)
-  var allTerrains = getAllTerrains();
-  var step = keys.length > 50000 ? Math.ceil(keys.length / 40000) : 1;
-  for (var i = 0; i < keys.length; i++) {
+  const allTerrains = getAllTerrains();
+  const step = keys.length > 50000 ? Math.ceil(keys.length / 40000) : 1;
+  for (let i = 0; i < keys.length; i++) {
     if (i % step !== 0) continue;
-    var hd = hexData[keys[i]];
+    const hd = hexData[keys[i]];
     if (!hd || !hd.terrain) continue;
-    var parts = keys[i].split(','); var q = +parts[0], r = +parts[1];
-    var px = hexToPixel(q, r);
-    var cx = offX + px.x * scale, cy = offY + px.y * scale;
-    var sz = HEX_SIZE * scale * 0.95;
-    var terrainInfo = hd.terrain ? allTerrains[hd.terrain] : null;
+    const parts = keys[i].split(','); const q = +parts[0], r = +parts[1];
+    const px = hexToPixel(q, r);
+    const cx = offX + px.x * scale, cy = offY + px.y * scale;
+    const sz = HEX_SIZE * scale * 0.95;
+    const terrainInfo = hd.terrain ? allTerrains[hd.terrain] : null;
     ctxM.fillStyle = terrainInfo ? terrainInfo.color : '#3a3a52';
     ctxM.fillRect(cx - sz, cy - sz * 0.75, sz * 2, sz * 1.5);
   }
 
   // Draw viewport rect
-  var vpLeft = -viewX / zoom, vpTop = -viewY / zoom;
-  var vpW = canvas.width / zoom, vpH = canvas.height / zoom;
+  const vpLeft = -viewX / zoom, vpTop = -viewY / zoom;
+  const vpW = canvas.width / zoom, vpH = canvas.height / zoom;
   ctxM.strokeStyle = '#fff';
   ctxM.lineWidth = 1.5;
   ctxM.strokeRect(offX + vpLeft * scale, offY + vpTop * scale, vpW * scale, vpH * scale);
@@ -1077,29 +1325,29 @@ function renderMinimap(force) {
 
 // Minimap click → pan to position
 minimapCanvas.addEventListener('click', function(e) {
-  var keys = Object.keys(hexData);
+  const keys = Object.keys(hexData);
   if (keys.length === 0) return;
-  var rect = minimapCanvas.getBoundingClientRect();
-  var mx = (e.clientX - rect.left) * (window.devicePixelRatio || 1);
-  var my = (e.clientY - rect.top) * (window.devicePixelRatio || 1);
+  const rect = minimapCanvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (window.devicePixelRatio || 1);
+  const my = (e.clientY - rect.top) * (window.devicePixelRatio || 1);
 
   // Compute same bounding box + scale as renderMinimap
-  var minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
-  for (var i = 0; i < keys.length; i++) {
-    var parts = keys[i].split(','); var q = +parts[0], r = +parts[1];
+  let minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
+  for (let i = 0; i < keys.length; i++) {
+    const parts = keys[i].split(','); const q = +parts[0], r = +parts[1];
     if (q < minQ) minQ = q; if (q > maxQ) maxQ = q;
     if (r < minR) minR = r; if (r > maxR) maxR = r;
   }
-  var tl = hexToPixel(minQ, minR), br = hexToPixel(maxQ, maxR);
-  var fullW = br.x - tl.x + HEX_SIZE * 2, fullH = br.y - tl.y + HEX_SIZE * 2;
-  var w = minimapCanvas.width, h = minimapCanvas.height;
-  var scale = Math.min((w - 8) / fullW, (h - 8) / fullH);
-  var offX = (w - fullW * scale) / 2 - tl.x * scale + HEX_SIZE * scale;
-  var offY = (h - fullH * scale) / 2 - tl.y * scale + HEX_SIZE * scale;
+  const tl = hexToPixel(minQ, minR), br = hexToPixel(maxQ, maxR);
+  const fullW = br.x - tl.x + HEX_SIZE * 2, fullH = br.y - tl.y + HEX_SIZE * 2;
+  const w = minimapCanvas.width, h = minimapCanvas.height;
+  const scale = Math.min((w - 8) / fullW, (h - 8) / fullH);
+  const offX = (w - fullW * scale) / 2 - tl.x * scale + HEX_SIZE * scale;
+  const offY = (h - fullH * scale) / 2 - tl.y * scale + HEX_SIZE * scale;
 
   // Convert click to world coords
-  var worldX = (mx - offX) / scale;
-  var worldY = (my - offY) / scale;
+  const worldX = (mx - offX) / scale;
+  const worldY = (my - offY) / scale;
 
   // Pan so that clicked point is at center of viewport
   viewX = canvas.width / 2 - worldX * zoom;
@@ -1565,7 +1813,7 @@ function render() {
   // Pass 1: Draw hex fills and grid only
   for (let q = qMin; q <= qMax; q++) {
     for (let r = rMin; r <= rMax; r++) {
-      drawHexBase(q, r, allTerrains);
+      drawHexBase(ctx, q, r, undefined, allTerrains);
     }
   }
 
@@ -1600,7 +1848,7 @@ function render() {
   // Pass 3: Draw overlays (icons, labels, settlements) — on top of everything
   for (let q = qMin; q <= qMax; q++) {
     for (let r = rMin; r <= rMax; r++) {
-      drawHexOverlay(q, r, allTerrains);
+      drawHexOverlay(ctx, q, r);
     }
   }
 
@@ -1711,15 +1959,19 @@ function render() {
   renderMinimap();
 }
 
-function drawHexBase(q, r, allTerrains) {
+// Draw a single hex's fill + grid on any 2D context `g` (the global ctx shadows
+// as default). `h` is the hex data (defaults to getHex(q,r)). Sharing this with
+// PNG export keeps the two renders identical.
+function drawHexBase(g, q, r, h, allTerrains) {
+  if (!h) h = getHex(q, r);
+  if (!allTerrains) allTerrains = getAllTerrains();
   const p = hexToPixel(q, r);
-  const h = getHex(q, r);
   const corners = hexCorners(p.x, p.y, HEX_SIZE);
 
   // Fill
-  ctx.beginPath();
-  corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
-  ctx.closePath();
+  g.beginPath();
+  corners.forEach((c, i) => i === 0 ? g.moveTo(c.x, c.y) : g.lineTo(c.x, c.y));
+  g.closePath();
 
   // Layer composition: terrain (base) + elevation tint + region tint.
   // - 0 layers on  -> neutral dark gray base (#3a3a52), grid still visible
@@ -1732,23 +1984,23 @@ function drawHexBase(q, r, allTerrains) {
   const activeCount = (terrainActive ? 1 : 0) + (elevActive ? 1 : 0) + (regionActive ? 1 : 0);
 
   if (activeCount >= 2) {
-    ctx.fillStyle = hTerrainInfo ? hTerrainInfo.color : '#3a3a52';
-    ctx.fill();
-    if (elevActive) { ctx.fillStyle = hexToRGBA(elevationColor(h.elev), 0.55); ctx.fill(); }
-    if (regionActive) { ctx.fillStyle = hexToRGBA(regions[h.region].color, 0.2); ctx.fill(); }
+    g.fillStyle = hTerrainInfo ? hTerrainInfo.color : '#3a3a52';
+    g.fill();
+    if (elevActive) { g.fillStyle = hexToRGBA(elevationColor(h.elev), 0.55); g.fill(); }
+    if (regionActive) { g.fillStyle = hexToRGBA(regions[h.region].color, 0.2); g.fill(); }
   } else if (activeCount === 1) {
     const solo = terrainActive ? hTerrainInfo.color
       : (elevActive ? elevationColor(h.elev) : regions[h.region].color);
-    ctx.fillStyle = solo; ctx.fill();
+    g.fillStyle = solo; g.fill();
   } else {
-    ctx.fillStyle = '#3a3a52'; ctx.fill();
+    g.fillStyle = '#3a3a52'; g.fill();
   }
 
   // Grid stroke
   if (showGrid) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    g.strokeStyle = 'rgba(255,255,255,0.12)';
+    g.lineWidth = 1;
+    g.stroke();
   }
 }
 
@@ -1781,121 +2033,129 @@ function drawRivers(ctx, qMin, qMax, rMin, rMax) {
   }
 }
 
-function drawHexOverlay(q, r, allTerrains) {
+function drawHexOverlay(g, q, r, h) {
   const p = hexToPixel(q, r);
-  const h = getHex(q, r);
+  const allTerrains = getAllTerrains();
+  if (!h) h = getHex(q, r);
 
   // Coordinates
   if (showCoords) {
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
-    ctx.font = `${Math.max(8, HEX_SIZE * 0.32)}px monospace`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(`${q},${r}`, p.x, p.y + HEX_SIZE * 0.4);
+    g.fillStyle = 'rgba(255,255,255,0.35)';
+    g.font = `${Math.max(8, HEX_SIZE * 0.32)}px monospace`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(`${q},${r}`, p.x, p.y + HEX_SIZE * 0.4);
   }
 
-  // Terrain icon (image or emoji) — hidden when the terrain layer is off
+  // Terrain icon (vector or emoji) — hidden when the terrain layer is off
   const hOverlayTI = h.terrain ? allTerrains[h.terrain] : null;
   if (showTerrainLayer && hOverlayTI) {
     if (hOverlayTI.imageUrl) {
-      drawHexImage(p.x, p.y, HEX_SIZE * 1.1, hOverlayTI.imageUrl);
+      drawHexImage(g, p.x, p.y, HEX_SIZE * 1.1, hOverlayTI.imageUrl);
     } else {
-      ctx.font = `${HEX_SIZE * 0.5}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'rgba(255,255,255,0.85)';
-      ctx.fillText(hOverlayTI.icon, p.x, p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.15 : 0));
+      drawIconOrEmoji(g, {
+        key: h.terrain, emoji: hOverlayTI.icon,
+        x: p.x, y: p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.15 : 0),
+        size: HEX_SIZE * 0.62, color: '#f4f4f4',
+        outline: 'rgba(0,0,0,0.55)', textBaseline: 'middle'
+      });
     }
   }
 
   // Annotation icons (visible ones)
   if (h.annotations && h.annotations.length) {
-    const visibleIcons = h.annotations.filter(a => a.visible).map(a => ANNOTATION_TYPES[a.type]?.icon || '📍');
-    if (visibleIcons.length) {
+    const visibleAnn = h.annotations.filter(a => a.visible);
+    if (visibleAnn.length) {
       // Draw small icons in top-right corner of hex
       const startX = p.x + HEX_SIZE * 0.3;
-      const startY = p.y - HEX_SIZE * 0.65;
-      ctx.font = `${HEX_SIZE * 0.25}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = 'rgba(255,255,255,0.9)';
-      visibleIcons.forEach((icon, idx) => {
-        ctx.fillText(icon, startX + idx * (HEX_SIZE * 0.28), startY);
+      const startY = p.y - HEX_SIZE * 0.55;
+      visibleAnn.forEach((a, idx) => {
+        const at = ANNOTATION_TYPES[a.type] || ANNOTATION_TYPES.note;
+        drawIconOrEmoji(g, {
+          key: a.type, emoji: at.icon,
+          x: startX + (idx + 0.5) * (HEX_SIZE * 0.5) - (visibleAnn.length > 1 ? HEX_SIZE * 0.15 : 0),
+          y: startY,
+          size: HEX_SIZE * 0.4, color: at.color || '#fff',
+          outline: 'rgba(0,0,0,0.65)',
+          textBaseline: 'middle'
+        });
       });
     }
   }
 
   // Label
   if (h.label) {
-    ctx.fillStyle = '#fff';
-    ctx.font = `bold ${Math.max(9, HEX_SIZE * 0.38)}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    const tw = ctx.measureText(h.label).width;
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(p.x - tw/2 - 3, p.y - HEX_SIZE * 0.65, tw + 6, HEX_SIZE * 0.55);
-    ctx.fillStyle = '#fff';
-    ctx.fillText(h.label, p.x, p.y - HEX_SIZE * 0.2);
+    g.fillStyle = '#fff';
+    g.font = `bold ${Math.max(9, HEX_SIZE * 0.38)}px sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'bottom';
+    const tw = g.measureText(h.label).width;
+    g.fillStyle = 'rgba(0,0,0,0.55)';
+    g.fillRect(p.x - tw/2 - 3, p.y - HEX_SIZE * 0.65, tw + 6, HEX_SIZE * 0.55);
+    g.fillStyle = '#fff';
+    g.fillText(h.label, p.x, p.y - HEX_SIZE * 0.2);
   }
 
   // Settlement marker
   if (h.settlement) {
     if (h.settlement.imageUrl) {
-      drawHexImage(p.x, p.y + HEX_SIZE * 0.15, HEX_SIZE * 0.9, h.settlement.imageUrl);
+      drawHexImage(g, p.x, p.y + HEX_SIZE * 0.15, HEX_SIZE * 0.9, h.settlement.imageUrl);
     } else {
       const ratingIcons = {'-3':'🛖','-2':'🏕️','-1':'🏘️','0':'🏘️','1':'🏛️','2':'🏰','3':'🏙️'};
       const icon = ratingIcons[String(h.settlement.rating)] || '🏘️';
-      ctx.font = `${HEX_SIZE * 0.6}px sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText(icon, p.x, p.y + HEX_SIZE * 0.45);
+      drawIconOrEmoji(g, {
+        key: SETTLEMENT_ICON_KEYS[String(h.settlement.rating)], emoji: icon,
+        x: p.x, y: p.y + HEX_SIZE * 0.45,
+        size: HEX_SIZE * 0.78, color: '#ffd98a',
+        outline: 'rgba(0,0,0,0.55)', textBaseline: 'bottom'
+      });
     }
 
     // Settlement name & rating
-    ctx.fillStyle = '#ffd700';
-    ctx.font = `bold ${Math.max(9, HEX_SIZE * 0.3)}px sans-serif`;
-    ctx.textBaseline = 'top';
+    g.fillStyle = '#ffd700';
+    g.font = `bold ${Math.max(9, HEX_SIZE * 0.3)}px sans-serif`;
+    g.textBaseline = 'top';
     const sname = h.settlement.name || '?';
     const srating = h.settlement.rating ?? 0;
     const stext = `${sname} (${srating >= 0 ? '+' : ''}${srating})`;
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    const sw = ctx.measureText(stext).width;
-    ctx.fillRect(p.x - sw/2 - 3, p.y + HEX_SIZE * 0.3, sw + 6, HEX_SIZE * 0.38);
-    ctx.fillStyle = '#ffd700';
-    ctx.fillText(stext, p.x, p.y + HEX_SIZE * 0.35);
+    g.fillStyle = 'rgba(0,0,0,0.5)';
+    const sw = g.measureText(stext).width;
+    g.fillRect(p.x - sw/2 - 3, p.y + HEX_SIZE * 0.68, sw + 6, HEX_SIZE * 0.38);
+    g.fillStyle = '#ffd700';
+    g.fillText(stext, p.x, p.y + HEX_SIZE * 0.72);
   }
 }
 
-// Draw an image clipped to a hexagon shape
-function drawHexImage(cx, cy, imgSize, imageUrl) {
+// Draw an image clipped to a hexagon shape on any context `g`.
+function drawHexImage(g, cx, cy, imgSize, imageUrl) {
   const img = getCachedImage(imageUrl);
   if (!img || !img.complete || img.naturalWidth === 0) {
     // Image not loaded yet, draw placeholder
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    ctx.font = `${HEX_SIZE * 0.5}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🖼️', cx, cy);
+    g.fillStyle = 'rgba(255,255,255,0.3)';
+    g.font = `${HEX_SIZE * 0.5}px sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText('🖼️', cx, cy);
     return;
   }
-  ctx.save();
+  g.save();
   // Hex clip path
   const corners = hexCorners(cx, cy, imgSize * 0.6);
-  ctx.beginPath();
-  corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
-  ctx.closePath();
-  ctx.clip();
+  g.beginPath();
+  corners.forEach((c, i) => i === 0 ? g.moveTo(c.x, c.y) : g.lineTo(c.x, c.y));
+  g.closePath();
+  g.clip();
   // Draw image centered
   const s = imgSize;
-  ctx.drawImage(img, cx - s/2, cy - s/2, s, s);
-  ctx.restore();
+  g.drawImage(img, cx - s/2, cy - s/2, s, s);
+  g.restore();
   // Thin border
-  ctx.beginPath();
-  corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
-  ctx.closePath();
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-  ctx.lineWidth = 1;
-  ctx.stroke();
+  g.beginPath();
+  corners.forEach((c, i) => i === 0 ? g.moveTo(c.x, c.y) : g.lineTo(c.x, c.y));
+  g.closePath();
+  g.strokeStyle = 'rgba(255,255,255,0.15)';
+  g.lineWidth = 1;
+  g.stroke();
 }
 
 // ======== Hit testing ========
@@ -2168,158 +2428,156 @@ canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 // ======== Hex Click Handler ========
 function handleHexClick(q, r, e) {
   selectedHex = { q, r };
-
-  if (selectedTool === 'paint') {
-    if (isLocked && getHex(q, r).terrain) { /* locked, skip */ } else {
-      setHex(q, r, { terrain: selectedTerrain });
-      render();
+  switch (selectedTool) {
+    case 'paint': clickPaint(q, r); break;
+    case 'settlement': showSettlementDialog(q, r); break;
+    case 'road': clickRoad(q, r); break;
+    case 'river': clickRiver(q, r); break;
+    case 'measure': clickMeasure(q, r); break;
+    case 'erase': clickErase(q, r); break;
+    case 'label': showLabelDialog(q, r); break;
+    default: // select
       updateInfo();
-    }
-  } else if (selectedTool === 'settlement') {
-    showSettlementDialog(q, r);
-  } else if (selectedTool === 'road') {
-    const hint = document.getElementById('tool-hint');
-    if (!roadStart) {
-      roadStart = { q, r };
-      hint.innerHTML = `🛤️ 起点已选 <b>(${q}, ${r})</b>，点击相邻六角格连线。再次点击起点可取消`;
-      document.getElementById('coord-indicator').textContent = `🛤️ 起点 (${q}, ${r})`;
-    } else {
-      if (roadStart.q === q && roadStart.r === r) {
-        roadStart = null;
-        hint.innerHTML = '🛤️ <b>点击第一个六角格</b>设为起点(橙色高亮)，再<b>点击相邻格</b>连线';
-        document.getElementById('coord-indicator').textContent = '🛤️ 点击选择道路起点';
-      } else {
-        // Check if adjacent
-        const nbrs = neighbors(q, r);
-        if (nbrs.some(n => n.q === roadStart.q && n.r === roadStart.r)) {
-          // Toggle road
-          if (hasRoad(q, r, roadStart.q, roadStart.r)) {
-            removeRoad(q, r, roadStart.q, roadStart.r);
-            hint.innerHTML = `🛤️ 已移除道路 [(${roadStart.q},${roadStart.r}) ⇄ (${q},${r})]`;
-          } else {
-            addRoad(q, r, roadStart.q, roadStart.r);
-            hint.innerHTML = `🛤️ ✅ 已建立道路 [(${roadStart.q},${roadStart.r}) ⇄ (${q},${r})]`;
-          }
-          roadStart = null;
-          document.getElementById('coord-indicator').textContent = '🛤️ 点击选择道路起点';
-        } else {
-          // Not adjacent — move start
-          roadStart = { q, r };
-          hint.innerHTML = `🛤️ ⚠️ 不相邻！重新设起点为 <b>(${q}, ${r})</b>，点击相邻格连线`;
-          document.getElementById('coord-indicator').textContent = `🛤️ 起点 (${q}, ${r})`;
-        }
-      }
       render();
-      updateInfo();
-      return; // skip extra render below
-    }
-  } else if (selectedTool === 'river') {
-    const hint = document.getElementById('tool-hint');
-    if (!riverStart) {
-      riverStart = { q, r };
-      hint.innerHTML = `🌊 起点已选 <b>(${q}, ${r})</b>，点击相邻六角格连线。再次点击起点可取消`;
-      document.getElementById('coord-indicator').textContent = `🌊 起点 (${q}, ${r})`;
-    } else {
-      if (riverStart.q === q && riverStart.r === r) {
-        riverStart = null;
-        hint.innerHTML = '🌊 <b>点击第一个六角格</b>设为起点(蓝色高亮)，再<b>点击相邻格</b>画河';
-        document.getElementById('coord-indicator').textContent = '🌊 点击选择河流起点';
-      } else {
-        const nbrs = neighbors(q, r);
-        if (nbrs.some(n => n.q === riverStart.q && n.r === riverStart.r)) {
-          if (hasRiver(q, r, riverStart.q, riverStart.r)) {
-            removeRiver(q, r, riverStart.q, riverStart.r);
-            hint.innerHTML = `🌊 已移除河流 [(${riverStart.q},${riverStart.r}) ⇄ (${q},${r})]`;
-          } else {
-            addRiver(q, r, riverStart.q, riverStart.r, 1);
-            hint.innerHTML = `🌊 ✅ 已建立河流 [(${riverStart.q},${riverStart.r}) ⇄ (${q},${r})]`;
-          }
-          riverStart = null;
-          document.getElementById('coord-indicator').textContent = '🌊 点击选择河流起点';
-        } else {
-          riverStart = { q, r };
-          hint.innerHTML = `🌊 ⚠️ 不相邻！重新设起点为 <b>(${q}, ${r})</b>，点击相邻格连线`;
-          document.getElementById('coord-indicator').textContent = `🌊 起点 (${q}, ${r})`;
-        }
-      }
-      render();
-      updateInfo();
-      return; // skip extra render below
-    }
-  } else if (selectedTool === 'measure') {
-    if (!measureStart) {
-      measureStart = { q, r };
-      measurePath = null;
-      document.getElementById('coord-indicator').textContent = `📏 起点 (${q}, ${r})，点击终点测距`;
-    } else if (measureStart.q === q && measureStart.r === r) {
-      measureStart = null;
-      measurePath = null;
-      document.getElementById('coord-indicator').textContent = '📏 点击选择起点';
-    } else {
-      const path = aStarPathfind(measureStart.q, measureStart.r, q, r, 5000);
-      measurePath = path;
-      const straight = hexDistance(measureStart.q, measureStart.r, q, r);
-      const pathLen = path ? path.length : 0;
-      const cost = path ? pathTravelCost(path) : 0;
-      const dir = measureDirection(measureStart.q, measureStart.r, q, r);
-      let html = `<div class="row" style="justify-content:center;">
-        <span style="font-size:20px;font-weight:bold;color:#e94560;">📏 直线 ${straight} 格 · 路径 ${pathLen} 格 · 消耗 ${cost}</span>
-      </div>
-      <div class="row" style="justify-content:center;margin-top:4px;">
-        <span style="color:#aaa;font-size:13px;">方向 ${dir}</span>
-        ${generationRules.riverTravel > 0 ? `<span style="color:#2f6fd0;font-size:13px;">· 含渡河消耗(riverTravel=${generationRules.riverTravel})</span>` : ''}
-      </div>`;
-      const panel = document.getElementById('info-panel');
-      if (panel) panel.innerHTML = html;
-      document.getElementById('coord-indicator').textContent = `📏 (${measureStart.q},${measureStart.r}) → (${q},${r})`;
-      measureStart = null;
-    }
-    render();
-    return;
-  } else if (selectedTool === 'label') {
-    showLabelDialog(q, r);
-  } else if (selectedTool === 'erase') {
-    const mode = document.getElementById('erase-mode').value;
-    const h = getHex(q, r);
-    // Locked: don't erase hexes with any content
-    if (isLocked && (h.terrain || h.settlement || h.label || h.roads?.length || (h.annotations && h.annotations.length))) {
-      showDiceResult('🔒', '已锁定，取消勾选锁定后擦除');
-      return;
-    }
-    if (mode === 'all') {
-      setHex(q, r, { terrain: null, elev: null, moist: null, label: '', settlement: null, roads: [], annotations: [] });
-      removeAllRiverEdges(q, r);
-    } else if (mode === 'terrain') {
-      setHex(q, r, { terrain: null, elev: null, moist: null });
-    } else if (mode === 'settlement') {
-      // Keep roads to/from this hex when removing settlement
-      setHex(q, r, { settlement: null });
-    } else if (mode === 'label') {
-      setHex(q, r, { label: '' });
-    } else if (mode === 'river') {
-      removeAllRiverEdges(q, r);
-    } else if (mode === 'roads') {
-      // Remove all roads from this hex and corresponding roads from neighbors
-      beginBatch();
-      if (h.roads) {
-        for (const rd of h.roads) {
-          const nh = getHex(rd.q, rd.r);
-          if (nh.roads) {
-            const filtered = nh.roads.filter(r => !(r.q === q && r.r === r));
-            setHex(rd.q, rd.r, { roads: filtered });
-          }
-        }
-      }
-      setHex(q, r, { roads: [] });
-      endBatch();
-    }
-    render();
-    updateInfo();
-  } else {
-    // Select — just update info
-    updateInfo();
-    render();
   }
+}
+
+function clickPaint(q, r) {
+  if (isLocked && getHex(q, r).terrain) return; // locked, skip
+  setHex(q, r, { terrain: selectedTerrain });
+  render();
+  updateInfo();
+}
+
+// Shared two-step "pick start, then connect to adjacent" tool used by road/river.
+// spec.state is a getter/setter pair over the module globals (roadStart/riverStart),
+// and add/remove mutate the edge.
+function clickEdgeTool(q, r, spec) {
+  const hint = document.getElementById('tool-hint');
+  let start = spec.state.get();
+  if (!start) {
+    spec.state.set({ q, r });
+    hint.innerHTML = spec.startHint(q, r);
+    document.getElementById('coord-indicator').textContent = spec.coordStart(q, r);
+  } else {
+    if (start.q === q && start.r === r) {
+      // clicking the start cancels
+      spec.state.set(null);
+      hint.innerHTML = spec.resetHint;
+      document.getElementById('coord-indicator').textContent = spec.coordReset;
+    } else if (neighbors(q, r).some(n => n.q === start.q && n.r === start.r)) {
+      if (spec.has(q, r, start.q, start.r)) {
+        spec.remove(q, r, start.q, start.r);
+        hint.innerHTML = `${spec.icon} 已移除${spec.label} [(${start.q},${start.r}) ⇄ (${q},${r})]`;
+      } else {
+        spec.add(q, r, start.q, start.r);
+        hint.innerHTML = `${spec.icon} ✅ 已建立${spec.label} [(${start.q},${start.r}) ⇄ (${q},${r})]`;
+      }
+      spec.state.set(null);
+      document.getElementById('coord-indicator').textContent = spec.coordReset;
+    } else {
+      // Not adjacent — move the start here
+      spec.state.set({ q, r });
+      hint.innerHTML = `${spec.icon} ⚠️ 不相邻！重新设起点为 <b>(${q}, ${r})</b>，点击相邻格连线`;
+      document.getElementById('coord-indicator').textContent = spec.coordStart(q, r);
+    }
+  }
+  render();
+  updateInfo();
+}
+
+function clickRoad(q, r) {
+  clickEdgeTool(q, r, {
+    state: { get: () => roadStart, set: v => (roadStart = v) },
+    icon: '🛤️', label: '道路',
+    startHint: (sq, sr) => `🛤️ 起点已选 <b>(${sq}, ${sr})</b>，点击相邻六角格连线。再次点击起点可取消`,
+    coordStart: (sq, sr) => `🛤️ 起点 (${sq}, ${sr})`,
+    resetHint: '🛤️ <b>点击第一个六角格</b>设为起点(橙色高亮)，再<b>点击相邻格</b>连线',
+    coordReset: '🛤️ 点击选择道路起点',
+    has: hasRoad, add: addRoad, remove: removeRoad
+  });
+}
+
+function clickRiver(q, r) {
+  clickEdgeTool(q, r, {
+    state: { get: () => riverStart, set: v => (riverStart = v) },
+    icon: '🌊', label: '河流',
+    startHint: (sq, sr) => `🌊 起点已选 <b>(${sq}, ${sr})</b>，点击相邻六角格连线。再次点击起点可取消`,
+    coordStart: (sq, sr) => `🌊 起点 (${sq}, ${sr})`,
+    resetHint: '🌊 <b>点击第一个六角格</b>设为起点(蓝色高亮)，再<b>点击相邻格</b>画河',
+    coordReset: '🌊 点击选择河流起点',
+    has: hasRiver, add: (q1, r1, q2, r2) => addRiver(q1, r1, q2, r2, 1), remove: removeRiver
+  });
+}
+
+function clickMeasure(q, r) {
+  if (!measureStart) {
+    measureStart = { q, r };
+    measurePath = null;
+    document.getElementById('coord-indicator').textContent = `📏 起点 (${q}, ${r})，点击终点测距`;
+  } else if (measureStart.q === q && measureStart.r === r) {
+    measureStart = null;
+    measurePath = null;
+    document.getElementById('coord-indicator').textContent = '📏 点击选择起点';
+  } else {
+    const path = aStarPathfind(measureStart.q, measureStart.r, q, r, 5000);
+    measurePath = path;
+    const straight = hexDistance(measureStart.q, measureStart.r, q, r);
+    const pathLen = path ? path.length : 0;
+    const cost = path ? pathTravelCost(path) : 0;
+    const dir = measureDirection(measureStart.q, measureStart.r, q, r);
+    let html = `<div class="row" style="justify-content:center;">
+      <span style="font-size:20px;font-weight:bold;color:#e94560;">📏 直线 ${straight} 格 · 路径 ${pathLen} 格 · 消耗 ${cost}</span>
+    </div>
+    <div class="row" style="justify-content:center;margin-top:4px;">
+      <span style="color:#aaa;font-size:13px;">方向 ${dir}</span>
+      ${generationRules.riverTravel > 0 ? `<span style="color:#2f6fd0;font-size:13px;">· 含渡河消耗(riverTravel=${generationRules.riverTravel})</span>` : ''}
+    </div>`;
+    const panel = document.getElementById('info-panel');
+    if (panel) panel.innerHTML = html;
+    document.getElementById('coord-indicator').textContent = `📏 (${measureStart.q},${measureStart.r}) → (${q},${r})`;
+    measureStart = null;
+  }
+  render();
+}
+
+function clickErase(q, r) {
+  const mode = document.getElementById('erase-mode').value;
+  const h = getHex(q, r);
+  // Locked: don't erase hexes with any content
+  if (isLocked && (h.terrain || h.settlement || h.label || h.roads?.length || (h.annotations && h.annotations.length))) {
+    showDiceResult('🔒', '已锁定，取消勾选锁定后擦除');
+    return;
+  }
+  if (mode === 'all') {
+    setHex(q, r, { terrain: null, elev: null, moist: null, label: '', settlement: null, roads: [], annotations: [] });
+    removeAllRiverEdges(q, r);
+  } else if (mode === 'terrain') {
+    setHex(q, r, { terrain: null, elev: null, moist: null });
+  } else if (mode === 'settlement') {
+    // Keep roads to/from this hex when removing settlement
+    setHex(q, r, { settlement: null });
+  } else if (mode === 'label') {
+    setHex(q, r, { label: '' });
+  } else if (mode === 'river') {
+    removeAllRiverEdges(q, r);
+  } else if (mode === 'roads') {
+    // Remove all roads from this hex and corresponding roads from neighbors
+    beginBatch();
+    if (h.roads) {
+      for (const rd of h.roads) {
+        const nh = getHex(rd.q, rd.r);
+        if (nh.roads) {
+          const filtered = nh.roads.filter(r => !(r.q === q && r.r === r));
+          setHex(rd.q, rd.r, { roads: filtered });
+        }
+      }
+    }
+    setHex(q, r, { roads: [] });
+    endBatch();
+  }
+  render();
+  updateInfo();
 }
 
 // ======== Context Menu ========
@@ -2846,7 +3104,7 @@ document.getElementById('te-btn-close').addEventListener('click', function() {
 function openGenRulesEditor() {
   let modal = document.getElementById('gen-rules-modal');
   document.getElementById('gr-threshold').value = String(generationRules.d6Threshold);
-  var chanceVal = Math.round((generationRules.specialTerrainChance || 0.05) * 100);
+  const chanceVal = Math.round((generationRules.specialTerrainChance || 0.05) * 100);
   document.getElementById('gr-special-chance').value = chanceVal;
   document.getElementById('gr-special-chance-val').textContent = chanceVal + '%';
   document.getElementById('gr-river-travel').value = generationRules.riverTravel != null ? generationRules.riverTravel : 0;
@@ -3442,20 +3700,20 @@ function hexPathfind(q1, r1, q2, r2) {
   const visited = new Set([startKey]);
   const cameFrom = {};
   const queue = [{ q: q1, r: r1 }];
-  var head = 0;
+  let head = 0;
   while (head < queue.length) {
-    var cur = queue[head++];
-    var curKey = hexKey(cur.q, cur.r);
-    var nbrs = neighbors(cur.q, cur.r);
-    for (var ni = 0; ni < nbrs.length; ni++) {
-      var n = nbrs[ni];
-      var nk = hexKey(n.q, n.r);
+    const cur = queue[head++];
+    const curKey = hexKey(cur.q, cur.r);
+    const nbrs = neighbors(cur.q, cur.r);
+    for (let ni = 0; ni < nbrs.length; ni++) {
+      const n = nbrs[ni];
+      const nk = hexKey(n.q, n.r);
       if (nk === goalKey) {
         // Reconstruct path
-        var path = [{ q: n.q, r: n.r }];
-        var ck = curKey;
+        const path = [{ q: n.q, r: n.r }];
+        let ck = curKey;
         while (ck) {
-          var parts = ck.split(','); path.unshift({ q: +parts[0], r: +parts[1] });
+          const parts = ck.split(','); path.unshift({ q: +parts[0], r: +parts[1] });
           ck = cameFrom[ck];
         }
         return path;
@@ -3550,16 +3808,16 @@ function classifyElevMoist(nx, ny, rng) {
 
 // Generate terrain for a bounded region (synchronous — kept for backward compat)
 // ======== Web Worker for off-thread Perlin noise ========
-var _noiseWorker = null;
-var _noiseWorkerReady = false;
-var _workerPending = null; // { resolve, reject }
+let _noiseWorker = null;
+let _noiseWorkerReady = false;
+let _workerPending = null; // { resolve, reject }
 
 function getNoiseWorker() {
   if (_noiseWorker) return _noiseWorker;
   if (typeof Blob === 'undefined' || typeof Worker === 'undefined') return null;
 
   // Inline worker — encapsulates all noise math, no DOM access
-  var workerCode = [
+  const workerCode = [
     'var _perm=new Uint8Array(512);',
     'function m32(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}};',
     'function ip(s){var r=m32(s),p=[],i;for(i=0;i<256;i++)p[i]=i;for(i=255;i>0;i--){var j=Math.floor(r()*(i+1)),t=p[i];p[i]=p[j];p[j]=t;}for(i=0;i<512;i++)_perm[i]=p[i&255]};',
@@ -3576,7 +3834,7 @@ function getNoiseWorker() {
   ].join('\n');
 
   try {
-    var blob = new Blob([workerCode], { type: 'application/javascript' });
+    const blob = new Blob([workerCode], { type: 'application/javascript' });
     _noiseWorker = new Worker(URL.createObjectURL(blob));
     _noiseWorkerReady = true;
     return _noiseWorker;
@@ -3590,23 +3848,23 @@ function getNoiseWorker() {
 // Classify terrain from noise using the worker (async). Falls back to sync if no worker.
 function classifyBatchWithWorker(seed, coords, scale) {
   return new Promise(function(resolve) {
-    var w = getNoiseWorker();
+    const w = getNoiseWorker();
     if (!w) {
       // Fallback: compute on main thread
       initPerm(seed);
-      var results = [];
-      for (var i = 0; i < coords.length; i++) {
-        var c = coords[i];
-        var nx = c.px * 0.005 / scale, ny = c.py * 0.005 / scale;
-        var em = classifyElevMoist(nx, ny);
+      const results = [];
+      for (let i = 0; i < coords.length; i++) {
+        const c = coords[i];
+        const nx = c.px * 0.005 / scale, ny = c.py * 0.005 / scale;
+        const em = classifyElevMoist(nx, ny);
         results.push({ q: c.q, r: c.r, terrain: em.terrain, elev: em.elev, moist: em.moist });
       }
       resolve(results);
       return;
     }
 
-    var msgId = Date.now() + Math.random();
-    var handler = function(e) {
+    const msgId = Date.now() + Math.random();
+    const handler = function(e) {
       if (e.data.id === msgId) {
         w.removeEventListener('message', handler);
         resolve(e.data.results);
@@ -3647,9 +3905,9 @@ function generateTerrainRegion(seed, centerQ, centerR, width, height, scale) {
     let terrainId = em.terrain;
 
     // Special terrain injection
-    var chance = generationRules.specialTerrainChance != null ? generationRules.specialTerrainChance : 0.05;
+    const chance = generationRules.specialTerrainChance != null ? generationRules.specialTerrainChance : 0.05;
     if (rng() < chance) {
-      var special = pickSpecialTerrain(rng);
+      const special = pickSpecialTerrain(rng);
       if (special) terrainId = special;
     }
 
@@ -3659,41 +3917,41 @@ function generateTerrainRegion(seed, centerQ, centerR, width, height, scale) {
 
 // Async chunked version — use for large maps to keep UI responsive
 async function generateTerrainRegionAsync(seed, centerQ, centerR, width, height, scale, onProgress) {
-  var rng = mulberry32(seed + 1);
-  var halfW = Math.floor(width / 2);
-  var halfH = Math.floor(height / 2);
+  const rng = mulberry32(seed + 1);
+  const halfW = Math.floor(width / 2);
+  const halfH = Math.floor(height / 2);
 
   // Build coord list with pixel positions
-  var coords = [];
-  for (var q = centerQ - halfW; q <= centerQ + halfW; q++) {
-    for (var r = centerR - halfH; r <= centerR + halfH; r++) {
-      var p = hexToPixel(q, r);
-      coords.push({ q: q, r: r, px: p.x, py: p.y });
+  const coords = [];
+  for (let q = centerQ - halfW; q <= centerQ + halfW; q++) {
+    for (let r = centerR - halfH; r <= centerR + halfH; r++) {
+      const p = hexToPixel(q, r);
+      coords.push({ q, r, px: p.x, py: p.y });
     }
   }
 
   // Shuffle
-  for (var i = coords.length - 1; i > 0; i--) {
-    var j = Math.floor(rng() * (i + 1));
-    var tmp = coords[i]; coords[i] = coords[j]; coords[j] = tmp;
+  for (let i = coords.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    const tmp = coords[i]; coords[i] = coords[j]; coords[j] = tmp;
   }
 
-  var total = coords.length;
-  var CHUNK = getNoiseWorker() ? 20000 : 5000; // bigger chunks with worker since noise is off-thread
-  for (var ci = 0; ci < total; ci += CHUNK) {
-    var end = Math.min(ci + CHUNK, total);
-    var batch = coords.slice(ci, end);
+  const total = coords.length;
+  const CHUNK = getNoiseWorker() ? 20000 : 5000; // bigger chunks with worker since noise is off-thread
+  for (let ci = 0; ci < total; ci += CHUNK) {
+    const end = Math.min(ci + CHUNK, total);
+    const batch = coords.slice(ci, end);
 
     // Step 1: Classify terrain (worker if available, else inline)
-    var results = await classifyBatchWithWorker(seed, batch, scale);
+    const results = await classifyBatchWithWorker(seed, batch, scale);
 
     // Step 2: Special terrain injection (main thread, needs generationRules)
-    for (var ri = 0; ri < results.length; ri++) {
-      var res = results[ri];
-      var terrainId = res.terrain;
-      var chance = generationRules.specialTerrainChance != null ? generationRules.specialTerrainChance : 0.05;
+    for (let ri = 0; ri < results.length; ri++) {
+      const res = results[ri];
+      let terrainId = res.terrain;
+      const chance = generationRules.specialTerrainChance != null ? generationRules.specialTerrainChance : 0.05;
       if (rng() < chance) {
-        var special = pickSpecialTerrain(rng);
+        const special = pickSpecialTerrain(rng);
         if (special) terrainId = special;
       }
       writeHexData(hexKey(res.q, res.r), { terrain: terrainId, elev: res.elev, moist: res.moist });
@@ -3708,28 +3966,29 @@ async function generateTerrainRegionAsync(seed, centerQ, centerR, width, height,
 // Binary min-heap for A* priority queue
 function MinHeap() { this.heap = []; }
 MinHeap.prototype.push = function(key, score) {
-  this.heap.push({ key: key, score: score });
-  var i = this.heap.length - 1;
+  this.heap.push({ key, score });
+  let i = this.heap.length - 1;
   while (i > 0) {
-    var p = (i - 1) >> 1;
+    const p = (i - 1) >> 1;
     if (this.heap[p].score <= this.heap[i].score) break;
-    var tmp = this.heap[p]; this.heap[p] = this.heap[i]; this.heap[i] = tmp;
+    const tmp = this.heap[p]; this.heap[p] = this.heap[i]; this.heap[i] = tmp;
     i = p;
   }
 };
 MinHeap.prototype.pop = function() {
   if (this.heap.length === 0) return null;
-  var top = this.heap[0];
-  var last = this.heap.pop();
+  const top = this.heap[0];
+  const last = this.heap.pop();
   if (this.heap.length > 0) {
     this.heap[0] = last;
-    var i = 0, n = this.heap.length;
+    let i = 0, n = this.heap.length;
     while (true) {
-      var left = (i << 1) + 1, right = left + 1, smallest = i;
+      const left = (i << 1) + 1, right = left + 1;
+      let smallest = i;
       if (left < n && this.heap[left].score < this.heap[smallest].score) smallest = left;
       if (right < n && this.heap[right].score < this.heap[smallest].score) smallest = right;
       if (smallest === i) break;
-      var t = this.heap[i]; this.heap[i] = this.heap[smallest]; this.heap[smallest] = t;
+      const t = this.heap[i]; this.heap[i] = this.heap[smallest]; this.heap[smallest] = t;
       i = smallest;
     }
   }
@@ -3742,45 +4001,45 @@ MinHeap.prototype.size = function() { return this.heap.length; };
 function aStarPathfind(q1, r1, q2, r2, maxSteps) {
   if (q1 === q2 && r1 === r2) return [{ q: q1, r: r1 }];
   if (!maxSteps) maxSteps = 5000;
-  var startKey = hexKey(q1, r1);
-  var goalKey = hexKey(q2, r2);
-  var allTerrains = getAllTerrains();
-  var h = function(q, r) { return hexDistance(q, r, q2, r2); };
+  const startKey = hexKey(q1, r1);
+  const goalKey = hexKey(q2, r2);
+  const allTerrains = getAllTerrains();
+  const h = (q, r) => hexDistance(q, r, q2, r2);
 
-  var openHeap = new MinHeap();
+  const openHeap = new MinHeap();
   openHeap.push(startKey, h(q1, r1));
-  var cameFrom = {};
-  var gScore = {}; gScore[startKey] = 0;
-  var closedSet = new Set();
-  var steps = 0;
+  const cameFrom = {};
+  const gScore = {}; gScore[startKey] = 0;
+  const closedSet = new Set();
+  let steps = 0;
 
   while (openHeap.size() > 0) {
-    var entry = openHeap.pop();
-    var current = entry.key;
+    const entry = openHeap.pop();
+    const current = entry.key;
     if (closedSet.has(current)) continue; // skip stale entries
     if (current === goalKey) {
-      var path = [];
-      var c = current;
-      while (c) { var parts = c.split(','); path.unshift({ q: +parts[0], r: +parts[1] }); c = cameFrom[c]; }
+      const path = [];
+      let c = current;
+      while (c) { const parts = c.split(','); path.unshift({ q: +parts[0], r: +parts[1] }); c = cameFrom[c]; }
       return path;
     }
     closedSet.add(current);
     steps++;
     if (steps > maxSteps) return null; // give up on very long paths
 
-    var coords = current.split(','); var cq = +coords[0], cr = +coords[1];
-    var nbrs = neighbors(cq, cr);
-    for (var ni = 0; ni < nbrs.length; ni++) {
-      var n = nbrs[ni];
-      var nk = hexKey(n.q, n.r);
+    const coords = current.split(','); const cq = +coords[0], cr = +coords[1];
+    const nbrs = neighbors(cq, cr);
+    for (let ni = 0; ni < nbrs.length; ni++) {
+      const n = nbrs[ni];
+      const nk = hexKey(n.q, n.r);
       if (closedSet.has(nk)) continue;
-      var hData = getHex(n.q, n.r);
-      var tInfo = hData.terrain ? allTerrains[hData.terrain] : null;
-      var moveCost = tInfo ? tInfo.travel : 1;
-      var waterPenalty = hData.terrain === 'water' ? 10 : 0;
-      var riverPenalty = (generationRules.riverTravel > 0 && hasRiver(cq, cr, n.q, n.r)) ? generationRules.riverTravel : 0;
-      var totalCost = moveCost + waterPenalty + riverPenalty;
-      var tentativeG = gScore[current] + totalCost;
+      const hData = getHex(n.q, n.r);
+      const tInfo = hData.terrain ? allTerrains[hData.terrain] : null;
+      const moveCost = tInfo ? tInfo.travel : 1;
+      const waterPenalty = hData.terrain === 'water' ? 10 : 0;
+      const riverPenalty = (generationRules.riverTravel > 0 && hasRiver(cq, cr, n.q, n.r)) ? generationRules.riverTravel : 0;
+      const totalCost = moveCost + waterPenalty + riverPenalty;
+      const tentativeG = gScore[current] + totalCost;
       if (gScore[nk] === undefined || tentativeG < gScore[nk]) {
         cameFrom[nk] = current;
         gScore[nk] = tentativeG;
@@ -3879,48 +4138,47 @@ function placeSettlements(count, _seed, centerQ, centerR, width, height) {
   return placed;
 }
 
-// Build road network using A* + Minimum Spanning Tree (Prim's)
+// Build road network using A* + Minimum Spanning Tree (Kruskal's)
 function buildRoadNetwork(settlements) {
   if (settlements.length < 2) return 0;
 
   // Compute A* path costs between all pairs (with distance cap for large maps)
-  var n = settlements.length;
-  var MAX_PAIR_DIST = 200;
+  const n = settlements.length;
+  const MAX_PAIR_DIST = 200;
 
-  // Build adjacency list for union-find style connectivity
-  var edges = [];
-  for (var i = 0; i < n; i++) {
-    for (var j = i + 1; j < n; j++) {
-      var d = hexDistance(settlements[i].q, settlements[i].r, settlements[j].q, settlements[j].r);
+  const edges = [];
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const d = hexDistance(settlements[i].q, settlements[i].r, settlements[j].q, settlements[j].r);
       if (d > MAX_PAIR_DIST) continue; // skip very distant pairs
-      var path = aStarPathfind(settlements[i].q, settlements[i].r, settlements[j].q, settlements[j].r, 5000);
+      const path = aStarPathfind(settlements[i].q, settlements[i].r, settlements[j].q, settlements[j].r, 5000);
       if (path) {
-        edges.push({ i: i, j: j, cost: path.length, path: path });
+        edges.push({ i, j, cost: path.length, path });
       }
     }
   }
 
   // Union-find to track connectivity across all settlements
-  var parent = []; for (var k = 0; k < n; k++) parent[k] = k;
+  const parent = []; for (let k = 0; k < n; k++) parent[k] = k;
   function find(x) { while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; }
-  function union(a, b) { var ra = find(a), rb = find(b); if (ra !== rb) parent[rb] = ra; }
+  function union(a, b) { const ra = find(a), rb = find(b); if (ra !== rb) parent[rb] = ra; }
 
   // Sort edges by cost for Kruskal-style MST
   edges.sort(function(a, b) { return a.cost - b.cost; });
 
-  var mstEdges = [];
-  for (var ei = 0; ei < edges.length; ei++) {
-    var e = edges[ei];
+  const mstEdges = [];
+  for (let ei = 0; ei < edges.length; ei++) {
+    const e = edges[ei];
     if (find(e.i) !== find(e.j)) {
       union(e.i, e.j);
       mstEdges.push(e);
     }
   }
 
-  var roadsBuilt = 0;
-  for (var mi = 0; mi < mstEdges.length; mi++) {
-    var p = mstEdges[mi].path;
-    for (var k = 0; k < p.length - 1; k++) {
+  let roadsBuilt = 0;
+  for (let mi = 0; mi < mstEdges.length; mi++) {
+    const p = mstEdges[mi].path;
+    for (let k = 0; k < p.length - 1; k++) {
       addRoad(p[k].q, p[k].r, p[k + 1].q, p[k + 1].r);
       roadsBuilt++;
     }
@@ -4058,7 +4316,7 @@ async function oneClickGenerate(config) {
   }
 
   // Step 0: Randomly pick kingdoms for this map
-  var newRegions = pickRandomKingdoms(seed, width, height);
+  const newRegions = pickRandomKingdoms(seed, width, height);
   Object.keys(regions).forEach(function(k) { delete regions[k]; });
   Object.assign(regions, newRegions);
   regionOrder = Object.keys(newRegions);
@@ -4137,8 +4395,8 @@ function ocSetHeight(val) {
 }
 
 ['oc-scale', 'oc-settle'].forEach(function(id) {
-  var input = document.getElementById(id);
-  var valSpan = document.getElementById(id + '-val');
+  const input = document.getElementById(id);
+  const valSpan = document.getElementById(id + '-val');
   if (input && valSpan) {
     input.addEventListener('input', function() {
       if (id === 'oc-scale') valSpan.textContent = (input.value / 10).toFixed(1);
@@ -4177,13 +4435,13 @@ document.getElementById('oc-btn-cancel').addEventListener('click', () => {
 });
 
 document.getElementById('oc-btn-confirm').addEventListener('click', function() {
-  var seed = parseInt(document.getElementById('oc-seed').value) || Date.now();
-  var width = parseInt(document.getElementById('oc-width-num').value) || parseInt(document.getElementById('oc-width').value);
-  var height = parseInt(document.getElementById('oc-height-num').value) || parseInt(document.getElementById('oc-height').value);
-  var scale = parseInt(document.getElementById('oc-scale').value) / 10;
-  var settlementCount = parseInt(document.getElementById('oc-settle').value);
-  var buildRoads = document.getElementById('oc-build-roads').checked;
-  var pos = document.getElementById('oc-position').value;
+  const seed = parseInt(document.getElementById('oc-seed').value) || Date.now();
+  const width = parseInt(document.getElementById('oc-width-num').value) || parseInt(document.getElementById('oc-width').value);
+  const height = parseInt(document.getElementById('oc-height-num').value) || parseInt(document.getElementById('oc-height').value);
+  const scale = parseInt(document.getElementById('oc-scale').value) / 10;
+  const settlementCount = parseInt(document.getElementById('oc-settle').value);
+  const buildRoads = document.getElementById('oc-build-roads').checked;
+  const pos = document.getElementById('oc-position').value;
 
   document.getElementById('oneclick-modal').style.display = 'none';
 
@@ -4263,14 +4521,14 @@ function assignRegions(seed, centerQ, centerR, width, height) {
   const regionIds = regionOrder || Object.keys(regions);
   if (regionIds.length === 0) return;
 
-  var rng = mulberry32(seed + 999);
-  var halfW = Math.floor(width / 2);
-  var halfH = Math.floor(height / 2);
+  const rng = mulberry32(seed + 999);
+  const halfW = Math.floor(width / 2);
+  const halfH = Math.floor(height / 2);
 
   // Generate random center points for each region
-  var centers = [];
-  for (var ri = 0; ri < regionIds.length; ri++) {
-    var cq, cr, retries = 0;
+  const centers = [];
+  for (let ri = 0; ri < regionIds.length; ri++) {
+    let cq, cr, retries = 0;
     do {
       cq = centerQ + Math.floor(rng() * width - halfW);
       cr = centerR + Math.floor(rng() * height - halfH);
@@ -4280,14 +4538,14 @@ function assignRegions(seed, centerQ, centerR, width, height) {
   }
 
   // Assign each hex to its nearest region center (skip water)
-  for (var q = centerQ - halfW; q <= centerQ + halfW; q++) {
-    for (var r = centerR - halfH; r <= centerR + halfH; r++) {
-      var key = hexKey(q, r);
-      var h = getHex(q, r);
+  for (let q = centerQ - halfW; q <= centerQ + halfW; q++) {
+    for (let r = centerR - halfH; r <= centerR + halfH; r++) {
+      const key = hexKey(q, r);
+      const h = getHex(q, r);
       if (!h.terrain || h.terrain === 'water') continue;
-      var bestDist = Infinity, bestId = null;
-      for (var ci = 0; ci < centers.length; ci++) {
-        var d = hexDistance(q, r, centers[ci].q, centers[ci].r);
+      let bestDist = Infinity, bestId = null;
+      for (let ci = 0; ci < centers.length; ci++) {
+        const d = hexDistance(q, r, centers[ci].q, centers[ci].r);
         if (d < bestDist) { bestDist = d; bestId = centers[ci].id; }
       }
       writeHexData(key, { region: bestId });
@@ -4297,21 +4555,21 @@ function assignRegions(seed, centerQ, centerR, width, height) {
 
 // Pick random kingdoms from the template pool based on map size
 function pickRandomKingdoms(seed, mapWidth, mapHeight) {
-  var total = mapWidth * mapHeight;
-  var count;
+  const total = mapWidth * mapHeight;
+  let count;
   if (total < 400) count = 3 + (seed % 2);       // <20×20: 3~4
   else if (total < 1600) count = 4 + (seed % 3); // 20~40: 4~6
   else count = 5 + (seed % 3);                   // >40: 5~7
 
-  var rng = mulberry32(seed + 888);
-  var pool = REGION_TEMPLATES.slice(); // copy
+  const rng = mulberry32(seed + 888);
+  const pool = REGION_TEMPLATES.slice(); // copy
   // Fisher-Yates shuffle
-  for (var i = pool.length - 1; i > 0; i--) {
-    var j = Math.floor(rng() * (i + 1));
-    var tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    const tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
   }
-  var picked = pool.slice(0, Math.min(count, pool.length));
-  var result = {};
+  const picked = pool.slice(0, Math.min(count, pool.length));
+  const result = {};
   picked.forEach(function(t) { result[t.id] = { name: t.name, color: t.color, icon: t.icon }; });
   return result;
 }
@@ -4327,28 +4585,28 @@ function gzipSupported() {
 }
 
 async function gzipCompress(str) {
-  var blob = new Blob([str]);
-  var compressed = blob.stream().pipeThrough(new CompressionStream('gzip'));
+  const blob = new Blob([str]);
+  const compressed = blob.stream().pipeThrough(new CompressionStream('gzip'));
   return new Response(compressed).blob();
 }
 
 async function gzipDecompress(blob) {
-  var decompressed = blob.stream().pipeThrough(new DecompressionStream('gzip'));
+  const decompressed = blob.stream().pipeThrough(new DecompressionStream('gzip'));
   return new Response(decompressed).text();
 }
 
 document.getElementById('btn-save').addEventListener('click', async function() {
   cleanHexData();
-  var hexCount = Object.keys(hexData).length;
+  const hexCount = Object.keys(hexData).length;
   showProgress('💾', '保存中...', 0, 1);
   await new Promise(function(resolve) { setTimeout(resolve, 20); });
 
-  var ex = buildImageRegistry(hexData, customTerrains);
-  var data = { hexData: ex.exportHex, imageRegistry: ex.registry, viewX: viewX, viewY: viewY, zoom: zoom, customTerrains: ex.exportCT, deletedTerrains: deletedTerrains, terrainOrder: terrainOrder, generationRules: generationRules, regions: regions, regionOrder: regionOrder };
-  var json = JSON.stringify(data);
+  const ex = buildImageRegistry(hexData, customTerrains);
+  const data = { hexData: ex.exportHex, imageRegistry: ex.registry, viewX, viewY, zoom, customTerrains: ex.exportCT, deletedTerrains, terrainOrder, generationRules, regions, regionOrder };
+  const json = JSON.stringify(data);
 
-  var blob;
-  var ext;
+  let blob;
+  let ext;
   if (gzipSupported()) {
     blob = await gzipCompress(json);
     ext = '.hexmap';
@@ -4357,31 +4615,31 @@ document.getElementById('btn-save').addEventListener('click', async function() {
     ext = '.json';
   }
 
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
   a.href = url;
   a.download = 'hexmap_' + new Date().toISOString().slice(0,10) + ext;
   a.click();
   URL.revokeObjectURL(url);
 
-  var sizeMB = (blob.size / 1024 / 1024).toFixed(2);
+  const sizeMB = (blob.size / 1024 / 1024).toFixed(2);
   showDiceResult('💾 已保存', hexCount + ' 格 · ' + sizeMB + ' MB' + (ext === '.hexmap' ? ' (gzip)' : ''));
 });
 
 document.getElementById('btn-load').addEventListener('click', function() {
-  var input = document.createElement('input');
+  const input = document.createElement('input');
   input.type = 'file';
   input.accept = '.json,.hexmap';
   input.onchange = async function(e) {
-    var file = e.target.files[0];
+    const file = e.target.files[0];
     if (!file) return;
 
     try {
       showProgress('📂', '加载中...', 0, 1);
 
-      var text;
+      let text;
       // Check for gzip magic bytes (1f 8b)
-      var header = new Uint8Array(await file.slice(0, 2).arrayBuffer());
+      const header = new Uint8Array(await file.slice(0, 2).arrayBuffer());
       if (header[0] === 0x1F && header[1] === 0x8B) {
         // gzip compressed
         text = await gzipDecompress(file);
@@ -4390,9 +4648,9 @@ document.getElementById('btn-load').addEventListener('click', function() {
         text = await file.text();
       }
 
-      var data = JSON.parse(text);
+      const data = JSON.parse(text);
       if (data.imageRegistry) {
-        var resolved = resolveImageRegistry(data.hexData || {}, data.customTerrains || {}, data.imageRegistry);
+        const resolved = resolveImageRegistry(data.hexData || {}, data.customTerrains || {}, data.imageRegistry);
         hexData = resolved.resultHex;
         customTerrains = resolved.resultCT;
       } else {
@@ -4466,54 +4724,20 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
   exportCtx.translate(offsetX * exportScale, offsetY * exportScale);
   exportCtx.scale(exportScale, exportScale);
   const allTerrains = getAllTerrains();
-  // Draw hex fills + grid (Pass 1)
+  // Export ignores coordinate labels and always keeps the grid (as before), so
+  // pin those globals for the duration of this render and restore afterward.
+  const _prevGrid = showGrid, _prevCoords = showCoords;
+  showGrid = true; showCoords = false;
+  // Draw hex fills + grid (Pass 1) — reused from render.js so live view and PNG
+  // export stay pixel-identical.
   for (const key of keys) {
     const [q, r] = key.split(',').map(Number);
-    const p = hexToPixel(q, r);
-    const corners = hexCorners(p.x, p.y, HEX_SIZE);
-    const h = hexData[key];
-    exportCtx.beginPath();
-    corners.forEach((c, i) => i === 0 ? exportCtx.moveTo(c.x, c.y) : exportCtx.lineTo(c.x, c.y));
-    exportCtx.closePath();
-    // Layer composition (matches render.js drawHexBase): 0 -> dark gray, 1 -> opaque, 2+ -> stacking
-    const hTerrainInfo = h.terrain ? allTerrains[h.terrain] : null;
-    const terrainActive = !!(showTerrainLayer && hTerrainInfo);
-    const elevActive = !!(showElevationLayer && typeof h.elev === 'number');
-    const regionActive = !!(showRegionLayer && h.region && regions[h.region]);
-    const activeCount = (terrainActive ? 1 : 0) + (elevActive ? 1 : 0) + (regionActive ? 1 : 0);
-    const regionColor = regions[h.region] ? regions[h.region].color : null;
-    if (activeCount >= 2) {
-      exportCtx.fillStyle = hTerrainInfo ? hTerrainInfo.color : '#3a3a52';
-      exportCtx.fill();
-      if (elevActive) {
-        exportCtx.fillStyle = hexToRGBA(elevationColor(h.elev), 0.55);
-        exportCtx.fill();
-      }
-      if (regionActive) {
-        exportCtx.fillStyle = 'rgba(' +
-          parseInt(regionColor.slice(1,3), 16) + ',' +
-          parseInt(regionColor.slice(3,5), 16) + ',' +
-          parseInt(regionColor.slice(5,7), 16) + ',0.2)';
-        exportCtx.fill();
-      }
-    } else if (activeCount === 1) {
-      const solo = terrainActive ? hTerrainInfo.color
-        : (elevActive ? elevationColor(h.elev) : regionColor);
-      exportCtx.fillStyle = solo;
-      exportCtx.fill();
-    } else {
-      exportCtx.fillStyle = '#3a3a52';
-      exportCtx.fill();
-    }
-    exportCtx.strokeStyle = 'rgba(255,255,255,0.12)';
-    exportCtx.lineWidth = 1;
-    exportCtx.stroke();
+    drawHexBase(exportCtx, q, r, hexData[key], allTerrains);
   }
   // Region borders (shared function)
   drawRegionBorders(exportCtx, minQ - 1, maxQ + 1, minR - 1, maxR + 1, (q, r) => hexData[hexKey(q, r)] || { region: null });
   // Rivers (Pass 2.5, under roads)
   drawRiverEdgesOnContext(exportCtx, keys);
-  // Draw roads (Pass 2)
   // Draw roads (Pass 2)
   exportCtx.strokeStyle = '#8B4513';
   exportCtx.lineWidth = 3;
@@ -4533,96 +4757,15 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
       }
     }
   }
-  // Draw overlays (Pass 3)
+  // Draw overlays (Pass 3) — icons, labels, settlements; reused from render.js
   for (const key of keys) {
     const [q, r] = key.split(',').map(Number);
-    const h = hexData[key];
-    const p = hexToPixel(q, r);
-    // Terrain icon (image or emoji) — hidden when the terrain layer is off
-    const hOTI = h.terrain ? allTerrains[h.terrain] : null;
-    if (showTerrainLayer && hOTI) {
-        if (hOTI.imageUrl) {
-          const img = getCachedImage(hOTI.imageUrl);
-          if (img && img.complete && img.naturalWidth > 0) {
-            exportCtx.save();
-            const ec = hexCorners(p.x, p.y, HEX_SIZE * 0.6);
-            exportCtx.beginPath();
-            ec.forEach((c, i) => i === 0 ? exportCtx.moveTo(c.x, c.y) : exportCtx.lineTo(c.x, c.y));
-            exportCtx.closePath();
-            exportCtx.clip();
-            const is = HEX_SIZE * 0.9;
-            exportCtx.drawImage(img, p.x - is/2, p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.3 : 0) - is/2, is, is);
-            exportCtx.restore();
-          } else {
-            exportCtx.font = `${HEX_SIZE * 0.5}px sans-serif`;
-            exportCtx.textAlign = 'center';
-            exportCtx.textBaseline = 'middle';
-            exportCtx.fillStyle = 'rgba(255,255,255,0.85)';
-            exportCtx.fillText(hOTI.icon, p.x, p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.15 : 0));
-          }
-        } else {
-          exportCtx.font = `${HEX_SIZE * 0.5}px sans-serif`;
-          exportCtx.textAlign = 'center';
-          exportCtx.textBaseline = 'middle';
-          exportCtx.fillStyle = 'rgba(255,255,255,0.85)';
-          exportCtx.fillText(hOTI.icon, p.x, p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.15 : 0));
-        }
-      }
-    // Annotation icons (visible ones)
-    if (h.annotations && h.annotations.length) {
-      const visibleIcons = h.annotations.filter(a => a.visible).map(a => ANNOTATION_TYPES[a.type]?.icon || '📍');
-      if (visibleIcons.length) {
-        const startX = p.x + HEX_SIZE * 0.3;
-        const startY = p.y - HEX_SIZE * 0.65;
-        exportCtx.font = `${HEX_SIZE * 0.25}px sans-serif`;
-        exportCtx.textAlign = 'center';
-        exportCtx.textBaseline = 'middle';
-        exportCtx.fillStyle = 'rgba(255,255,255,0.9)';
-        visibleIcons.forEach((icon, idx) => {
-          exportCtx.fillText(icon, startX + idx * (HEX_SIZE * 0.28), startY);
-        });
-      }
-    }
-    // Label
-    if (h.label) {
-      exportCtx.fillStyle = '#fff';
-      exportCtx.font = `bold ${Math.max(9, HEX_SIZE * 0.38)}px sans-serif`;
-      exportCtx.textAlign = 'center';
-      exportCtx.textBaseline = 'bottom';
-      const tw = exportCtx.measureText(h.label).width;
-      exportCtx.fillStyle = 'rgba(0,0,0,0.55)';
-      exportCtx.fillRect(p.x - tw/2 - 3, p.y - HEX_SIZE * 0.65, tw + 6, HEX_SIZE * 0.55);
-      exportCtx.fillStyle = '#fff';
-      exportCtx.fillText(h.label, p.x, p.y - HEX_SIZE * 0.2);
-    }
-    // Settlement
-    if (h.settlement) {
-      if (h.settlement.imageUrl) {
-        const img = getCachedImage(h.settlement.imageUrl);
-        if (img && img.complete && img.naturalWidth > 0) {
-          exportCtx.save();
-          const ec = hexCorners(p.x, p.y + HEX_SIZE * 0.1, HEX_SIZE * 0.5);
-          exportCtx.beginPath();
-          ec.forEach((c, i) => i === 0 ? exportCtx.moveTo(c.x, c.y) : exportCtx.lineTo(c.x, c.y));
-          exportCtx.closePath();
-          exportCtx.clip();
-          const is = HEX_SIZE * 0.8;
-          exportCtx.drawImage(img, p.x - is/2, p.y + HEX_SIZE * 0.1 - is/2, is, is);
-          exportCtx.restore();
-        } else {
-          const ratingIcons = {'-3':'🛖','-2':'🏕️','-1':'🏘️','0':'🏘️','1':'🏛️','2':'🏰','3':'🏙️'};
-          const icon = ratingIcons[String(h.settlement.rating)] || '🏘️';
-          exportCtx.font = `${HEX_SIZE * 0.6}px sans-serif`;
-          exportCtx.textAlign = 'center';
-          exportCtx.textBaseline = 'bottom';
-          exportCtx.fillText(icon, p.x, p.y + HEX_SIZE * 0.45);
-          }
-        } // closes if(h.settlement.imageUrl)
-      } // closes if(h.settlement)
-    } // closes for loop
+    drawHexOverlay(exportCtx, q, r, hexData[key]);
+  }
   // Region names (Pass 3.5)
   drawRegionNames(exportCtx);
   exportCtx.restore();
+  showGrid = _prevGrid; showCoords = _prevCoords;
   const link = document.createElement("a");
   link.download = "hexmap_" + new Date().toISOString().slice(0,10) + ".png";
   link.href = exportCanvas.toDataURL("image/png");
@@ -4655,6 +4798,14 @@ document.getElementById('chk-lock').addEventListener('change', (e) => { isLocked
 document.getElementById('chk-terrain').addEventListener('change', (e) => { showTerrainLayer = e.target.checked; render(); });
 document.getElementById('chk-region-layer').addEventListener('change', (e) => { showRegionLayer = e.target.checked; render(); });
 document.getElementById('chk-elevation').addEventListener('change', (e) => { showElevationLayer = e.target.checked; render(); });
+document.getElementById('chk-icon-style').addEventListener('change', (e) => {
+  iconStyle = e.target.checked ? 'vector' : 'emoji';
+  try { localStorage.setItem('hexmap_iconStyle', iconStyle); } catch(err) {}
+  render();
+  rebuildTerrainPalette();
+  const statsModal = document.getElementById('stats-modal');
+  if (statsModal && statsModal.style.display !== 'none') openStatsModal();
+});
 
 // Manage regions button
 document.getElementById('btn-manage-regions').addEventListener('click', openRegionEditor);
@@ -4789,7 +4940,7 @@ function openStatsModal() {
       const pct = (n / s.total * 100).toFixed(1);
       html += `<div style="display:flex;align-items:center;gap:6px;padding:2px 0;font-size:12px;">
         <span style="width:22px;height:14px;border-radius:3px;background:${t.color};display:inline-block;flex-shrink:0;"></span>
-        <span style="color:#ddd;flex:1;">${t.icon} ${t.name}</span>
+        <span style="color:#ddd;flex:1;">${iconLegendHTML(id, t.icon, t.color, t.name)}</span>
         <span style="color:#aaa;">${n} 格</span>
         <span style="color:#666;width:42px;text-align:right;">${pct}%</span>
       </div>`;
@@ -4807,7 +4958,7 @@ function openStatsModal() {
       if (n === 0) continue;
       regionRow += `<div style="display:flex;align-items:center;gap:6px;padding:2px 0;font-size:12px;">
         <span style="width:22px;height:14px;border-radius:3px;background:${r.color};display:inline-block;flex-shrink:0;"></span>
-        <span style="color:#ddd;flex:1;">${r.icon} ${r.name}</span>
+        <span style="color:#ddd;flex:1;">${iconLegendHTML(null, r.icon, r.color, r.name)}</span>
         <span style="color:#aaa;">${n} 格 (${(n / s.total * 100).toFixed(1)}%)</span>
       </div>`;
     }
@@ -4851,6 +5002,14 @@ rebuildTerrainPalette();
 const allIds = getAllTerrainIds();
 if (!getTerrainInfo(selectedTerrain) && allIds.length > 0) selectedTerrain = allIds[0];
 
+// Load icon style preference and sync the toggle
+try {
+  const saved = localStorage.getItem('hexmap_iconStyle');
+  if (saved === 'vector' || saved === 'emoji') iconStyle = saved;
+} catch(err) {}
+const iconChk = document.getElementById('chk-icon-style');
+if (iconChk) iconChk.checked = (iconStyle === 'vector');
+
 // Build region palette
 rebuildRegionPalette();
 
@@ -4874,7 +5033,8 @@ function loadAISettings() {
     provider: 'openai',
     apiKey: '',
     endpoint: '',
-    model: ''
+    model: '',
+    tpm: AI_TPM_BUDGET
   };
 }
 function saveAISettings(settings) {
@@ -4883,6 +5043,75 @@ function saveAISettings(settings) {
   const keyInput = document.getElementById('ai-api-key');
   if (keyInput) keyInput.value = settings.apiKey || '';
 }
+
+// ======== AI Token Rate Limiter (per-minute budget) ========
+// 外购模型 TPM 上限约 303K。这里按 60 秒滑动窗口对 token 消耗做自我限流，
+// 每次请求把"输入(估算)+输出(max_tokens)"记入窗口，超出预算就排队等待
+// 窗口滚动，避免触发 tpm_rate_limit_exceeded (HTTP 429)。同时遇到 429
+// 会自动退避重试，而不是直接抛错。
+const AI_TPM_BUDGET = (function () {
+  try {
+    const v = parseInt(localStorage.getItem('ai_tpm_limit'), 10);
+    if (v && v > 0) return v;
+  } catch (e) { /* ignore */ }
+  return 290000; // 硬上限 303K，留约 4% 余量
+})();
+const AI_TPM_WINDOW = 60;          // 秒
+const AI_MAX_OUTPUT_TOKENS = 4096; // 与请求 max_tokens 一致
+const AI_MAX_RATE_RETRIES = 3;     // 429 退避重试次数上限
+let aiTokenWindow = [];            // [{ ts, tokens }]
+
+// 中英文混合地图/提示词，统一按约 2 字符 ≈ 1 token 估算（偏保守，宁多勿少）。
+function aiEstimateTokens(text) {
+  if (!text) return 0;
+  return Math.max(1, Math.ceil(text.length / 2));
+}
+function aiSleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function aiWindowUsedTokens(now) {
+  const cutoff = (now || Date.now()) - AI_TPM_WINDOW * 1000;
+  let sum = 0;
+  for (let i = aiTokenWindow.length - 1; i >= 0; i--) {
+    if (aiTokenWindow[i].ts < cutoff) aiTokenWindow.splice(i, 1);
+    else sum += aiTokenWindow[i].tokens;
+  }
+  return sum;
+}
+// 等待直到预算足以容纳 tokens 后才记账返回。被取消则抛 AbortError。
+async function aiWaitForBudget(budget, tokens, signal) {
+  for (;;) {
+    if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
+    const used = aiWindowUsedTokens(Date.now());
+    if (used + tokens <= budget) {
+      aiTokenWindow.push({ ts: Date.now(), tokens });
+      return;
+    }
+    const oldest = aiTokenWindow.length ? aiTokenWindow[0] : null;
+    const wait = oldest ? Math.max(250, oldest.ts + AI_TPM_WINDOW * 1000 - Date.now() + 50) : 250;
+    await aiSleep(wait);
+  }
+}
+// 在已记账的前提下，针对 429/RateLimited 做指数退避重试。
+async function withRateRetry(task, onStatus) {
+  let attempt = 0;
+  for (;;) {
+    try {
+      return await task();
+    } catch (err) {
+      if (!err || err.name !== 'AIRateLimit' || attempt >= AI_MAX_RATE_RETRIES) throw err;
+      attempt++;
+      const waitMs = Math.min(20000, 5000 * attempt);
+      if (onStatus) onStatus('⏳', '命中限流(429)，' + Math.ceil(waitMs / 1000) + 's 后自动重试 ' + attempt + '/' + AI_MAX_RATE_RETRIES + '...');
+      await aiSleep(waitMs);
+    }
+  }
+}
+// 判断响应是否为限流。bodyText 传错误体文本。
+function isRateLimit(status, bodyText) {
+  if (status === 429) return true;
+  return /rate\s*limit|tpm|throttl|too\s*many\s*request/i.test(bodyText || '');
+}
+// -------------------------------
+
 // --- Map context ---
 function getScopeHexes(scope) {
   const keys = Object.keys(hexData);
@@ -5108,9 +5337,9 @@ async function executeMapPlan(plan) {
   // Process in chunks for large maps
   let painted = 0;
   const CHUNK = 5000;
-  for (var ci = 0; ci < hexList.length; ci += CHUNK) {
+  for (let ci = 0; ci < hexList.length; ci += CHUNK) {
     const end = Math.min(ci + CHUNK, hexList.length);
-    for (var idx = ci; idx < end; idx++) {
+    for (let idx = ci; idx < end; idx++) {
       const { q, r } = hexList[idx];
       const p = hexToPixel(q, r);
       const nx = p.x * 0.005 / scale;
@@ -5118,7 +5347,7 @@ async function executeMapPlan(plan) {
 
       // Check overlay zones first (higher priority)
       let terrainId = null;
-      for (var zi = overlayZones.length - 1; zi >= 0; zi--) {
+      for (let zi = overlayZones.length - 1; zi >= 0; zi--) {
         const zone = overlayZones[zi];
         const dz = hexDistance(q, r, zone.q, zone.r);
         if (dz <= zone.span) {
@@ -5140,9 +5369,9 @@ async function executeMapPlan(plan) {
         elev = em.elev; moist = em.moist;
       }
 
-      var chance = generationRules.specialTerrainChance != null ? generationRules.specialTerrainChance : 0.05;
+      const chance = generationRules.specialTerrainChance != null ? generationRules.specialTerrainChance : 0.05;
       if (rng() < chance && terrainId !== 'water' && terrainId !== 'mountain') {
-        var special = pickSpecialTerrain(rng);
+        const special = pickSpecialTerrain(rng);
         if (special) terrainId = special;
       }
 
@@ -5168,10 +5397,21 @@ async function executeMapPlan(plan) {
   return { painted: painted, settlements: placed.length, roads: roadsBuilt };
 }
 // --- API call (streaming) ---
-async function callAIAPI(systemPrompt, userMessage, onChunk, signal) {
+// 带 TPM 自限流：(1) 先估算本次请求 token 并排队占用预算；(2) 429/限流自动退避重试。
+async function callAIAPI(systemPrompt, userMessage, onChunk, signal, onStatus) {
   const settings = loadAISettings();
   if (!settings.apiKey) throw new Error('请先在AI绘图对话框中填写API Key');
 
+  const estTokens = aiEstimateTokens((systemPrompt || '') + (userMessage || '')) + AI_MAX_OUTPUT_TOKENS;
+  const effectiveBudget = settings.tpm && settings.tpm > 0 ? settings.tpm : AI_TPM_BUDGET;
+  // 排队直到本次请求能塞进窗口预算
+  await aiWaitForBudget(effectiveBudget, estTokens, signal);
+
+  const runOnce = () => callAIAPIOnce(settings, systemPrompt, userMessage, onChunk, signal);
+  return withRateRetry(runOnce, onStatus);
+}
+
+async function callAIAPIOnce(settings, systemPrompt, userMessage, onChunk, signal) {
   if (settings.provider === 'anthropic') {
     const endpoint = settings.endpoint || 'https://api.anthropic.com/v1/messages';
     const model = settings.model || 'claude-sonnet-4-20250514';
@@ -5195,7 +5435,9 @@ async function callAIAPI(systemPrompt, userMessage, onChunk, signal) {
       let errText = '';
       try { const e = await resp.json(); errText = JSON.stringify(e); } catch (e) { errText = await resp.text(); }
       console.error('[AI API Error] HTTP ' + resp.status + ': ' + errText);
-      throw new Error('API错误 (' + resp.status + '): ' + errText);
+      const err = new Error('API错误 (' + resp.status + '): ' + errText);
+      if (isRateLimit(resp.status, errText)) err.name = 'AIRateLimit';
+      throw err;
     }
     return await readAnthropicStream(resp, onChunk);
   } else {
@@ -5228,7 +5470,9 @@ async function callAIAPI(systemPrompt, userMessage, onChunk, signal) {
       let errText = '';
       try { const e = await resp.json(); errText = JSON.stringify(e); } catch (e) { errText = await resp.text(); }
       console.error('[AI API Error] HTTP ' + resp.status + ': ' + errText);
-      throw new Error('API错误 (' + resp.status + '): ' + errText);
+      const err = new Error('API错误 (' + resp.status + '): ' + errText);
+      if (isRateLimit(resp.status, errText)) err.name = 'AIRateLimit';
+      throw err;
     }
     let result = await readOpenAIStream(resp, onChunk);
     // Fallback: if streaming returned empty, retry without stream
@@ -5254,7 +5498,9 @@ async function callAIAPI(systemPrompt, userMessage, onChunk, signal) {
         let errText = '';
         try { const e = await resp2.json(); errText = JSON.stringify(e); } catch (e) { errText = await resp2.text(); }
         console.error('[AI API Error] Non-stream HTTP ' + resp2.status + ': ' + errText);
-        throw new Error('API错误 (' + resp2.status + '): ' + errText);
+        const err = new Error('API错误 (' + resp2.status + '): ' + errText);
+        if (isRateLimit(resp2.status, errText)) err.name = 'AIRateLimit';
+        throw err;
       }
       const data = await resp2.json();
       result = data.choices?.[0]?.message?.content || '';
@@ -5374,23 +5620,23 @@ function parseAIResponse(text) {
 
   // Strategy 4: Line-by-line JSONL (each line is a complete {…} object)
   const jsonlLines = content.split('\n').filter(function(l) {
-    var t = l.trim();
+    const t = l.trim();
     return t.startsWith('{') && t.endsWith('}');
   });
   if (jsonlLines.length) {
-    var commands = [];
-    for (var i = 0; i < jsonlLines.length; i++) {
+    const commands = [];
+    for (let i = 0; i < jsonlLines.length; i++) {
       try { commands.push(JSON.parse(jsonlLines[i].trim())); } catch (e2) { /* skip */ }
     }
     if (commands.length) return commands;
   }
 
   // Strategy 5: Extract all {...} objects from anywhere in the text
-  var objRegex = /\{(?:[^{}]|(?:\{[^{}]*\}))*\}/g;
-  var objMatches = content.match(objRegex);
+  const objRegex = /\{(?:[^{}]|(?:\{[^{}]*\}))*\}/g;
+  const objMatches = content.match(objRegex);
   if (objMatches && objMatches.length) {
-    var cmds = [];
-    for (var j = 0; j < objMatches.length; j++) {
+    const cmds = [];
+    for (let j = 0; j < objMatches.length; j++) {
       try { cmds.push(JSON.parse(objMatches[j])); } catch (e2) { /* skip */ }
     }
     if (cmds.length) return cmds;
@@ -5438,7 +5684,7 @@ function executeOneAICommand(cmd) {
         id: genAnnId(),
         type: type || 'note',
         text: text,
-        visible: visible !== undefined ? visible : false,
+        visible: visible !== undefined ? visible : true,
         createdAt: Date.now()
       });
       if (text) count++;
@@ -5580,7 +5826,7 @@ function executeOneAICommandNoBatch(cmd) {
       id: genAnnId(),
       type: type || 'note',
       text: text,
-      visible: visible !== undefined ? visible : false,
+      visible: visible !== undefined ? visible : true,
       createdAt: Date.now()
     });
     if (text) count++;
@@ -5924,7 +6170,7 @@ function executeOneAICommandNoBatch(cmd) {
             const show = fullText.length > 400 ? '...' + fullText.slice(-400) : fullText;
             statusEl.innerHTML = '<span style="color:#a044ff;">⏳ 思考中</span> <span style="color:#888;font-size:10px;white-space:pre-wrap;">' + show.replace(/</g,'&lt;') + '</span>';
           }
-        }, aiAbortController.signal);
+        }, aiAbortController.signal, function(icon, text) { setFloatingStatus(icon, text, true); });
 
         // Check if user clicked stop during streaming
         if (aiStopRequested) {

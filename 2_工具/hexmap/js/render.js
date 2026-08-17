@@ -80,7 +80,7 @@ function render() {
   // Pass 1: Draw hex fills and grid only
   for (let q = qMin; q <= qMax; q++) {
     for (let r = rMin; r <= rMax; r++) {
-      drawHexBase(q, r, allTerrains);
+      drawHexBase(ctx, q, r, undefined, allTerrains);
     }
   }
 
@@ -115,7 +115,7 @@ function render() {
   // Pass 3: Draw overlays (icons, labels, settlements) — on top of everything
   for (let q = qMin; q <= qMax; q++) {
     for (let r = rMin; r <= rMax; r++) {
-      drawHexOverlay(q, r, allTerrains);
+      drawHexOverlay(ctx, q, r);
     }
   }
 
@@ -226,15 +226,19 @@ function render() {
   renderMinimap();
 }
 
-function drawHexBase(q, r, allTerrains) {
+// Draw a single hex's fill + grid on any 2D context `g` (the global ctx shadows
+// as default). `h` is the hex data (defaults to getHex(q,r)). Sharing this with
+// PNG export keeps the two renders identical.
+function drawHexBase(g, q, r, h, allTerrains) {
+  if (!h) h = getHex(q, r);
+  if (!allTerrains) allTerrains = getAllTerrains();
   const p = hexToPixel(q, r);
-  const h = getHex(q, r);
   const corners = hexCorners(p.x, p.y, HEX_SIZE);
 
   // Fill
-  ctx.beginPath();
-  corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
-  ctx.closePath();
+  g.beginPath();
+  corners.forEach((c, i) => i === 0 ? g.moveTo(c.x, c.y) : g.lineTo(c.x, c.y));
+  g.closePath();
 
   // Layer composition: terrain (base) + elevation tint + region tint.
   // - 0 layers on  -> neutral dark gray base (#3a3a52), grid still visible
@@ -247,23 +251,23 @@ function drawHexBase(q, r, allTerrains) {
   const activeCount = (terrainActive ? 1 : 0) + (elevActive ? 1 : 0) + (regionActive ? 1 : 0);
 
   if (activeCount >= 2) {
-    ctx.fillStyle = hTerrainInfo ? hTerrainInfo.color : '#3a3a52';
-    ctx.fill();
-    if (elevActive) { ctx.fillStyle = hexToRGBA(elevationColor(h.elev), 0.55); ctx.fill(); }
-    if (regionActive) { ctx.fillStyle = hexToRGBA(regions[h.region].color, 0.2); ctx.fill(); }
+    g.fillStyle = hTerrainInfo ? hTerrainInfo.color : '#3a3a52';
+    g.fill();
+    if (elevActive) { g.fillStyle = hexToRGBA(elevationColor(h.elev), 0.55); g.fill(); }
+    if (regionActive) { g.fillStyle = hexToRGBA(regions[h.region].color, 0.2); g.fill(); }
   } else if (activeCount === 1) {
     const solo = terrainActive ? hTerrainInfo.color
       : (elevActive ? elevationColor(h.elev) : regions[h.region].color);
-    ctx.fillStyle = solo; ctx.fill();
+    g.fillStyle = solo; g.fill();
   } else {
-    ctx.fillStyle = '#3a3a52'; ctx.fill();
+    g.fillStyle = '#3a3a52'; g.fill();
   }
 
   // Grid stroke
   if (showGrid) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
+    g.strokeStyle = 'rgba(255,255,255,0.12)';
+    g.lineWidth = 1;
+    g.stroke();
   }
 }
 
@@ -296,26 +300,27 @@ function drawRivers(ctx, qMin, qMax, rMin, rMax) {
   }
 }
 
-function drawHexOverlay(q, r, allTerrains) {
+function drawHexOverlay(g, q, r, h) {
   const p = hexToPixel(q, r);
-  const h = getHex(q, r);
+  const allTerrains = getAllTerrains();
+  if (!h) h = getHex(q, r);
 
   // Coordinates
   if (showCoords) {
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
-    ctx.font = `${Math.max(8, HEX_SIZE * 0.32)}px monospace`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(`${q},${r}`, p.x, p.y + HEX_SIZE * 0.4);
+    g.fillStyle = 'rgba(255,255,255,0.35)';
+    g.font = `${Math.max(8, HEX_SIZE * 0.32)}px monospace`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(`${q},${r}`, p.x, p.y + HEX_SIZE * 0.4);
   }
 
   // Terrain icon (vector or emoji) — hidden when the terrain layer is off
   const hOverlayTI = h.terrain ? allTerrains[h.terrain] : null;
   if (showTerrainLayer && hOverlayTI) {
     if (hOverlayTI.imageUrl) {
-      drawHexImage(p.x, p.y, HEX_SIZE * 1.1, hOverlayTI.imageUrl);
+      drawHexImage(g, p.x, p.y, HEX_SIZE * 1.1, hOverlayTI.imageUrl);
     } else {
-      drawIconOrEmoji(ctx, {
+      drawIconOrEmoji(g, {
         key: h.terrain, emoji: hOverlayTI.icon,
         x: p.x, y: p.y - (h.label || h.settlement || (h.annotations && h.annotations.some(a => a.visible)) ? HEX_SIZE * 0.15 : 0),
         size: HEX_SIZE * 0.62, color: '#f4f4f4',
@@ -333,7 +338,7 @@ function drawHexOverlay(q, r, allTerrains) {
       const startY = p.y - HEX_SIZE * 0.55;
       visibleAnn.forEach((a, idx) => {
         const at = ANNOTATION_TYPES[a.type] || ANNOTATION_TYPES.note;
-        drawIconOrEmoji(ctx, {
+        drawIconOrEmoji(g, {
           key: a.type, emoji: at.icon,
           x: startX + (idx + 0.5) * (HEX_SIZE * 0.5) - (visibleAnn.length > 1 ? HEX_SIZE * 0.15 : 0),
           y: startY,
@@ -347,25 +352,25 @@ function drawHexOverlay(q, r, allTerrains) {
 
   // Label
   if (h.label) {
-    ctx.fillStyle = '#fff';
-    ctx.font = `bold ${Math.max(9, HEX_SIZE * 0.38)}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    const tw = ctx.measureText(h.label).width;
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(p.x - tw/2 - 3, p.y - HEX_SIZE * 0.65, tw + 6, HEX_SIZE * 0.55);
-    ctx.fillStyle = '#fff';
-    ctx.fillText(h.label, p.x, p.y - HEX_SIZE * 0.2);
+    g.fillStyle = '#fff';
+    g.font = `bold ${Math.max(9, HEX_SIZE * 0.38)}px sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'bottom';
+    const tw = g.measureText(h.label).width;
+    g.fillStyle = 'rgba(0,0,0,0.55)';
+    g.fillRect(p.x - tw/2 - 3, p.y - HEX_SIZE * 0.65, tw + 6, HEX_SIZE * 0.55);
+    g.fillStyle = '#fff';
+    g.fillText(h.label, p.x, p.y - HEX_SIZE * 0.2);
   }
 
   // Settlement marker
   if (h.settlement) {
     if (h.settlement.imageUrl) {
-      drawHexImage(p.x, p.y + HEX_SIZE * 0.15, HEX_SIZE * 0.9, h.settlement.imageUrl);
+      drawHexImage(g, p.x, p.y + HEX_SIZE * 0.15, HEX_SIZE * 0.9, h.settlement.imageUrl);
     } else {
       const ratingIcons = {'-3':'🛖','-2':'🏕️','-1':'🏘️','0':'🏘️','1':'🏛️','2':'🏰','3':'🏙️'};
       const icon = ratingIcons[String(h.settlement.rating)] || '🏘️';
-      drawIconOrEmoji(ctx, {
+      drawIconOrEmoji(g, {
         key: SETTLEMENT_ICON_KEYS[String(h.settlement.rating)], emoji: icon,
         x: p.x, y: p.y + HEX_SIZE * 0.45,
         size: HEX_SIZE * 0.78, color: '#ffd98a',
@@ -374,48 +379,48 @@ function drawHexOverlay(q, r, allTerrains) {
     }
 
     // Settlement name & rating
-    ctx.fillStyle = '#ffd700';
-    ctx.font = `bold ${Math.max(9, HEX_SIZE * 0.3)}px sans-serif`;
-    ctx.textBaseline = 'top';
+    g.fillStyle = '#ffd700';
+    g.font = `bold ${Math.max(9, HEX_SIZE * 0.3)}px sans-serif`;
+    g.textBaseline = 'top';
     const sname = h.settlement.name || '?';
     const srating = h.settlement.rating ?? 0;
     const stext = `${sname} (${srating >= 0 ? '+' : ''}${srating})`;
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    const sw = ctx.measureText(stext).width;
-    ctx.fillRect(p.x - sw/2 - 3, p.y + HEX_SIZE * 0.68, sw + 6, HEX_SIZE * 0.38);
-    ctx.fillStyle = '#ffd700';
-    ctx.fillText(stext, p.x, p.y + HEX_SIZE * 0.72);
+    g.fillStyle = 'rgba(0,0,0,0.5)';
+    const sw = g.measureText(stext).width;
+    g.fillRect(p.x - sw/2 - 3, p.y + HEX_SIZE * 0.68, sw + 6, HEX_SIZE * 0.38);
+    g.fillStyle = '#ffd700';
+    g.fillText(stext, p.x, p.y + HEX_SIZE * 0.72);
   }
 }
 
-// Draw an image clipped to a hexagon shape
-function drawHexImage(cx, cy, imgSize, imageUrl) {
+// Draw an image clipped to a hexagon shape on any context `g`.
+function drawHexImage(g, cx, cy, imgSize, imageUrl) {
   const img = getCachedImage(imageUrl);
   if (!img || !img.complete || img.naturalWidth === 0) {
     // Image not loaded yet, draw placeholder
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    ctx.font = `${HEX_SIZE * 0.5}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🖼️', cx, cy);
+    g.fillStyle = 'rgba(255,255,255,0.3)';
+    g.font = `${HEX_SIZE * 0.5}px sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText('🖼️', cx, cy);
     return;
   }
-  ctx.save();
+  g.save();
   // Hex clip path
   const corners = hexCorners(cx, cy, imgSize * 0.6);
-  ctx.beginPath();
-  corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
-  ctx.closePath();
-  ctx.clip();
+  g.beginPath();
+  corners.forEach((c, i) => i === 0 ? g.moveTo(c.x, c.y) : g.lineTo(c.x, c.y));
+  g.closePath();
+  g.clip();
   // Draw image centered
   const s = imgSize;
-  ctx.drawImage(img, cx - s/2, cy - s/2, s, s);
-  ctx.restore();
+  g.drawImage(img, cx - s/2, cy - s/2, s, s);
+  g.restore();
   // Thin border
-  ctx.beginPath();
-  corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
-  ctx.closePath();
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-  ctx.lineWidth = 1;
-  ctx.stroke();
+  g.beginPath();
+  corners.forEach((c, i) => i === 0 ? g.moveTo(c.x, c.y) : g.lineTo(c.x, c.y));
+  g.closePath();
+  g.strokeStyle = 'rgba(255,255,255,0.15)';
+  g.lineWidth = 1;
+  g.stroke();
 }

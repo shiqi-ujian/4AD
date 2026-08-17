@@ -522,7 +522,7 @@ document.getElementById('te-btn-close').addEventListener('click', function() {
 function openGenRulesEditor() {
   let modal = document.getElementById('gen-rules-modal');
   document.getElementById('gr-threshold').value = String(generationRules.d6Threshold);
-  var chanceVal = Math.round((generationRules.specialTerrainChance || 0.05) * 100);
+  const chanceVal = Math.round((generationRules.specialTerrainChance || 0.05) * 100);
   document.getElementById('gr-special-chance').value = chanceVal;
   document.getElementById('gr-special-chance-val').textContent = chanceVal + '%';
   document.getElementById('gr-river-travel').value = generationRules.riverTravel != null ? generationRules.riverTravel : 0;
@@ -1118,20 +1118,20 @@ function hexPathfind(q1, r1, q2, r2) {
   const visited = new Set([startKey]);
   const cameFrom = {};
   const queue = [{ q: q1, r: r1 }];
-  var head = 0;
+  let head = 0;
   while (head < queue.length) {
-    var cur = queue[head++];
-    var curKey = hexKey(cur.q, cur.r);
-    var nbrs = neighbors(cur.q, cur.r);
-    for (var ni = 0; ni < nbrs.length; ni++) {
-      var n = nbrs[ni];
-      var nk = hexKey(n.q, n.r);
+    const cur = queue[head++];
+    const curKey = hexKey(cur.q, cur.r);
+    const nbrs = neighbors(cur.q, cur.r);
+    for (let ni = 0; ni < nbrs.length; ni++) {
+      const n = nbrs[ni];
+      const nk = hexKey(n.q, n.r);
       if (nk === goalKey) {
         // Reconstruct path
-        var path = [{ q: n.q, r: n.r }];
-        var ck = curKey;
+        const path = [{ q: n.q, r: n.r }];
+        let ck = curKey;
         while (ck) {
-          var parts = ck.split(','); path.unshift({ q: +parts[0], r: +parts[1] });
+          const parts = ck.split(','); path.unshift({ q: +parts[0], r: +parts[1] });
           ck = cameFrom[ck];
         }
         return path;
