@@ -682,6 +682,121 @@ document.getElementById('settlement-modal-rating').addEventListener('input', fun
   document.getElementById('settlement-modal-rating-val').textContent = `${val >= 0 ? '+' : ''}${val}`;
 });
 
+// ======== Encounter Modal ========
+// 打开遭遇面板：默认用当前选中格的地形挑表，未选则用"全图"表。
+function openEncounterModal() {
+  const modal = document.getElementById('encounter-modal');
+  if (!modal) return;
+  const t = selectedHex ? getHex(selectedHex.q, selectedHex.r).terrain : null;
+  selectEncounterTable(t);
+  modal.style.display = 'block';
+}
+
+// 选择并渲染某张遭遇表（terrainId 为 null 时用兜底全图表）
+function selectEncounterTable(terrainId) {
+  currentEncounterTerrain = terrainId || '__all__';
+  const name = terrainId && getTerrainInfo(terrainId) ? getTerrainInfo(terrainId).name : '全图';
+  document.getElementById('encounter-title').textContent = `⚔️ 遭遇表 — ${name}`;
+  // 骰子面数：10→d10，20→d20；default 10
+  const faces = currentEncounterTable().length === 20 ? 20 : 10;
+  document.getElementById('encounter-die').value = String(faces);
+  renderEncounterTable();
+  rollEncounter();
+}
+// 按地形取表：若该地形无自定义表则回退到内置/全图
+function currentEncounterTable() {
+  const t = currentEncounterTerrain;
+  if (t !== '__all__' && encounterCustomTables[t]) return encounterCustomTables[t];
+  return encounterCustomTables['__all__'] || encounterTables['__all__'];
+}
+function encounterDie() {
+  const v = parseInt(document.getElementById('encounter-die').value) || 10;
+  return v === 20 ? 20 : 10;
+}
+function renderEncounterTable() {
+  const faces = encounterDie();
+  const table = currentEncounterTable();
+  const rows = document.getElementById('encounter-table-rows');
+  rows.innerHTML = '';
+  for (let i = 0; i < faces; i++) {
+    const text = table[i] || '';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td style="padding:3px 6px;color:#ffd700;text-align:center;width:36px;">${i + 1}</td>
+      <td style="padding:3px 4px;width:28px;text-align:center;">
+        <button data-roll-i="${i}" title="重掷该行" style="padding:1px 6px;background:#0f3460;color:#ccc;border:none;border-radius:3px;cursor:pointer;">🎲</button>
+      </td>
+      <td style="padding:3px 6px;width:40px;"><input data-edit-i="${i}" value="${escHtml(text)}" style="width:100%;padding:2px 4px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:3px;font-size:12px;"></td>`;
+    rows.appendChild(tr);
+  }
+  // bind row buttons + input change
+  rows.querySelectorAll('[data-roll-i]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const i = parseInt(btn.dataset.rollI);
+      rollSingleEncounter(i);
+    });
+  });
+  rows.querySelectorAll('input[data-edit-i]').forEach(function(inp) {
+    inp.addEventListener('change', function() {
+      const i = parseInt(inp.dataset.editI);
+      currentEncounterTable()[i] = inp.value.trim();
+      persistEncounterTables();
+      // re-render region borders & info unaffected
+    });
+  });
+}
+function rollSingleEncounter(i) {
+  const faces = encounterDie();
+  const pick = Math.floor(Math.random() * faces);
+  const table = currentEncounterTable();
+  const inp = document.querySelector(`input[data-edit-i="${i}"]`);
+  if (inp) inp.value = table[pick] || '';
+  document.getElementById('encounter-result').textContent = `第 ${pick + 1} 项: ${table[pick] || '(空)'}`;
+}
+function rollEncounter() {
+  const faces = encounterDie();
+  const table = currentEncounterTable();
+  const pick = Math.floor(Math.random() * faces);
+  const text = table[pick] || '(空条目)';
+  document.getElementById('encounter-result').textContent = `🎲 ${faces} → 第 ${pick + 1} 项: ${text}`;
+  currentEncounterPick = pick;
+}
+// 覆盖当前遭遇到选中格的"危险/剧情"标注
+function pinEncounterToHex() {
+  if (!selectedHex) { showDiceResult('⚠️', '请先选择一个六角格再放入'); return; }
+  const table = currentEncounterTable();
+  const idx = (currentEncounterPick != null ? currentEncounterPick : 0);
+  const text = table[idx] || '';
+  if (!text) { showDiceResult('⚠️', '当前条目为空'); return; }
+  addAnnotation(selectedHex.q, selectedHex.r, { type: 'hazard', text: `遭遇: ${text}`, visible: false, createdAt: Date.now() });
+  document.getElementById('encounter-modal').style.display = 'none';
+  render(); updateInfo();
+  showDiceResult('⚔️ 已记录', `已把「${text.slice(0, 30)}」存入该格标注`);
+}
+function persistEncounterTables() {
+  try { localStorage.setItem('encounter_tables', JSON.stringify(encounterCustomTables)); }
+  catch (e) { /* ignore */ }
+}
+function pinResultToHex() { pinEncounterToHex(); }
+function closeEncounterModal() { document.getElementById('encounter-modal').style.display = 'none'; }
+// table persistence import
+let encounterCustomTables = {};
+try { const r = localStorage.getItem('encounter_tables'); if (r) encounterCustomTables = JSON.parse(r) || {}; } catch (e) {}
+function currentEncounterTableDef() { return currentEncounterTable(); }
+
+// bind buttons
+const encBtn = document.getElementById('btn-encounter');
+if (encBtn) encBtn.addEventListener('click', openEncounterModal);
+const encSE = document.getElementById('encounter-die');
+if (encSE) encSE.addEventListener('change', function() { renderEncounterTable(); rollEncounter(); });
+const encRoll = document.getElementById('btn-encounter-roll');
+if (encRoll) encRoll.addEventListener('click', rollEncounter);
+const encPin = document.getElementById('btn-encounter-pin');
+if (encPin) encPin.addEventListener('click', pinEncounterToHex);
+const encClose = document.getElementById('btn-encounter-close');
+if (encClose) encClose.addEventListener('click', closeEncounterModal);
+const encModalEl = document.getElementById('encounter-modal');
+if (encModalEl) encModalEl.addEventListener('click', function(e) { if (e.target === encModalEl) closeEncounterModal(); });
+
 function settlementModalConfirm() {
   const q = parseInt(document.getElementById('settlement-modal-q').value);
   const r = parseInt(document.getElementById('settlement-modal-r').value);

@@ -192,6 +192,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
       <button id="btn-search" style="flex:1;padding:4px;background:#6a3093;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="搜索定居点/地名/王国/标注并定位">🔍 搜索定位</button>
       <button id="btn-share" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="导出紧凑数据串/分享链接 或 粘贴导入">🔗 分享/导入</button>
       <button id="btn-stats" style="flex:1;padding:4px;background:#0f3460;color:#ccc;border:none;border-radius:4px;cursor:pointer;" title="查看地图统计">📊 统计</button>
+      <button id="btn-encounter" style="flex:1;padding:4px;background:#8b3a2a;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="随机遭遇表(按选中格地形)">⚔️ 遭遇</button>
     </div>
     <div style="display:flex;gap:4px;">
       <button id="btn-clear" style="flex:1;padding:4px;background:#6b5b4f;color:#ccc;border:none;border-radius:4px;cursor:pointer;">🗑️ 清空</button>
@@ -241,7 +242,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     <div style="font-size:10px;color:#666;margin-top:2px;">用「探索」工具(F)点击揭示周边，可逐步展开地图。</div>
     <div style="margin-top:auto;font-size:11px;color:#666;text-align:center;padding-top:8px;">
       通用六角格地图工具 v1.0<br>
-      滚轮缩放 · 拖拽平移 · 右键菜单
+      滚轮缩放 · 拖拽平移 · 右键菜单 · <a href="CHANGELOG.md" target="_blank" style="color:#3a7abd;text-decoration:none;" title="查看更新日志">📜 更新日志</a>
     </div>
   </div>
 
@@ -641,6 +642,32 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
       <button id="share-btn-close" style="padding:6px 16px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">关闭</button>
     </div>
     <div id="share-status" style="margin-top:8px;font-size:12px;color:#aaa;"></div>
+  </div>
+</div>
+
+<div id="encounter-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:560px;max-height:86vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;" id="encounter-title">⚔️ 遭遇表</h3>
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;">
+      <label style="font-size:12px;color:#ccc;">骰子:</label>
+      <select id="encounter-die" style="padding:4px 8px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;">
+        <option value="10">d10 (10条)</option>
+        <option value="20">d20 (20条)</option>
+      </select>
+      <button id="btn-encounter-roll" style="padding:6px 14px;background:#8b3a2a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;">🎲 重掷</button>
+      <button id="btn-encounter-pin" style="margin-left:auto;padding:6px 14px;background:#c9a84c;color:#000;border:none;border-radius:4px;cursor:pointer;font-size:13px;">📌 存入选中格</button>
+      <button id="btn-encounter-close" style="padding:6px 12px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">关闭</button>
+    </div>
+    <div id="encounter-result" style="padding:10px 12px;margin-bottom:10px;background:#1a1a2e;border:1px solid #0f3460;border-radius:6px;font-size:14px;color:#ffd700;min-height:20px;">🎲 重掷…</div>
+    <div style="font-size:11px;color:#888;margin-bottom:6px;">表格行可直接编辑文本，改后自动保存到浏览器（localStorage）。</div>
+    <div style="max-height:420px;overflow-y:auto;border:1px solid #0f3460;border-radius:6px;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead><tr style="background:#1a1a2e;color:#aaa;">
+          <th style="padding:6px;text-align:center;">#</th><th style="padding:6px;text-align:center;"></th><th style="padding:6px;text-align:left;">遭遇内容</th>
+        </tr></thead>
+        <tbody id="encounter-table-rows"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -1548,7 +1575,82 @@ function cleanHexData() {
   }
 }
 
-// ======== Annotations API ========
+// ======== 遭遇表 (Encounter Tables) ========
+// 按地形一张表，10条d10或20条d20；含'__all__'兜底表。
+// GM 可编辑并持久化（localStorage: encounter_tables）。
+let currentEncounterTerrain = '__all__'; // 当前面板选中的地形 id 或 '__all__'
+let currentEncounterPick = 0;
+
+// 内置默认表（中性奇幻通用内容，非 4AD 专属）
+const encounterTables = {
+  '__all__': [
+    '一群野兽从灌木丛中窜出', '迷路的商队需要指引', '废弃的哨站冒起炊烟',
+    '翻倒的货车散落货物', '远处的号角声此起彼伏', '一只独行的神秘旅人',
+    '风化的墓碑群沿路延伸', '小群流寇在营地扎寨', '受伤的信使倒伏路旁',
+    '一队巡逻卫兵盘查身份'
+  ],
+  'plain': [
+    '野马群在草原狂奔', '游方艺人搭起临时戏台', '两个村落为水源争执',
+    '骑士在训练场切磋', '无人看管的稻草人农田', '一群候鸟顺着风向迁徙',
+    '落魄的农夫求购食物', '马蹄印直通地平线', '篝火晚会的欢歌', '独行的牧羊人'
+  ],
+  'forest': [
+    '树根下的毒菇群', '破旧的木屋有炊烟', '警觉的鹿群四散奔逃',
+    '盗猎者留下的捕兽夹', '迷路的林间小径', '巨大的熊掌印',
+    '枝头的猫头鹰叫个不停', '石缝里的银币一闪', '踏青踩到陷阱', '林精的低语'
+  ],
+  'hill': [
+    '山顶的信号狼烟', '滚落的山石堵路', '牧羊人驱赶群羊',
+    '废弃的石砌瞭望塔', '野蜂群的窝', '蜿蜒的羊肠小路分岔',
+    '山顶的风环着哨声', '猎人背着一头鹿', '雨后的小径泥泞', '山洞深处的回声'
+  ],
+  'mountain': [
+    '山壁滑落的碎石', '山隘的强风', '冒热气的地缝',
+    '雪崩后的残迹', '采矿队的棚屋', '悬崖上的猛禽巢',
+    '沉重脚步在隧道回荡', '融雪汇成溪', '锈蚀的兵刃', '冻僵的行脚僧'
+  ],
+  'water': [
+    '渔夫的小船在摆渡', '水中的浮标随波', '河岸边的孩童戏水',
+    '渡口排起长队', '风掀起浪打湿堤岸', '搁浅的破船骨架',
+    '渔船夜间点起的灯', '徒手抓鱼的渔翁', '潺潺溪边的青蛙', '远方地平线的帆影'
+  ],
+  'desert': [
+    '沙丘后的一队骆驼', '干涸水井的围栏', '沙暴前的热浪',
+    '金光反射的银币', '独行的商队守卫', '风化岩中的人影',
+    '蜥蜴在岩块间窜动', '遥远的绿洲蜃景', '沙地上凌乱的足迹', '半埋的石像'
+  ],
+  'swamp': [
+    '水洼冒出的气泡', '沼泽中的浮草桥', '远方的萤火微光',
+    '陷入泥的货车轮', '枯木上的水鸟', '蛇的滑行痕迹',
+    '泥潭里的粼粼银光', '萎缩的芦苇床', '湿滑的青苔石径', '隐约的沼泽低语'
+  ],
+  'snow': [
+    '白雾遮住视线', '冰层在脚下呻吟', '风中裹着积雪的微粒',
+    '雪丘上的窝棚门', '肩顶的绒羽猎人', '冰湖上的钓叟',
+    '雪地里的凌乱兽印', '冻僵的松枝', '北方极光的微光', '篝火旁的一对旅人'
+  ],
+  'dead_land': [
+    '翻开的墓穴旁', '枯骨堆中的戒指', '黑暗中的低语',
+    '残塔的顶端吊着灯', '冻僵的人形轮廓', '坟场间游荡的雾气',
+    '旧祭坛上的炭痕', '地衣爬满的石碑', '空荡的回廊回声', '仿佛被注视的感觉'
+  ],
+  'ruins': [
+    '裂开的宫殿穹顶', '断壁间插着的火把', '沉睡的石门',
+    '幽暗甬道里的水滴', '风穿过残窗的呜鸣', '苔藓覆盖的浮雕',
+    '坍塌的拱门下压着箱', '柱廊间的回声', '无人认领的旧盔', '壁画残像流转'
+  ],
+  'nec': [
+    '剥落的漆布从椁', '棺盖微微推开的痕迹', '染血的旧镣铐',
+    '地窖里的湿霉', '挂满蛛网的夜灯', '零落的脱臼齿',
+    '地面的凹痕', '灰烬中央的戒指', '半开的门后拖影', '寂谬的吊灯'
+  ]
+};
+
+function currentEncounterTable() {
+  const t = currentEncounterTerrain;
+  if (t !== '__all__' && encounterCustomTables[t]) return encounterCustomTables[t];
+  return encounterCustomTables['__all__'] || encounterTables['__all__'];
+}
 let _annIdCounter = 0;
 function genAnnId() { return 'a' + (++_annIdCounter) + '_' + Date.now().toString(36); }
 
@@ -3398,6 +3500,121 @@ document.getElementById('settlement-modal-rating').addEventListener('input', fun
   const val = parseInt(e.target.value);
   document.getElementById('settlement-modal-rating-val').textContent = `${val >= 0 ? '+' : ''}${val}`;
 });
+
+// ======== Encounter Modal ========
+// 打开遭遇面板：默认用当前选中格的地形挑表，未选则用"全图"表。
+function openEncounterModal() {
+  const modal = document.getElementById('encounter-modal');
+  if (!modal) return;
+  const t = selectedHex ? getHex(selectedHex.q, selectedHex.r).terrain : null;
+  selectEncounterTable(t);
+  modal.style.display = 'block';
+}
+
+// 选择并渲染某张遭遇表（terrainId 为 null 时用兜底全图表）
+function selectEncounterTable(terrainId) {
+  currentEncounterTerrain = terrainId || '__all__';
+  const name = terrainId && getTerrainInfo(terrainId) ? getTerrainInfo(terrainId).name : '全图';
+  document.getElementById('encounter-title').textContent = `⚔️ 遭遇表 — ${name}`;
+  // 骰子面数：10→d10，20→d20；default 10
+  const faces = currentEncounterTable().length === 20 ? 20 : 10;
+  document.getElementById('encounter-die').value = String(faces);
+  renderEncounterTable();
+  rollEncounter();
+}
+// 按地形取表：若该地形无自定义表则回退到内置/全图
+function currentEncounterTable() {
+  const t = currentEncounterTerrain;
+  if (t !== '__all__' && encounterCustomTables[t]) return encounterCustomTables[t];
+  return encounterCustomTables['__all__'] || encounterTables['__all__'];
+}
+function encounterDie() {
+  const v = parseInt(document.getElementById('encounter-die').value) || 10;
+  return v === 20 ? 20 : 10;
+}
+function renderEncounterTable() {
+  const faces = encounterDie();
+  const table = currentEncounterTable();
+  const rows = document.getElementById('encounter-table-rows');
+  rows.innerHTML = '';
+  for (let i = 0; i < faces; i++) {
+    const text = table[i] || '';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td style="padding:3px 6px;color:#ffd700;text-align:center;width:36px;">${i + 1}</td>
+      <td style="padding:3px 4px;width:28px;text-align:center;">
+        <button data-roll-i="${i}" title="重掷该行" style="padding:1px 6px;background:#0f3460;color:#ccc;border:none;border-radius:3px;cursor:pointer;">🎲</button>
+      </td>
+      <td style="padding:3px 6px;width:40px;"><input data-edit-i="${i}" value="${escHtml(text)}" style="width:100%;padding:2px 4px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:3px;font-size:12px;"></td>`;
+    rows.appendChild(tr);
+  }
+  // bind row buttons + input change
+  rows.querySelectorAll('[data-roll-i]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const i = parseInt(btn.dataset.rollI);
+      rollSingleEncounter(i);
+    });
+  });
+  rows.querySelectorAll('input[data-edit-i]').forEach(function(inp) {
+    inp.addEventListener('change', function() {
+      const i = parseInt(inp.dataset.editI);
+      currentEncounterTable()[i] = inp.value.trim();
+      persistEncounterTables();
+      // re-render region borders & info unaffected
+    });
+  });
+}
+function rollSingleEncounter(i) {
+  const faces = encounterDie();
+  const pick = Math.floor(Math.random() * faces);
+  const table = currentEncounterTable();
+  const inp = document.querySelector(`input[data-edit-i="${i}"]`);
+  if (inp) inp.value = table[pick] || '';
+  document.getElementById('encounter-result').textContent = `第 ${pick + 1} 项: ${table[pick] || '(空)'}`;
+}
+function rollEncounter() {
+  const faces = encounterDie();
+  const table = currentEncounterTable();
+  const pick = Math.floor(Math.random() * faces);
+  const text = table[pick] || '(空条目)';
+  document.getElementById('encounter-result').textContent = `🎲 ${faces} → 第 ${pick + 1} 项: ${text}`;
+  currentEncounterPick = pick;
+}
+// 覆盖当前遭遇到选中格的"危险/剧情"标注
+function pinEncounterToHex() {
+  if (!selectedHex) { showDiceResult('⚠️', '请先选择一个六角格再放入'); return; }
+  const table = currentEncounterTable();
+  const idx = (currentEncounterPick != null ? currentEncounterPick : 0);
+  const text = table[idx] || '';
+  if (!text) { showDiceResult('⚠️', '当前条目为空'); return; }
+  addAnnotation(selectedHex.q, selectedHex.r, { type: 'hazard', text: `遭遇: ${text}`, visible: false, createdAt: Date.now() });
+  document.getElementById('encounter-modal').style.display = 'none';
+  render(); updateInfo();
+  showDiceResult('⚔️ 已记录', `已把「${text.slice(0, 30)}」存入该格标注`);
+}
+function persistEncounterTables() {
+  try { localStorage.setItem('encounter_tables', JSON.stringify(encounterCustomTables)); }
+  catch (e) { /* ignore */ }
+}
+function pinResultToHex() { pinEncounterToHex(); }
+function closeEncounterModal() { document.getElementById('encounter-modal').style.display = 'none'; }
+// table persistence import
+let encounterCustomTables = {};
+try { const r = localStorage.getItem('encounter_tables'); if (r) encounterCustomTables = JSON.parse(r) || {}; } catch (e) {}
+function currentEncounterTableDef() { return currentEncounterTable(); }
+
+// bind buttons
+const encBtn = document.getElementById('btn-encounter');
+if (encBtn) encBtn.addEventListener('click', openEncounterModal);
+const encSE = document.getElementById('encounter-die');
+if (encSE) encSE.addEventListener('change', function() { renderEncounterTable(); rollEncounter(); });
+const encRoll = document.getElementById('btn-encounter-roll');
+if (encRoll) encRoll.addEventListener('click', rollEncounter);
+const encPin = document.getElementById('btn-encounter-pin');
+if (encPin) encPin.addEventListener('click', pinEncounterToHex);
+const encClose = document.getElementById('btn-encounter-close');
+if (encClose) encClose.addEventListener('click', closeEncounterModal);
+const encModalEl = document.getElementById('encounter-modal');
+if (encModalEl) encModalEl.addEventListener('click', function(e) { if (e.target === encModalEl) closeEncounterModal(); });
 
 function settlementModalConfirm() {
   const q = parseInt(document.getElementById('settlement-modal-q').value);
