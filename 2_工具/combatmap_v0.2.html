@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>四战黑 - 战斗地图生成器 v0.2</title>
+<title>通用战斗地图生成器 v0.2</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -160,7 +160,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
       <input type="checkbox" id="chk-coords" checked> 显示坐标
     </label>
     <div style="margin-top:auto;font-size:10px;color:#555;text-align:center;padding-top:6px;">
-      四战黑 · 战斗地图 v0.2<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>区域/线段/图片 · Delete 删除选中
+      通用跑团 · 战斗地图 v0.2<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>区域/线段/图片 · Delete 删除选中
     </div>
   </div>
 
@@ -2966,7 +2966,7 @@ function exportLegendPNG() {
   c.fillText('⚔️ 战斗地图图例', PAD, 20);
   c.font = '12px sans-serif';
   c.fillStyle = '#aaa';
-  c.fillText(`共 ${list.length} 种地形 · 四战黑战斗地图 v0.2`, PAD, 38);
+  c.fillText(`共 ${list.length} 种地形 · 通用战斗地图 v0.2`, PAD, 38);
   list.forEach((id, i) => {
     const t = getTerrain(id);
     const y = PAD + 40 + i * LINE_H;
@@ -3019,7 +3019,7 @@ function exportOwlbearScene() {
           tableName: 'maps',
           rows: [{
             id: mapId,
-            name: '四战黑战斗地图 ' + new Date().toISOString().slice(0,10),
+            name: '通用战斗地图 ' + new Date().toISOString().slice(0,10),
             file: assetId,
             grid: {
               type: 'SQUARE',
@@ -3539,7 +3539,7 @@ function init() {
   viewY = canvas.height / 2;
   render();
   updateInfo();
-  console.log('⚔️ 四战黑战斗地图生成器 v0.2 已就绪');
+  console.log('⚔️ 通用战斗地图生成器 v0.2 已就绪');
   console.log('快捷键: V=选择 B=笔刷 W=墙壁 D=门 L=标签 E=擦除 R=区域 T=图片 G=线段 Delete=删除选中');
   console.log('新增: 区域/图片/线段图层 · 自定义地形(⚙️管理) · 智能区域模板 · 枭熊场景导出 · xlsx 颜色修复');
 }
