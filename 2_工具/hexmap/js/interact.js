@@ -62,6 +62,12 @@ canvas.addEventListener('mousedown', (e) => {
         dragStartX = mx;
         dragStartY = my;
       }
+      // Explore/reveal mode: enable drag for continuous reveal
+      if (selectedTool === 'reveal') {
+        isDragging = true;
+        dragStartX = mx;
+        dragStartY = my;
+      }
       // Erase mode: drag across hexes to erase continuously
       if (selectedTool === 'erase') {
         isDragging = true;
@@ -114,6 +120,9 @@ canvas.addEventListener('mousemove', (e) => {
         }
         render();
       }
+    } else if (selectedTool === 'reveal') {
+      const hex = hexAtPixel(mx, my);
+      if (hex) { revealHex(hex.q, hex.r); render(); }
     } else if (selectedTool === 'erase') {
       const hex = hexAtPixel(mx, my);
       if (hex) {
@@ -275,6 +284,7 @@ function handleHexClick(q, r, e) {
     case 'river': clickRiver(q, r); break;
     case 'measure': clickMeasure(q, r); break;
     case 'erase': clickErase(q, r); break;
+    case 'reveal': clickReveal(q, r); break;
     case 'label': showLabelDialog(q, r); break;
     default: // select
       updateInfo();
@@ -379,6 +389,16 @@ function clickMeasure(q, r) {
     measureStart = null;
   }
   render();
+}
+
+function clickReveal(q, r) {
+  beginBatch();
+  // Reveal clicked hex + ring 1 (points of interest around the party)
+  revealHex(q, r);
+  for (const n of neighbors(q, r)) revealHex(n.q, n.r);
+  endBatch();
+  render();
+  updateInfo();
 }
 
 function clickErase(q, r) {

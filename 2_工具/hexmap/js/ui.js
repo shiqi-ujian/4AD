@@ -288,7 +288,7 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if ((e.ctrlKey || e.metaKey) && e.key === 'y') { redo(); e.preventDefault(); return; }
-  const keyMap = { 'v': 'select', 'x': 'select-rect', 'b': 'paint', 's': 'settlement', 'r': 'road', 'w': 'river', 'm': 'measure', 'l': 'label', 'e': 'erase' };
+  const keyMap = { 'v': 'select', 'x': 'select-rect', 'b': 'paint', 's': 'settlement', 'r': 'road', 'w': 'river', 'm': 'measure', 'l': 'label', 'e': 'erase', 'f': 'reveal' };
   if (keyMap[e.key?.toLowerCase()]) {
     setTool(keyMap[e.key.toLowerCase()]);
     e.preventDefault();
@@ -346,6 +346,10 @@ function setTool(tool) {
     case 'label':
       hint.innerHTML = '🏷️ 点击六角格 → 弹出窗口输入地标名称（如：古墓、龙巢）';
       coord.textContent = '🏷️ 点击添加标签';
+      break;
+    case 'reveal':
+      hint.innerHTML = '🔦 点击六角格揭示周边迷雾（连点可逐步展开）';
+      coord.textContent = '🔦 探索揭示模式';
       break;
     case 'erase':
       hint.innerHTML = '🧹 点击擦除，从下拉菜单选择擦除内容：全部/仅地形/仅定居点/仅标签/仅河流/仅道路。拖拽连续擦除';

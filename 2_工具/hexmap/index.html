@@ -115,6 +115,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
       <button class="tool-btn" data-tool="river" title="画河流 (W)"><span class="icon">🌊</span><span class="label">河流(W)</span></button>
       <button class="tool-btn" data-tool="label" title="标文字 (L)"><span class="icon">🏷️</span><span class="label">标签(L)</span></button>
       <button class="tool-btn" data-tool="measure" title="测距 (M)"><span class="icon">📏</span><span class="label">测距(M)</span></button>
+      <button class="tool-btn" data-tool="reveal" title="探索揭示 (F)"><span class="icon">🔦</span><span class="label">探索(F)</span></button>
       <button class="tool-btn" data-tool="erase" title="擦除 (E)"><span class="icon">🧹</span><span class="label">擦除(E)</span></button>
     </div>
     <div id="erase-options" style="display:none;margin:2px 0 0 2px;font-size:12px;">
@@ -230,9 +231,17 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     <label style="font-size:12px;display:block;margin-top:2px;">
       边境透明度: <input type="range" id="border-opacity" min="20" max="100" value="85" style="width:80px;vertical-align:middle;"> <span id="border-opacity-val">85%</span>
     </label>
+    <label style="font-size:12px;border-top:1px solid #0f3460;padding-top:4px;margin-top:2px;">
+      <input type="checkbox" id="chk-fog"> 🌫️ 探索迷雾 <span style="color:#888;font-weight:normal;">(隐藏未探索区)</span>
+    </label>
+    <div style="display:flex;gap:4px;font-size:11px;">
+      <button id="btn-fog-reveal-all" style="flex:1;padding:3px 4px;background:#0f3460;color:#ccc;border:none;border-radius:4px;cursor:pointer;">👁️ 全部揭示</button>
+      <button id="btn-fog-hide-all" style="flex:1;padding:3px 4px;background:#5a1a2e;color:#ccc;border:none;border-radius:4px;cursor:pointer;">🌑 重设迷雾</button>
+    </div>
+    <div style="font-size:10px;color:#666;margin-top:2px;">用「探索」工具(F)点击揭示周边，可逐步展开地图。</div>
     <div style="margin-top:auto;font-size:11px;color:#666;text-align:center;padding-top:8px;">
       通用六角格地图工具 v1.0<br>
-      滚轮缩放 · 拖拽平移 · 右键菜单
+      滚轮缩放 · 拖拽平移 · 右键菜单 · <a href="CHANGELOG.md" target="_blank" style="color:#3a7abd;text-decoration:none;" title="查看更新日志">📜 更新日志</a>
     </div>
   </div>
 

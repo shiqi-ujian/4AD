@@ -106,6 +106,7 @@ console.log('Brace count:', bc, '| Last zero at HTML line:', lastZero + 1);
 
 ### 关键约定
 
+- **每次实质改动后，在 `2_工具/hexmap/CHANGELOG.md` 顶格追加入口**（倒序，最新在上），与源码一并提交
 - 改 hex 只动 `2_工具/hexmap/` 源码（index.html + js/*.js），**绝不手改 `hexmap.dist.html` 产物**；要发布才在 `hexmap/` 下跑 `node build.js`
 - 改 JS 后跑 `node --check` 或用 build 的 `new Function` 校验语法（build.js 已内置）
 - 撤销系统：`beginBatch()` / `endBatch()` 包裹批量操作，不可嵌套

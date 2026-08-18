@@ -122,6 +122,22 @@ function render() {
   // Pass 4: Region names (Worldbox style — center of territory)
   drawRegionNames(ctx);
 
+  if (isFog) {
+    ctx.fillStyle = '#23233a';
+    for (let q = qMin; q <= qMax; q++) {
+      for (let r = rMin; r <= rMax; r++) {
+        if (hexIsFogged(q, r)) {
+          const p = hexToPixel(q, r);
+          const corners = hexCorners(p.x, p.y, HEX_SIZE);
+          ctx.beginPath();
+          corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+    }
+  }
+
   // Draw selection outline
   if (selectedHex) {
     const p = hexToPixel(selectedHex.q, selectedHex.r);

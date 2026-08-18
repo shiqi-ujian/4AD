@@ -871,7 +871,7 @@ document.getElementById('btn-save').addEventListener('click', async function() {
   await new Promise(function(resolve) { setTimeout(resolve, 20); });
 
   const ex = buildImageRegistry(hexData, customTerrains);
-  const data = { hexData: ex.exportHex, imageRegistry: ex.registry, viewX, viewY, zoom, customTerrains: ex.exportCT, deletedTerrains, terrainOrder, generationRules, regions, regionOrder };
+  const data = { hexData: ex.exportHex, imageRegistry: ex.registry, viewX, viewY, zoom, customTerrains: ex.exportCT, deletedTerrains, terrainOrder, generationRules, regions, regionOrder, fog: exportFogData() };
   const json = JSON.stringify(data);
 
   let blob;
@@ -937,6 +937,8 @@ document.getElementById('btn-load').addEventListener('click', function() {
       if (data.generationRules) generationRules = { ...DEFAULT_GEN_RULES, ...data.generationRules };
       if (data.regions) regions = data.regions;
       if (data.regionOrder) regionOrder = data.regionOrder;
+      importFogData(data.fog);
+      if (fogChk) fogChk.checked = isFog;
       rebuildRegionPalette();
       saveTerrainConfig();
       rebuildTerrainPalette();

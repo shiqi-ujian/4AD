@@ -115,6 +115,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
       <button class="tool-btn" data-tool="river" title="画河流 (W)"><span class="icon">🌊</span><span class="label">河流(W)</span></button>
       <button class="tool-btn" data-tool="label" title="标文字 (L)"><span class="icon">🏷️</span><span class="label">标签(L)</span></button>
       <button class="tool-btn" data-tool="measure" title="测距 (M)"><span class="icon">📏</span><span class="label">测距(M)</span></button>
+      <button class="tool-btn" data-tool="reveal" title="探索揭示 (F)"><span class="icon">🔦</span><span class="label">探索(F)</span></button>
       <button class="tool-btn" data-tool="erase" title="擦除 (E)"><span class="icon">🧹</span><span class="label">擦除(E)</span></button>
     </div>
     <div id="erase-options" style="display:none;margin:2px 0 0 2px;font-size:12px;">
@@ -230,6 +231,14 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     <label style="font-size:12px;display:block;margin-top:2px;">
       边境透明度: <input type="range" id="border-opacity" min="20" max="100" value="85" style="width:80px;vertical-align:middle;"> <span id="border-opacity-val">85%</span>
     </label>
+    <label style="font-size:12px;border-top:1px solid #0f3460;padding-top:4px;margin-top:2px;">
+      <input type="checkbox" id="chk-fog"> 🌫️ 探索迷雾 <span style="color:#888;font-weight:normal;">(隐藏未探索区)</span>
+    </label>
+    <div style="display:flex;gap:4px;font-size:11px;">
+      <button id="btn-fog-reveal-all" style="flex:1;padding:3px 4px;background:#0f3460;color:#ccc;border:none;border-radius:4px;cursor:pointer;">👁️ 全部揭示</button>
+      <button id="btn-fog-hide-all" style="flex:1;padding:3px 4px;background:#5a1a2e;color:#ccc;border:none;border-radius:4px;cursor:pointer;">🌑 重设迷雾</button>
+    </div>
+    <div style="font-size:10px;color:#666;margin-top:2px;">用「探索」工具(F)点击揭示周边，可逐步展开地图。</div>
     <div style="margin-top:auto;font-size:11px;color:#666;text-align:center;padding-top:8px;">
       通用六角格地图工具 v1.0<br>
       滚轮缩放 · 拖拽平移 · 右键菜单
@@ -1049,6 +1058,33 @@ function iconLegendHTML(key, emoji, color, bodyHtml) {
   }
   return `<span style="margin-right:4px;">${emoji}</span>${bodyHtml || ''}`;
 }
+// ======== 探索迷雾 (Fog of War) ========
+// isFog: 迷雾图层主开关；explored: 已揭示六角格 key 集合（"q,r"）
+// 未在 explored 中的格子在 isFog 开启时被深色雾覆盖，随探索逐步揭示。
+let isFog = false;
+let explored = new Set();
+
+function hexIsFogged(q, r) {
+  return isFog && !explored.has(hexKey(q, r));
+}
+function revealHex(q, r) { if (explored.add(hexKey(q, r))) dirtyFog = true; }
+function concealfog(q, r) { explored.delete(hexKey(q, r)); dirtyFog = true; }
+function revealAll() {
+  explored = new Set(Object.keys(hexData));
+  dirtyFog = true;
+}
+function concealfogAll() { explored.clear(); dirtyFog = true; }
+// 供导出：序列化迷雾状态
+function exportFogData() { return { fog: isFog, explored: [...explored] }; }
+// 供导入：应用迷雾状态（缺失字段则保持默认）
+function importFogData(d) {
+  if (!d) return;
+  if (typeof d.fog === 'boolean') isFog = d.fog;
+  if (Array.isArray(d.explored)) explored = new Set(d.explored);
+  dirtyFog = true;
+}
+let dirtyFog = false;
+
 // ======== State ========
 let hexData = {}; // key: "q,r" -> { terrain, label, settlement, road, color }
 let selectedTool = 'select';
@@ -1918,6 +1954,22 @@ function render() {
   // Pass 4: Region names (Worldbox style — center of territory)
   drawRegionNames(ctx);
 
+  if (isFog) {
+    ctx.fillStyle = '#23233a';
+    for (let q = qMin; q <= qMax; q++) {
+      for (let r = rMin; r <= rMax; r++) {
+        if (hexIsFogged(q, r)) {
+          const p = hexToPixel(q, r);
+          const corners = hexCorners(p.x, p.y, HEX_SIZE);
+          ctx.beginPath();
+          corners.forEach((c, i) => i === 0 ? ctx.moveTo(c.x, c.y) : ctx.lineTo(c.x, c.y));
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+    }
+  }
+
   // Draw selection outline
   if (selectedHex) {
     const p = hexToPixel(selectedHex.q, selectedHex.r);
@@ -2285,6 +2337,12 @@ canvas.addEventListener('mousedown', (e) => {
         dragStartX = mx;
         dragStartY = my;
       }
+      // Explore/reveal mode: enable drag for continuous reveal
+      if (selectedTool === 'reveal') {
+        isDragging = true;
+        dragStartX = mx;
+        dragStartY = my;
+      }
       // Erase mode: drag across hexes to erase continuously
       if (selectedTool === 'erase') {
         isDragging = true;
@@ -2337,6 +2395,9 @@ canvas.addEventListener('mousemove', (e) => {
         }
         render();
       }
+    } else if (selectedTool === 'reveal') {
+      const hex = hexAtPixel(mx, my);
+      if (hex) { revealHex(hex.q, hex.r); render(); }
     } else if (selectedTool === 'erase') {
       const hex = hexAtPixel(mx, my);
       if (hex) {
@@ -2498,6 +2559,7 @@ function handleHexClick(q, r, e) {
     case 'river': clickRiver(q, r); break;
     case 'measure': clickMeasure(q, r); break;
     case 'erase': clickErase(q, r); break;
+    case 'reveal': clickReveal(q, r); break;
     case 'label': showLabelDialog(q, r); break;
     default: // select
       updateInfo();
@@ -2602,6 +2664,16 @@ function clickMeasure(q, r) {
     measureStart = null;
   }
   render();
+}
+
+function clickReveal(q, r) {
+  beginBatch();
+  // Reveal clicked hex + ring 1 (points of interest around the party)
+  revealHex(q, r);
+  for (const n of neighbors(q, r)) revealHex(n.q, n.r);
+  endBatch();
+  render();
+  updateInfo();
 }
 
 function clickErase(q, r) {
@@ -2933,7 +3005,7 @@ document.addEventListener('keydown', (e) => {
     return;
   }
   if ((e.ctrlKey || e.metaKey) && e.key === 'y') { redo(); e.preventDefault(); return; }
-  const keyMap = { 'v': 'select', 'x': 'select-rect', 'b': 'paint', 's': 'settlement', 'r': 'road', 'w': 'river', 'm': 'measure', 'l': 'label', 'e': 'erase' };
+  const keyMap = { 'v': 'select', 'x': 'select-rect', 'b': 'paint', 's': 'settlement', 'r': 'road', 'w': 'river', 'm': 'measure', 'l': 'label', 'e': 'erase', 'f': 'reveal' };
   if (keyMap[e.key?.toLowerCase()]) {
     setTool(keyMap[e.key.toLowerCase()]);
     e.preventDefault();
@@ -2991,6 +3063,10 @@ function setTool(tool) {
     case 'label':
       hint.innerHTML = '🏷️ 点击六角格 → 弹出窗口输入地标名称（如：古墓、龙巢）';
       coord.textContent = '🏷️ 点击添加标签';
+      break;
+    case 'reveal':
+      hint.innerHTML = '🔦 点击六角格揭示周边迷雾（连点可逐步展开）';
+      coord.textContent = '🔦 探索揭示模式';
       break;
     case 'erase':
       hint.innerHTML = '🧹 点击擦除，从下拉菜单选择擦除内容：全部/仅地形/仅定居点/仅标签/仅河流/仅道路。拖拽连续擦除';
@@ -4665,7 +4741,7 @@ document.getElementById('btn-save').addEventListener('click', async function() {
   await new Promise(function(resolve) { setTimeout(resolve, 20); });
 
   const ex = buildImageRegistry(hexData, customTerrains);
-  const data = { hexData: ex.exportHex, imageRegistry: ex.registry, viewX, viewY, zoom, customTerrains: ex.exportCT, deletedTerrains, terrainOrder, generationRules, regions, regionOrder };
+  const data = { hexData: ex.exportHex, imageRegistry: ex.registry, viewX, viewY, zoom, customTerrains: ex.exportCT, deletedTerrains, terrainOrder, generationRules, regions, regionOrder, fog: exportFogData() };
   const json = JSON.stringify(data);
 
   let blob;
@@ -4731,6 +4807,8 @@ document.getElementById('btn-load').addEventListener('click', function() {
       if (data.generationRules) generationRules = { ...DEFAULT_GEN_RULES, ...data.generationRules };
       if (data.regions) regions = data.regions;
       if (data.regionOrder) regionOrder = data.regionOrder;
+      importFogData(data.fog);
+      if (fogChk) fogChk.checked = isFog;
       rebuildRegionPalette();
       saveTerrainConfig();
       rebuildTerrainPalette();
@@ -4915,6 +4993,12 @@ function updateInfo() {
 function computeMapStats() {
   const allT = getAllTerrains();
   const total = Object.keys(hexData).length;
+  // 迷雾覆盖统计：已揭示 vs 未揭示（仅当迷雾开启时有效）
+  let fogged = 0, revealed = 0;
+  for (const key of Object.keys(hexData)) {
+    const [q, r] = key.split(',').map(Number);
+    if (hexIsFogged(q, r)) fogged++; else revealed++;
+  }
   const terrainCount = {};   // terrainId -> count
   const regionArea = {};     // regionId -> count
   let settlements = 0;
@@ -4962,6 +5046,7 @@ function computeMapStats() {
 
   return {
     total,
+    fogged, revealed,
     terrainCount,
     regionArea,
     settlements,
@@ -5035,6 +5120,7 @@ function openStatsModal() {
       <div style="padding:2px 0;">🌊 河流：<span style="color:#fff;">${s.riverStream} 溪流 + ${s.riverWide} 河 = ${s.riverEdges}</span> 条边</div>
       <div style="padding:2px 0;">📋 详细标注：<span style="color:#fff;">${s.annotations}</span> 条</div>
       <div style="padding:2px 0;">⛰️ 海拔范围：<span style="color:#fff;">${s.elevationRange ? `${s.elevationRange.min.toFixed(2)} ~ ${s.elevationRange.max.toFixed(2)}` : '—'}</span></div>
+      ${isFog ? `<div style="padding:2px 0;">🌫️ 探索迷雾：<span style="color:#fff;">已揭示 ${s.revealed} 格 · 未揭示 ${s.fogged} 格</span> (${(100 * s.revealed / s.total).toFixed(0)}% 已探索)</div>` : ''}
     </div>`;
   }
 
@@ -5076,13 +5162,24 @@ if (iconChk) iconChk.checked = (iconStyle === 'vector');
 // Build region palette
 rebuildRegionPalette();
 
+// Fog of War UI: checkbox toggle + reveal-all / reset buttons
+const fogChk = document.getElementById('chk-fog');
+if (fogChk) {
+  fogChk.checked = isFog;
+  fogChk.addEventListener('change', (e) => { isFog = e.target.checked; render(); });
+}
+const fogReveal = document.getElementById('btn-fog-reveal-all');
+if (fogReveal) fogReveal.addEventListener('click', () => { revealAll(); render(); updateInfo(); });
+const fogHide = document.getElementById('btn-fog-hide-all');
+if (fogHide) fogHide.addEventListener('click', () => { concealfogAll(); render(); updateInfo(); });
+
 // Set initial tool — shows hints and updates coord display
 setTool('select');
 render();
 updateInfo();
 
 console.log('🏗️ 六角格沙盒地图已加载');
-console.log('快捷键: V=选择 X=框选 B=笔刷 S=定居点 R=道路 L=标签 E=擦除 Ctrl+Z=撤销');
+console.log('快捷键: V=选择 X=框选 B=笔刷 S=定居点 R=道路 W=河流 L=标签 E=擦除 F=探索揭示 Ctrl+Z=撤销');
 
 
 // ======== 搜索定位面板 ========
@@ -5373,7 +5470,8 @@ async function compactEncodeString() {
     terrainOrder,
     generationRules,
     regions,
-    regionOrder
+    regionOrder,
+    fog: exportFogData()
   };
   const json = JSON.stringify(data);
   let bytes;
@@ -5427,10 +5525,13 @@ function applyMapData(data) {
   if (data.generationRules) generationRules = { ...DEFAULT_GEN_RULES, ...data.generationRules };
   if (data.regions) regions = data.regions;
   if (data.regionOrder) regionOrder = data.regionOrder;
+  importFogData(data.fog);
   if (typeof data.viewX === 'number') viewX = data.viewX;
   if (typeof data.viewY === 'number') viewY = data.viewY;
   if (typeof data.zoom === 'number') zoom = data.zoom;
   rebuildRegionPalette();
+  const fogChk = document.getElementById('chk-fog');
+  if (fogChk) fogChk.checked = isFog;
   saveTerrainConfig();
   rebuildTerrainPalette();
   const zi = document.getElementById('zoom-indicator');
@@ -5444,7 +5545,7 @@ function applyMapData(data) {
 function buildFullJSON() {
   cleanHexData();
   const ex = buildImageRegistry(hexData, customTerrains);
-  const data = { hexData: ex.exportHex, imageRegistry: ex.registry, customTerrains: ex.exportCT, deletedTerrains, terrainOrder, generationRules, regions, regionOrder };
+  const data = { hexData: ex.exportHex, imageRegistry: ex.registry, customTerrains: ex.exportCT, deletedTerrains, terrainOrder, generationRules, regions, regionOrder, fog: exportFogData() };
   return JSON.stringify(data);
 }
 

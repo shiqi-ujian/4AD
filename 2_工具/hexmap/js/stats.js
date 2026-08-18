@@ -4,6 +4,12 @@
 function computeMapStats() {
   const allT = getAllTerrains();
   const total = Object.keys(hexData).length;
+  // 迷雾覆盖统计：已揭示 vs 未揭示（仅当迷雾开启时有效）
+  let fogged = 0, revealed = 0;
+  for (const key of Object.keys(hexData)) {
+    const [q, r] = key.split(',').map(Number);
+    if (hexIsFogged(q, r)) fogged++; else revealed++;
+  }
   const terrainCount = {};   // terrainId -> count
   const regionArea = {};     // regionId -> count
   let settlements = 0;
@@ -51,6 +57,7 @@ function computeMapStats() {
 
   return {
     total,
+    fogged, revealed,
     terrainCount,
     regionArea,
     settlements,
@@ -124,6 +131,7 @@ function openStatsModal() {
       <div style="padding:2px 0;">🌊 河流：<span style="color:#fff;">${s.riverStream} 溪流 + ${s.riverWide} 河 = ${s.riverEdges}</span> 条边</div>
       <div style="padding:2px 0;">📋 详细标注：<span style="color:#fff;">${s.annotations}</span> 条</div>
       <div style="padding:2px 0;">⛰️ 海拔范围：<span style="color:#fff;">${s.elevationRange ? `${s.elevationRange.min.toFixed(2)} ~ ${s.elevationRange.max.toFixed(2)}` : '—'}</span></div>
+      ${isFog ? `<div style="padding:2px 0;">🌫️ 探索迷雾：<span style="color:#fff;">已揭示 ${s.revealed} 格 · 未揭示 ${s.fogged} 格</span> (${(100 * s.revealed / s.total).toFixed(0)}% 已探索)</div>` : ''}
     </div>`;
   }
 

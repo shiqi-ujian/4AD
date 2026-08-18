@@ -100,7 +100,8 @@ async function compactEncodeString() {
     terrainOrder,
     generationRules,
     regions,
-    regionOrder
+    regionOrder,
+    fog: exportFogData()
   };
   const json = JSON.stringify(data);
   let bytes;
@@ -154,10 +155,13 @@ function applyMapData(data) {
   if (data.generationRules) generationRules = { ...DEFAULT_GEN_RULES, ...data.generationRules };
   if (data.regions) regions = data.regions;
   if (data.regionOrder) regionOrder = data.regionOrder;
+  importFogData(data.fog);
   if (typeof data.viewX === 'number') viewX = data.viewX;
   if (typeof data.viewY === 'number') viewY = data.viewY;
   if (typeof data.zoom === 'number') zoom = data.zoom;
   rebuildRegionPalette();
+  const fogChk = document.getElementById('chk-fog');
+  if (fogChk) fogChk.checked = isFog;
   saveTerrainConfig();
   rebuildTerrainPalette();
   const zi = document.getElementById('zoom-indicator');
@@ -171,7 +175,7 @@ function applyMapData(data) {
 function buildFullJSON() {
   cleanHexData();
   const ex = buildImageRegistry(hexData, customTerrains);
-  const data = { hexData: ex.exportHex, imageRegistry: ex.registry, customTerrains: ex.exportCT, deletedTerrains, terrainOrder, generationRules, regions, regionOrder };
+  const data = { hexData: ex.exportHex, imageRegistry: ex.registry, customTerrains: ex.exportCT, deletedTerrains, terrainOrder, generationRules, regions, regionOrder, fog: exportFogData() };
   return JSON.stringify(data);
 }
 
