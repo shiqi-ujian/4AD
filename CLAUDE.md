@@ -7,6 +7,8 @@
 - `2_工具/` — 工具文件（如 hexmap.dist.html）
 - `3_术语与数据/` — 术语表与数据文件
 
+> **工具定位**：`2_工具/` 里的地图工具（hexmap / citymap / squaremap）已从「四战黑专属」转为**通用 TRPG / 跑团地图工具**，不局限于任何特定规则或世界观——更好奇地，始终用「通用沙盒地图工具」的中性称呼对待它们，不要假设它们只服务四战黑。地形、王国/定居点命名为中性的奇幻通用内容。
+
 ## hexmap — 六角格沙盒地图
 
 **源码位于 `2_工具/hexmap/`（模块化）**：`index.html`(HTML+CSS) + `js/*.js`（config/state/core/render/interact/ui/generate/stats/init/ai）。Canvas 渲染，无外部依赖。**测试入口 = `2_工具/hexmap/index.html`。**
