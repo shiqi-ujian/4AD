@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>通用战斗地图生成器 v0.4</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
+#app { display: flex; height: 100vh; }
+
+#toolbar {
+  width: 290px; min-width: 290px;
+  background: #16213e;
+  padding: 12px 10px;
+  display: flex; flex-direction: column; gap: 4px;
+  overflow-y: auto; border-right: 1px solid #0f3460;
+  z-index: 10;
+}
+#toolbar h2 { font-size: 16px; text-align: center; color: #e94560; margin-bottom: 2px; border-bottom: 1px solid #0f3460; padding-bottom: 8px; letter-spacing: 2px; }
+#toolbar h3 { font-size: 12px; color: #aaa; margin: 8px 0 3px; font-weight: 600; letter-spacing: 1px; }
+.tool-group { display: flex; flex-wrap: wrap; gap: 3px; margin: 0; }
+.tool-btn {
+  height: 34px; border: 2px solid transparent; border-radius: 6px;
+  cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;
+  transition: all 0.1s; position: relative; flex-shrink: 0;
+}
+.tool-btn:hover { transform: scale(1.06); z-index: 2; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+.tool-btn.active { border-color: #fff; box-shadow: 0 0 8px rgba(255,255,255,0.4); }
+.tool-btn[data-tool] {
+  width: auto; padding: 0 8px; gap: 3px; min-width: 42px;
+  background: #1a1a2e; color: #e0e0e0; font-size: 12px;
+}
+.tool-btn[data-tool] .icon { font-size: 15px; }
+.tool-btn[data-tool] .label { font-size: 11px; white-space: nowrap; }
+.tool-btn[data-terrain] {
+  width: auto; padding: 0 6px; gap: 2px; min-width: 34px; height: 30px; font-size: 11px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+.tool-btn[data-terrain] .icon { font-size: 13px; }
+
+#canvas-container { flex: 1; position: relative; overflow: hidden; background: #2d2d44; cursor: crosshair; }
+#canvas-container.panning { cursor: grab; }
+#canvas-container.panning:active { cursor: grabbing; }
+canvas { display: block; }
+
+#info-panel {
+  position: absolute; bottom: 10px; left: 10px; right: 10px;
+  background: rgba(22, 33, 62, 0.92); border: 1px solid #0f3460; border-radius: 8px;
+  padding: 8px 12px; font-size: 12px; pointer-events: none;
+  backdrop-filter: blur(4px); max-height: 100px; overflow-y: auto;
+}
+#info-panel .row { display: flex; gap: 14px; flex-wrap: wrap; }
+#info-panel .label { color: #888; }
+#info-panel .val { color: #fff; }
+
+#zoom-indicator {
+  position: absolute; top: 10px; right: 10px;
+  background: rgba(22,33,62,0.85); border: 1px solid #0f3460; border-radius: 6px;
+  padding: 3px 8px; font-size: 11px; color: #aaa; pointer-events: none;
+}
+#coord-indicator {
+  position: absolute; top: 10px; left: 10px;
+  background: rgba(22,33,62,0.85); border: 1px solid #0f3460; border-radius: 6px;
+  padding: 3px 8px; font-size: 11px; color: #aaa; pointer-events: none;
+}
+
+#toolbar::-webkit-scrollbar { width: 4px; }
+#toolbar::-webkit-scrollbar-thumb { background: #0f3460; border-radius: 2px; }
+
+@media (max-width: 800px) {
+  #toolbar { width: 48px; min-width: 48px; }
+  #toolbar h3 span, #toolbar h2, .tool-btn .label, #tool-hint { display: none; }
+}
+
+input[type="range"] { width: 100%; margin: 2px 0; cursor: pointer; }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #0f3460; border-radius: 4px; font-size: 12px; }
+
+.modal-overlay {
+  display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(2px);
+}
+.modal-box {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+  background: #16213e; border: 1px solid #0f3460; border-radius: 10px;
+  padding: 20px; width: 400px; max-height: 80vh; overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+.modal-box h3 { color: #e94560; margin: 0 0 12px; font-size: 16px; }
+.modal-box label { font-size: 12px; color: #ccc; display: block; margin-bottom: 3px; }
+.modal-box input[type="text"], .modal-box input[type="number"] {
+  width: 100%; padding: 5px 8px; margin-bottom: 8px;
+  background: #1a1a2e; color: #fff; border: 1px solid #0f3460; border-radius: 4px; font-size: 13px;
+}
+.modal-box .btn-row { display: flex; gap: 6px; justify-content: flex-end; margin-top: 10px; padding-top: 10px; border-top: 1px solid #0f3460; }
+.modal-box .btn-row button { padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="toolbar">
+    <h2>⚔️ 战斗地图生成器</h2>
+
+    <h3>🔧 工具 <span style="font-weight:normal;font-size:10px;color:#888;float:right;">(快捷键)</span></h3>
+    <div id="cdn-warning" style="display:none;margin:2px 0 4px;padding:4px 6px;background:rgba(233,69,96,0.15);border:1px solid #e94560;border-radius:4px;font-size:10px;color:#e94560;">⚠️ 依赖未加载，部分导出功能不可用</div>
+    <div class="tool-group">
+      <button class="tool-btn active" data-tool="select" title="选择/查看/移动图形 (V)"><span class="icon">👆</span><span class="label">选择(V)</span></button>
+      <button class="tool-btn" data-tool="paint" title="地形笔刷 (B)"><span class="icon">🖌️</span><span class="label">笔刷(B)</span></button>
+      <button class="tool-btn" data-tool="wall" title="画墙壁边界 (W) 可拖拽"><span class="icon">🧱</span><span class="label">墙壁(W)</span></button>
+      <button class="tool-btn" data-tool="door" title="放门 (D) 可拖拽"><span class="icon">🚪</span><span class="label">门(D)</span></button>
+      <button class="tool-btn" data-tool="label" title="标文字 (L)"><span class="icon">🏷️</span><span class="label">标签(L)</span></button>
+      <button class="tool-btn" data-tool="erase" title="擦除 (E)"><span class="icon">🧹</span><span class="label">擦除(E)</span></button>
+      <button class="tool-btn" data-tool="rect" title="画矩形区域/灵气 (R) 拖拽绘制，半透明"><span class="icon">▭</span><span class="label">区域(R)</span></button>
+      <button class="tool-btn" data-tool="token" title="插入图片 token (T)"><span class="icon">🖼️</span><span class="label">图片(T)</span></button>
+      <button class="tool-btn" data-tool="line" title="画自由线段 (G) 任意角度墙/视线阻挡"><span class="icon">📏</span><span class="label">线段(G)</span></button>
+    </div>
+    <div id="erase-options" style="display:none;margin:2px 0 0 2px;font-size:11px;">
+      <select id="erase-mode" style="width:100%;padding:3px 6px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:11px;">
+        <option value="all">🧹 全部清除</option>
+        <option value="terrain">仅地形</option>
+        <option value="walls">仅墙壁/门边界</option>
+        <option value="label">仅标签</option>
+      </select>
+    </div>
+    <div id="tool-hint" style="font-size:10px;color:#e94560;padding:2px 4px;background:rgba(233,69,96,0.1);border-radius:4px;min-height:16px;">👆 选择工具后操作格子</div>
+
+    <h3>🏞️ 地形 <span style="font-weight:normal;font-size:10px;color:#888;float:right;">选笔刷后涂 <button id="btn-terrain-manage" style="background:#3a3a5e;color:#fff;border:none;border-radius:3px;padding:1px 6px;cursor:pointer;font-size:10px;margin-left:4px;">⚙️ 管理</button></span></h3>
+    <div class="tool-group" id="terrain-palette"></div>
+
+    <h3>📐 模板</h3>
+    <div style="display:flex;gap:4px;flex-wrap:wrap;">
+      <button id="btn-template-room" style="flex:1;min-width:60px;padding:6px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🏠 房间</button>
+      <button id="btn-template-corridor" style="flex:1;min-width:60px;padding:6px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🛤️ 走廊</button>
+      <button id="btn-template-cave" style="flex:1;min-width:60px;padding:6px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🕳️ 洞窟</button>
+      <button id="btn-template-open" style="flex:1;min-width:60px;padding:6px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🌿 空地</button>
+      <button id="btn-template-zone" style="flex:1;min-width:60px;padding:6px;background:#8b5f9e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🧩 区域</button>
+    </div>
+
+    <h3>💾 数据</h3>
+    <div style="display:flex;gap:4px;">
+      <button id="btn-export-excel" style="flex:1;padding:8px;background:#217346;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;">📊 导出 Excel</button>
+      <button id="btn-export-img" style="flex:1;padding:8px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">🖼️ 导出PNG</button>
+    </div>
+    <div style="display:flex;gap:4px;">
+      <button id="btn-export-owlbear" style="flex:1;padding:6px;background:#6b4f8f;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;" title="导出为枭熊(Owlbear Rodeo)场景文件，可在枭熊中导入继续玩">🦉 枭熊场景</button>
+      <button id="btn-export-legend" style="flex:1;padding:6px;background:#4a5a7a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;" title="导出当前地形图例 PNNG（DM 用）">📜 图例</button>
+    </div>
+    <div style="display:flex;gap:4px;">
+      <button id="btn-save" style="flex:1;padding:4px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;">💾 保存</button>
+      <button id="btn-load" style="flex:1;padding:4px;background:#c9a84c;color:#000;border:none;border-radius:4px;cursor:pointer;">📂 加载</button>
+      <button id="btn-share" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="复制紧凑分享链接/数据串，或粘贴导入">🔗 分享</button>
+      <button id="btn-clear" style="flex:1;padding:4px;background:#6b5b4f;color:#ccc;border:none;border-radius:4px;cursor:pointer;">🗑️ 清空</button>
+    </div>
+    <div style="display:flex;gap:4px;margin-top:2px;">
+      <button id="btn-undo" style="flex:1;padding:4px;background:#3a3a5e;color:#fff;border:none;border-radius:4px;cursor:pointer;opacity:0.4;" disabled>↩️ 撤销</button>
+      <button id="btn-redo" style="flex:1;padding:4px;background:#3a3a5e;color:#fff;border:none;border-radius:4px;cursor:pointer;opacity:0.4;" disabled>↪️ 重做</button>
+    </div>
+    <label style="margin-top:4px;font-size:11px;">
+      <input type="checkbox" id="chk-grid" checked> 显示网格
+    </label>
+    <label style="font-size:11px;">
+      <input type="checkbox" id="chk-coords" checked> 显示坐标
+    </label>
+    <div style="margin-top:auto;font-size:10px;color:#555;text-align:center;padding-top:6px;">
+      通用跑团 · 战斗地图 v0.4<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>区域/线段/图片 · Delete 删除选中
+    </div>
+  </div>
+
+  <div id="canvas-container">
+    <div id="coord-indicator">⚪ 选择模式</div>
+    <div id="zoom-indicator">🔍 100%</div>
+    <canvas id="grid-canvas"></canvas>
+    <div id="info-panel"><div class="row"><span class="label">💡 选择工具 → 操作格子 → 导出 Excel</span></div></div>
+  </div>
+</div>
+
+<!-- Room Template Modal -->
+<div class="modal-overlay" id="room-modal">
+  <div class="modal-box">
+    <h3>🏠 生成房间</h3>
+    <label>宽度 (格子数): <span id="room-w-val">8</span></label>
+    <input type="range" id="room-w" min="3" max="30" value="8" style="width:100%;">
+    <label>高度 (格子数): <span id="room-h-val">6</span></label>
+    <input type="range" id="room-h" min="3" max="30" value="6" style="width:100%;">
+    <label>生成位置 <span style="color:#888;font-weight:normal;font-size:11px;">选中的格子作为起点</span></label>
+    <select id="room-pos" style="width:100%;">
+      <option value="center">视图中心（选中格或原点）</option>
+      <option value="origin">坐标原点 (0,0)</option>
+    </select>
+    <div class="btn-row">
+      <button id="room-cancel" style="background:#3a3a5e;color:#ccc;">取消</button>
+      <button id="room-confirm" style="background:#2d6a2e;color:#fff;">✓ 生成</button>
+    </div>
+  </div>
+</div>
+
+<!-- Corridor Modal -->
+<div class="modal-overlay" id="corridor-modal">
+  <div class="modal-box">
+    <h3>🛤️ 生成走廊</h3>
+    <label>类型</label>
+    <select id="corr-type" style="width:100%;margin-bottom:8px;">
+      <option value="straight">直线</option>
+      <option value="lshape">L 型转角</option>
+      <option value="tshape">T 型分叉</option>
+      <option value="cross">十字路口</option>
+    </select>
+    <label>长度: <span id="corr-len-val">10</span></label>
+    <input type="range" id="corr-len" min="4" max="30" value="10" style="width:100%;">
+    <label>宽度: <span id="corr-w-val">2</span></label>
+    <input type="range" id="corr-w" min="1" max="3" value="2" style="width:100%;">
+    <label>生成位置 <span style="color:#888;font-weight:normal;font-size:11px;">选中的格子作为起点</span></label>
+    <select id="corr-pos" style="width:100%;">
+      <option value="center">视图中心（选中格或原点）</option>
+      <option value="origin">坐标原点 (0,0)</option>
+    </select>
+    <div class="btn-row">
+      <button id="corr-cancel" style="background:#3a3a5e;color:#ccc;">取消</button>
+      <button id="corr-confirm" style="background:#2d6a2e;color:#fff;">✓ 生成</button>
+    </div>
+  </div>
+</div>
+
+<!-- Cave Modal -->
+<div class="modal-overlay" id="cave-modal">
+  <div class="modal-box">
+    <h3>🕳️ 生成洞窟</h3>
+    <label>宽度 (格子数): <span id="cave-w-val">20</span></label>
+    <input type="range" id="cave-w" min="8" max="40" value="20" style="width:100%;">
+    <label>高度 (格子数): <span id="cave-h-val">15</span></label>
+    <input type="range" id="cave-h" min="8" max="40" value="15" style="width:100%;">
+    <label>墙壁密度: <span id="cave-d-val">45%</span></label>
+    <input type="range" id="cave-d" min="30" max="60" value="45" style="width:100%;">
+    <label>生成位置 <span style="color:#888;font-weight:normal;font-size:11px;">选中的格子作为中心</span></label>
+    <select id="cave-pos" style="width:100%;">
+      <option value="center">视图中心（选中格或原点）</option>
+      <option value="origin">坐标原点 (0,0)</option>
+    </select>
+    <div class="btn-row">
+      <button id="cave-cancel" style="background:#3a3a5e;color:#ccc;">取消</button>
+      <button id="cave-confirm" style="background:#2d6a2e;color:#fff;">✓ 生成</button>
+    </div>
+  </div>
+</div>
+
+<!-- Open Field Modal -->
+<div class="modal-overlay" id="open-modal">
+  <div class="modal-box">
+    <h3>🌿 生成野外空地</h3>
+    <label>宽度 (格子数): <span id="open-w-val">15</span></label>
+    <input type="range" id="open-w" min="5" max="40" value="15" style="width:100%;">
+    <label>高度 (格子数): <span id="open-h-val">12</span></label>
+    <input type="range" id="open-h" min="5" max="40" value="12" style="width:100%;">
+    <label>散落地形比例: <span id="open-scatter-val">15%</span></label>
+    <input type="range" id="open-scatter" min="0" max="40" value="15" style="width:100%;">
+    <label>生成位置 <span style="color:#888;font-weight:normal;font-size:11px;">选中的格子作为中心</span></label>
+    <select id="open-pos" style="width:100%;">
+      <option value="center">视图中心（选中格或原点）</option>
+      <option value="origin">坐标原点 (0,0)</option>
+    </select>
+    <div class="btn-row">
+      <button id="open-cancel" style="background:#3a3a5e;color:#ccc;">取消</button>
+      <button id="open-confirm" style="background:#2d6a2e;color:#fff;">✓ 生成</button>
+    </div>
+  </div>
+</div>
+
+<!-- Label Modal -->
+<div class="modal-overlay" id="label-modal">
+  <div class="modal-box">
+    <h3>🏷️ 格子标注 <span id="label-modal-coord" style="font-size:12px;color:#888;font-weight:normal;"></span></h3>
+    <label>文字</label>
+    <input type="text" id="label-modal-text" placeholder="例：宝箱、陷阱、祭坛">
+    <div class="btn-row">
+      <button id="label-modal-cancel" style="background:#0f3460;color:#fff;">取消</button>
+      <button id="label-modal-confirm" style="background:#2d6a2e;color:#fff;">✓ 确认</button>
+    </div>
+    <input type="hidden" id="label-modal-q">
+    <input type="hidden" id="label-modal-r">
+  </div>
+</div>
+
+<!-- Shape Properties Modal -->
+<div class="modal-overlay" id="shape-modal">
+  <div class="modal-box">
+    <h3>▭ 区域/图片属性</h3>
+    <label>名称（可选）</label>
+    <input type="text" id="shape-name" placeholder="例：黑暗灵气、火墙区域">
+    <div id="shape-rect-fields">
+      <label>填充颜色</label>
+      <input type="color" id="shape-fill" value="#e94560" style="width:60px;height:30px;padding:0;border:none;background:none;cursor:pointer;">
+      <label>填充不透明度 <span id="shape-alpha-val">40%</span></label>
+      <input type="range" id="shape-alpha" min="0" max="100" value="40">
+      <label>边框颜色</label>
+      <input type="color" id="shape-stroke" value="#ffffff" style="width:60px;height:30px;padding:0;border:none;background:none;cursor:pointer;">
+      <label>边框粗细: <span id="shape-sw-val">2px</span></label>
+      <input type="range" id="shape-sw" min="0" max="10" value="2">
+      <label style="margin-top:4px;"><input type="checkbox" id="shape-dash" style="width:auto;"> 虚线边框</label>
+    </div>
+    <label style="margin-top:6px;">尺寸 (格)</label>
+    <div style="display:flex;gap:6px;">
+      <input type="number" id="shape-w" min="0.2" step="0.1" style="flex:1;">
+      <span style="line-height:28px;color:#888;">×</span>
+      <input type="number" id="shape-h" min="0.2" step="0.1" style="flex:1;">
+    </div>
+    <div class="btn-row">
+      <button id="shape-delete" style="background:#a33;color:#fff;margin-right:auto;">🗑️ 删除</button>
+      <button id="shape-cancel" style="background:#3a3a5e;color:#ccc;">取消</button>
+      <button id="shape-confirm" style="background:#2d6a2e;color:#fff;">✓ 应用</button>
+    </div>
+    <input type="hidden" id="shape-id">
+  </div>
+</div>
+
+<!-- Line Properties Modal -->
+<div class="modal-overlay" id="line-modal">
+  <div class="modal-box">
+    <h3>📏 线段属性</h3>
+    <label>名称（可选）</label>
+    <input type="text" id="line-name" placeholder="例：视线阻挡、临时墙">
+    <label>颜色</label>
+    <input type="color" id="line-color" value="#000000" style="width:60px;height:30px;padding:0;border:none;background:none;cursor:pointer;">
+    <label>线宽: <span id="line-w-val">3px</span></label>
+    <input type="range" id="line-w" min="1" max="12" value="3">
+    <label style="margin-top:4px;"><input type="checkbox" id="line-dash" style="width:auto;"> 虚线</label>
+    <div class="btn-row">
+      <button id="line-delete" style="background:#a33;color:#fff;margin-right:auto;">🗑️ 删除</button>
+      <button id="line-cancel" style="background:#3a3a5e;color:#ccc;">取消</button>
+      <button id="line-confirm" style="background:#2d6a2e;color:#fff;">✓ 应用</button>
+    </div>
+    <input type="hidden" id="line-id">
+  </div>
+</div>
+
+<!-- Terrain Manage Modal -->
+<div class="modal-overlay" id="terrain-modal">
+  <div class="modal-box" style="width:520px;">
+    <h3>⚙️ 地形管理 <span style="font-size:11px;color:#888;font-weight:normal;">自定义地形会保存到浏览器</span></h3>
+    <div id="terrain-list" style="max-height:280px;overflow-y:auto;margin-bottom:10px;"></div>
+    <div id="terrain-edit" style="border-top:1px solid #0f3460;padding-top:10px;display:none;">
+      <label>名称</label>
+      <input type="text" id="terrain-edit-name" placeholder="例：岩浆">
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;">
+          <label>图标 (emoji)</label>
+          <input type="text" id="terrain-edit-icon" placeholder="🌋" maxlength="4">
+        </div>
+        <div style="flex:1;">
+          <label>颜色</label>
+          <input type="color" id="terrain-edit-color" value="#d94a4a" style="width:60px;height:30px;padding:0;border:none;background:none;cursor:pointer;display:block;">
+        </div>
+      </div>
+      <label>说明</label>
+      <input type="text" id="terrain-edit-desc" placeholder="例：火焰伤害">
+      <div class="btn-row">
+        <button id="terrain-edit-cancel" style="background:#3a3a5e;color:#ccc;">取消</button>
+        <button id="terrain-edit-save" style="background:#2d6a2e;color:#fff;">✓ 保存</button>
+      </div>
+    </div>
+    <div class="btn-row" style="border-top:1px solid #0f3460;">
+      <button id="terrain-add" style="background:#3a7abd;color:#fff;margin-right:auto;">➕ 新增地形</button>
+      <button id="terrain-modal-close" style="background:#3a3a5e;color:#ccc;">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- Zone Template Modal -->
+<div class="modal-overlay" id="zone-modal">
+  <div class="modal-box">
+    <h3>🧩 生成区域 <span style="font-size:11px;color:#888;font-weight:normal;">新人友好范例模板</span></h3>
+    <label>区域类型</label>
+    <select id="zone-type" style="width:100%;margin-bottom:8px;">
+      <option value="difficult">🔸 困难地形区（移动×2 + 零散掩体）</option>
+      <option value="water">🌊 水域（池水 + 岸边 + 浅滩）</option>
+      <option value="fire">🔥 火焰陷阱区（火焰 + 安全格）</option>
+      <option value="acid">🧪 酸液区（酸液 + 安全格）</option>
+      <option value="spike">📌 尖刺区（尖刺 + 安全格）</option>
+      <option value="elevated">📶 高台区（高地 + 边缘墙）</option>
+      <option value="teach">🎓 教学示例区（墙柱+困难带+水池+火焰，展示各类地形）</option>
+    </select>
+    <label>宽度: <span id="zone-w-val">12</span></label>
+    <input type="range" id="zone-w" min="5" max="30" value="12" style="width:100%;">
+    <label>高度: <span id="zone-h-val">10</span></label>
+    <input type="range" id="zone-h" min="5" max="30" value="10" style="width:100%;">
+    <label>内容比例: <span id="zone-d-val">25%</span></label>
+    <input type="range" id="zone-d" min="5" max="60" value="25" style="width:100%;">
+    <label style="margin:4px 0;"><input type="checkbox" id="zone-wall" checked style="width:auto;"> 区域边缘加墙</label>
+    <label>生成位置 <span style="color:#888;font-weight:normal;font-size:11px;">选中的格子作为中心</span></label>
+    <select id="zone-pos" style="width:100%;">
+      <option value="center">视图中心（选中格或原点）</option>
+      <option value="origin">坐标原点 (0,0)</option>
+    </select>
+    <div class="btn-row">
+      <button id="zone-cancel" style="background:#3a3a5e;color:#ccc;">取消</button>
+      <button id="zone-confirm" style="background:#2d6a2e;color:#fff;">✓ 生成</button>
+    </div>
+  </div>
+</div>
+
+<!-- 分享/导入 Modal -->
+<div id="share-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:460px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">🔗 分享 / 导入</h3>
+    <div id="share-loading" style="display:none;margin-bottom:8px;padding:6px 8px;background:rgba(255,255,255,0.06);border-radius:4px;font-size:12px;">⏳ 编码中…</div>
+    <div id="share-status" style="min-height:16px;margin-bottom:8px;font-size:12px;color:#aaa;"></div>
+    <textarea id="share-text" rows="5" placeholder="粘贴分享数据串或完整 JSON 后点「导入」，或先生成数据串"
+      style="width:100%;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:11px;padding:6px;font-family:monospace;"></textarea>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;">
+      <button id="share-btn-generate" style="padding:5px 12px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🔗 生成分享</button>
+      <button id="share-btn-copy-link" style="padding:5px 12px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">📋 复制链接</button>
+      <button id="share-btn-copy-data" style="padding:5px 12px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">📋 复制数据串</button>
+      <button id="share-btn-import" style="padding:5px 12px;background:#c9a84c;color:#000;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;">📂 导入</button>
+      <button id="share-btn-close" style="margin-left:auto;padding:5px 12px;background:#3a3a5e;color:#ccc;border:1px solid #0f3460;border-radius:4px;cursor:pointer;font-size:12px;">关闭</button>
+    </div>
+    <div style="font-size:11px;color:#888;line-height:1.6;">
+      提示：分享链接包含完整地图数据（含图片），对方打开后自动导入。链接较长时可复制纯数据串，用「导入」粘贴恢复。
+    </div>
+  </div>
+</div>
+
+<!-- SheetJS CDN for .xlsx export -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"
+        onerror="window.__combatmapCDN = window.__combatmapCDN || {}; window.__combatmapCDN.xlsx = false;"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"
+        onerror="window.__combatmapCDN = window.__combatmapCDN || {}; window.__combatmapCDN.jszip = false;"></script>
+
+<script src="js/config.js"></script>
+<script src="js/terrain.js"></script>
+<script src="js/state.js"></script>
+<script src="js/core.js"></script>
+<script src="js/render.js"></script>
+<script src="js/interact.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/templates.js"></script>
+<script src="js/share.js"></script>
+<script src="js/export.js"></script>
+<script src="js/init.js"></script>
+</body>
+</html>

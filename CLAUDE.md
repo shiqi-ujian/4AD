@@ -7,7 +7,11 @@
 - `2_工具/` — 工具文件（如 hexmap.dist.html）
 - `3_术语与数据/` — 术语表与数据文件
 
-## hexmap — 六角格沙盒地图
+> **工具定位**：`2_工具/` 里的地图工具已从「四战黑专属」转为**通用 TRPG / 跑团地图工具**，不局限于任何特定规则或世界观——更好奇地，始终用「通用沙盒地图工具」的中性称呼对待它们，不要假设它们只服务四战黑。地形、王国/定居点命名为中性的奇幻通用内容。
+
+> **开发重心**：目前地图工具的**所有新开发只针对 `2_工具/hexmap/`**。`squaremap.html` / `citymap.html` 已霜冻（不主动改）。citymap / squaremap 里已具备、但 hexmap 还没有的能力（如需）应迁移到 hexmap，而不是继续在旧工具里加。
+
+## hexmap — 六角格沙盒地图（当前唯一开发目标）
 
 **源码位于 `2_工具/hexmap/`（模块化）**：`index.html`(HTML+CSS) + `js/*.js`（config/state/core/render/interact/ui/generate/stats/init/ai）。Canvas 渲染，无外部依赖。**测试入口 = `2_工具/hexmap/index.html`。**
 
@@ -102,6 +106,7 @@ console.log('Brace count:', bc, '| Last zero at HTML line:', lastZero + 1);
 
 ### 关键约定
 
+- **每次实质改动后，在 `2_工具/hexmap/CHANGELOG.md` 顶格追加入口**（倒序，最新在上），与源码一并提交
 - 改 hex 只动 `2_工具/hexmap/` 源码（index.html + js/*.js），**绝不手改 `hexmap.dist.html` 产物**；要发布才在 `hexmap/` 下跑 `node build.js`
 - 改 JS 后跑 `node --check` 或用 build 的 `new Function` 校验语法（build.js 已内置）
 - 撤销系统：`beginBatch()` / `endBatch()` 包裹批量操作，不可嵌套

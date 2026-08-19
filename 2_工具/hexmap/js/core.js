@@ -10,20 +10,20 @@ const minimapCtx = minimapCanvas.getContext('2d');
 
 // Fit view to show all hex content
 function fitToContent() {
-  var keys = Object.keys(hexData);
+  const keys = Object.keys(hexData);
   if (keys.length === 0) { showDiceResult('⚠️', '没有数据'); return; }
-  var minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
-  for (var i = 0; i < keys.length; i++) {
-    var parts = keys[i].split(','); var q = +parts[0], r = +parts[1];
+  let minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
+  for (let i = 0; i < keys.length; i++) {
+    const parts = keys[i].split(','); const q = +parts[0], r = +parts[1];
     if (q < minQ) minQ = q; if (q > maxQ) maxQ = q;
     if (r < minR) minR = r; if (r > maxR) maxR = r;
   }
-  var tl = hexToPixel(minQ, minR), br = hexToPixel(maxQ, maxR);
-  var mapW = br.x - tl.x + HEX_SIZE * 2;
-  var mapH = br.y - tl.y + HEX_SIZE * 2;
-  var pad = 40;
-  var sx = (canvas.width - pad * 2) / mapW;
-  var sy = (canvas.height - pad * 2) / mapH;
+  const tl = hexToPixel(minQ, minR), br = hexToPixel(maxQ, maxR);
+  const mapW = br.x - tl.x + HEX_SIZE * 2;
+  const mapH = br.y - tl.y + HEX_SIZE * 2;
+  const pad = 40;
+  const sx = (canvas.width - pad * 2) / mapW;
+  const sy = (canvas.height - pad * 2) / mapH;
   zoom = Math.max(0.02, Math.min(3, Math.min(sx, sy)));
   viewX = canvas.width / 2 - (tl.x + br.x) / 2 * zoom;
   viewY = canvas.height / 2 - (tl.y + br.y) / 2 * zoom;
@@ -31,55 +31,55 @@ function fitToContent() {
   render();
 }
 
-var _lastMinimapRender = 0;
+let _lastMinimapRender = 0;
 
 // Minimap: draws all hexes at tiny scale with a viewport rect overlay
 function renderMinimap(force) {
-  var enabled = document.getElementById('chk-minimap').checked;
+  const enabled = document.getElementById('chk-minimap').checked;
   if (!enabled) { minimapCanvas.style.display = 'none'; return; }
   if (!force && Date.now() - _lastMinimapRender < 200) return; // throttle to 5fps
   _lastMinimapRender = Date.now();
-  var keys = Object.keys(hexData);
+  const keys = Object.keys(hexData);
   if (keys.length === 0) { minimapCanvas.style.display = 'none'; return; }
   minimapCanvas.style.display = 'block';
-  var w = minimapCanvas.width = 180 * (window.devicePixelRatio || 1);
-  var h = minimapCanvas.height = 135 * (window.devicePixelRatio || 1);
-  var ctxM = minimapCtx;
+  const w = minimapCanvas.width = 180 * (window.devicePixelRatio || 1);
+  const h = minimapCanvas.height = 135 * (window.devicePixelRatio || 1);
+  const ctxM = minimapCtx;
   ctxM.clearRect(0, 0, w, h);
 
   // Compute bounding box
-  var minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
-  for (var i = 0; i < keys.length; i++) {
-    var parts = keys[i].split(','); var q = +parts[0], r = +parts[1];
+  let minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
+  for (let i = 0; i < keys.length; i++) {
+    const parts = keys[i].split(','); const q = +parts[0], r = +parts[1];
     if (q < minQ) minQ = q; if (q > maxQ) maxQ = q;
     if (r < minR) minR = r; if (r > maxR) maxR = r;
   }
-  var tl = hexToPixel(minQ, minR), br = hexToPixel(maxQ, maxR);
-  var fullW = br.x - tl.x + HEX_SIZE * 2;
-  var fullH = br.y - tl.y + HEX_SIZE * 2;
-  var scale = Math.min((w - 8) / fullW, (h - 8) / fullH);
-  var offX = (w - fullW * scale) / 2 - tl.x * scale + HEX_SIZE * scale;
-  var offY = (h - fullH * scale) / 2 - tl.y * scale + HEX_SIZE * scale;
+  const tl = hexToPixel(minQ, minR), br = hexToPixel(maxQ, maxR);
+  const fullW = br.x - tl.x + HEX_SIZE * 2;
+  const fullH = br.y - tl.y + HEX_SIZE * 2;
+  const scale = Math.min((w - 8) / fullW, (h - 8) / fullH);
+  const offX = (w - fullW * scale) / 2 - tl.x * scale + HEX_SIZE * scale;
+  const offY = (h - fullH * scale) / 2 - tl.y * scale + HEX_SIZE * scale;
 
   // Fill hex cells (sample every Nth hex on very large maps for performance)
-  var allTerrains = getAllTerrains();
-  var step = keys.length > 50000 ? Math.ceil(keys.length / 40000) : 1;
-  for (var i = 0; i < keys.length; i++) {
+  const allTerrains = getAllTerrains();
+  const step = keys.length > 50000 ? Math.ceil(keys.length / 40000) : 1;
+  for (let i = 0; i < keys.length; i++) {
     if (i % step !== 0) continue;
-    var hd = hexData[keys[i]];
+    const hd = hexData[keys[i]];
     if (!hd || !hd.terrain) continue;
-    var parts = keys[i].split(','); var q = +parts[0], r = +parts[1];
-    var px = hexToPixel(q, r);
-    var cx = offX + px.x * scale, cy = offY + px.y * scale;
-    var sz = HEX_SIZE * scale * 0.95;
-    var terrainInfo = hd.terrain ? allTerrains[hd.terrain] : null;
+    const parts = keys[i].split(','); const q = +parts[0], r = +parts[1];
+    const px = hexToPixel(q, r);
+    const cx = offX + px.x * scale, cy = offY + px.y * scale;
+    const sz = HEX_SIZE * scale * 0.95;
+    const terrainInfo = hd.terrain ? allTerrains[hd.terrain] : null;
     ctxM.fillStyle = terrainInfo ? terrainInfo.color : '#3a3a52';
     ctxM.fillRect(cx - sz, cy - sz * 0.75, sz * 2, sz * 1.5);
   }
 
   // Draw viewport rect
-  var vpLeft = -viewX / zoom, vpTop = -viewY / zoom;
-  var vpW = canvas.width / zoom, vpH = canvas.height / zoom;
+  const vpLeft = -viewX / zoom, vpTop = -viewY / zoom;
+  const vpW = canvas.width / zoom, vpH = canvas.height / zoom;
   ctxM.strokeStyle = '#fff';
   ctxM.lineWidth = 1.5;
   ctxM.strokeRect(offX + vpLeft * scale, offY + vpTop * scale, vpW * scale, vpH * scale);
@@ -87,29 +87,29 @@ function renderMinimap(force) {
 
 // Minimap click → pan to position
 minimapCanvas.addEventListener('click', function(e) {
-  var keys = Object.keys(hexData);
+  const keys = Object.keys(hexData);
   if (keys.length === 0) return;
-  var rect = minimapCanvas.getBoundingClientRect();
-  var mx = (e.clientX - rect.left) * (window.devicePixelRatio || 1);
-  var my = (e.clientY - rect.top) * (window.devicePixelRatio || 1);
+  const rect = minimapCanvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (window.devicePixelRatio || 1);
+  const my = (e.clientY - rect.top) * (window.devicePixelRatio || 1);
 
   // Compute same bounding box + scale as renderMinimap
-  var minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
-  for (var i = 0; i < keys.length; i++) {
-    var parts = keys[i].split(','); var q = +parts[0], r = +parts[1];
+  let minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
+  for (let i = 0; i < keys.length; i++) {
+    const parts = keys[i].split(','); const q = +parts[0], r = +parts[1];
     if (q < minQ) minQ = q; if (q > maxQ) maxQ = q;
     if (r < minR) minR = r; if (r > maxR) maxR = r;
   }
-  var tl = hexToPixel(minQ, minR), br = hexToPixel(maxQ, maxR);
-  var fullW = br.x - tl.x + HEX_SIZE * 2, fullH = br.y - tl.y + HEX_SIZE * 2;
-  var w = minimapCanvas.width, h = minimapCanvas.height;
-  var scale = Math.min((w - 8) / fullW, (h - 8) / fullH);
-  var offX = (w - fullW * scale) / 2 - tl.x * scale + HEX_SIZE * scale;
-  var offY = (h - fullH * scale) / 2 - tl.y * scale + HEX_SIZE * scale;
+  const tl = hexToPixel(minQ, minR), br = hexToPixel(maxQ, maxR);
+  const fullW = br.x - tl.x + HEX_SIZE * 2, fullH = br.y - tl.y + HEX_SIZE * 2;
+  const w = minimapCanvas.width, h = minimapCanvas.height;
+  const scale = Math.min((w - 8) / fullW, (h - 8) / fullH);
+  const offX = (w - fullW * scale) / 2 - tl.x * scale + HEX_SIZE * scale;
+  const offY = (h - fullH * scale) / 2 - tl.y * scale + HEX_SIZE * scale;
 
   // Convert click to world coords
-  var worldX = (mx - offX) / scale;
-  var worldY = (my - offY) / scale;
+  const worldX = (mx - offX) / scale;
+  const worldY = (my - offY) / scale;
 
   // Pan so that clicked point is at center of viewport
   viewX = canvas.width / 2 - worldX * zoom;
@@ -211,7 +211,82 @@ function cleanHexData() {
   }
 }
 
-// ======== Annotations API ========
+// ======== 遭遇表 (Encounter Tables) ========
+// 按地形一张表，10条d10或20条d20；含'__all__'兜底表。
+// GM 可编辑并持久化（localStorage: encounter_tables）。
+let currentEncounterTerrain = '__all__'; // 当前面板选中的地形 id 或 '__all__'
+let currentEncounterPick = 0;
+
+// 内置默认表（中性奇幻通用内容，非 4AD 专属）
+const encounterTables = {
+  '__all__': [
+    '一群野兽从灌木丛中窜出', '迷路的商队需要指引', '废弃的哨站冒起炊烟',
+    '翻倒的货车散落货物', '远处的号角声此起彼伏', '一只独行的神秘旅人',
+    '风化的墓碑群沿路延伸', '小群流寇在营地扎寨', '受伤的信使倒伏路旁',
+    '一队巡逻卫兵盘查身份'
+  ],
+  'plain': [
+    '野马群在草原狂奔', '游方艺人搭起临时戏台', '两个村落为水源争执',
+    '骑士在训练场切磋', '无人看管的稻草人农田', '一群候鸟顺着风向迁徙',
+    '落魄的农夫求购食物', '马蹄印直通地平线', '篝火晚会的欢歌', '独行的牧羊人'
+  ],
+  'forest': [
+    '树根下的毒菇群', '破旧的木屋有炊烟', '警觉的鹿群四散奔逃',
+    '盗猎者留下的捕兽夹', '迷路的林间小径', '巨大的熊掌印',
+    '枝头的猫头鹰叫个不停', '石缝里的银币一闪', '踏青踩到陷阱', '林精的低语'
+  ],
+  'hill': [
+    '山顶的信号狼烟', '滚落的山石堵路', '牧羊人驱赶群羊',
+    '废弃的石砌瞭望塔', '野蜂群的窝', '蜿蜒的羊肠小路分岔',
+    '山顶的风环着哨声', '猎人背着一头鹿', '雨后的小径泥泞', '山洞深处的回声'
+  ],
+  'mountain': [
+    '山壁滑落的碎石', '山隘的强风', '冒热气的地缝',
+    '雪崩后的残迹', '采矿队的棚屋', '悬崖上的猛禽巢',
+    '沉重脚步在隧道回荡', '融雪汇成溪', '锈蚀的兵刃', '冻僵的行脚僧'
+  ],
+  'water': [
+    '渔夫的小船在摆渡', '水中的浮标随波', '河岸边的孩童戏水',
+    '渡口排起长队', '风掀起浪打湿堤岸', '搁浅的破船骨架',
+    '渔船夜间点起的灯', '徒手抓鱼的渔翁', '潺潺溪边的青蛙', '远方地平线的帆影'
+  ],
+  'desert': [
+    '沙丘后的一队骆驼', '干涸水井的围栏', '沙暴前的热浪',
+    '金光反射的银币', '独行的商队守卫', '风化岩中的人影',
+    '蜥蜴在岩块间窜动', '遥远的绿洲蜃景', '沙地上凌乱的足迹', '半埋的石像'
+  ],
+  'swamp': [
+    '水洼冒出的气泡', '沼泽中的浮草桥', '远方的萤火微光',
+    '陷入泥的货车轮', '枯木上的水鸟', '蛇的滑行痕迹',
+    '泥潭里的粼粼银光', '萎缩的芦苇床', '湿滑的青苔石径', '隐约的沼泽低语'
+  ],
+  'snow': [
+    '白雾遮住视线', '冰层在脚下呻吟', '风中裹着积雪的微粒',
+    '雪丘上的窝棚门', '肩顶的绒羽猎人', '冰湖上的钓叟',
+    '雪地里的凌乱兽印', '冻僵的松枝', '北方极光的微光', '篝火旁的一对旅人'
+  ],
+  'dead_land': [
+    '翻开的墓穴旁', '枯骨堆中的戒指', '黑暗中的低语',
+    '残塔的顶端吊着灯', '冻僵的人形轮廓', '坟场间游荡的雾气',
+    '旧祭坛上的炭痕', '地衣爬满的石碑', '空荡的回廊回声', '仿佛被注视的感觉'
+  ],
+  'ruins': [
+    '裂开的宫殿穹顶', '断壁间插着的火把', '沉睡的石门',
+    '幽暗甬道里的水滴', '风穿过残窗的呜鸣', '苔藓覆盖的浮雕',
+    '坍塌的拱门下压着箱', '柱廊间的回声', '无人认领的旧盔', '壁画残像流转'
+  ],
+  'nec': [
+    '剥落的漆布从椁', '棺盖微微推开的痕迹', '染血的旧镣铐',
+    '地窖里的湿霉', '挂满蛛网的夜灯', '零落的脱臼齿',
+    '地面的凹痕', '灰烬中央的戒指', '半开的门后拖影', '寂谬的吊灯'
+  ]
+};
+
+function currentEncounterTable() {
+  const t = currentEncounterTerrain;
+  if (t !== '__all__' && encounterCustomTables[t]) return encounterCustomTables[t];
+  return encounterCustomTables['__all__'] || encounterTables['__all__'];
+}
 let _annIdCounter = 0;
 function genAnnId() { return 'a' + (++_annIdCounter) + '_' + Date.now().toString(36); }
 

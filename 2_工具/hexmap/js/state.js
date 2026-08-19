@@ -1,3 +1,30 @@
+// ======== 探索迷雾 (Fog of War) ========
+// isFog: 迷雾图层主开关；explored: 已揭示六角格 key 集合（"q,r"）
+// 未在 explored 中的格子在 isFog 开启时被深色雾覆盖，随探索逐步揭示。
+let isFog = false;
+let explored = new Set();
+
+function hexIsFogged(q, r) {
+  return isFog && !explored.has(hexKey(q, r));
+}
+function revealHex(q, r) { if (explored.add(hexKey(q, r))) dirtyFog = true; }
+function concealfog(q, r) { explored.delete(hexKey(q, r)); dirtyFog = true; }
+function revealAll() {
+  explored = new Set(Object.keys(hexData));
+  dirtyFog = true;
+}
+function concealfogAll() { explored.clear(); dirtyFog = true; }
+// 供导出：序列化迷雾状态
+function exportFogData() { return { fog: isFog, explored: [...explored] }; }
+// 供导入：应用迷雾状态（缺失字段则保持默认）
+function importFogData(d) {
+  if (!d) return;
+  if (typeof d.fog === 'boolean') isFog = d.fog;
+  if (Array.isArray(d.explored)) explored = new Set(d.explored);
+  dirtyFog = true;
+}
+let dirtyFog = false;
+
 // ======== State ========
 let hexData = {}; // key: "q,r" -> { terrain, label, settlement, road, color }
 let selectedTool = 'select';

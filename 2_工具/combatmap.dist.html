@@ -1,0 +1,3873 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>通用战斗地图生成器 v0.4</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
+#app { display: flex; height: 100vh; }
+
+#toolbar {
+  width: 290px; min-width: 290px;
+  background: #16213e;
+  padding: 12px 10px;
+  display: flex; flex-direction: column; gap: 4px;
+  overflow-y: auto; border-right: 1px solid #0f3460;
+  z-index: 10;
+}
+#toolbar h2 { font-size: 16px; text-align: center; color: #e94560; margin-bottom: 2px; border-bottom: 1px solid #0f3460; padding-bottom: 8px; letter-spacing: 2px; }
+#toolbar h3 { font-size: 12px; color: #aaa; margin: 8px 0 3px; font-weight: 600; letter-spacing: 1px; }
+.tool-group { display: flex; flex-wrap: wrap; gap: 3px; margin: 0; }
+.tool-btn {
+  height: 34px; border: 2px solid transparent; border-radius: 6px;
+  cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;
+  transition: all 0.1s; position: relative; flex-shrink: 0;
+}
+.tool-btn:hover { transform: scale(1.06); z-index: 2; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+.tool-btn.active { border-color: #fff; box-shadow: 0 0 8px rgba(255,255,255,0.4); }
+.tool-btn[data-tool] {
+  width: auto; padding: 0 8px; gap: 3px; min-width: 42px;
+  background: #1a1a2e; color: #e0e0e0; font-size: 12px;
+}
+.tool-btn[data-tool] .icon { font-size: 15px; }
+.tool-btn[data-tool] .label { font-size: 11px; white-space: nowrap; }
+.tool-btn[data-terrain] {
+  width: auto; padding: 0 6px; gap: 2px; min-width: 34px; height: 30px; font-size: 11px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+.tool-btn[data-terrain] .icon { font-size: 13px; }
+
+#canvas-container { flex: 1; position: relative; overflow: hidden; background: #2d2d44; cursor: crosshair; }
+#canvas-container.panning { cursor: grab; }
+#canvas-container.panning:active { cursor: grabbing; }
+canvas { display: block; }
+
+#info-panel {
+  position: absolute; bottom: 10px; left: 10px; right: 10px;
+  background: rgba(22, 33, 62, 0.92); border: 1px solid #0f3460; border-radius: 8px;
+  padding: 8px 12px; font-size: 12px; pointer-events: none;
+  backdrop-filter: blur(4px); max-height: 100px; overflow-y: auto;
+}
+#info-panel .row { display: flex; gap: 14px; flex-wrap: wrap; }
+#info-panel .label { color: #888; }
+#info-panel .val { color: #fff; }
+
+#zoom-indicator {
+  position: absolute; top: 10px; right: 10px;
+  background: rgba(22,33,62,0.85); border: 1px solid #0f3460; border-radius: 6px;
+  padding: 3px 8px; font-size: 11px; color: #aaa; pointer-events: none;
+}
+#coord-indicator {
+  position: absolute; top: 10px; left: 10px;
+  background: rgba(22,33,62,0.85); border: 1px solid #0f3460; border-radius: 6px;
+  padding: 3px 8px; font-size: 11px; color: #aaa; pointer-events: none;
+}
+
+#toolbar::-webkit-scrollbar { width: 4px; }
+#toolbar::-webkit-scrollbar-thumb { background: #0f3460; border-radius: 2px; }
+
+@media (max-width: 800px) {
+  #toolbar { width: 48px; min-width: 48px; }
+  #toolbar h3 span, #toolbar h2, .tool-btn .label, #tool-hint { display: none; }
+}
+
+input[type="range"] { width: 100%; margin: 2px 0; cursor: pointer; }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #0f3460; border-radius: 4px; font-size: 12px; }
+
+.modal-overlay {
+  display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.6); backdrop-filter: blur(2px);
+}
+.modal-box {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+  background: #16213e; border: 1px solid #0f3460; border-radius: 10px;
+  padding: 20px; width: 400px; max-height: 80vh; overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+.modal-box h3 { color: #e94560; margin: 0 0 12px; font-size: 16px; }
+.modal-box label { font-size: 12px; color: #ccc; display: block; margin-bottom: 3px; }
+.modal-box input[type="text"], .modal-box input[type="number"] {
+  width: 100%; padding: 5px 8px; margin-bottom: 8px;
+  background: #1a1a2e; color: #fff; border: 1px solid #0f3460; border-radius: 4px; font-size: 13px;
+}
+.modal-box .btn-row { display: flex; gap: 6px; justify-content: flex-end; margin-top: 10px; padding-top: 10px; border-top: 1px solid #0f3460; }
+.modal-box .btn-row button { padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="toolbar">
+    <h2>⚔️ 战斗地图生成器</h2>
+
+    <h3>🔧 工具 <span style="font-weight:normal;font-size:10px;color:#888;float:right;">(快捷键)</span></h3>
+    <div id="cdn-warning" style="display:none;margin:2px 0 4px;padding:4px 6px;background:rgba(233,69,96,0.15);border:1px solid #e94560;border-radius:4px;font-size:10px;color:#e94560;">⚠️ 依赖未加载，部分导出功能不可用</div>
+    <div class="tool-group">
+      <button class="tool-btn active" data-tool="select" title="选择/查看/移动图形 (V)"><span class="icon">👆</span><span class="label">选择(V)</span></button>
+      <button class="tool-btn" data-tool="paint" title="地形笔刷 (B)"><span class="icon">🖌️</span><span class="label">笔刷(B)</span></button>
+      <button class="tool-btn" data-tool="wall" title="画墙壁边界 (W) 可拖拽"><span class="icon">🧱</span><span class="label">墙壁(W)</span></button>
+      <button class="tool-btn" data-tool="door" title="放门 (D) 可拖拽"><span class="icon">🚪</span><span class="label">门(D)</span></button>
+      <button class="tool-btn" data-tool="label" title="标文字 (L)"><span class="icon">🏷️</span><span class="label">标签(L)</span></button>
+      <button class="tool-btn" data-tool="erase" title="擦除 (E)"><span class="icon">🧹</span><span class="label">擦除(E)</span></button>
+      <button class="tool-btn" data-tool="rect" title="画矩形区域/灵气 (R) 拖拽绘制，半透明"><span class="icon">▭</span><span class="label">区域(R)</span></button>
+      <button class="tool-btn" data-tool="token" title="插入图片 token (T)"><span class="icon">🖼️</span><span class="label">图片(T)</span></button>
+      <button class="tool-btn" data-tool="line" title="画自由线段 (G) 任意角度墙/视线阻挡"><span class="icon">📏</span><span class="label">线段(G)</span></button>
+    </div>
+    <div id="erase-options" style="display:none;margin:2px 0 0 2px;font-size:11px;">
+      <select id="erase-mode" style="width:100%;padding:3px 6px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:11px;">
+        <option value="all">🧹 全部清除</option>
+        <option value="terrain">仅地形</option>
+        <option value="walls">仅墙壁/门边界</option>
+        <option value="label">仅标签</option>
+      </select>
+    </div>
+    <div id="tool-hint" style="font-size:10px;color:#e94560;padding:2px 4px;background:rgba(233,69,96,0.1);border-radius:4px;min-height:16px;">👆 选择工具后操作格子</div>
+
+    <h3>🏞️ 地形 <span style="font-weight:normal;font-size:10px;color:#888;float:right;">选笔刷后涂 <button id="btn-terrain-manage" style="background:#3a3a5e;color:#fff;border:none;border-radius:3px;padding:1px 6px;cursor:pointer;font-size:10px;margin-left:4px;">⚙️ 管理</button></span></h3>
+    <div class="tool-group" id="terrain-palette"></div>
+
+    <h3>📐 模板</h3>
+    <div style="display:flex;gap:4px;flex-wrap:wrap;">
+      <button id="btn-template-room" style="flex:1;min-width:60px;padding:6px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🏠 房间</button>
+      <button id="btn-template-corridor" style="flex:1;min-width:60px;padding:6px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🛤️ 走廊</button>
+      <button id="btn-template-cave" style="flex:1;min-width:60px;padding:6px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🕳️ 洞窟</button>
+      <button id="btn-template-open" style="flex:1;min-width:60px;padding:6px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🌿 空地</button>
+      <button id="btn-template-zone" style="flex:1;min-width:60px;padding:6px;background:#8b5f9e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🧩 区域</button>
+    </div>
+
+    <h3>💾 数据</h3>
+    <div style="display:flex;gap:4px;">
+      <button id="btn-export-excel" style="flex:1;padding:8px;background:#217346;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;">📊 导出 Excel</button>
+      <button id="btn-export-img" style="flex:1;padding:8px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">🖼️ 导出PNG</button>
+    </div>
+    <div style="display:flex;gap:4px;">
+      <button id="btn-export-owlbear" style="flex:1;padding:6px;background:#6b4f8f;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;" title="导出为枭熊(Owlbear Rodeo)场景文件，可在枭熊中导入继续玩">🦉 枭熊场景</button>
+      <button id="btn-export-legend" style="flex:1;padding:6px;background:#4a5a7a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;" title="导出当前地形图例 PNNG（DM 用）">📜 图例</button>
+    </div>
+    <div style="display:flex;gap:4px;">
+      <button id="btn-save" style="flex:1;padding:4px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;">💾 保存</button>
+      <button id="btn-load" style="flex:1;padding:4px;background:#c9a84c;color:#000;border:none;border-radius:4px;cursor:pointer;">📂 加载</button>
+      <button id="btn-share" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="复制紧凑分享链接/数据串，或粘贴导入">🔗 分享</button>
+      <button id="btn-clear" style="flex:1;padding:4px;background:#6b5b4f;color:#ccc;border:none;border-radius:4px;cursor:pointer;">🗑️ 清空</button>
+    </div>
+    <div style="display:flex;gap:4px;margin-top:2px;">
+      <button id="btn-undo" style="flex:1;padding:4px;background:#3a3a5e;color:#fff;border:none;border-radius:4px;cursor:pointer;opacity:0.4;" disabled>↩️ 撤销</button>
+      <button id="btn-redo" style="flex:1;padding:4px;background:#3a3a5e;color:#fff;border:none;border-radius:4px;cursor:pointer;opacity:0.4;" disabled>↪️ 重做</button>
+    </div>
+    <label style="margin-top:4px;font-size:11px;">
+      <input type="checkbox" id="chk-grid" checked> 显示网格
+    </label>
+    <label style="font-size:11px;">
+      <input type="checkbox" id="chk-coords" checked> 显示坐标
+    </label>
+    <div style="margin-top:auto;font-size:10px;color:#555;text-align:center;padding-top:6px;">
+      通用跑团 · 战斗地图 v0.4<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>区域/线段/图片 · Delete 删除选中
+    </div>
+  </div>
+
+  <div id="canvas-container">
+    <div id="coord-indicator">⚪ 选择模式</div>
+    <div id="zoom-indicator">🔍 100%</div>
+    <canvas id="grid-canvas"></canvas>
+    <div id="info-panel"><div class="row"><span class="label">💡 选择工具 → 操作格子 → 导出 Excel</span></div></div>
+  </div>
+</div>
+
+<!-- Room Template Modal -->
+<div class="modal-overlay" id="room-modal">
+  <div class="modal-box">
+    <h3>🏠 生成房间</h3>
+    <label>宽度 (格子数): <span id="room-w-val">8</span></label>
+    <input type="range" id="room-w" min="3" max="30" value="8" style="width:100%;">
+    <label>高度 (格子数): <span id="room-h-val">6</span></label>
+    <input type="range" id="room-h" min="3" max="30" value="6" style="width:100%;">
+    <label>生成位置 <span style="color:#888;font-weight:normal;font-size:11px;">选中的格子作为起点</span></label>
+    <select id="room-pos" style="width:100%;">
+      <option value="center">视图中心（选中格或原点）</option>
+      <option value="origin">坐标原点 (0,0)</option>
+    </select>
+    <div class="btn-row">
+      <button id="room-cancel" style="background:#3a3a5e;color:#ccc;">取消</button>
+      <button id="room-confirm" style="background:#2d6a2e;color:#fff;">✓ 生成</button>
+    </div>
+  </div>
+</div>
+
+<!-- Corridor Modal -->
+<div class="modal-overlay" id="corridor-modal">
+  <div class="modal-box">
+    <h3>🛤️ 生成走廊</h3>
+    <label>类型</label>
+    <select id="corr-type" style="width:100%;margin-bottom:8px;">
+      <option value="straight">直线</option>
+      <option value="lshape">L 型转角</option>
+      <option value="tshape">T 型分叉</option>
+      <option value="cross">十字路口</option>
+    </select>
+    <label>长度: <span id="corr-len-val">10</span></label>
+    <input type="range" id="corr-len" min="4" max="30" value="10" style="width:100%;">
+    <label>宽度: <span id="corr-w-val">2</span></label>
+    <input type="range" id="corr-w" min="1" max="3" value="2" style="width:100%;">
+    <label>生成位置 <span style="color:#888;font-weight:normal;font-size:11px;">选中的格子作为起点</span></label>
+    <select id="corr-pos" style="width:100%;">
+      <option value="center">视图中心（选中格或原点）</option>
+      <option value="origin">坐标原点 (0,0)</option>
+    </select>
+    <div class="btn-row">
+      <button id="corr-cancel" style="background:#3a3a5e;color:#ccc;">取消</button>
+      <button id="corr-confirm" style="background:#2d6a2e;color:#fff;">✓ 生成</button>
+    </div>
+  </div>
+</div>
+
+<!-- Cave Modal -->
+<div class="modal-overlay" id="cave-modal">
+  <div class="modal-box">
+    <h3>🕳️ 生成洞窟</h3>
+    <label>宽度 (格子数): <span id="cave-w-val">20</span></label>
+    <input type="range" id="cave-w" min="8" max="40" value="20" style="width:100%;">
+    <label>高度 (格子数): <span id="cave-h-val">15</span></label>
+    <input type="range" id="cave-h" min="8" max="40" value="15" style="width:100%;">
+    <label>墙壁密度: <span id="cave-d-val">45%</span></label>
+    <input type="range" id="cave-d" min="30" max="60" value="45" style="width:100%;">
+    <label>生成位置 <span style="color:#888;font-weight:normal;font-size:11px;">选中的格子作为中心</span></label>
+    <select id="cave-pos" style="width:100%;">
+      <option value="center">视图中心（选中格或原点）</option>
+      <option value="origin">坐标原点 (0,0)</option>
+    </select>
+    <div class="btn-row">
+      <button id="cave-cancel" style="background:#3a3a5e;color:#ccc;">取消</button>
+      <button id="cave-confirm" style="background:#2d6a2e;color:#fff;">✓ 生成</button>
+    </div>
+  </div>
+</div>
+
+<!-- Open Field Modal -->
+<div class="modal-overlay" id="open-modal">
+  <div class="modal-box">
+    <h3>🌿 生成野外空地</h3>
+    <label>宽度 (格子数): <span id="open-w-val">15</span></label>
+    <input type="range" id="open-w" min="5" max="40" value="15" style="width:100%;">
+    <label>高度 (格子数): <span id="open-h-val">12</span></label>
+    <input type="range" id="open-h" min="5" max="40" value="12" style="width:100%;">
+    <label>散落地形比例: <span id="open-scatter-val">15%</span></label>
+    <input type="range" id="open-scatter" min="0" max="40" value="15" style="width:100%;">
+    <label>生成位置 <span style="color:#888;font-weight:normal;font-size:11px;">选中的格子作为中心</span></label>
+    <select id="open-pos" style="width:100%;">
+      <option value="center">视图中心（选中格或原点）</option>
+      <option value="origin">坐标原点 (0,0)</option>
+    </select>
+    <div class="btn-row">
+      <button id="open-cancel" style="background:#3a3a5e;color:#ccc;">取消</button>
+      <button id="open-confirm" style="background:#2d6a2e;color:#fff;">✓ 生成</button>
+    </div>
+  </div>
+</div>
+
+<!-- Label Modal -->
+<div class="modal-overlay" id="label-modal">
+  <div class="modal-box">
+    <h3>🏷️ 格子标注 <span id="label-modal-coord" style="font-size:12px;color:#888;font-weight:normal;"></span></h3>
+    <label>文字</label>
+    <input type="text" id="label-modal-text" placeholder="例：宝箱、陷阱、祭坛">
+    <div class="btn-row">
+      <button id="label-modal-cancel" style="background:#0f3460;color:#fff;">取消</button>
+      <button id="label-modal-confirm" style="background:#2d6a2e;color:#fff;">✓ 确认</button>
+    </div>
+    <input type="hidden" id="label-modal-q">
+    <input type="hidden" id="label-modal-r">
+  </div>
+</div>
+
+<!-- Shape Properties Modal -->
+<div class="modal-overlay" id="shape-modal">
+  <div class="modal-box">
+    <h3>▭ 区域/图片属性</h3>
+    <label>名称（可选）</label>
+    <input type="text" id="shape-name" placeholder="例：黑暗灵气、火墙区域">
+    <div id="shape-rect-fields">
+      <label>填充颜色</label>
+      <input type="color" id="shape-fill" value="#e94560" style="width:60px;height:30px;padding:0;border:none;background:none;cursor:pointer;">
+      <label>填充不透明度 <span id="shape-alpha-val">40%</span></label>
+      <input type="range" id="shape-alpha" min="0" max="100" value="40">
+      <label>边框颜色</label>
+      <input type="color" id="shape-stroke" value="#ffffff" style="width:60px;height:30px;padding:0;border:none;background:none;cursor:pointer;">
+      <label>边框粗细: <span id="shape-sw-val">2px</span></label>
+      <input type="range" id="shape-sw" min="0" max="10" value="2">
+      <label style="margin-top:4px;"><input type="checkbox" id="shape-dash" style="width:auto;"> 虚线边框</label>
+    </div>
+    <label style="margin-top:6px;">尺寸 (格)</label>
+    <div style="display:flex;gap:6px;">
+      <input type="number" id="shape-w" min="0.2" step="0.1" style="flex:1;">
+      <span style="line-height:28px;color:#888;">×</span>
+      <input type="number" id="shape-h" min="0.2" step="0.1" style="flex:1;">
+    </div>
+    <div class="btn-row">
+      <button id="shape-delete" style="background:#a33;color:#fff;margin-right:auto;">🗑️ 删除</button>
+      <button id="shape-cancel" style="background:#3a3a5e;color:#ccc;">取消</button>
+      <button id="shape-confirm" style="background:#2d6a2e;color:#fff;">✓ 应用</button>
+    </div>
+    <input type="hidden" id="shape-id">
+  </div>
+</div>
+
+<!-- Line Properties Modal -->
+<div class="modal-overlay" id="line-modal">
+  <div class="modal-box">
+    <h3>📏 线段属性</h3>
+    <label>名称（可选）</label>
+    <input type="text" id="line-name" placeholder="例：视线阻挡、临时墙">
+    <label>颜色</label>
+    <input type="color" id="line-color" value="#000000" style="width:60px;height:30px;padding:0;border:none;background:none;cursor:pointer;">
+    <label>线宽: <span id="line-w-val">3px</span></label>
+    <input type="range" id="line-w" min="1" max="12" value="3">
+    <label style="margin-top:4px;"><input type="checkbox" id="line-dash" style="width:auto;"> 虚线</label>
+    <div class="btn-row">
+      <button id="line-delete" style="background:#a33;color:#fff;margin-right:auto;">🗑️ 删除</button>
+      <button id="line-cancel" style="background:#3a3a5e;color:#ccc;">取消</button>
+      <button id="line-confirm" style="background:#2d6a2e;color:#fff;">✓ 应用</button>
+    </div>
+    <input type="hidden" id="line-id">
+  </div>
+</div>
+
+<!-- Terrain Manage Modal -->
+<div class="modal-overlay" id="terrain-modal">
+  <div class="modal-box" style="width:520px;">
+    <h3>⚙️ 地形管理 <span style="font-size:11px;color:#888;font-weight:normal;">自定义地形会保存到浏览器</span></h3>
+    <div id="terrain-list" style="max-height:280px;overflow-y:auto;margin-bottom:10px;"></div>
+    <div id="terrain-edit" style="border-top:1px solid #0f3460;padding-top:10px;display:none;">
+      <label>名称</label>
+      <input type="text" id="terrain-edit-name" placeholder="例：岩浆">
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;">
+          <label>图标 (emoji)</label>
+          <input type="text" id="terrain-edit-icon" placeholder="🌋" maxlength="4">
+        </div>
+        <div style="flex:1;">
+          <label>颜色</label>
+          <input type="color" id="terrain-edit-color" value="#d94a4a" style="width:60px;height:30px;padding:0;border:none;background:none;cursor:pointer;display:block;">
+        </div>
+      </div>
+      <label>说明</label>
+      <input type="text" id="terrain-edit-desc" placeholder="例：火焰伤害">
+      <div class="btn-row">
+        <button id="terrain-edit-cancel" style="background:#3a3a5e;color:#ccc;">取消</button>
+        <button id="terrain-edit-save" style="background:#2d6a2e;color:#fff;">✓ 保存</button>
+      </div>
+    </div>
+    <div class="btn-row" style="border-top:1px solid #0f3460;">
+      <button id="terrain-add" style="background:#3a7abd;color:#fff;margin-right:auto;">➕ 新增地形</button>
+      <button id="terrain-modal-close" style="background:#3a3a5e;color:#ccc;">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- Zone Template Modal -->
+<div class="modal-overlay" id="zone-modal">
+  <div class="modal-box">
+    <h3>🧩 生成区域 <span style="font-size:11px;color:#888;font-weight:normal;">新人友好范例模板</span></h3>
+    <label>区域类型</label>
+    <select id="zone-type" style="width:100%;margin-bottom:8px;">
+      <option value="difficult">🔸 困难地形区（移动×2 + 零散掩体）</option>
+      <option value="water">🌊 水域（池水 + 岸边 + 浅滩）</option>
+      <option value="fire">🔥 火焰陷阱区（火焰 + 安全格）</option>
+      <option value="acid">🧪 酸液区（酸液 + 安全格）</option>
+      <option value="spike">📌 尖刺区（尖刺 + 安全格）</option>
+      <option value="elevated">📶 高台区（高地 + 边缘墙）</option>
+      <option value="teach">🎓 教学示例区（墙柱+困难带+水池+火焰，展示各类地形）</option>
+    </select>
+    <label>宽度: <span id="zone-w-val">12</span></label>
+    <input type="range" id="zone-w" min="5" max="30" value="12" style="width:100%;">
+    <label>高度: <span id="zone-h-val">10</span></label>
+    <input type="range" id="zone-h" min="5" max="30" value="10" style="width:100%;">
+    <label>内容比例: <span id="zone-d-val">25%</span></label>
+    <input type="range" id="zone-d" min="5" max="60" value="25" style="width:100%;">
+    <label style="margin:4px 0;"><input type="checkbox" id="zone-wall" checked style="width:auto;"> 区域边缘加墙</label>
+    <label>生成位置 <span style="color:#888;font-weight:normal;font-size:11px;">选中的格子作为中心</span></label>
+    <select id="zone-pos" style="width:100%;">
+      <option value="center">视图中心（选中格或原点）</option>
+      <option value="origin">坐标原点 (0,0)</option>
+    </select>
+    <div class="btn-row">
+      <button id="zone-cancel" style="background:#3a3a5e;color:#ccc;">取消</button>
+      <button id="zone-confirm" style="background:#2d6a2e;color:#fff;">✓ 生成</button>
+    </div>
+  </div>
+</div>
+
+<!-- 分享/导入 Modal -->
+<div id="share-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:460px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">🔗 分享 / 导入</h3>
+    <div id="share-loading" style="display:none;margin-bottom:8px;padding:6px 8px;background:rgba(255,255,255,0.06);border-radius:4px;font-size:12px;">⏳ 编码中…</div>
+    <div id="share-status" style="min-height:16px;margin-bottom:8px;font-size:12px;color:#aaa;"></div>
+    <textarea id="share-text" rows="5" placeholder="粘贴分享数据串或完整 JSON 后点「导入」，或先生成数据串"
+      style="width:100%;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:11px;padding:6px;font-family:monospace;"></textarea>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;">
+      <button id="share-btn-generate" style="padding:5px 12px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🔗 生成分享</button>
+      <button id="share-btn-copy-link" style="padding:5px 12px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">📋 复制链接</button>
+      <button id="share-btn-copy-data" style="padding:5px 12px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">📋 复制数据串</button>
+      <button id="share-btn-import" style="padding:5px 12px;background:#c9a84c;color:#000;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;">📂 导入</button>
+      <button id="share-btn-close" style="margin-left:auto;padding:5px 12px;background:#3a3a5e;color:#ccc;border:1px solid #0f3460;border-radius:4px;cursor:pointer;font-size:12px;">关闭</button>
+    </div>
+    <div style="font-size:11px;color:#888;line-height:1.6;">
+      提示：分享链接包含完整地图数据（含图片），对方打开后自动导入。链接较长时可复制纯数据串，用「导入」粘贴恢复。
+    </div>
+  </div>
+</div>
+
+<!-- SheetJS CDN for .xlsx export -->
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"
+        onerror="window.__combatmapCDN = window.__combatmapCDN || {}; window.__combatmapCDN.xlsx = false;"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"
+        onerror="window.__combatmapCDN = window.__combatmapCDN || {}; window.__combatmapCDN.jszip = false;"></script>
+
+<script>
+//  Configuration
+// ============================================================
+const COMBATMAP_VERSION = 'v0.4';
+
+const COMBAT_TERRAIN = {
+  floor:        { name: '普通地面', color: '#d4c5a9', icon: '⬜', desc: '正常移动' },
+  wall_cell:    { name: '墙壁(填充)', color: '#4a4a4a', icon: '🧱', desc: '不可通行' },
+  difficult:    { name: '困难地形', color: '#8b6914', icon: '🔸', desc: '移动×2' },
+  water:        { name: '水域', color: '#4a90d9', icon: '🌊', desc: '游泳检定' },
+  elevated:     { name: '高台/高地', color: '#c9a84c', icon: '📶', desc: '远程优势' },
+  cover_half:   { name: '半身掩体', color: '#7a9a5a', icon: '🛡️', desc: 'AC+2' },
+  cover_full:   { name: '全身掩体', color: '#5a7a3a', icon: '🛡️', desc: 'AC+5' },
+  hazard_fire:  { name: '火焰', color: '#d94a4a', icon: '🔥', desc: '火焰伤害' },
+  hazard_acid:  { name: '酸液', color: '#4ad94a', icon: '🧪', desc: '酸液伤害' },
+  hazard_spike: { name: '尖刺', color: '#a0a0a0', icon: '📌', desc: '穿刺伤害' },
+  door_cell:    { name: '门(填充)', color: '#8b5a2b', icon: '🚪', desc: '可开关' },
+  stairs:       { name: '楼梯', color: '#a09080', icon: '🪜', desc: '层级连接' },
+  pit:          { name: '深渊/陷坑', color: '#1a1a1a', icon: '🕳️', desc: '坠落伤害' },
+};
+
+// 扩展图例库（常用 DM 图例，可在"⚙️ 管理"中删除或修改属性）
+const EXTRA_TERRAIN = {
+  trap:         { name: '陷阱', color: '#8b3a3a', icon: '⚔️', desc: '陷阱' },
+  altar:        { name: '祭坛', color: '#7a5a9e', icon: '🛐', desc: '祭坛' },
+  chest:        { name: '宝箱', color: '#c9a84c', icon: '🧰', desc: '宝箱' },
+  portal:       { name: '传送门', color: '#6a3a9e', icon: '🌀', desc: '传送' },
+  campfire:     { name: '篝火', color: '#e07a3a', icon: '🏕️', desc: '休息点' },
+  ice:          { name: '冰面', color: '#9ad4f0', icon: '🧊', desc: '滑行/困难' },
+  lava:         { name: '岩浆', color: '#e05020', icon: '🌋', desc: '火焰伤害' },
+  grass:        { name: '草丛', color: '#5a9a3a', icon: '🌿', desc: '潜行掩体' },
+  rubble:       { name: '碎石', color: '#8a8a8a', icon: '🪨', desc: '困难地形' },
+  web:          { name: '蛛网', color: '#c0c0d0', icon: '🕸️', desc: '被困检定' },
+  poison:       { name: '毒雾', color: '#4ad95a', icon: '☠️', desc: '中毒伤害' },
+  shrine:       { name: '神殿', color: '#d4c56a', icon: '⛪', desc: '祝福' },
+  throne:       { name: '王座', color: '#9e6a3a', icon: '👑', desc: '首领区域' },
+  teleport:     { name: '传送点', color: '#3a9ed9', icon: '🔮', desc: '传送' },
+  fog:          { name: '浓雾', color: '#a0a8b0', icon: '🌫️', desc: '遮蔽视线' },
+  darkness:     { name: '黑暗', color: '#2a2a3a', icon: '🌑', desc: '黑暗区域' },
+  barricade:    { name: '路障', color: '#6a5a4a', icon: '🪵', desc: '掩体/阻挡' },
+  crop:         { name: '田地', color: '#c9b46a', icon: '🌾', desc: '田野' },
+};
+
+// ============================================================
+
+//  Custom Terrain System (localStorage 持久化)
+// ============================================================
+const LS_TERRAIN_KEY = 'combatmap_custom_terrains_v2';
+let customTerrains = {};
+let terrainOverrides = {};   // 对内置/扩展地形属性的覆盖 { id: {name,icon,color,desc} }
+
+function loadCustomTerrains() {
+  try {
+    const raw = localStorage.getItem(LS_TERRAIN_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    customTerrains = data.custom || {};
+    terrainOverrides = data.overrides || {};
+  } catch (e) { /* ignore */ }
+}
+function saveCustomTerrains() {
+  try {
+    localStorage.setItem(LS_TERRAIN_KEY, JSON.stringify({ custom: customTerrains, overrides: terrainOverrides }));
+  } catch (e) { /* ignore */ }
+}
+function getAllTerrains() {
+  const merged = {};
+  Object.keys(COMBAT_TERRAIN).forEach(id => {
+    merged[id] = { ...COMBAT_TERRAIN[id], ...(terrainOverrides[id] || {}), id };
+  });
+  Object.keys(EXTRA_TERRAIN).forEach(id => {
+    merged[id] = { ...EXTRA_TERRAIN[id], ...(terrainOverrides[id] || {}), id };
+  });
+  Object.keys(customTerrains).forEach(id => {
+    merged[id] = { ...customTerrains[id], id };
+  });
+  return merged;
+}
+const ALL_TERRAIN_CACHE = {};
+let allTerrains = getAllTerrains();
+function refreshTerrains() { allTerrains = getAllTerrains(); }
+function getTerrain(id) { return allTerrains[id] || null; }
+function getTerrainList() { return Object.keys(allTerrains); }
+loadCustomTerrains();
+refreshTerrains();
+
+// ============================================================
+
+//  State
+// ============================================================
+const CELL_SIZE = 48;
+let combatData = {};       // key: "q,r" → { terrain, label, walls: [top,right,bottom,left] }
+let shapes = [];           // 图形图层: { id, type:'rect'|'image', x,y,w,h(格), fill, fillAlpha, stroke, strokeWidth, dash, name, imgData }
+let freeLines = [];        // 自由线段: { id, x1,y1,x2,y2(格), color, width, dash, name }
+let selectedShape = null;  // 当前选中 shape id
+let selectedLine = null;   // 当前选中 line id
+let selectedTool = 'select';
+let selectedTerrain = 'floor';
+let selectedCell = null;
+let viewX = 0, viewY = 0;
+let zoom = 1;
+let isDragging = false, dragStartX, dragStartY, viewStartX, viewStartY;
+let showGrid = true, showCoords = true;
+let _eraseDragLast = new Set();
+let _shapeSeq = 1;
+let _lineSeq = 1;
+let _dragMode = null;      // 'pan' | 'paint' | 'erase' | 'shape-move' | 'shape-resize' | 'line-move' | 'line-drag' | 'wall-drag' | 'rect-draw' | 'line-draw' | 'token-place'
+let _dragShapeId = null, _dragHandle = null, _dragLineId = null;
+let _dragOffX = 0, _dragOffY = 0;
+let _wallDragLast = null;  // 墙/门拖拽去重: "q,r,edge"
+let _drawStart = null;     // rect/line 绘制的起点(格坐标)
+let _rectPreview = null;   // 矩形绘制预览
+let _linePreview = null;   // 线段绘制预览
+let _lineInit = null;      // 线段移动初始位置
+let _tokenPending = null;  // 待放置的图片 { imgData, w, h, img }
+let _hoverToken = null;    // 放置预览位置
+
+// Undo/Redo
+const MAX_UNDO = 50;
+let undoStack = [];
+let redoStack = [];
+let undoBatch = null;
+
+// ============================================================
+//  Undo/Redo System
+// ============================================================
+function snapshotCell(key) {
+  return combatData[key] ? JSON.parse(JSON.stringify(combatData[key])) : null;
+}
+
+function updateUndoButtons() {
+  const btnU = document.getElementById('btn-undo');
+  const btnR = document.getElementById('btn-redo');
+  if (btnU) { btnU.disabled = undoStack.length === 0; btnU.style.opacity = undoStack.length === 0 ? '0.4' : '1'; }
+  if (btnR) { btnR.disabled = redoStack.length === 0; btnR.style.opacity = redoStack.length === 0 ? '0.4' : '1'; }
+}
+
+function pushUndo(key) {
+  const entry = { key, before: snapshotCell(key) };
+  if (undoBatch !== null) {
+    undoBatch.push(entry);
+  } else {
+    undoStack.push([entry]);
+    if (undoStack.length > MAX_UNDO) undoStack.shift();
+    redoStack = [];
+    updateUndoButtons();
+  }
+}
+
+// 图形/线段快照撤销（整个图层入栈；剥离 img 对象避免序列化问题）
+function snapshotMeta() {
+  return {
+    shapes: JSON.parse(JSON.stringify(shapes.map(s => { const c = { ...s }; delete c.img; return c; }))),
+    freeLines: JSON.parse(JSON.stringify(freeLines))
+  };
+}
+
+function restoreMeta(before) {
+  shapes = (before.shapes || []).map(sh => {
+    if (sh.type === 'image' && sh.imgData && !sh.img) {
+      const img = new Image();
+      img.src = sh.imgData;
+      img.onload = () => render();
+      sh.img = img;
+    }
+    return sh;
+  });
+  freeLines = before.freeLines || [];
+}
+
+function pushUndoMeta() {
+  const entry = { key: '__meta__', before: snapshotMeta() };
+  if (undoBatch !== null) {
+    undoBatch.push(entry);
+  } else {
+    undoStack.push([entry]);
+    if (undoStack.length > MAX_UNDO) undoStack.shift();
+    redoStack = [];
+    updateUndoButtons();
+  }
+}
+
+function beginBatch() { undoBatch = []; }
+
+function endBatch() {
+  if (undoBatch && undoBatch.length) {
+    const latest = new Map();
+    for (const e of undoBatch) latest.set(e.key, e);
+    undoStack.push([...latest.values()]);
+    if (undoStack.length > MAX_UNDO) undoStack.shift();
+    redoStack = [];
+  }
+  undoBatch = null;
+  updateUndoButtons();
+}
+
+function applyUndoEntry(entries) {
+  const redoEntries = [];
+  for (const { key, before } of entries) {
+    if (key === '__meta__') {
+      redoEntries.push({ key, before: snapshotMeta() });
+      restoreMeta(before);
+      selectedShape = null; selectedLine = null;
+    } else {
+      redoEntries.push({ key, before: snapshotCell(key) });
+      if (before) { combatData[key] = before; }
+      else { delete combatData[key]; }
+    }
+  }
+  return redoEntries;
+}
+
+function undo() {
+  const entry = undoStack.pop();
+  if (!entry) return;
+  redoStack.push(applyUndoEntry(entry));
+  render();
+  updateInfo();
+  updateUndoButtons();
+}
+
+function redo() {
+  const entry = redoStack.pop();
+  if (!entry) return;
+  undoStack.push(applyUndoEntry(entry));
+  render();
+  updateInfo();
+  updateUndoButtons();
+}
+
+// ============================================================
+
+//  Coordinate System
+// ============================================================
+function cellToPixel(q, r) {
+  return { x: q * CELL_SIZE, y: r * CELL_SIZE };
+}
+
+function pixelToCell(px, py) {
+  return { q: Math.floor((px + CELL_SIZE / 2) / CELL_SIZE), r: Math.floor((py + CELL_SIZE / 2) / CELL_SIZE) };
+}
+
+function cellKey(q, r) { return `${q},${r}`; }
+
+function neighbors(q, r) {
+  return [[0,-1],[1,0],[0,1],[-1,0]].map(([dq, dr]) => ({ q: q + dq, r: r + dr }));
+}
+
+// Opposite edge indices: top↔bottom(0↔2), right↔left(1↔3)
+const OPPOSITE_EDGE = [2, 3, 0, 1];
+const EDGE_DELTA = [[0,-1],[1,0],[0,1],[-1,0]]; // dq,dr for each edge direction
+
+// ============================================================
+//  Data CRUD
+// ============================================================
+function getCell(q, r) {
+  const key = cellKey(q, r);
+  if (!combatData[key]) return { terrain: null, label: '', walls: [0, 0, 0, 0] };
+  return combatData[key];
+}
+
+function setCell(q, r, data) {
+  const key = cellKey(q, r);
+  pushUndo(key);
+  const existing = getCell(q, r);
+  const merged = { ...existing, ...data };
+  // Auto-clean empty cells
+  if (!merged.terrain && !merged.label && merged.walls.every(w => w === 0)) {
+    delete combatData[key];
+  } else {
+    combatData[key] = merged;
+  }
+}
+
+function setWall(q, r, edge, value) {
+  // Set wall on this cell
+  const key = cellKey(q, r);
+  pushUndo(key);
+  const cell = getCell(q, r);
+  // Ensure cell exists in combatData
+  const exists = !!combatData[key];
+  cell.walls[edge] = value;
+  combatData[key] = cell;
+
+  // Sync with neighbor
+  const [dq, dr] = EDGE_DELTA[edge];
+  const nq = q + dq, nr = r + dr;
+  const nKey = cellKey(nq, nr);
+  const nCell = getCell(nq, nr);
+  const nExists = !!combatData[nKey];
+  pushUndo(nKey);
+  nCell.walls[OPPOSITE_EDGE[edge]] = value;
+  combatData[nKey] = nCell;
+
+  // Clean up if both cells became empty
+  if (!cell.terrain && !cell.label && cell.walls.every(w => w === 0) && exists) {
+    delete combatData[key];
+  }
+  if (!nCell.terrain && !nCell.label && nCell.walls.every(w => w === 0) && nExists) {
+    delete combatData[nKey];
+  }
+}
+
+function cleanData() {
+  for (const key of Object.keys(combatData)) {
+    const h = combatData[key];
+    if (!h.terrain && !h.label && h.walls.every(w => w === 0)) {
+      delete combatData[key];
+    }
+  }
+}
+
+// ============================================================
+//  Color Utilities
+// ============================================================
+function isLightColor(hex) {
+  const c = hex.replace('#','');
+  const r = parseInt(c.substr(0,2),16);
+  const g = parseInt(c.substr(2,2),16);
+  const b = parseInt(c.substr(4,2),16);
+  return (r * 299 + g * 587 + b * 114) / 1000 > 150;
+}
+
+function hexToARGB(hex) {
+  return 'FF' + hex.replace('#','').toUpperCase();
+}
+
+// ============================================================
+//  Canvas Setup
+// ============================================================
+const container = document.getElementById('canvas-container');
+const canvas = document.getElementById('grid-canvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  canvas.width = container.clientWidth;
+  canvas.height = container.clientHeight;
+  render();
+}
+
+// ============================================================
+
+//  Rendering
+// ============================================================
+function render() {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#2d2d44';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.save();
+  ctx.translate(viewX, viewY);
+  ctx.scale(zoom, zoom);
+
+  const margin = CELL_SIZE * 2;
+  const topLeft = pixelToCell((-viewX - margin) / zoom, (-viewY - margin) / zoom);
+  const botRight = pixelToCell((W - viewX + margin) / zoom, (H - viewY + margin) / zoom);
+  const qMin = Math.floor(topLeft.q) - 1, qMax = Math.ceil(botRight.q) + 1;
+  const rMin = Math.floor(topLeft.r) - 1, rMax = Math.ceil(botRight.r) + 1;
+
+  // Pass 1: Cell fills + grid
+  for (let q = qMin; q <= qMax; q++) {
+    for (let r = rMin; r <= rMax; r++) {
+      drawCellBase(q, r);
+    }
+  }
+
+  // Pass 2: Wall boundaries (edges between cells)
+  for (let q = qMin; q <= qMax; q++) {
+    for (let r = rMin; r <= rMax; r++) {
+      drawWallEdges(q, r);
+    }
+  }
+
+  // Pass 3: Overlays (icons, labels)
+  for (let q = qMin; q <= qMax; q++) {
+    for (let r = rMin; r <= rMax; r++) {
+      drawCellOverlay(q, r);
+    }
+  }
+
+  // Pass 4: Free lines (任意角度线段)
+  drawFreeLines();
+
+  // Pass 5: Shapes (矩形/图片图层)
+  drawShapes();
+
+  // Pass 6: Selection boxes
+  drawSelectionOverlay();
+
+  // 绘制预览（矩形/线段）
+  if (_rectPreview) {
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = '#e94560';
+    ctx.fillRect(_rectPreview.x * CELL_SIZE, _rectPreview.y * CELL_SIZE, _rectPreview.w * CELL_SIZE, _rectPreview.h * CELL_SIZE);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2 / zoom;
+    ctx.setLineDash([4 / zoom, 4 / zoom]);
+    ctx.strokeRect(_rectPreview.x * CELL_SIZE, _rectPreview.y * CELL_SIZE, _rectPreview.w * CELL_SIZE, _rectPreview.h * CELL_SIZE);
+    ctx.setLineDash([]);
+  }
+  if (_linePreview) {
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 3 / zoom;
+    ctx.setLineDash([6 / zoom, 4 / zoom]);
+    ctx.beginPath();
+    ctx.moveTo(_linePreview.x1 * CELL_SIZE, _linePreview.y1 * CELL_SIZE);
+    ctx.lineTo(_linePreview.x2 * CELL_SIZE, _linePreview.y2 * CELL_SIZE);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Token 放置预览
+  if (_tokenPending && _hoverToken) {
+    const hx = _hoverToken.q, hy = _hoverToken.r;
+    const p = cellToPixel(hx, hy);
+    ctx.globalAlpha = 0.5;
+    if (_tokenPending.img) {
+      ctx.drawImage(_tokenPending.img, p.x - _tokenPending.w * CELL_SIZE / 2, p.y - _tokenPending.h * CELL_SIZE / 2, _tokenPending.w * CELL_SIZE, _tokenPending.h * CELL_SIZE);
+    }
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2 / zoom;
+    ctx.setLineDash([4 / zoom, 4 / zoom]);
+    ctx.strokeRect(p.x - _tokenPending.w * CELL_SIZE / 2, p.y - _tokenPending.h * CELL_SIZE / 2, _tokenPending.w * CELL_SIZE, _tokenPending.h * CELL_SIZE);
+    ctx.setLineDash([]);
+  }
+
+  ctx.restore();
+}
+
+function drawSelectionOverlay() {
+  // 格子选择框
+  if (selectedCell) {
+    const p = cellToPixel(selectedCell.q, selectedCell.r);
+    const half = CELL_SIZE / 2;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 3 / zoom;
+    ctx.setLineDash([4 / zoom, 4 / zoom]);
+    ctx.strokeRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
+    ctx.setLineDash([]);
+  }
+  if (selectedShape) {
+    const sh = shapes.find(s => s.id === selectedShape);
+    if (sh) {
+      const p = cellToPixel(sh.x, sh.y);
+      const w = sh.w * CELL_SIZE, h = sh.h * CELL_SIZE;
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2 / zoom;
+      ctx.setLineDash([4 / zoom, 4 / zoom]);
+      ctx.strokeRect(p.x, p.y, w, h);
+      ctx.setLineDash([]);
+      // 8 个缩放手柄
+      const hs = 6 / zoom;
+      const handles = [
+        [p.x, p.y], [p.x + w / 2, p.y], [p.x + w, p.y],
+        [p.x, p.y + h / 2], [p.x + w, p.y + h / 2],
+        [p.x, p.y + h], [p.x + w / 2, p.y + h], [p.x + w, p.y + h]
+      ];
+      ctx.fillStyle = '#fff';
+      handles.forEach(([hx, hy]) => {
+        ctx.fillRect(hx - hs / 2, hy - hs / 2, hs, hs);
+      });
+    }
+  }
+  if (selectedLine) {
+    const ln = freeLines.find(l => l.id === selectedLine);
+    if (ln) {
+      const p1 = cellToPixel(ln.x1, ln.y1), p2 = cellToPixel(ln.x2, ln.y2);
+      ctx.strokeStyle = '#4af';
+      ctx.lineWidth = 2 / zoom;
+      ctx.setLineDash([4 / zoom, 4 / zoom]);
+      ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+      ctx.setLineDash([]);
+      const hs = 6 / zoom;
+      ctx.fillStyle = '#4af';
+      ctx.fillRect(p1.x - hs / 2, p1.y - hs / 2, hs, hs);
+      ctx.fillRect(p2.x - hs / 2, p2.y - hs / 2, hs, hs);
+    }
+  }
+}
+
+function drawShapes() {
+  for (const sh of shapes) {
+    const p = cellToPixel(sh.x, sh.y);
+    const w = sh.w * CELL_SIZE, h = sh.h * CELL_SIZE;
+    if (sh.type === 'rect') {
+      ctx.globalAlpha = Math.max(0, Math.min(1, sh.fillAlpha));
+      ctx.fillStyle = sh.fill || '#e94560';
+      ctx.fillRect(p.x, p.y, w, h);
+      ctx.globalAlpha = 1;
+      if (sh.strokeWidth > 0) {
+        ctx.strokeStyle = sh.stroke || '#fff';
+        ctx.lineWidth = sh.strokeWidth / zoom;
+        ctx.setLineDash(sh.dash ? [6 / zoom, 4 / zoom] : []);
+        ctx.strokeRect(p.x, p.y, w, h);
+        ctx.setLineDash([]);
+      }
+      if (sh.name) {
+        ctx.fillStyle = 'rgba(0,0,0,0.65)';
+        ctx.font = `bold ${Math.max(10, 13 / zoom)}px sans-serif`;
+        const tw = ctx.measureText(sh.name).width;
+        const ty = Math.max(2 / zoom, p.y - 4 / zoom);
+        ctx.fillRect(p.x, ty - 12 / zoom, tw + 6 / zoom, 14 / zoom);
+        ctx.fillStyle = '#ffd700';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText(sh.name, p.x + 3 / zoom, ty - 5 / zoom);
+      }
+    } else if (sh.type === 'image' && sh.img) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(p.x, p.y, w, h);
+      ctx.clip();
+      ctx.drawImage(sh.img, p.x, p.y, w, h);
+      ctx.restore();
+      if (sh.strokeWidth > 0) {
+        ctx.strokeStyle = sh.stroke || '#fff';
+        ctx.lineWidth = sh.strokeWidth / zoom;
+        ctx.setLineDash(sh.dash ? [6 / zoom, 4 / zoom] : []);
+        ctx.strokeRect(p.x, p.y, w, h);
+        ctx.setLineDash([]);
+      }
+      if (sh.name) {
+        ctx.fillStyle = 'rgba(0,0,0,0.65)';
+        ctx.font = `bold ${Math.max(10, 13 / zoom)}px sans-serif`;
+        const tw = ctx.measureText(sh.name).width;
+        const ty = Math.max(2 / zoom, p.y - 4 / zoom);
+        ctx.fillRect(p.x, ty - 12 / zoom, tw + 6 / zoom, 14 / zoom);
+        ctx.fillStyle = '#ffd700';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText(sh.name, p.x + 3 / zoom, ty - 5 / zoom);
+      }
+    }
+  }
+}
+
+function drawFreeLines() {
+  for (const ln of freeLines) {
+    const p1 = cellToPixel(ln.x1, ln.y1), p2 = cellToPixel(ln.x2, ln.y2);
+    ctx.strokeStyle = ln.color || '#000';
+    ctx.lineWidth = (ln.width || 3) / zoom;
+    ctx.setLineDash(ln.dash ? [8 / zoom, 5 / zoom] : []);
+    ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+function drawCellBase(q, r) {
+  const p = cellToPixel(q, r);
+  const h = getCell(q, r);
+  const half = CELL_SIZE / 2;
+
+  let fillColor = '#3a3a52';
+  if (h.terrain && getTerrain(h.terrain)) {
+    fillColor = getTerrain(h.terrain).color;
+  }
+  ctx.fillStyle = fillColor;
+  ctx.fillRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
+
+  if (showGrid) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
+  }
+}
+
+function drawWallEdges(q, r) {
+  const h = getCell(q, r);
+  if (!h.walls) return;
+  const p = cellToPixel(q, r);
+  const half = CELL_SIZE / 2;
+
+  for (let edge = 0; edge < 4; edge++) {
+    const state = h.walls[edge];
+    if (state === 0) continue;
+
+    let x1, y1, x2, y2;
+    if (edge === 0) { // top
+      x1 = p.x - half; y1 = p.y - half; x2 = p.x + half; y2 = p.y - half;
+    } else if (edge === 1) { // right
+      x1 = p.x + half; y1 = p.y - half; x2 = p.x + half; y2 = p.y + half;
+    } else if (edge === 2) { // bottom
+      x1 = p.x - half; y1 = p.y + half; x2 = p.x + half; y2 = p.y + half;
+    } else { // left
+      x1 = p.x - half; y1 = p.y - half; x2 = p.x - half; y2 = p.y + half;
+    }
+
+    if (state === 1) {
+      // Wall: thick solid line
+      ctx.strokeStyle = '#1a1a1a';
+      ctx.lineWidth = 3.5;
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      // Inner highlight
+      ctx.strokeStyle = '#555';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+    } else if (state === 2) {
+      // Door: dashed line + icon
+      ctx.strokeStyle = '#8b5a2b';
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Door icon at center of edge
+      const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+      ctx.fillStyle = '#8b5a2b';
+      ctx.font = `${Math.max(8, CELL_SIZE * 0.22)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      // Offset icon perpendicular to edge
+      let ox = 0, oy = 0;
+      if (edge === 0) oy = 1;
+      else if (edge === 2) oy = -1;
+      else if (edge === 1) ox = -1;
+      else ox = 1;
+      ctx.fillText('🚪', mx + ox * 2, my + oy * 2);
+    }
+  }
+}
+
+function drawCellOverlay(q, r) {
+  const p = cellToPixel(q, r);
+  const h = getCell(q, r);
+  const half = CELL_SIZE / 2;
+
+  // Coordinates
+  if (showCoords) {
+    ctx.fillStyle = 'rgba(255,255,255,0.30)';
+    ctx.font = `${Math.max(8, CELL_SIZE * 0.18)}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${q},${r}`, p.x, p.y + CELL_SIZE * 0.30);
+  }
+
+  // Terrain icon
+  const tInfo = h.terrain ? getTerrain(h.terrain) : null;
+  if (tInfo) {
+    ctx.font = `${CELL_SIZE * 0.32}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = isLightColor(tInfo.color) ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.85)';
+    ctx.fillText(tInfo.icon, p.x, p.y - (h.label ? CELL_SIZE * 0.12 : 0));
+  }
+
+  // Label
+  if (h.label) {
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${Math.max(8, CELL_SIZE * 0.26)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    const tw = ctx.measureText(h.label).width;
+    const lh = CELL_SIZE * 0.30;
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    const by = p.y - CELL_SIZE * 0.38;
+    ctx.fillRect(p.x - tw/2 - 3, by, tw + 6, lh);
+    ctx.fillStyle = '#ffd700';
+    ctx.fillText(h.label, p.x, by + lh - 1);
+  }
+}
+
+// ============================================================
+//  Hit Testing
+// ============================================================
+function cellAtPixel(px, py) {
+  const wx = (px - viewX) / zoom;
+  const wy = (py - viewY) / zoom;
+  const c = pixelToCell(wx, wy);
+  const p = cellToPixel(c.q, c.r);
+  const half = CELL_SIZE / 2;
+  if (wx >= p.x - half && wx <= p.x + half && wy >= p.y - half && wy <= p.y + half) {
+    return c;
+  }
+  return null;
+}
+
+function getEdgeAtPixel(px, py) {
+  const wx = (px - viewX) / zoom;
+  const wy = (py - viewY) / zoom;
+  const c = pixelToCell(wx, wy);
+  if (!c) return null;
+  const p = cellToPixel(c.q, c.r);
+  const half = CELL_SIZE / 2;
+
+  const distTop = Math.abs(wy - (p.y - half));
+  const distBottom = Math.abs(wy - (p.y + half));
+  const distLeft = Math.abs(wx - (p.x - half));
+  const distRight = Math.abs(wx - (p.x + half));
+
+  const threshold = CELL_SIZE * 0.28;
+  const minDist = Math.min(distTop, distBottom, distLeft, distRight);
+  if (minDist > threshold) return null;
+
+  if (minDist === distTop) return { q: c.q, r: c.r, edge: 0 };
+  if (minDist === distRight) return { q: c.q, r: c.r, edge: 1 };
+  if (minDist === distBottom) return { q: c.q, r: c.r, edge: 2 };
+  return { q: c.q, r: c.r, edge: 3 };
+}
+
+// ============================================================
+//  Shape / Line Hit Testing（世界坐标）
+// ============================================================
+function worldPos(mx, my) {
+  return { x: (mx - viewX) / zoom, y: (my - viewY) / zoom };
+}
+
+// 命中 shape（顶层优先），返回 shape 或 null
+function hitTestShape(wx, wy) {
+  for (let i = shapes.length - 1; i >= 0; i--) {
+    const sh = shapes[i];
+    if (wx >= sh.x * CELL_SIZE && wx <= (sh.x + sh.w) * CELL_SIZE &&
+        wy >= sh.y * CELL_SIZE && wy <= (sh.y + sh.h) * CELL_SIZE) return sh;
+  }
+  return null;
+}
+
+// 命中 shape 缩放手柄（需已选中），返回 'nw','n','ne','e','se','s','sw','w' 或 null
+const SHAPE_HANDLES = ['nw','n','ne','e','se','s','sw','w'];
+function shapeHandleAt(wx, wy) {
+  const sh = shapes.find(s => s.id === selectedShape);
+  if (!sh) return null;
+  const x0 = sh.x * CELL_SIZE, y0 = sh.y * CELL_SIZE;
+  const x1 = (sh.x + sh.w) * CELL_SIZE, y1 = (sh.y + sh.h) * CELL_SIZE;
+  const hs = 8 / zoom;
+  const pts = {
+    nw: [x0, y0], n: [(x0 + x1) / 2, y0], ne: [x1, y0],
+    e: [x1, (y0 + y1) / 2], se: [x1, y1], s: [(x0 + x1) / 2, y1],
+    sw: [x0, y1], w: [x0, (y0 + y1) / 2]
+  };
+  for (const h of SHAPE_HANDLES) {
+    const [hx, hy] = pts[h];
+    if (Math.abs(wx - hx) <= hs && Math.abs(wy - hy) <= hs) return h;
+  }
+  return null;
+}
+
+// 点到线段距离（世界坐标，像素）
+function distToSegment(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const len2 = dx * dx + dy * dy;
+  let t = len2 === 0 ? 0 : ((px - x1) * dx + (py - y1) * dy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  const cx = x1 + t * dx, cy = y1 + t * dy;
+  return Math.hypot(px - cx, py - cy);
+}
+
+// 命中线段，返回 line 或 null
+function hitTestLine(wx, wy) {
+  for (let i = freeLines.length - 1; i >= 0; i--) {
+    const ln = freeLines[i];
+    const p1 = cellToPixel(ln.x1, ln.y1), p2 = cellToPixel(ln.x2, ln.y2);
+    const d = distToSegment(wx, wy, p1.x, p1.y, p2.x, p2.y);
+    if (d <= Math.max(8 / zoom, (ln.width || 3) / zoom + 4 / zoom)) return ln;
+  }
+  return null;
+}
+
+// 线段端点命中（需已选中），返回 'start'|'end'|null
+function lineEndAt(wx, wy) {
+  const ln = freeLines.find(l => l.id === selectedLine);
+  if (!ln) return null;
+  const p1 = cellToPixel(ln.x1, ln.y1), p2 = cellToPixel(ln.x2, ln.y2);
+  const hs = 8 / zoom;
+  if (Math.abs(wx - p1.x) <= hs && Math.abs(wy - p1.y) <= hs) return 'start';
+  if (Math.abs(wx - p2.x) <= hs && Math.abs(wy - p2.y) <= hs) return 'end';
+  return null;
+}
+
+// ============================================================
+
+//  Input Handling
+// ============================================================
+canvas.addEventListener('mousedown', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+
+  if (e.button === 2) {
+    e.preventDefault();
+    showContextMenu(e.clientX, e.clientY, mx, my);
+    return;
+  }
+
+  if (e.button === 0) {
+    const wx = (mx - viewX) / zoom, wy = (my - viewY) / zoom;
+
+    // --- 选择工具：图形/线段优先 ---
+    if (selectedTool === 'select') {
+      // 选中图形的缩放手柄
+      const handle = shapeHandleAt(wx, wy);
+      if (handle) {
+        _dragMode = 'shape-resize'; _dragShapeId = selectedShape; _dragHandle = handle;
+        isDragging = true; dragStartX = wx; dragStartY = wy;
+        pushUndoMeta();
+        return;
+      }
+      // 线段端点
+      const endHit = lineEndAt(wx, wy);
+      if (endHit) {
+        _dragMode = 'line-drag'; _dragLineId = selectedLine; _dragHandle = endHit;
+        isDragging = true; dragStartX = wx; dragStartY = wy;
+        pushUndoMeta();
+        return;
+      }
+      // 图形主体（顶层优先）
+      const sh = hitTestShape(wx, wy);
+      if (sh) {
+        selectedShape = sh.id; selectedLine = null; selectedCell = null;
+        _dragMode = 'shape-move'; _dragShapeId = sh.id;
+        _dragOffX = wx - sh.x * CELL_SIZE; _dragOffY = wy - sh.y * CELL_SIZE;
+        isDragging = true; dragStartX = wx; dragStartY = wy;
+        pushUndoMeta();
+        render(); updateInfo();
+        return;
+      }
+      // 线段主体
+      const ln = hitTestLine(wx, wy);
+      if (ln) {
+        selectedLine = ln.id; selectedShape = null; selectedCell = null;
+        _dragMode = 'line-move'; _dragLineId = ln.id;
+        _lineInit = { x1: ln.x1, y1: ln.y1, x2: ln.x2, y2: ln.y2 };
+        isDragging = true; dragStartX = wx; dragStartY = wy;
+        pushUndoMeta();
+        render(); updateInfo();
+        return;
+      }
+      selectedShape = null; selectedLine = null;
+    }
+
+    // --- 墙/门：点击 toggle + 拖拽连续绘制 ---
+    if (selectedTool === 'wall' || selectedTool === 'door') {
+      const edge = getEdgeAtPixel(mx, my);
+      if (edge) {
+        handleEdgeClick(edge);
+        _dragMode = 'wall-drag';
+        _wallDragLast = `${edge.q},${edge.r},${edge.edge}`;
+        isDragging = true;
+        beginBatch();
+        return;
+      }
+      // 未命中边缘：平移
+      isDragging = true;
+      _dragMode = 'pan';
+      dragStartX = mx; dragStartY = my;
+      viewStartX = viewX; viewStartY = viewY;
+      return;
+    }
+
+    // --- 区域矩形：拖拽绘制 ---
+    if (selectedTool === 'rect') {
+      const c = pixelToCell(wx, wy);
+      _drawStart = { x: wx / CELL_SIZE, y: wy / CELL_SIZE };
+      _dragMode = 'rect-draw';
+      isDragging = true;
+      return;
+    }
+
+    // --- 自由线段：拖拽绘制 ---
+    if (selectedTool === 'line') {
+      _drawStart = { x: wx / CELL_SIZE, y: wy / CELL_SIZE };
+      _dragMode = 'line-draw';
+      isDragging = true;
+      return;
+    }
+
+    // --- 图片 token：点击放置 ---
+    if (selectedTool === 'token') {
+      if (_tokenPending) {
+        const c = pixelToCell(wx, wy);
+        const sh = {
+          id: 'sh' + (_shapeSeq++), type: 'image',
+          x: c.q - _tokenPending.w / 2, y: c.r - _tokenPending.h / 2,
+          w: _tokenPending.w, h: _tokenPending.h,
+          imgData: _tokenPending.imgData, img: _tokenPending.img,
+          stroke: '#fff', strokeWidth: 2, dash: false, name: ''
+        };
+        pushUndoMeta();
+        shapes.push(sh);
+        selectedShape = sh.id; selectedLine = null; selectedCell = null;
+        render(); updateInfo();
+        showToast(`🖼️ 已放置图片，拖动/缩放调整`);
+        return;
+      }
+      return;
+    }
+
+    const cell = cellAtPixel(mx, my);
+    if (cell) {
+      handleCellClick(cell.q, cell.r, e);
+      if (selectedTool === 'paint' || selectedTool === 'erase') {
+        _dragMode = selectedTool;
+        isDragging = true;
+        dragStartX = mx; dragStartY = my;
+      }
+      if (selectedTool === 'select') {
+        _dragMode = 'pan';
+        isDragging = true;
+        dragStartX = mx; dragStartY = my;
+        viewStartX = viewX; viewStartY = viewY;
+      }
+      return;
+    }
+
+    _dragMode = 'pan';
+    isDragging = true;
+    dragStartX = mx; dragStartY = my;
+    viewStartX = viewX; viewStartY = viewY;
+  }
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const wx = (mx - viewX) / zoom, wy = (my - viewY) / zoom;
+
+  // token 放置预览跟随
+  if (selectedTool === 'token' && _tokenPending) {
+    const c = pixelToCell(wx, wy);
+    _hoverToken = c;
+    render();
+  }
+
+  if (!isDragging) {
+    // 悬停光标反馈
+    if (selectedTool === 'select') {
+      const h = shapeHandleAt(wx, wy);
+      const end = lineEndAt(wx, wy);
+      if (h) {
+        const diag1 = (h === 'nw' || h === 'se');
+        const diag2 = (h === 'ne' || h === 'sw');
+        canvas.style.cursor = diag1 ? 'nwse-resize' : diag2 ? 'nesw-resize' : (h === 'n' || h === 's') ? 'ns-resize' : 'ew-resize';
+      } else if (end) {
+        canvas.style.cursor = 'crosshair';
+      } else if (hitTestShape(wx, wy) || hitTestLine(wx, wy)) {
+        canvas.style.cursor = 'move';
+      } else {
+        canvas.style.cursor = 'default';
+      }
+    }
+    return;
+  }
+
+  if (_dragMode === 'paint') {
+    const cell = cellAtPixel(mx, my);
+    if (cell) {
+      const k = cellKey(cell.q, cell.r);
+      const h = getCell(cell.q, cell.r);
+      if (h.terrain !== selectedTerrain) {
+        setCell(cell.q, cell.r, { terrain: selectedTerrain });
+        render();
+      }
+    }
+  } else if (_dragMode === 'erase') {
+    const cell = cellAtPixel(mx, my);
+    if (cell) {
+      const k = cellKey(cell.q, cell.r);
+      if (_eraseDragLast.has(k)) return;
+      _eraseDragLast.add(k);
+      const mode = document.getElementById('erase-mode').value;
+      if (mode === 'all') {
+        setCell(cell.q, cell.r, { terrain: null, label: '', walls: [0,0,0,0] });
+      } else if (mode === 'terrain') {
+        setCell(cell.q, cell.r, { terrain: null });
+      } else if (mode === 'walls') {
+        const cur = getCell(cell.q, cell.r);
+        for (let i = 0; i < 4; i++) {
+          if (cur.walls[i] !== 0) setWall(cell.q, cell.r, i, 0);
+        }
+      } else if (mode === 'label') {
+        setCell(cell.q, cell.r, { label: '' });
+      }
+      render();
+    }
+  } else if (_dragMode === 'wall-drag') {
+    const edge = getEdgeAtPixel(mx, my);
+    if (edge) {
+      const ek = `${edge.q},${edge.r},${edge.edge}`;
+      if (ek !== _wallDragLast) {
+        _wallDragLast = ek;
+        // 拖拽放置（不 toggle）：目标值 = 已有同类型则跳过，不同类型则替换
+        const cur = getCell(edge.q, edge.r).walls[edge.edge];
+        const target = selectedTool === 'wall' ? 1 : 2;
+        if (cur !== target) setWall(edge.q, edge.r, edge.edge, target);
+        render();
+      }
+    }
+  } else if (_dragMode === 'shape-move') {
+    const sh = shapes.find(s => s.id === _dragShapeId);
+    if (sh) {
+      sh.x = (wx - _dragOffX) / CELL_SIZE;
+      sh.y = (wy - _dragOffY) / CELL_SIZE;
+      render();
+    }
+  } else if (_dragMode === 'shape-resize') {
+    const sh = shapes.find(s => s.id === _dragShapeId);
+    if (sh) {
+      const x0 = sh.x * CELL_SIZE, y0 = sh.y * CELL_SIZE;
+      const x1 = (sh.x + sh.w) * CELL_SIZE, y1 = (sh.y + sh.h) * CELL_SIZE;
+      let nx0 = x0, ny0 = y0, nx1 = x1, ny1 = y1;
+      const h = _dragHandle;
+      if (h.includes('w')) nx0 = Math.min(wx, x1 - CELL_SIZE * 0.2);
+      if (h.includes('e')) nx1 = Math.max(wx, x0 + CELL_SIZE * 0.2);
+      if (h.includes('n')) ny0 = Math.min(wy, y1 - CELL_SIZE * 0.2);
+      if (h.includes('s')) ny1 = Math.max(wy, y0 + CELL_SIZE * 0.2);
+      sh.x = nx0 / CELL_SIZE; sh.y = ny0 / CELL_SIZE;
+      sh.w = (nx1 - nx0) / CELL_SIZE; sh.h = (ny1 - ny0) / CELL_SIZE;
+      render();
+    }
+  } else if (_dragMode === 'line-move') {
+    const ln = freeLines.find(l => l.id === _dragLineId);
+    if (ln) {
+      const dx = (wx - dragStartX) / CELL_SIZE, dy = (wy - dragStartY) / CELL_SIZE;
+      const ox = ln.x1 - dx, oy = ln.y1 - dy;
+      // 用初始位置计算
+      ln.x1 = _lineInit.x1 + dx; ln.y1 = _lineInit.y1 + dy;
+      ln.x2 = _lineInit.x2 + dx; ln.y2 = _lineInit.y2 + dy;
+      render();
+    }
+  } else if (_dragMode === 'line-drag') {
+    const ln = freeLines.find(l => l.id === _dragLineId);
+    if (ln) {
+      if (_dragHandle === 'start') { ln.x1 = wx / CELL_SIZE; ln.y1 = wy / CELL_SIZE; }
+      else { ln.x2 = wx / CELL_SIZE; ln.y2 = wy / CELL_SIZE; }
+      render();
+    }
+  } else if (_dragMode === 'rect-draw') {
+    const sx = _drawStart.x, sy = _drawStart.y;
+    const cx = wx / CELL_SIZE, cy = wy / CELL_SIZE;
+    _rectPreview = {
+      x: Math.min(sx, cx), y: Math.min(sy, cy),
+      w: Math.abs(cx - sx), h: Math.abs(cy - sy)
+    };
+    render();
+  } else if (_dragMode === 'line-draw') {
+    _linePreview = {
+      x1: _drawStart.x, y1: _drawStart.y,
+      x2: wx / CELL_SIZE, y2: wy / CELL_SIZE
+    };
+    render();
+  } else if (_dragMode === 'pan') {
+    viewX = viewStartX + (mx - dragStartX);
+    viewY = viewStartY + (my - dragStartY);
+    render();
+  }
+});
+
+canvas.addEventListener('mouseup', () => {
+  if (_dragMode === 'wall-drag') endBatch();
+
+  if (_dragMode === 'rect-draw' && _rectPreview && (_rectPreview.w > 0.15 || _rectPreview.h > 0.15)) {
+    const sh = {
+      id: 'sh' + (_shapeSeq++), type: 'rect',
+      x: _rectPreview.x, y: _rectPreview.y,
+      w: Math.max(_rectPreview.w, 0.2), h: Math.max(_rectPreview.h, 0.2),
+      fill: '#e94560', fillAlpha: 0.4,
+      stroke: '#ffffff', strokeWidth: 2, dash: false, name: ''
+    };
+    pushUndoMeta();
+    shapes.push(sh);
+    selectedShape = sh.id; selectedLine = null; selectedCell = null;
+    showToast('▭ 已创建区域，可在"选择"工具下拖动/缩放，右键或双击改属性');
+  }
+  _rectPreview = null;
+
+  if (_dragMode === 'line-draw' && _linePreview) {
+    const dx = _linePreview.x2 - _linePreview.x1, dy = _linePreview.y2 - _linePreview.y1;
+    if (Math.hypot(dx, dy) > 0.1) {
+      const ln = {
+        id: 'ln' + (_lineSeq++),
+        x1: _linePreview.x1, y1: _linePreview.y1,
+        x2: _linePreview.x2, y2: _linePreview.y2,
+        color: '#000000', width: 3, dash: false, name: ''
+      };
+      pushUndoMeta();
+      freeLines.push(ln);
+      selectedLine = ln.id; selectedShape = null; selectedCell = null;
+      showToast('📏 已创建线段，右键改颜色/线宽/虚线');
+    }
+  }
+  _linePreview = null;
+
+  isDragging = false;
+  _dragMode = null;
+  _dragShapeId = null; _dragHandle = null; _dragLineId = null;
+  _wallDragLast = null;
+  _eraseDragLast = new Set();
+  render();
+  updateInfo();
+});
+
+canvas.addEventListener('mouseleave', () => {
+  if (_dragMode === 'wall-drag') endBatch();
+  isDragging = false;
+  _dragMode = null;
+  _rectPreview = null;
+  _linePreview = null;
+  _wallDragLast = null;
+  _eraseDragLast = new Set();
+  render();
+});
+
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const delta = e.deltaY > 0 ? 0.9 : 1.1;
+  const newZoom = Math.max(0.15, Math.min(5, zoom * delta));
+  viewX = mx - (mx - viewX) * (newZoom / zoom);
+  viewY = my - (my - viewY) * (newZoom / zoom);
+  zoom = newZoom;
+  document.getElementById('zoom-indicator').textContent = `🔍 ${Math.round(zoom * 100)}%`;
+  render();
+});
+
+// Touch support
+let touchDist = 0;
+canvas.addEventListener('touchstart', (e) => {
+  if (e.touches.length === 1) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.touches[0].clientX - rect.left;
+    const my = e.touches[0].clientY - rect.top;
+    // 图片放置（触摸）
+    if (selectedTool === 'token' && _tokenPending) {
+      const wx = (mx - viewX) / zoom, wy = (my - viewY) / zoom;
+      const c = pixelToCell(wx, wy);
+      const sh = {
+        id: 'sh' + (_shapeSeq++), type: 'image',
+        x: c.q - _tokenPending.w / 2, y: c.r - _tokenPending.h / 2,
+        w: _tokenPending.w, h: _tokenPending.h,
+        imgData: _tokenPending.imgData, img: _tokenPending.img,
+        stroke: '#fff', strokeWidth: 2, dash: false, name: ''
+      };
+      pushUndoMeta();
+      shapes.push(sh);
+      selectedShape = sh.id; selectedLine = null; selectedCell = null;
+      render(); updateInfo();
+      return;
+    }
+    const cell = cellAtPixel(mx, my);
+    if (cell) { handleCellClick(cell.q, cell.r, {}); isDragging = false; return; }
+    isDragging = true;
+    dragStartX = mx; dragStartY = my;
+    viewStartX = viewX; viewStartY = viewY;
+  } else if (e.touches.length === 2) {
+    touchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  if (e.touches.length === 1 && isDragging) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.touches[0].clientX - rect.left;
+    const my = e.touches[0].clientY - rect.top;
+    viewX = viewStartX + (mx - dragStartX);
+    viewY = viewStartY + (my - dragStartY);
+    render();
+  } else if (e.touches.length === 2) {
+    const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+    const scale = dist / touchDist;
+    const rect = canvas.getBoundingClientRect();
+    const mx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+    const my = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+    const newZoom = Math.max(0.15, Math.min(5, zoom * scale));
+    viewX = mx - (mx - viewX) * (newZoom / zoom);
+    viewY = my - (my - viewY) * (newZoom / zoom);
+    zoom = newZoom;
+    document.getElementById('zoom-indicator').textContent = `🔍 ${Math.round(zoom * 100)}%`;
+    touchDist = dist;
+    render();
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', () => { isDragging = false; });
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+// 双击：编辑选中的图形/线段属性
+canvas.addEventListener('dblclick', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const wx = (mx - viewX) / zoom, wy = (my - viewY) / zoom;
+  const sh = hitTestShape(wx, wy);
+  if (sh) { openShapeModal(sh.id); return; }
+  const ln = hitTestLine(wx, wy);
+  if (ln) { openLineModal(ln.id); return; }
+});
+
+// ============================================================
+//  Cell Click Handler
+// ============================================================
+function handleCellClick(q, r, e) {
+  selectedCell = { q, r };
+
+  if (selectedTool === 'paint') {
+    setCell(q, r, { terrain: selectedTerrain });
+    render();
+    updateInfo();
+  } else if (selectedTool === 'label') {
+    showLabelDialog(q, r);
+  } else if (selectedTool === 'erase') {
+    const mode = document.getElementById('erase-mode').value;
+    if (mode === 'all') {
+      setCell(q, r, { terrain: null, label: '', walls: [0,0,0,0] });
+    } else if (mode === 'terrain') {
+      setCell(q, r, { terrain: null });
+    } else if (mode === 'walls') {
+      const cur = getCell(q, r);
+      for (let i = 0; i < 4; i++) {
+        if (cur.walls[i] !== 0) setWall(q, r, i, 0);
+      }
+    } else if (mode === 'label') {
+      setCell(q, r, { label: '' });
+    }
+    render();
+    updateInfo();
+  } else {
+    // Select
+    updateInfo();
+    render();
+  }
+}
+
+function handleEdgeClick(edgeInfo) {
+  const { q, r, edge } = edgeInfo;
+  const currentState = getCell(q, r).walls[edge];
+  const hint = document.getElementById('tool-hint');
+
+  if (selectedTool === 'wall') {
+    if (currentState === 0) {
+      setWall(q, r, edge, 1);
+      hint.innerHTML = '🧱 已放置墙壁';
+    } else if (currentState === 1) {
+      setWall(q, r, edge, 0);
+      hint.innerHTML = '🧱 已移除墙壁';
+    } else if (currentState === 2) {
+      setWall(q, r, edge, 1);
+      hint.innerHTML = '🧱 门已替换为墙壁';
+    }
+  } else if (selectedTool === 'door') {
+    if (currentState === 0) {
+      setWall(q, r, edge, 2);
+      hint.innerHTML = '🚪 已放置门';
+    } else if (currentState === 2) {
+      setWall(q, r, edge, 0);
+      hint.innerHTML = '🚪 已移除门';
+    } else if (currentState === 1) {
+      setWall(q, r, edge, 2);
+      hint.innerHTML = '🚪 墙壁已替换为门';
+    }
+  }
+  render();
+  updateInfo();
+}
+
+// ============================================================
+//  Context Menu
+// ============================================================
+function showContextMenu(cx, cy, mx, my) {
+  const cell = cellAtPixel(mx, my);
+  const wx = (mx - viewX) / zoom, wy = (my - viewY) / zoom;
+  const shHit = hitTestShape(wx, wy);
+  const lnHit = hitTestLine(wx, wy);
+  if (!cell && !shHit && !lnHit) return;
+
+  // Simple inline context menu using a floating div
+  let menu = document.getElementById('ctx-menu');
+  if (!menu) {
+    menu = document.createElement('div');
+    menu.id = 'ctx-menu';
+    menu.style.cssText = 'display:none;position:fixed;z-index:50;background:#16213e;border:1px solid #0f3460;border-radius:6px;padding:4px 0;min-width:160px;box-shadow:0 4px 12px rgba(0,0,0,0.4);';
+    document.body.appendChild(menu);
+  }
+  menu.innerHTML = '';
+  menu.style.display = 'block';
+  menu.style.left = cx + 'px';
+  menu.style.top = cy + 'px';
+
+  const closeMenu = () => { menu.style.display = 'none'; };
+
+  const addItem = (text, action) => {
+    const btn = document.createElement('button');
+    btn.textContent = text;
+    btn.style.cssText = 'display:block;width:100%;padding:6px 14px;background:none;border:none;color:#e0e0e0;cursor:pointer;font-size:12px;text-align:left;white-space:nowrap;';
+    btn.addEventListener('mouseenter', () => btn.style.background = '#0f3460');
+    btn.addEventListener('mouseleave', () => btn.style.background = 'none');
+    btn.addEventListener('click', () => { action(); closeMenu(); });
+    menu.appendChild(btn);
+  };
+
+  const sep = () => {
+    const d = document.createElement('div');
+    d.style.cssText = 'height:1px;background:#0f3460;margin:3px 8px;';
+    menu.appendChild(d);
+  };
+
+  // 图形操作（若命中，优先于格子菜单）
+  if (shHit) {
+    selectedShape = shHit.id; selectedLine = null; selectedCell = null;
+    render(); updateInfo();
+    addItem('▭ 编辑图形属性', () => { openShapeModal(shHit.id); });
+    addItem('🗑️ 删除图形', () => {
+      pushUndoMeta();
+      shapes = shapes.filter(s => s.id !== shHit.id);
+      if (selectedShape === shHit.id) selectedShape = null;
+      render(); updateInfo();
+    });
+    sep();
+  }
+  if (lnHit) {
+    selectedLine = lnHit.id; selectedShape = null; selectedCell = null;
+    render(); updateInfo();
+    addItem('📏 编辑线段属性', () => { openLineModal(lnHit.id); });
+    addItem('🗑️ 删除线段', () => {
+      pushUndoMeta();
+      freeLines = freeLines.filter(l => l.id !== lnHit.id);
+      if (selectedLine === lnHit.id) selectedLine = null;
+      render(); updateInfo();
+    });
+    sep();
+  }
+
+  // 格子操作
+  if (cell) {
+    addItem(`📍 选中 (${cell.q}, ${cell.r})`, () => { selectedCell = cell; updateInfo(); render(); });
+    sep();
+
+    // Terrain submenu
+    getTerrainList().forEach(id => {
+      const t = getTerrain(id);
+      addItem(`${t.icon} 设为${t.name}`, () => { setCell(cell.q, cell.r, { terrain: id }); render(); updateInfo(); });
+    });
+
+    sep();
+    addItem('🏷️ 添加标签', () => { selectedCell = cell; showLabelDialog(cell.q, cell.r); render(); });
+    addItem('🧹 清除格子', () => { setCell(cell.q, cell.r, { terrain: null, label: '', walls: [0,0,0,0] }); render(); updateInfo(); });
+  }
+
+  const closeHandler = (e) => {
+    if (!menu.contains(e.target)) { menu.style.display = 'none'; document.removeEventListener('click', closeHandler); }
+  };
+  setTimeout(() => document.addEventListener('click', closeHandler), 10);
+}
+
+// ============================================================
+
+//  Tool Switching
+// ============================================================
+function setTool(tool) {
+  selectedTool = tool;
+  document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === tool));
+  document.getElementById('erase-options').style.display = tool === 'erase' ? 'block' : 'none';
+
+  const hint = document.getElementById('tool-hint');
+  const coord = document.getElementById('coord-indicator');
+  const cnt = document.getElementById('canvas-container');
+
+  switch (tool) {
+    case 'select':
+      hint.innerHTML = '👆 点击格子查看信息；点击区域/线段/图片可拖动、缩放（8 手柄），双击或右键改属性，Delete 删除';
+      coord.textContent = '⚪ 选择模式';
+      cnt.style.cursor = 'default';
+      break;
+    case 'paint':
+      const t = getTerrain(selectedTerrain);
+      hint.innerHTML = `🖌️ 点击/拖拽涂上 <b>${t?.name || ''}</b>`;
+      coord.textContent = `🖌️ ${t?.icon || ''} ${t?.name || ''}`;
+      cnt.style.cursor = 'crosshair';
+      break;
+    case 'wall':
+      hint.innerHTML = '🧱 点击<b>格子边</b>放置墙壁，<b>拖拽可连续画墙</b>。再次点击移除。拖拽空白平移';
+      coord.textContent = '🧱 墙壁模式';
+      cnt.style.cursor = 'crosshair';
+      break;
+    case 'door':
+      hint.innerHTML = '🚪 点击<b>格子边</b>放置门，<b>拖拽可连续放门</b>。再次点击移除。拖拽空白平移';
+      coord.textContent = '🚪 门模式';
+      cnt.style.cursor = 'crosshair';
+      break;
+    case 'label':
+      hint.innerHTML = '🏷️ 点击格子输入标注文字';
+      coord.textContent = '🏷️ 标签模式';
+      cnt.style.cursor = 'crosshair';
+      break;
+    case 'erase':
+      hint.innerHTML = '🧹 点击/拖拽擦除。下拉菜单选择擦除内容';
+      coord.textContent = '🧹 擦除模式';
+      cnt.style.cursor = 'crosshair';
+      break;
+    case 'rect':
+      hint.innerHTML = '▭ <b>拖拽</b>绘制矩形区域/灵气，完成后在"选择"工具下改颜色/透明度';
+      coord.textContent = '▭ 区域模式';
+      cnt.style.cursor = 'crosshair';
+      break;
+    case 'token':
+      hint.innerHTML = _tokenPending ? '🖼️ 点击地图放置图片，右键/Esc 取消' : '🖼️ 点击按钮后选择图片文件，然后点击地图放置';
+      coord.textContent = '🖼️ 图片模式';
+      cnt.style.cursor = _tokenPending ? 'crosshair' : 'pointer';
+      break;
+    case 'line':
+      hint.innerHTML = '📏 <b>拖拽</b>画任意角度线段（墙/视线阻挡/效果线），右键改颜色线宽';
+      coord.textContent = '📏 线段模式';
+      cnt.style.cursor = 'crosshair';
+      break;
+  }
+  render();
+}
+
+document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
+  btn.addEventListener('click', () => setTool(btn.dataset.tool));
+});
+
+// ============================================================
+//  Terrain Palette
+// ============================================================
+function rebuildTerrainPalette() {
+  const palette = document.getElementById('terrain-palette');
+  if (!palette) return;
+  palette.innerHTML = '';
+  getTerrainList().forEach(id => {
+    const t = getTerrain(id);
+    const btn = document.createElement('button');
+    btn.className = 'tool-btn' + (id === selectedTerrain ? ' active' : '');
+    btn.dataset.terrain = id;
+    btn.title = t.name + ' — ' + t.desc;
+    const tc = isLightColor(t.color) ? '#333' : '#fff';
+    btn.style.cssText = `background:${t.color};color:${tc};text-shadow:${tc === '#fff' ? '0 1px 3px rgba(0,0,0,0.5)' : 'none'}`;
+    btn.innerHTML = `<span class="icon">${t.icon}</span><span class="label">${t.name}</span>`;
+    btn.addEventListener('click', () => {
+      selectedTerrain = id;
+      document.querySelectorAll('.tool-btn[data-terrain]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (selectedTool !== 'paint') setTool('paint');
+      const ti = getTerrain(id);
+      document.getElementById('coord-indicator').textContent = `🖌️ ${ti.icon} ${ti.name}`;
+    });
+    palette.appendChild(btn);
+  });
+}
+
+// ============================================================
+//  Label Dialog
+// ============================================================
+function showLabelDialog(q, r) {
+  const h = getCell(q, r);
+  document.getElementById('label-modal-q').value = q;
+  document.getElementById('label-modal-r').value = r;
+  document.getElementById('label-modal-coord').textContent = `(${q}, ${r})`;
+  document.getElementById('label-modal-text').value = h.label || '';
+  document.getElementById('label-modal').style.display = 'block';
+  setTimeout(() => document.getElementById('label-modal-text').focus(), 50);
+}
+
+function labelConfirm() {
+  const q = parseInt(document.getElementById('label-modal-q').value);
+  const r = parseInt(document.getElementById('label-modal-r').value);
+  const text = document.getElementById('label-modal-text').value.trim();
+  setCell(q, r, { label: text });
+  document.getElementById('label-modal').style.display = 'none';
+  render();
+  updateInfo();
+}
+
+document.getElementById('label-modal-confirm').addEventListener('click', labelConfirm);
+document.getElementById('label-modal-cancel').addEventListener('click', () => { document.getElementById('label-modal').style.display = 'none'; });
+document.getElementById('label-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
+document.getElementById('label-modal-text').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') labelConfirm();
+  if (e.key === 'Escape') document.getElementById('label-modal').style.display = 'none';
+});
+
+// ============================================================
+//  Shape Properties Modal（区域/图片）
+// ============================================================
+function openShapeModal(id) {
+  const sh = shapes.find(s => s.id === id);
+  if (!sh) return;
+  document.getElementById('shape-id').value = id;
+  document.getElementById('shape-name').value = sh.name || '';
+  document.getElementById('shape-rect-fields').style.display = sh.type === 'rect' ? 'block' : 'none';
+  if (sh.type === 'rect') {
+    document.getElementById('shape-fill').value = sh.fill || '#e94560';
+    document.getElementById('shape-alpha').value = Math.round((sh.fillAlpha ?? 0.4) * 100);
+    document.getElementById('shape-alpha-val').textContent = Math.round((sh.fillAlpha ?? 0.4) * 100) + '%';
+    document.getElementById('shape-stroke').value = sh.stroke || '#ffffff';
+    document.getElementById('shape-sw').value = sh.strokeWidth ?? 2;
+    document.getElementById('shape-sw-val').textContent = (sh.strokeWidth ?? 2) + 'px';
+    document.getElementById('shape-dash').checked = !!sh.dash;
+  }
+  document.getElementById('shape-w').value = Math.round(sh.w * 10) / 10;
+  document.getElementById('shape-h').value = Math.round(sh.h * 10) / 10;
+  document.getElementById('shape-modal').style.display = 'block';
+}
+
+function shapeApply() {
+  const id = document.getElementById('shape-id').value;
+  const sh = shapes.find(s => s.id === id);
+  if (!sh) return;
+  pushUndoMeta();
+  sh.name = document.getElementById('shape-name').value.trim();
+  sh.w = Math.max(0.2, parseFloat(document.getElementById('shape-w').value) || sh.w);
+  sh.h = Math.max(0.2, parseFloat(document.getElementById('shape-h').value) || sh.h);
+  if (sh.type === 'rect') {
+    sh.fill = document.getElementById('shape-fill').value;
+    sh.fillAlpha = parseInt(document.getElementById('shape-alpha').value) / 100;
+    sh.stroke = document.getElementById('shape-stroke').value;
+    sh.strokeWidth = parseInt(document.getElementById('shape-sw').value);
+    sh.dash = document.getElementById('shape-dash').checked;
+  }
+  document.getElementById('shape-modal').style.display = 'none';
+  render(); updateInfo();
+}
+
+document.getElementById('shape-alpha').addEventListener('input', function() {
+  document.getElementById('shape-alpha-val').textContent = this.value + '%';
+});
+document.getElementById('shape-sw').addEventListener('input', function() {
+  document.getElementById('shape-sw-val').textContent = this.value + 'px';
+});
+document.getElementById('shape-confirm').addEventListener('click', shapeApply);
+document.getElementById('shape-cancel').addEventListener('click', () => { document.getElementById('shape-modal').style.display = 'none'; });
+document.getElementById('shape-delete').addEventListener('click', () => {
+  const id = document.getElementById('shape-id').value;
+  pushUndoMeta();
+  shapes = shapes.filter(s => s.id !== id);
+  if (selectedShape === id) selectedShape = null;
+  document.getElementById('shape-modal').style.display = 'none';
+  render(); updateInfo();
+});
+document.getElementById('shape-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
+
+// ============================================================
+//  Line Properties Modal（自由线段）
+// ============================================================
+function openLineModal(id) {
+  const ln = freeLines.find(l => l.id === id);
+  if (!ln) return;
+  document.getElementById('line-id').value = id;
+  document.getElementById('line-name').value = ln.name || '';
+  document.getElementById('line-color').value = ln.color || '#000000';
+  document.getElementById('line-w').value = ln.width || 3;
+  document.getElementById('line-w-val').textContent = (ln.width || 3) + 'px';
+  document.getElementById('line-dash').checked = !!ln.dash;
+  document.getElementById('line-modal').style.display = 'block';
+}
+
+function lineApply() {
+  const id = document.getElementById('line-id').value;
+  const ln = freeLines.find(l => l.id === id);
+  if (!ln) return;
+  pushUndoMeta();
+  ln.name = document.getElementById('line-name').value.trim();
+  ln.color = document.getElementById('line-color').value;
+  ln.width = parseInt(document.getElementById('line-w').value) || 3;
+  ln.dash = document.getElementById('line-dash').checked;
+  document.getElementById('line-modal').style.display = 'none';
+  render(); updateInfo();
+}
+
+document.getElementById('line-w').addEventListener('input', function() {
+  document.getElementById('line-w-val').textContent = this.value + 'px';
+});
+document.getElementById('line-confirm').addEventListener('click', lineApply);
+document.getElementById('line-cancel').addEventListener('click', () => { document.getElementById('line-modal').style.display = 'none'; });
+document.getElementById('line-delete').addEventListener('click', () => {
+  const id = document.getElementById('line-id').value;
+  pushUndoMeta();
+  freeLines = freeLines.filter(l => l.id !== id);
+  if (selectedLine === id) selectedLine = null;
+  document.getElementById('line-modal').style.display = 'none';
+  render(); updateInfo();
+});
+document.getElementById('line-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
+
+// ============================================================
+//  Info Panel
+// ============================================================
+function updateInfo() {
+  const panel = document.getElementById('info-panel');
+  if (!selectedCell) {
+    panel.innerHTML = '<div class="row"><span class="label">💡 选择工具 → 操作格子 → 导出 Excel</span></div>';
+    return;
+  }
+  const { q, r } = selectedCell;
+  const h = getCell(q, r);
+  const ti = h.terrain ? getTerrain(h.terrain) : null;
+  const tName = h.terrain ? `${ti?.icon || ''} ${ti?.name || h.terrain}` : '未设置';
+  const walls = h.walls || [0,0,0,0];
+  const wallDescs = [];
+  if (walls[0] === 1) wallDescs.push('上-墙'); else if (walls[0] === 2) wallDescs.push('上-门');
+  if (walls[1] === 1) wallDescs.push('右-墙'); else if (walls[1] === 2) wallDescs.push('右-门');
+  if (walls[2] === 1) wallDescs.push('下-墙'); else if (walls[2] === 2) wallDescs.push('下-门');
+  if (walls[3] === 1) wallDescs.push('左-墙'); else if (walls[3] === 2) wallDescs.push('左-门');
+  const wallStr = wallDescs.length > 0 ? wallDescs.join(', ') : '无';
+
+  panel.innerHTML = `<div class="row">
+    <span><span class="label">坐标:</span> <span class="val">(${q}, ${r})</span></span>
+    <span><span class="label">地形:</span> <span class="val">${tName}</span></span>
+    <span><span class="label">标签:</span> <span class="val">${h.label || '—'}</span></span>
+    <span><span class="label">边界:</span> <span class="val">${wallStr}</span></span>
+  </div>`;
+}
+
+// ============================================================
+
+
+//  Toast / Notification
+// ============================================================
+function showToast(msg) {
+  const panel = document.getElementById('info-panel');
+  panel.innerHTML = `<div class="row" style="justify-content:center;"><span style="font-size:15px;font-weight:bold;color:#e94560;">${msg}</span></div>`;
+}
+
+// ============================================================
+
+//  Clear
+// ============================================================
+function clearAll() {
+  if (!confirm('⚠️ 确认清空所有数据（地形/图形/线段）？此操作可撤销。')) return;
+  beginBatch();
+  for (const key of Object.keys(combatData)) pushUndo(key);
+  pushUndoMeta();
+  combatData = {};
+  shapes = [];
+  freeLines = [];
+  endBatch();
+  selectedCell = null;
+  selectedShape = null; selectedLine = null;
+  render(); updateInfo();
+  showToast('🗑️ 已清空');
+}
+
+// ============================================================
+
+//  Keyboard Shortcuts
+// ============================================================
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redo(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveJSON(); return; }
+  // Delete: 删除选中图形/线段
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (selectedShape) {
+      pushUndoMeta();
+      shapes = shapes.filter(s => s.id !== selectedShape);
+      selectedShape = null;
+      render(); updateInfo();
+      return;
+    }
+    if (selectedLine) {
+      pushUndoMeta();
+      freeLines = freeLines.filter(l => l.id !== selectedLine);
+      selectedLine = null;
+      render(); updateInfo();
+      return;
+    }
+  }
+  // Esc: 取消图片放置
+  if (e.key === 'Escape' && _tokenPending) {
+    _tokenPending = null; _hoverToken = null;
+    setTool('select');
+    render();
+    return;
+  }
+  const km = { 'v':'select', 'b':'paint', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 'r':'rect', 't':'token', 'g':'line' };
+  if (km[e.key?.toLowerCase()]) { e.preventDefault(); setTool(km[e.key.toLowerCase()]); }
+  // 分享弹窗：Esc 关闭
+  if (e.key === 'Escape') {
+    const shareModal = document.getElementById('share-modal');
+    if (shareModal && shareModal.style.display === 'block') {
+      if (typeof closeCombatShareModal === 'function') closeCombatShareModal();
+      return;
+    }
+  }
+});
+
+// ============================================================
+
+//  Button Bindings
+// ============================================================
+document.getElementById('btn-export-excel').addEventListener('click', exportToExcel);
+document.getElementById('btn-export-img').addEventListener('click', exportPNG);
+document.getElementById('btn-export-legend').addEventListener('click', exportLegendPNG);
+document.getElementById('btn-export-owlbear').addEventListener('click', exportOwlbearScene);
+document.getElementById('btn-save').addEventListener('click', saveJSON);
+document.getElementById('btn-load').addEventListener('click', loadJSON);
+document.getElementById('btn-clear').addEventListener('click', clearAll);
+document.getElementById('btn-undo').addEventListener('click', undo);
+document.getElementById('btn-redo').addEventListener('click', redo);
+document.getElementById('chk-grid').addEventListener('change', (e) => { showGrid = e.target.checked; render(); });
+document.getElementById('chk-coords').addEventListener('change', (e) => { showCoords = e.target.checked; render(); });
+
+// ============================================================
+
+//  Token 图片选择（T 工具）
+// ============================================================
+function pickTokenImage() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        // 默认 2×2 格，保持原比例
+        const scale = Math.min(2 / (img.width / 48), 2 / (img.height / 48), 6);
+        _tokenPending = {
+          imgData: ev.target.result,
+          img,
+          w: Math.max(1, Math.min(4, (img.width / 48) * scale)),
+          h: Math.max(1, Math.min(4, (img.height / 48) * scale))
+        };
+        _hoverToken = null;
+        setTool('token');
+        showToast('🖼️ 点击地图放置图片，Esc 取消');
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+
+// 图片工具按钮：点击选择文件
+document.querySelectorAll('.tool-btn[data-tool="token"]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (!_tokenPending) pickTokenImage();
+  });
+});
+
+// ============================================================
+
+//  Terrain Manage Modal（自定义地形）
+// ============================================================
+let _terrainEditId = null;  // null = 新增
+
+function openTerrainModal() {
+  _terrainEditId = null;
+  document.getElementById('terrain-edit').style.display = 'none';
+  renderTerrainList();
+  document.getElementById('terrain-modal').style.display = 'block';
+}
+
+function renderTerrainList() {
+  const list = document.getElementById('terrain-list');
+  list.innerHTML = '';
+  const entries = [];
+  getTerrainList().forEach(id => {
+    const t = getTerrain(id);
+    const isCustom = !!customTerrains[id];
+    entries.push({ id, t, isCustom });
+  });
+  entries.forEach(({ id, t, isCustom }) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 6px;border-bottom:1px solid #0f3460;font-size:12px;';
+    const sw = document.createElement('span');
+    sw.style.cssText = `display:inline-block;width:18px;height:18px;border-radius:3px;background:${t.color};border:1px solid #888;flex-shrink:0;`;
+    const info = document.createElement('span');
+    info.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+    info.textContent = `${t.icon} ${t.name}${isCustom ? ' ✏️' : ''}`;
+    info.title = t.desc || '';
+    const editBtn = document.createElement('button');
+    editBtn.textContent = '编辑';
+    editBtn.style.cssText = 'padding:2px 8px;background:#3a7abd;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
+    editBtn.addEventListener('click', () => { _terrainEditId = id; showTerrainEditForm(t); });
+    row.appendChild(sw); row.appendChild(info); row.appendChild(editBtn);
+    if (isCustom) {
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '删除';
+      delBtn.style.cssText = 'padding:2px 8px;background:#a33;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
+      delBtn.addEventListener('click', () => {
+        if (!confirm(`删除自定义地形「${t.name}」？地图上使用它的格子将变为普通地面。`)) return;
+        delete customTerrains[id];
+        // 地图上的格子转地面（批量撤销）
+        beginBatch();
+        for (const k of Object.keys(combatData)) {
+          if (combatData[k].terrain === id) {
+            pushUndo(k);
+            combatData[k].terrain = null;
+          }
+        }
+        endBatch();
+        if (selectedTerrain === id) selectedTerrain = 'floor';
+        saveCustomTerrains(); refreshTerrains();
+        rebuildTerrainPalette(); renderTerrainList(); render();
+        showToast(`🗑️ 已删除地形「${t.name}」`);
+      });
+      row.appendChild(delBtn);
+    }
+    list.appendChild(row);
+  });
+}
+
+function showTerrainEditForm(t) {
+  const form = document.getElementById('terrain-edit');
+  document.getElementById('terrain-edit-name').value = t.name;
+  document.getElementById('terrain-edit-icon').value = t.icon;
+  document.getElementById('terrain-edit-color').value = t.color;
+  document.getElementById('terrain-edit-desc').value = t.desc || '';
+  form.style.display = 'block';
+  document.getElementById('terrain-edit-name').focus();
+}
+
+function saveTerrainEdit() {
+  const name = document.getElementById('terrain-edit-name').value.trim();
+  const icon = document.getElementById('terrain-edit-icon').value.trim() || '❓';
+  const color = document.getElementById('terrain-edit-color').value;
+  const desc = document.getElementById('terrain-edit-desc').value.trim();
+  if (!name) { showToast('⚠️ 请输入地形名称'); return; }
+  if (_terrainEditId === null) {
+    // 新增：生成唯一 id
+    let id = 'custom_' + Date.now().toString(36);
+    customTerrains[id] = { name, icon, color, desc };
+  } else {
+    const id = _terrainEditId;
+    if (customTerrains[id]) {
+      customTerrains[id] = { name, icon, color, desc };
+    } else {
+      // 覆盖内置地形属性
+      terrainOverrides[id] = { name, icon, color, desc };
+    }
+  }
+  saveCustomTerrains(); refreshTerrains();
+  rebuildTerrainPalette(); renderTerrainList(); render();
+  document.getElementById('terrain-edit').style.display = 'none';
+  showToast('✅ 地形已保存');
+}
+
+document.getElementById('btn-terrain-manage').addEventListener('click', openTerrainModal);
+document.getElementById('terrain-add').addEventListener('click', () => {
+  _terrainEditId = null;
+  showTerrainEditForm({ name: '', icon: '❓', color: '#808080', desc: '' });
+});
+document.getElementById('terrain-edit-save').addEventListener('click', saveTerrainEdit);
+document.getElementById('terrain-edit-cancel').addEventListener('click', () => { document.getElementById('terrain-edit').style.display = 'none'; });
+document.getElementById('terrain-modal-close').addEventListener('click', () => { document.getElementById('terrain-modal').style.display = 'none'; });
+document.getElementById('terrain-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
+
+// Template buttons
+document.getElementById('btn-template-room').addEventListener('click', () => { document.getElementById('room-modal').style.display = 'block'; });
+document.getElementById('btn-template-corridor').addEventListener('click', () => { document.getElementById('corridor-modal').style.display = 'block'; });
+document.getElementById('btn-template-cave').addEventListener('click', () => { document.getElementById('cave-modal').style.display = 'block'; });
+document.getElementById('btn-template-open').addEventListener('click', () => { document.getElementById('open-modal').style.display = 'block'; });
+
+// Template: Room modal
+['room-w','room-h'].forEach(id => {
+  document.getElementById(id).addEventListener('input', function() {
+    document.getElementById(id + '-val').textContent = this.value;
+  });
+});
+function getGenPos(posSelectId) {
+  const pos = document.getElementById(posSelectId).value;
+  if (pos === 'center' && selectedCell) return { q: selectedCell.q, r: selectedCell.r };
+  return { q: 0, r: 0 };
+}
+document.getElementById('room-cancel').addEventListener('click', () => { document.getElementById('room-modal').style.display = 'none'; });
+document.getElementById('room-confirm').addEventListener('click', () => {
+  const w = parseInt(document.getElementById('room-w').value);
+  const h = parseInt(document.getElementById('room-h').value);
+  const { q, r } = getGenPos('room-pos');
+  document.getElementById('room-modal').style.display = 'none';
+  generateRoom(q, r, w, h);
+  render(); updateInfo();
+  showToast(`🏠 已生成 ${w}×${h} 房间`);
+});
+document.getElementById('room-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
+
+// Template: Corridor modal
+['corr-len'].forEach(id => {
+  document.getElementById(id).addEventListener('input', function() {
+    document.getElementById(id + '-val').textContent = this.value;
+  });
+});
+document.getElementById('corr-w').addEventListener('input', function() {
+  document.getElementById('corr-w-val').textContent = this.value;
+});
+document.getElementById('corr-cancel').addEventListener('click', () => { document.getElementById('corridor-modal').style.display = 'none'; });
+document.getElementById('corr-confirm').addEventListener('click', () => {
+  const type = document.getElementById('corr-type').value;
+  const len = parseInt(document.getElementById('corr-len').value);
+  const wid = parseInt(document.getElementById('corr-w').value);
+  const { q, r } = getGenPos('corr-pos');
+  document.getElementById('corridor-modal').style.display = 'none';
+  generateCorridor(q, r, type, len, wid);
+  render(); updateInfo();
+  showToast(`🛤️ 已生成${type}走廊`);
+});
+document.getElementById('corridor-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
+
+// Template: Cave modal
+['cave-w','cave-h'].forEach(id => {
+  document.getElementById(id).addEventListener('input', function() {
+    document.getElementById(id + '-val').textContent = this.value;
+  });
+});
+document.getElementById('cave-d').addEventListener('input', function() {
+  document.getElementById('cave-d-val').textContent = this.value + '%';
+});
+document.getElementById('cave-cancel').addEventListener('click', () => { document.getElementById('cave-modal').style.display = 'none'; });
+document.getElementById('cave-confirm').addEventListener('click', () => {
+  const w = parseInt(document.getElementById('cave-w').value);
+  const h = parseInt(document.getElementById('cave-h').value);
+  const d = parseInt(document.getElementById('cave-d').value);
+  const { q, r } = getGenPos('cave-pos');
+  document.getElementById('cave-modal').style.display = 'none';
+  generateCave(q, r, w, h, d);
+  render(); updateInfo();
+  showToast(`🕳️ 已生成 ${w}×${h} 洞窟`);
+});
+document.getElementById('cave-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
+
+// Template: Open Field modal
+['open-w','open-h'].forEach(id => {
+  document.getElementById(id).addEventListener('input', function() {
+    document.getElementById(id + '-val').textContent = this.value;
+  });
+});
+document.getElementById('open-scatter').addEventListener('input', function() {
+  document.getElementById('open-scatter-val').textContent = this.value + '%';
+});
+document.getElementById('open-cancel').addEventListener('click', () => { document.getElementById('open-modal').style.display = 'none'; });
+document.getElementById('open-confirm').addEventListener('click', () => {
+  const w = parseInt(document.getElementById('open-w').value);
+  const h = parseInt(document.getElementById('open-h').value);
+  const s = parseInt(document.getElementById('open-scatter').value);
+  const { q, r } = getGenPos('open-pos');
+  document.getElementById('open-modal').style.display = 'none';
+  generateOpenField(q, r, w, h, s);
+  render(); updateInfo();
+  showToast(`🌿 已生成 ${w}×${h} 空地`);
+});
+document.getElementById('open-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
+
+// ============================================================
+
+//  Template: Zone（智能区域模板，新人友好范例）
+// ============================================================
+function generateZone(centerQ, centerR, type, w, h, density, wallBorder) {
+  beginBatch();
+  const seed = Date.now() + 3;
+  function mulberry32(a) {
+    return function() {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  const rng = mulberry32(seed);
+  const halfW = Math.floor(w / 2), halfH = Math.floor(h / 2);
+
+  const setAt = (q, r, terrain) => setCell(centerQ + q, centerR + r, { terrain });
+
+  for (let q = -halfW; q < w - halfW; q++) {
+    for (let r = -halfH; r < h - halfH; r++) {
+      const edge = q === -halfW || q === w - halfW - 1 || r === -halfH || r === h - halfH - 1;
+      switch (type) {
+        case 'difficult':
+          if (edge) { setAt(q, r, 'floor'); break; }
+          if (rng() < density / 100) setAt(q, r, 'difficult');
+          else if (rng() < 0.08) setAt(q, r, rng() < 0.5 ? 'cover_half' : 'cover_full');
+          else setAt(q, r, 'floor');
+          break;
+        case 'water':
+          if (edge) { setAt(q, r, 'floor'); break; }
+          if (rng() < density / 100) setAt(q, r, 'water');
+          else if (rng() < 0.12) setAt(q, r, 'difficult'); // 浅滩
+          else setAt(q, r, 'floor');
+          break;
+        case 'fire':
+          if (edge) { setAt(q, r, 'floor'); break; }
+          if (rng() < density / 100) setAt(q, r, 'hazard_fire');
+          else setAt(q, r, 'floor');
+          break;
+        case 'acid':
+          if (edge) { setAt(q, r, 'floor'); break; }
+          if (rng() < density / 100) setAt(q, r, 'hazard_acid');
+          else setAt(q, r, 'floor');
+          break;
+        case 'spike':
+          if (edge) { setAt(q, r, 'floor'); break; }
+          if (rng() < density / 100) setAt(q, r, 'hazard_spike');
+          else setAt(q, r, 'floor');
+          break;
+        case 'elevated':
+          if (edge) { setAt(q, r, 'wall_cell'); break; }
+          setAt(q, r, 'elevated');
+          if (rng() < 0.1) setAt(q, r, 'cover_half'); // 城垛
+          break;
+        case 'teach': {
+          // 教学示例：中间墙柱 + 困难带 + 水池 + 火焰 + 高台 + 掩体
+          if (edge) { setAt(q, r, 'floor'); break; }
+          const dx = Math.abs(q), dy = Math.abs(r);
+          if (dx === 2 && dy === 2) { setAt(q, r, 'wall_cell'); break; }           // 四角墙柱
+          if (q === 0 && r === 0) { setAt(q, r, 'wall_cell'); break; }             // 中心柱
+          if (dx === 0 && dy <= 2) { setAt(q, r, 'water'); break; }                // 中央水池
+          if (dy === 0 && dx <= 2) { setAt(q, r, 'water'); break; }
+          if (dx === 1 || dy === 1) { setAt(q, r, 'difficult'); break; }           // 困难带
+          if (dx === 3 && dy === 3) { setAt(q, r, 'hazard_fire'); break; }         // 四角火焰
+          if (rng() < 0.15) setAt(q, r, 'cover_half');
+          else setAt(q, r, 'floor');
+          break;
+        }
+      }
+    }
+  }
+
+  // 边缘加墙
+  if (wallBorder && type !== 'elevated') {
+    const lastQ = w - halfW - 1, lastR = h - halfH - 1;
+    for (let q = -halfW; q <= lastQ; q++) {
+      setWall(centerQ + q, centerR - halfH, 0, 1);
+      setWall(centerQ + q, centerR + lastR, 2, 1);
+    }
+    for (let r = -halfH; r <= lastR; r++) {
+      setWall(centerQ - halfW, centerR + r, 3, 1);
+      setWall(centerQ + lastQ, centerR + r, 1, 1);
+    }
+  }
+  endBatch();
+}
+
+document.getElementById('btn-template-zone').addEventListener('click', () => { document.getElementById('zone-modal').style.display = 'block'; });
+['zone-w','zone-h'].forEach(id => {
+  document.getElementById(id).addEventListener('input', function() {
+    document.getElementById(id + '-val').textContent = this.value;
+  });
+});
+document.getElementById('zone-d').addEventListener('input', function() {
+  document.getElementById('zone-d-val').textContent = this.value + '%';
+});
+document.getElementById('zone-cancel').addEventListener('click', () => { document.getElementById('zone-modal').style.display = 'none'; });
+document.getElementById('zone-confirm').addEventListener('click', () => {
+  const type = document.getElementById('zone-type').value;
+  const w = parseInt(document.getElementById('zone-w').value);
+  const h = parseInt(document.getElementById('zone-h').value);
+  const d = parseInt(document.getElementById('zone-d').value);
+  const wall = document.getElementById('zone-wall').checked;
+  const { q, r } = getGenPos('zone-pos');
+  document.getElementById('zone-modal').style.display = 'none';
+  generateZone(q, r, type, w, h, d, wall);
+  render(); updateInfo();
+  showToast(`🧩 已生成区域「${document.getElementById('zone-type').selectedOptions[0].textContent.trim()}」`);
+});
+document.getElementById('zone-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
+
+// ============================================================
+
+//  Template: Room
+// ============================================================
+function generateRoom(centerQ, centerR, w, h) {
+  beginBatch();
+  for (let q = centerQ; q < centerQ + w; q++) {
+    for (let r = centerR; r < centerR + h; r++) {
+      setCell(q, r, { terrain: 'floor' });
+      // Set walls on perimeter
+      if (r === centerR) setWall(q, r, 0, 1);       // top edge
+      if (r === centerR + h - 1) setWall(q, r, 2, 1); // bottom edge
+      if (q === centerQ) setWall(q, r, 3, 1);        // left edge
+      if (q === centerQ + w - 1) setWall(q, r, 1, 1); // right edge
+    }
+  }
+  endBatch();
+}
+
+// ============================================================
+//  Template: Corridor
+// ============================================================
+function generateCorridor(centerQ, centerR, type, length, width) {
+  beginBatch();
+  const halfW = Math.floor(width / 2);
+
+  function fillSegment(q1, r1, q2, r2) {
+    const minQ = Math.min(q1, q2), maxQ = Math.max(q1, q2);
+    const minR = Math.min(r1, r2), maxR = Math.max(r1, r2);
+    for (let q = minQ; q <= maxQ; q++) {
+      for (let r = minR; r <= maxR; r++) {
+        setCell(q, r, { terrain: 'floor' });
+      }
+    }
+  }
+
+  function wallSegment(q1, r1, q2, r2) {
+    // Wall the sides of a segment
+    const minQ = Math.min(q1, q2), maxQ = Math.max(q1, q2);
+    const minR = Math.min(r1, r2), maxR = Math.max(r1, r2);
+    for (let q = minQ; q <= maxQ; q++) {
+      for (let r = minR; r <= maxR; r++) {
+        if (r === minR) setWall(q, r, 0, 1);
+        if (r === maxR) setWall(q, r, 2, 1);
+        if (q === minQ) setWall(q, r, 3, 1);
+        if (q === maxQ) setWall(q, r, 1, 1);
+      }
+    }
+  }
+
+  const q0 = centerQ, r0 = centerR;
+
+  if (type === 'straight') {
+    fillSegment(q0 - halfW, r0, q0 + halfW, r0 + length - 1);
+    wallSegment(q0 - halfW, r0, q0 + halfW, r0 + length - 1);
+  } else if (type === 'lshape') {
+    const halfLen = Math.floor(length / 2);
+    fillSegment(q0 - halfW, r0, q0 + halfW, r0 + halfLen);
+    wallSegment(q0 - halfW, r0, q0 + halfW, r0 + halfLen);
+    fillSegment(q0 - halfW, r0 + halfLen, q0 + halfLen, r0 + halfLen + halfW);
+    wallSegment(q0 - halfW, r0 + halfLen, q0 + halfLen, r0 + halfLen + halfW);
+    // Remove wall at junction
+    for (let i = -halfW; i <= halfW; i++) {
+      setWall(q0 + i, r0 + halfLen, 2, 0);
+    }
+    for (let j = -halfW; j <= halfW; j++) {
+      setWall(q0 - halfW, r0 + halfLen + j, 3, 0);
+    }
+  } else if (type === 'tshape') {
+    const halfLen = Math.floor(length / 2);
+    // Vertical stem
+    fillSegment(q0 - halfW, r0, q0 + halfW, r0 + halfLen);
+    wallSegment(q0 - halfW, r0, q0 + halfW, r0 + halfLen);
+    // Horizontal bar at bottom
+    fillSegment(q0 - halfLen, r0 + halfLen - halfW, q0 + halfLen, r0 + halfLen + halfW);
+    wallSegment(q0 - halfLen, r0 + halfLen - halfW, q0 + halfLen, r0 + halfLen + halfW);
+    // Remove walls at junction
+    for (let i = -halfW; i <= halfW; i++) {
+      setWall(q0 + i, r0 + halfLen, 2, 0);
+    }
+  } else if (type === 'cross') {
+    const halfLen = Math.floor(length / 2);
+    // Vertical
+    fillSegment(q0 - halfW, r0 - halfLen, q0 + halfW, r0 + halfLen);
+    wallSegment(q0 - halfW, r0 - halfLen, q0 + halfW, r0 + halfLen);
+    // Horizontal
+    fillSegment(q0 - halfLen, r0 - halfW, q0 + halfLen, r0 + halfW);
+    wallSegment(q0 - halfLen, r0 - halfW, q0 + halfLen, r0 + halfW);
+    // Remove walls at junction
+    for (let i = -halfW; i <= halfW; i++) {
+      setWall(q0 + i, r0 - halfW, 0, 0);
+      setWall(q0 + i, r0 + halfW, 2, 0);
+    }
+  }
+  endBatch();
+}
+
+// ============================================================
+//  Template: Cave (cellular automata)
+// ============================================================
+function generateCave(centerQ, centerR, w, h, density) {
+  beginBatch();
+  const seed = Date.now();
+
+  // Mulberry32 PRNG
+  function mulberry32(a) {
+    return function() {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  const rng = mulberry32(seed);
+
+  // Initialize grid: 0=floor, 1=wall
+  const grid = [];
+  const halfW = Math.floor(w / 2), halfH = Math.floor(h / 2);
+  for (let q = 0; q < w; q++) {
+    grid[q] = [];
+    for (let r = 0; r < h; r++) {
+      // Border always wall
+      if (q === 0 || q === w - 1 || r === 0 || r === h - 1) {
+        grid[q][r] = 1;
+      } else {
+        grid[q][r] = rng() < (density / 100) ? 1 : 0;
+      }
+    }
+  }
+
+  // Cellular automata iterations
+  for (let iter = 0; iter < 4; iter++) {
+    const next = [];
+    for (let q = 0; q < w; q++) {
+      next[q] = [];
+      for (let r = 0; r < h; r++) {
+        // Count wall neighbors (8-directional)
+        let wallCount = 0;
+        for (let dq = -1; dq <= 1; dq++) {
+          for (let dr = -1; dr <= 1; dr++) {
+            if (dq === 0 && dr === 0) continue;
+            const nq = q + dq, nr = r + dr;
+            if (nq < 0 || nq >= w || nr < 0 || nr >= h) { wallCount++; continue; }
+            if (grid[nq][nr] === 1) wallCount++;
+          }
+        }
+        next[q][r] = wallCount >= 5 ? 1 : (wallCount <= 2 ? 0 : grid[q][r]);
+      }
+    }
+    for (let q = 0; q < w; q++) {
+      for (let r = 0; r < h; r++) {
+        grid[q][r] = next[q][r];
+      }
+    }
+  }
+
+  // Apply to combat data
+  for (let q = 0; q < w; q++) {
+    for (let r = 0; r < h; r++) {
+      const mq = centerQ - halfW + q;
+      const mr = centerR - halfH + r;
+      if (grid[q][r] === 1) {
+        setCell(mq, mr, { terrain: 'wall_cell' });
+      } else {
+        setCell(mq, mr, { terrain: 'floor' });
+      }
+    }
+  }
+
+  endBatch();
+}
+
+// ============================================================
+//  Template: Open Field
+// ============================================================
+function generateOpenField(centerQ, centerR, w, h, scatter) {
+  beginBatch();
+  const seed = Date.now() + 1;
+  function mulberry32(a) {
+    return function() {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  const rng = mulberry32(seed);
+  const halfW = Math.floor(w / 2), halfH = Math.floor(h / 2);
+  const scatterTerrains = ['difficult', 'cover_half', 'cover_full', 'water', 'elevated'];
+
+  for (let q = -halfW; q < w - halfW; q++) {
+    for (let r = -halfH; r < h - halfH; r++) {
+      const mq = centerQ + q, mr = centerR + r;
+      if (rng() < (scatter / 100)) {
+        const t = scatterTerrains[Math.floor(rng() * scatterTerrains.length)];
+        setCell(mq, mr, { terrain: t });
+      } else {
+        setCell(mq, mr, { terrain: 'floor' });
+      }
+    }
+  }
+  endBatch();
+}
+
+// ============================================================
+
+// ============================================================
+//  Share / Import — 紧凑分享链接（含地图完整数据）
+// 依赖: state.js/core.js/render.js/ui.js/terrain.js
+// 用法: 工具栏「🔗 分享」打开弹窗 → 复制链接/数据串 → 对方打开自动导入
+// ============================================================
+
+// ---------------- Base64URL 帮助函数 ----------------
+function b64UrlEncode(bytes) {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+function b64UrlDecode(str) {
+  let b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (b64.length % 4 !== 0) b64 += '=';
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+function u8toAB(u8) { return u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength); }
+
+// ---------------- 压缩（优先 CompressionStream，兜底无压缩） ----------------
+function compressionSupported() {
+  try {
+    return typeof CompressionStream === 'function' && typeof DecompressionStream === 'function';
+  } catch (e) { return false; }
+}
+
+async function shareCompress(text) {
+  if (compressionSupported()) {
+    const stream = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'));
+    const reader = stream.getReader();
+    const chunks = [];
+    let total = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      total += value.length;
+    }
+    const out = new Uint8Array(total);
+    let off = 0;
+    for (const c of chunks) { out.set(c, off); off += c.length; }
+    return out;
+  }
+  return new TextEncoder().encode(text);
+}
+
+async function shareDecompress(bytes) {
+  if (compressionSupported() && bytes.length > 1 && bytes[0] === 0x1F && bytes[1] === 0x8B) {
+    const stream = new Blob([u8toAB(bytes)], { type: 'application/gzip' }).stream()
+      .pipeThrough(new DecompressionStream('gzip'));
+    const reader = stream.getReader();
+    const chunks = [];
+    let total = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      total += value.length;
+    }
+    const out = new Uint8Array(total);
+    let off = 0;
+    for (const c of chunks) { out.set(c, off); off += c.length; }
+    return new TextDecoder().decode(out);
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+// ---------------- 数据打包 / 解包 ----------------
+function buildCombatPayload() {
+  cleanData();
+  return {
+    combatData,
+    shapes: shapes.map(s => { const c = { ...s }; delete c.img; return c; }),
+    freeLines,
+    viewX, viewY, zoom,
+    customTerrains,
+    terrainOverrides
+  };
+}
+
+function applyCombatData(data) {
+  if (!data || typeof data !== 'object') throw new Error('空数据或格式错误');
+  combatData = data.combatData || {};
+  shapes = (data.shapes || []).map(sh => {
+    if (sh.type === 'image' && sh.imgData && !sh.img) {
+      const img = new Image();
+      img.src = sh.imgData;
+      img.onload = () => render();
+      sh.img = img;
+    }
+    return sh;
+  });
+  freeLines = data.freeLines || [];
+  if (data.customTerrains || data.terrainOverrides) {
+    customTerrains = data.customTerrains || {};
+    terrainOverrides = data.terrainOverrides || {};
+    saveCustomTerrains();
+    refreshTerrains();
+    rebuildTerrainPalette();
+  }
+  _shapeSeq = Math.max(_shapeSeq, ...shapes.map(s => parseInt(String(s.id).replace('sh','')) || 0)) + 1;
+  _lineSeq = Math.max(_lineSeq, ...freeLines.map(l => parseInt(String(l.id).replace('ln','')) || 0)) + 1;
+  undoStack = []; redoStack = []; updateUndoButtons();
+  viewX = data.viewX || 0; viewY = data.viewY || 0; zoom = data.zoom || 1;
+  const zi = document.getElementById('zoom-indicator');
+  if (zi) zi.textContent = '🔍 ' + Math.round(zoom * 100) + '%';
+  render(); updateInfo();
+  return Object.keys(combatData).length;
+}
+
+// 从用户粘贴的文本里取出紧凑串：接受完整链接、纯串、带 #m=/compact: 前缀
+function extractCombatShareText(raw) {
+  let s = (raw || '').trim();
+  if (s.indexOf('#') !== -1) {
+    const frag = s.split('#')[1] || '';
+    const m = frag.match(/m=([A-Za-z0-9_-]+)/);
+    if (m) s = m[1];
+  }
+  if (s.startsWith('compact:')) s = s.slice('compact:'.length);
+  if (s.startsWith('m=')) s = s.slice(2);
+  return s.trim();
+}
+
+async function combatEncodeString() {
+  const json = JSON.stringify(buildCombatPayload());
+  const bytes = await shareCompress(json);
+  return b64UrlEncode(bytes);
+}
+
+async function decodeCombatText(raw) {
+  const body = extractCombatShareText(raw);
+  if (!body) throw new Error('空数据');
+  const bytes = b64UrlDecode(body);
+  const text = await shareDecompress(bytes);
+  return JSON.parse(text);
+}
+
+// ---------------- 分享弹窗 UI ----------------
+function setCombatShareStatus(msg) {
+  const el = document.getElementById('share-status');
+  if (el) el.textContent = msg || '';
+}
+function openCombatShareModal() {
+  const modal = document.getElementById('share-modal');
+  if (!modal) return;
+  modal.style.display = 'block';
+  setCombatShareStatus('点击「生成分享」创建数据串，或粘贴已有数据后导入。');
+  document.getElementById('share-text').value = '';
+  document.getElementById('share-loading').style.display = 'none';
+}
+function closeCombatShareModal() {
+  const modal = document.getElementById('share-modal');
+  if (modal) modal.style.display = 'none';
+}
+function combatShareLinkFor(code) {
+  return location.origin + location.pathname + '?m=1#m=' + encodeURIComponent(code);
+}
+function combatGenerateShare() {
+  const box = document.getElementById('share-text');
+  const loading = document.getElementById('share-loading');
+  loading.style.display = 'block';
+  setCombatShareStatus('⏳ 编码中…');
+  combatEncodeString().then(code => {
+    box.value = combatShareLinkFor(code);
+    loading.style.display = 'none';
+    setCombatShareStatus('✅ 已生成 ' + (code.length / 1024).toFixed(1) + ' KB，可复制链接或数据串。');
+  }).catch(err => {
+    loading.style.display = 'none';
+    setCombatShareStatus('⚠️ 编码失败: ' + (err && err.message));
+  });
+}
+function combatCopyText(value) {
+  if (!value) { setCombatShareStatus('⚠️ 请先生成分享内容'); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(value).then(() => setCombatShareStatus('✅ 已复制'), () => fallbackCombatCopy(value));
+  } else {
+    fallbackCombatCopy(value);
+  }
+}
+function fallbackCombatCopy(text) {
+  const box = document.getElementById('share-text');
+  box.value = text;
+  box.select();
+  try { document.execCommand('copy'); setCombatShareStatus('✅ 已复制'); } catch(e) { setCombatShareStatus('⚠️ 复制失败，请手动复制文本框内容'); }
+}
+function combatCopyData(v) {
+  if (!v) { setCombatShareStatus('⚠️ 请先生成分享内容'); return; }
+  const code = extractCombatShareText(v);
+  if (!code) { setCombatShareStatus('⚠️ 未识别到数据串'); return; }
+  combatCopyText(code);
+}
+function combatImportFromBox() {
+  const raw = document.getElementById('share-text').value.trim();
+  if (!raw) { setCombatShareStatus('⚠️ 请先粘贴数据串或完整 JSON'); return; }
+  setCombatShareStatus('⏳ 解压并导入中…');
+  decodeCombatText(raw).then(data => {
+    const n = applyCombatData(data);
+    setCombatShareStatus('✅ 已导入 ' + n + ' 个格子');
+    closeCombatShareModal();
+  }).catch(() => {
+    // 回退：直接粘贴完整 JSON
+    try {
+      const data = JSON.parse(raw);
+      const n = applyCombatData(data);
+      setCombatShareStatus('✅ 已导入 ' + n + ' 个格子');
+      closeCombatShareModal();
+    } catch (err2) {
+      setCombatShareStatus('⚠️ 导入失败: ' + (err2 && err2.message));
+    }
+  });
+}
+
+function initCombatShareUI() {
+  const btnShare = document.getElementById('btn-share');
+  if (btnShare) btnShare.addEventListener('click', openCombatShareModal);
+  const btnClose = document.getElementById('share-btn-close');
+  if (btnClose) btnClose.addEventListener('click', closeCombatShareModal);
+  const modal = document.getElementById('share-modal');
+  if (modal) modal.addEventListener('click', e => { if (e.target === modal) closeCombatShareModal(); });
+  const btnGen = document.getElementById('share-btn-generate');
+  if (btnGen) btnGen.addEventListener('click', combatGenerateShare);
+  const btnCopyLink = document.getElementById('share-btn-copy-link');
+  if (btnCopyLink) btnCopyLink.addEventListener('click', () => {
+    const v = document.getElementById('share-text').value.trim();
+    if (!v.includes('#')) combatGenerateShare();
+    else combatCopyText(v);
+  });
+  const btnCopyData = document.getElementById('share-btn-copy-data');
+  if (btnCopyData) btnCopyData.addEventListener('click', () => {
+    combatCopyData(document.getElementById('share-text').value.trim());
+  });
+  const btnImport = document.getElementById('share-btn-import');
+  if (btnImport) btnImport.addEventListener('click', combatImportFromBox);
+  // URL 分享地图自动导入在 init() 后调用（export.js 里没有重复监听）
+  setTimeout(loadCombatMapFromUrlShare, 0);
+}
+
+// ---------------- URL 自动导入 ----------------
+function loadCombatMapFromUrlShare() {
+  const mIndex = location.hash.indexOf('m=');
+  if (mIndex === -1) return;
+  const code = decodeURIComponent(location.hash.slice(mIndex + 2));
+  if (!code) return;
+  showToast('🔗 检测到分享地图，正在导入…');
+  decodeCombatText(code).then(data => {
+    const n = applyCombatData(data);
+    showToast('🔗 已导入 ' + n + ' 个格子');
+    if (history.replaceState) {
+      const clean = location.origin + location.pathname + location.search;
+      try { history.replaceState(null, '', clean); } catch (e) { /* ignore */ }
+    }
+  }).catch(err => showToast('⚠️ 分享地图导入失败: ' + ((err && err.message) || '数据无效')));
+}
+//  Export: Excel
+//  主格式 = .xlsx（标准 OOXML，Excel/WPS 都支持颜色与方正规格）
+//  降级   = .xls（HTML 表格，仅当 SheetJS 未加载时使用）
+// ============================================================
+async function exportToExcel() {
+  cleanData();
+  const keys = Object.keys(combatData);
+  if (keys.length === 0) { showToast('⚠️ 没有数据可导出，先生成地图！'); return; }
+
+  let minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
+  keys.forEach(k => {
+    const [q, r] = k.split(',').map(Number);
+    if (q < minQ) minQ = q; if (q > maxQ) maxQ = q;
+    if (r < minR) minR = r; if (r > maxR) maxR = r;
+  });
+  minQ--; maxQ++; minR--; maxR++;
+
+  if (typeof XLSX === 'undefined') {
+    // SheetJS 未加载（离线）：降级 .xls
+    exportStyledHTML(minQ, maxQ, minR, maxR);
+    showToast('⚠️ xlsx 组件未加载（需联网），已导出 .xls（颜色兼容性有限，建议联网后用 xlsx）');
+    return;
+  }
+  try {
+    await exportMultiSheetXLSX(minQ, maxQ, minR, maxR);
+  } catch (err) {
+    console.error(err);
+    exportStyledHTML(minQ, maxQ, minR, maxR);
+    showToast('⚠️ xlsx 导出失败（' + (err?.message || '未知错误') + '），已降级 .xls');
+  }
+}
+
+function exportStyledHTML(minQ, maxQ, minR, maxR) {
+  const cols = maxQ - minQ + 1;
+  const rows = maxR - minR + 1;
+
+  // Compact legend as a text note (no separate table to prevent column stretch)
+  const legendIcons = [];
+  getTerrainList().forEach(id => {
+    const t = getTerrain(id);
+    legendIcons.push(t.icon + ' ' + t.name);
+  });
+
+  let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">\n';
+  html += '<head><meta charset="UTF-8">\n';
+  html += '<!--[if gte mso 9]><xml>\n';
+  html += '<x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>\n';
+  html += '<x:Name>战斗地图</x:Name>\n';
+  html += '<x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>\n';
+  html += '</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook>\n';
+  html += '</xml><![endif]-->\n';
+  html += '<style>\n';
+  html += '  table { border-collapse: collapse; }\n';
+  html += '  td {\n';
+  html += '    width: 36pt; height: 36pt;\n';           // 36pt = 48px，方正格子
+  html += '    min-width: 36pt; min-height: 36pt;\n';
+  html += '    text-align: center; vertical-align: middle;\n';
+  html += '    font-size: 20px; padding: 0; margin: 0;\n';
+  html += '    mso-width-source: userset; mso-height-source: userset;\n';
+  html += '  }\n';
+  html += '  .hd {\n';
+  html += '    background: #1a1a2e; color: #aaa; font-weight: bold; font-size: 10px;\n';
+  html += '    width: 36pt; height: 36pt;\n';
+  html += '  }\n';
+  html += '  .wall-top    { border-top:    4px solid #000000 !important; }\n';
+  html += '  .wall-right  { border-right:  4px solid #000000 !important; }\n';
+  html += '  .wall-bottom { border-bottom: 4px solid #000000 !important; }\n';
+  html += '  .wall-left   { border-left:   4px solid #000000 !important; }\n';
+  html += '  .door-top    { border-top:    4px dashed #5a3a15 !important; }\n';
+  html += '  .door-right  { border-right:  4px dashed #5a3a15 !important; }\n';
+  html += '  .door-bottom { border-bottom: 4px dashed #5a3a15 !important; }\n';
+  html += '  .door-left   { border-left:   4px dashed #5a3a15 !important; }\n';
+  html += '  .lbl { display:inline-block; margin-top:2px; padding:1px 3px; background:#1a1a1a; color:#ffd700; font-weight:bold; font-size:11px; line-height:1.2; border:1px solid #ffd700; border-radius:2px; }\n';
+  html += '  .door-icon { display:block; font-size:15px; line-height:1; margin-top:-2px; }\n';
+  html += '  .legend { font-size: 10px; color: #aaa; margin: 2px 0; }\n';
+  html += '</style>\n</head><body>\n';
+  html += '<h2 style="margin:0 0 2px;">⚔️ 战斗地图</h2>\n';
+  const legendChunks = [];
+  for (let i = 0; i < legendIcons.length; i += 8) legendChunks.push(legendIcons.slice(i, i + 8).join(' | '));
+  html += '<p class="legend">🖌️ 图例（颜色+图标）:<br>' + legendChunks.join('<br>') + '</p>\n';
+  html += '<p class="legend">🧱 粗黑边框 = 墙壁 | 🚪 深棕粗虚线+图标 = 门 | 灰线 = 网格</p>\n';
+  html += '<table border="1" cellpadding="0" cellspacing="0">\n';
+
+  // Column definitions（36pt = 48px 方正）
+  html += '<colgroup>\n';
+  html += '<col style="width:36pt;min-width:36pt;">\n';
+  for (let c = 0; c < cols; c++) {
+    html += '<col style="width:36pt;min-width:36pt;">\n';
+  }
+  html += '</colgroup>\n';
+
+  // Header row
+  html += '<tr style="height:36pt;">\n';
+  html += '<td class="hd" style="width:36pt;height:36pt;"></td>\n';
+  for (let c = 0; c < cols; c++) {
+    html += '<td class="hd" style="width:36pt;height:36pt;">' + colLetter(minQ + c) + '</td>\n';
+  }
+  html += '</tr>\n';
+
+  // Data rows
+  for (let ri = 0; ri < rows; ri++) {
+    const r = minR + ri;
+    html += '<tr style="height:36pt;">\n';
+    html += '<td class="hd" style="width:36pt;height:36pt;">' + r + '</td>\n';
+    for (let ci = 0; ci < cols; ci++) {
+      const q = minQ + ci;
+      const h = getCell(q, r);
+      const ti = h.terrain ? getTerrain(h.terrain) : null;
+      const bg = ti ? ti.color : '#ffffff';
+      const icon = ti ? ti.icon : '';
+      const label = h.label || '';
+
+      const walls = h.walls || [0,0,0,0];
+      const classes = [];
+      const inlineBorders = [];
+      if (walls[0] === 1) { classes.push('wall-top'); inlineBorders.push('border-top:4px solid #000000'); }
+      else if (walls[0] === 2) { classes.push('door-top'); inlineBorders.push('border-top:4px dashed #5a3a15'); }
+      if (walls[1] === 1) { classes.push('wall-right'); inlineBorders.push('border-right:4px solid #000000'); }
+      else if (walls[1] === 2) { classes.push('door-right'); inlineBorders.push('border-right:4px dashed #5a3a15'); }
+      if (walls[2] === 1) { classes.push('wall-bottom'); inlineBorders.push('border-bottom:4px solid #000000'); }
+      else if (walls[2] === 2) { classes.push('door-bottom'); inlineBorders.push('border-bottom:4px dashed #5a3a15'); }
+      if (walls[3] === 1) { classes.push('wall-left'); inlineBorders.push('border-left:4px solid #000000'); }
+      else if (walls[3] === 2) { classes.push('door-left'); inlineBorders.push('border-left:4px dashed #5a3a15'); }
+      const cls = classes.length > 0 ? ' class="' + classes.join(' ') + '"' : '';
+      const bdStyle = inlineBorders.length > 0 ? inlineBorders.join(';') + ';' : '';
+
+      let inner = icon;
+      // 门：单元格内加醒目门图标（配合加粗虚线边框）
+      const hasDoor = (walls[0] === 2) || (walls[1] === 2) || (walls[2] === 2) || (walls[3] === 2);
+      if (hasDoor) inner += '<span class="door-icon">🚪</span>';
+      if (label) {
+        inner += '<br><span class="lbl">' + escHtml(label) + '</span>';
+      }
+
+      // bgcolor 属性 + inline background/边框 双保险（WPS 兼容）
+      html += '<td' + cls + ' bgcolor="' + bg + '" style="width:36pt;height:36pt;background:' + bg + ';' + bdStyle + '">' + inner + '</td>\n';
+    }
+    html += '</tr>\n';
+  }
+
+  html += '</table>\n</body></html>';
+
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+  downloadBlob(blob, 'combatmap_' + new Date().toISOString().slice(0,10) + '.xls');
+  showToast('📊 Excel (.xls) 已导出 — ' + cols + '×' + rows + ' 格，36pt 方正方格');
+}
+
+// ============================================================
+//  SheetJS .xlsx export — two sheets: 战斗地图(带颜色) + 图例
+// ============================================================
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function exportMultiSheetXLSX(minQ, maxQ, minR, maxR) {
+  const cols = maxQ - minQ + 1;
+  const rows = maxR - minR + 1;
+  // 方正格子：行高 36pt(=48px)，列宽 6.14 字符(=48px) — 由 writeWorkbookWithShapes 注入
+  const ROW_HPT = 36;
+
+  // --- Sheet 1: 战斗地图 ---
+  const mapData = [];
+  const headerRow = [''];
+  for (let c = 0; c < cols; c++) headerRow.push(colLetter(minQ + c));
+  mapData.push(headerRow);
+
+  // 先收集每格信息再构建（便于统一计算样式）
+  const cellInfos = [];  // [{bg, icon, label, walls}]
+  for (let ri = 0; ri < rows; ri++) {
+    const r = minR + ri;
+    const row = [String(r)];
+    const infoRow = [null];
+    for (let ci = 0; ci < cols; ci++) {
+      const q = minQ + ci;
+      const h = getCell(q, r);
+      const ti = h.terrain ? getTerrain(h.terrain) : null;
+      let val = ti ? ti.icon + ' ' + ti.name : '';
+      if (h.label) val += (val ? '\n' : '') + '[' + h.label + ']';
+      const w = h.walls || [0,0,0,0];
+      const tags = [];
+      if (w[0] === 1) tags.push('⬆墙'); else if (w[0] === 2) tags.push('⬆门');
+      if (w[1] === 1) tags.push('➡墙'); else if (w[1] === 2) tags.push('➡门');
+      if (w[2] === 1) tags.push('⬇墙'); else if (w[2] === 2) tags.push('⬇门');
+      if (w[3] === 1) tags.push('⬅墙'); else if (w[3] === 2) tags.push('⬅门');
+      if (tags.length) val += (val ? '\n' : '') + tags.join(' ');
+      if (!val) val = '';
+      row.push(val);
+      infoRow.push({ bg: ti ? 'FF' + ti.color.replace('#','').toUpperCase() : 'FFFFFFFF', label: h.label || '', walls: w });
+    }
+    mapData.push(row);
+    cellInfos.push(infoRow);
+  }
+
+  const wsMap = XLSX.utils.aoa_to_sheet(mapData);
+
+  // 样式键矩阵（与 sheet 单元格对应，含 header 行列）
+  //   fill: 'FFxxxxxx'；borders: {t,r,b,l} 0=网格细线 1=墙 2=门；font: {bold,color} | null
+  const styleKeys = [];
+  const hdrKey = { fill: 'FF1A1A2E', borders: null, font: { bold: true, color: 'FFAAAAAA' } };
+  styleKeys.push(new Array(cols + 1).fill(hdrKey));
+  for (let ri = 0; ri < rows; ri++) {
+    const rowKeys = [hdrKey];
+    for (let ci = 0; ci < cols; ci++) {
+      const info = cellInfos[ri][ci + 1];
+      const w = info.walls;
+      const borders = {
+        t: w[0] === 1 ? 1 : (w[0] === 2 ? 2 : 0),
+        r: w[1] === 1 ? 1 : (w[1] === 2 ? 2 : 0),
+        b: w[2] === 1 ? 1 : (w[2] === 2 ? 2 : 0),
+        l: w[3] === 1 ? 1 : (w[3] === 2 ? 2 : 0)
+      };
+      const hasDoor = w.some(x => x === 2);
+      const font = info.label ? { bold: true, color: 'FFFFD700' } : (hasDoor ? { bold: true, color: 'FF5A3A15' } : null);
+      rowKeys.push({ fill: info.bg, borders, font });
+    }
+    styleKeys.push(rowKeys);
+  }
+
+  wsMap['!cols'] = [{ wch: 4.5 }];
+  for (let c = 0; c < cols; c++) wsMap['!cols'].push({ wch: 6.14 });
+  wsMap['!rows'] = [{ hpt: Math.round(ROW_HPT * 0.6) }];
+  for (let ri = 0; ri < rows; ri++) wsMap['!rows'].push({ hpt: ROW_HPT });
+  wsMap['!freeze'] = { xSplit: 1, ySplit: 1 };
+
+  // --- Sheet 2: 图例 ---
+  const legendData = [['图标', '颜色代码', '名称', '说明']];
+  getTerrainList().forEach(id => {
+    const t = getTerrain(id);
+    legendData.push([t.icon, t.color, t.name, t.desc]);
+  });
+  legendData.push([]);
+  legendData.push(['边界图例']);
+  legendData.push(['⬆⬇⬅➡墙', '粗黑边框', '墙壁 — 不可通行']);
+  legendData.push(['⬆⬇⬅➡门', '深棕粗虚线', '门 — 可开关']);
+  legendData.push([]);
+  legendData.push(['提示：区域/图片/线段等图形会作为可拖动对象叠加在"战斗地图"表上']);
+
+  const wsLegend = XLSX.utils.aoa_to_sheet(legendData);
+  wsLegend['!cols'] = [{ wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 28 }];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, wsMap, '战斗地图');
+  XLSX.utils.book_append_sheet(wb, wsLegend, '图例');
+
+  // 写入 xlsx（JSZip 注入：颜色样式 + 方正列宽 + 图形层）
+  return writeWorkbookWithShapes(wb, minQ, maxQ, minR, maxR, styleKeys, cols, rows);
+}
+
+// ============================================================
+//  xlsx 样式注入（JSZip 直接写 OOXML styles.xml）
+//  SheetJS 社区版写入不支持 fill/font/border，故手工构建：
+//  fills/borders/fonts/cellXfs 全部自定义生成，单元格注入 s="N"
+// ============================================================
+function buildStyleSheet(styleKeys) {
+  const fills = ['<fill><patternFill patternType="none"/></fill>', '<fill><patternFill patternType="gray125"/></fill>'];
+  const fillMap = new Map([['none', 0], ['gray125', 1]]);
+  const borders = ['<border><left/><right/><top/><bottom/><diagonal/></border>'];
+  const borderMap = new Map([['empty', 0]]);
+  const fonts = ['<font><sz val="11"/><color theme="1"/><name val="Calibri"/><family val="2"/><scheme val="minor"/></font>'];
+  const fontMap = new Map([['normal', 0]]);
+  const cellXfs = ['<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'];
+  const cellXfsIndex = {};
+
+  const getFill = (rgb) => {
+    if (!fillMap.has(rgb)) {
+      fillMap.set(rgb, fills.length);
+      fills.push(`<fill><patternFill patternType="solid"><fgColor rgb="${rgb}"/><bgColor indexed="64"/></patternFill></fill>`);
+    }
+    return fillMap.get(rgb);
+  };
+  // states: [left,right,top,bottom] 0=网格细线 1=墙 2=门
+  const getBorder = (key, states) => {
+    if (!borderMap.has(key)) {
+      borderMap.set(key, borders.length);
+      let xml = '<border>';
+      ['left','right','top','bottom'].forEach((side, i) => {
+        const st = states[i];
+        if (st === 1) xml += `<${side} style="medium"><color rgb="FF000000"/></${side}>`;
+        else if (st === 2) xml += `<${side} style="medium"><color rgb="FF5A3A15"/></${side}>`;
+        else xml += `<${side} style="hair"><color rgb="FFB0B0B0"/></${side}>`;
+      });
+      xml += '<diagonal/></border>';
+      borders.push(xml);
+    }
+    return borderMap.get(key);
+  };
+  const getFont = (bold, color) => {
+    const key = (bold ? 'b' : 'n') + (color || '');
+    if (!fontMap.has(key)) {
+      fontMap.set(key, fonts.length);
+      let xml = '<font><sz val="11"/>';
+      if (color) xml += `<color rgb="${color}"/>`;
+      if (bold) xml += '<b/>';
+      xml += '<name val="Calibri"/><family val="2"/></font>';
+      fonts.push(xml);
+    }
+    return fontMap.get(key);
+  };
+
+  for (const row of styleKeys) {
+    for (const k of row) {
+      const f = getFill(k.fill || 'FFFFFFFF');
+      const b = k.borders ? getBorder(`${k.borders.t}${k.borders.r}${k.borders.b}${k.borders.l}`, [k.borders.l, k.borders.r, k.borders.t, k.borders.b]) : 0;
+      const ft = k.font ? getFont(k.font.bold, k.font.color) : 0;
+      const key = `${f}|${b}|${ft}`;
+      if (cellXfsIndex[key] === undefined) {
+        cellXfsIndex[key] = cellXfs.length;
+        cellXfs.push(`<xf numFmtId="0" fontId="${ft}" fillId="${f}" borderId="${b}" xfId="0"${ft ? ' applyFont="1"' : ''}${f ? ' applyFill="1"' : ''}${b ? ' applyBorder="1"' : ''}/>`);
+      }
+    }
+  }
+
+  const stylesXml =
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n` +
+    `<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
+    `<fonts count="${fonts.length}">${fonts.join('')}</fonts>` +
+    `<fills count="${fills.length}">${fills.join('')}</fills>` +
+    `<borders count="${borders.length}">${borders.join('')}</borders>` +
+    `<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
+    `<cellXfs count="${cellXfs.length}">${cellXfs.join('')}</cellXfs>` +
+    `<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>` +
+    `<dxfs count="0"/><tableStyles count="0" defaultTableStyle="TableStyleMedium9" defaultPivotStyle="PivotStyleMedium4"/>` +
+    `</styleSheet>`;
+
+  return { stylesXml, cellXfsIndex, fillMap, borderMap, fontMap };
+}
+
+function injectCellStyles(sheetXml, styleKeys, styleInfo) {
+  const { cellXfsIndex, fillMap, borderMap, fontMap } = styleInfo;
+  return sheetXml.replace(/<c r="([A-Z]+)(\d+)"([^>]*)>/g, (m, col, row, rest) => {
+    let rI = parseInt(row, 10) - 1;
+    let cI = 0;
+    for (let i = 0; i < col.length; i++) cI = cI * 26 + (col.charCodeAt(i) - 64);
+    cI -= 1;
+    if (rI >= 0 && rI < styleKeys.length && cI >= 0 && cI < styleKeys[rI].length) {
+      const k = styleKeys[rI][cI];
+      const f = fillMap.get(k.fill || 'FFFFFFFF');
+      const b = k.borders ? borderMap.get(`${k.borders.t}${k.borders.r}${k.borders.b}${k.borders.l}`) : 0;
+      const ft = k.font ? fontMap.get((k.font.bold ? 'b' : 'n') + (k.font.color || '')) : 0;
+      const idx = cellXfsIndex[`${f}|${b}|${ft}`];
+      if (idx !== undefined) return `<c r="${col}${row}" s="${idx}"${rest}>`;
+    }
+    return m;
+  });
+}
+
+function buildColsXml(cols) {
+  // 列宽 6.14 字符 = 48px（Excel 换算：px = width*7+5），行高 36pt=48px → 方正
+  let xml = '<cols><col min="1" max="1" width="4.5" customWidth="1"/>';
+  for (let c = 0; c < cols; c++) xml += `<col min="${c + 2}" max="${c + 2}" width="6.14" customWidth="1"/>`;
+  return xml + '</cols>';
+}
+
+// ============================================================
+//  xlsx 写入总入口 — JSZip 注入：颜色样式 + 方正列宽 + 可拖动图形
+// ============================================================
+function dataURLToArrayBuffer(dataURL) {
+  const base64 = dataURL.split(',')[1];
+  const bin = atob(base64);
+  const len = bin.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
+}
+
+async function writeWorkbookWithShapes(wb, minQ, maxQ, minR, maxR, styleKeys, cols, rows) {
+  const filename = 'combatmap_' + new Date().toISOString().slice(0,10) + '.xlsx';
+  const hasGraphics = shapes.length > 0 || freeLines.length > 0;
+
+  if (typeof JSZip === 'undefined') {
+    XLSX.writeFile(wb, filename);
+    showToast('⚠️ 样式组件(JSZip)未加载（需联网），xlsx 无颜色；请联网后重新导出');
+    return;
+  }
+
+  try {
+    // 1. SheetJS 生成基础 xlsx（无样式，样式由我们注入）
+    const out = XLSX.write(wb, { type: 'array' });
+    const zip = await JSZip.loadAsync(out);
+
+    // 2. 注入 styles.xml（颜色/边框/字体）
+    const styleInfo = buildStyleSheet(styleKeys);
+    zip.file('xl/styles.xml', styleInfo.stylesXml);
+
+    // 3. sheet1.xml：注入单元格 s 样式引用 + 方正列宽
+    let sheetXml = await zip.file('xl/worksheets/sheet1.xml').async('string');
+    sheetXml = injectCellStyles(sheetXml, styleKeys, styleInfo);
+    sheetXml = sheetXml.replace(/<cols>[\s\S]*?<\/cols>/, buildColsXml(cols));
+    zip.file('xl/worksheets/sheet1.xml', sheetXml);
+
+    // 4. drawing 注入（图形层 → Excel 可拖动对象）
+    if (hasGraphics) {
+      const EMU_CELL = 457200;   // 列宽 48px @96dpi
+      const EMU_ROW = 457200;    // 行高 36pt = 0.5in
+      const X_NS = 'xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"';
+      const R_NS = 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+      const anchors = [];
+      let idCounter = 2;
+      let imgCounter = 0;
+      const mediaFiles = [];   // { name, data }
+
+      const absToAnchor = (absX, absY) => {
+        const col = Math.floor(absX / EMU_CELL);
+        const row = Math.floor(absY / EMU_ROW);
+        return { col, colOff: Math.round(absX - col * EMU_CELL), row, rowOff: Math.round(absY - row * EMU_ROW) };
+      };
+      const shapeToAbs = (gx, gy, gw, gh) => ({
+        x0: (1 + gx - minQ) * EMU_CELL,
+        y0: (1 + gy - minR) * EMU_ROW,
+        x1: (1 + gx + gw - minQ) * EMU_CELL,
+        y1: (1 + gy + gh - minR) * EMU_ROW
+      });
+
+      for (const sh of shapes) {
+        const a = shapeToAbs(sh.x, sh.y, sh.w, sh.h);
+        const from = absToAnchor(a.x0, a.y0);
+        const to = absToAnchor(a.x1, a.y1);
+        const fromXml = `<xdr:from><xdr:col>${from.col}</xdr:col><xdr:colOff>${from.colOff}</xdr:colOff><xdr:row>${from.row}</xdr:row><xdr:rowOff>${from.rowOff}</xdr:rowOff></xdr:from>`;
+        const toXml = `<xdr:to><xdr:col>${to.col}</xdr:col><xdr:colOff>${to.colOff}</xdr:colOff><xdr:row>${to.row}</xdr:row><xdr:rowOff>${to.rowOff}</xdr:rowOff></xdr:to>`;
+
+        if (sh.type === 'rect') {
+          const fillHex = (sh.fill || '#e94560').replace('#','').toUpperCase();
+          const strokeHex = (sh.stroke || '#ffffff').replace('#','').toUpperCase();
+          const alpha = Math.round(Math.max(0, Math.min(1, sh.fillAlpha ?? 0.4)) * 100000);
+          const lnW = Math.round((sh.strokeWidth || 0) * 9525);
+          const dashXml = sh.dash ? '<a:prstDash val="dash"/>' : '';
+          anchors.push(
+            `<xdr:twoCellAnchor editAs="absolute">${fromXml}${toXml}` +
+            `<xdr:sp macro="" textlink=""><xdr:nvSpPr><xdr:cNvPr id="${idCounter++}" name="区域 ${idCounter-2}"/><xdr:cNvSpPr/></xdr:nvSpPr>` +
+            `<xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom>` +
+            `<a:solidFill><a:srgbClr val="${fillHex}"><a:alpha val="${alpha}"/></a:srgbClr></a:solidFill>` +
+            (lnW > 0 ? `<a:ln w="${lnW}"><a:solidFill><a:srgbClr val="${strokeHex}"/></a:solidFill>${dashXml}</a:ln>` : '') +
+            `</xdr:spPr></xdr:sp><xdr:clientData/></xdr:twoCellAnchor>`
+          );
+        } else if (sh.type === 'image' && sh.imgData) {
+          imgCounter++;
+          const mediaName = 'image' + imgCounter + '.png';
+          mediaFiles.push({ name: mediaName, data: dataURLToArrayBuffer(sh.imgData) });
+          anchors.push(
+            `<xdr:twoCellAnchor editAs="absolute">${fromXml}${toXml}` +
+            `<xdr:pic><xdr:nvPicPr><xdr:cNvPr id="${idCounter++}" name="图片 ${idCounter-2}"/><xdr:cNvPicPr/></xdr:nvPicPr>` +
+            `<xdr:blipFill><a:blip ${R_NS} r:embed="rId${imgCounter}"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill>` +
+            `<xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr>` +
+            `</xdr:pic><xdr:clientData/></xdr:twoCellAnchor>`
+          );
+        }
+      }
+
+      for (const ln of freeLines) {
+        const a0 = shapeToAbs(ln.x1, ln.y1, 0, 0);
+        const a1 = shapeToAbs(ln.x2, ln.y2, 0, 0);
+        const from = absToAnchor(a0.x0, a0.y0);
+        const to = absToAnchor(a1.x1, a1.y1);
+        const colorHex = (ln.color || '#000000').replace('#','').toUpperCase();
+        const lnW = Math.round((ln.width || 3) * 9525);
+        const dashXml = ln.dash ? '<a:prstDash val="dash"/>' : '';
+        anchors.push(
+          `<xdr:twoCellAnchor editAs="absolute">` +
+          `<xdr:from><xdr:col>${from.col}</xdr:col><xdr:colOff>${from.colOff}</xdr:colOff><xdr:row>${from.row}</xdr:row><xdr:rowOff>${from.rowOff}</xdr:rowOff></xdr:from>` +
+          `<xdr:to><xdr:col>${to.col}</xdr:col><xdr:colOff>${to.colOff}</xdr:colOff><xdr:row>${to.row}</xdr:row><xdr:rowOff>${to.rowOff}</xdr:rowOff></xdr:to>` +
+          `<xdr:cxnSp><xdr:nvCxnSpPr><xdr:cNvPr id="${idCounter++}" name="线段 ${idCounter-2}"/><xdr:cNvCxnSpPr><a:stCxn/><a:endCxn/></xdr:cNvCxnSpPr></xdr:nvCxnSpPr>` +
+          `<xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></a:xfrm><a:prstGeom prst="line"><a:avLst/></a:prstGeom>` +
+          `<a:ln w="${lnW}"><a:solidFill><a:srgbClr val="${colorHex}"/></a:solidFill>${dashXml}</a:ln></xdr:spPr></xdr:cxnSp>` +
+          `<xdr:clientData/></xdr:twoCellAnchor>`
+        );
+      }
+
+      const drawingXml =
+        `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n` +
+        `<xdr:wsDr ${X_NS} ${R_NS}>` + anchors.join('') + `</xdr:wsDr>`;
+
+      zip.file('xl/drawings/drawing1.xml', drawingXml);
+      let relXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`;
+      mediaFiles.forEach((m, i) => {
+        zip.file('xl/media/' + m.name, m.data);
+        relXml += `<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${m.name}"/>`;
+      });
+      relXml += `</Relationships>`;
+      zip.file('xl/drawings/_rels/drawing1.xml.rels', relXml);
+
+      const drawingRef = `<drawing xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:id="rId100"/>`;
+      if (sheetXml.includes('<sheetData/>')) {
+        sheetXml = sheetXml.replace('<sheetData/>', '<sheetData></sheetData>' + drawingRef);
+      } else if (sheetXml.includes('</sheetData>')) {
+        sheetXml = sheetXml.replace('</sheetData>', '</sheetData>' + drawingRef);
+      } else {
+        sheetXml = sheetXml.replace('</worksheet>', drawingRef + '</worksheet>');
+      }
+      zip.file('xl/worksheets/sheet1.xml', sheetXml);
+
+      const relsPath = 'xl/worksheets/_rels/sheet1.xml.rels';
+      let sheetRels = '';
+      if (zip.file(relsPath)) {
+        sheetRels = await zip.file(relsPath).async('string');
+        sheetRels = sheetRels.replace('</Relationships>',
+          `<Relationship Id="rId100" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>`);
+      } else {
+        sheetRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+          `<Relationship Id="rId100" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>`;
+      }
+      zip.file(relsPath, sheetRels);
+
+      let typesXml = await zip.file('[Content_Types].xml').async('string');
+      if (!typesXml.includes('Extension="png"')) {
+        typesXml = typesXml.replace('</Types>', `<Default Extension="png" ContentType="image/png"/></Types>`);
+      }
+      typesXml = typesXml.replace('</Types>',
+        `<Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/></Types>`);
+      zip.file('[Content_Types].xml', typesXml);
+    }
+
+    // 5. 打包下载
+    const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    downloadBlob(blob, filename);
+    const gfxNote = hasGraphics ? ` + ${shapes.length} 图形/${freeLines.length} 线段(可拖动)` : '';
+    showToast(`📊 xlsx 已导出（颜色+方正格子${gfxNote}）`);
+  } catch (err) {
+    console.error(err);
+    XLSX.writeFile(wb, filename);
+    showToast('⚠️ xlsx 样式注入失败，已导出基础 xlsx（无颜色）：' + (err?.message || '未知错误'));
+  }
+}
+
+function colLetter(n) {
+  let s = '';
+  n++;
+  while (n > 0) { n--; s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26); }
+  return s;
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ============================================================
+//  Export: PNG
+// ============================================================
+function renderMapCanvas(exact) {
+  cleanData();
+  const keys = Object.keys(combatData);
+  const hasGraphics = shapes.length > 0 || freeLines.length > 0;
+  if (keys.length === 0 && !hasGraphics) return null;
+
+  let minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
+  const feed = (q, r) => {
+    if (q < minQ) minQ = q; if (q > maxQ) maxQ = q;
+    if (r < minR) minR = r; if (r > maxR) maxR = r;
+  };
+  keys.forEach(k => {
+    const [q, r] = k.split(',').map(Number);
+    feed(q, r);
+  });
+  shapes.forEach(sh => {
+    feed(Math.floor(sh.x), Math.floor(sh.y));
+    feed(Math.ceil(sh.x + sh.w), Math.ceil(sh.y + sh.h));
+  });
+  freeLines.forEach(ln => {
+    feed(Math.floor(Math.min(ln.x1, ln.x2)), Math.floor(Math.min(ln.y1, ln.y2)));
+    feed(Math.ceil(Math.max(ln.x1, ln.x2)), Math.ceil(Math.max(ln.y1, ln.y2)));
+  });
+  if (!isFinite(minQ)) { minQ = -2; maxQ = 2; minR = -2; maxR = 2; }
+
+  const half = CELL_SIZE / 2;
+  const padding = CELL_SIZE * 2;
+  const topLeftX = minQ * CELL_SIZE - half;
+  const topLeftY = minR * CELL_SIZE - half;
+  const w = Math.ceil((maxQ - minQ + 1) * CELL_SIZE + padding * 2);
+  const h = Math.ceil((maxR - minR + 1) * CELL_SIZE + padding * 2);
+  const MAX_EXPORT = 8000;
+  if (w > MAX_EXPORT || h > MAX_EXPORT) { showToast('⚠️ 地图太大，缩小范围后导出'); return; }
+
+  const expCanvas = document.createElement('canvas');
+  if (exact) {
+    // 精确渲染：地图左上角固定于 (padding, padding)，用于枭熊网格对齐
+    expCanvas.width = Math.max(w, 1);
+    expCanvas.height = Math.max(h, 1);
+  } else {
+    expCanvas.width = Math.max(w, 400);
+    expCanvas.height = Math.max(h, 300);
+  }
+  const expCtx = expCanvas.getContext('2d');
+  expCtx.fillStyle = '#2d2d44';
+  expCtx.fillRect(0, 0, expCanvas.width, expCanvas.height);
+
+  let offsetX, offsetY;
+  if (exact) {
+    offsetX = padding - topLeftX;
+    offsetY = padding - topLeftY;
+  } else {
+    offsetX = (expCanvas.width - w) / 2 - topLeftX + padding;
+    offsetY = (expCanvas.height - h) / 2 - topLeftY + padding;
+  }
+  expCtx.save();
+  expCtx.translate(offsetX, offsetY);
+
+  // Pass 1: fills + grid
+  for (const key of keys) {
+    const [q, r] = key.split(',').map(Number);
+    const hCell = combatData[key];
+    const p = cellToPixel(q, r);
+    let fillColor = '#3a3a52';
+    if (hCell.terrain && getTerrain(hCell.terrain)) fillColor = getTerrain(hCell.terrain).color;
+    expCtx.fillStyle = fillColor;
+    expCtx.fillRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
+    expCtx.strokeStyle = 'rgba(255,255,255,0.10)';
+    expCtx.lineWidth = 0.5;
+    expCtx.strokeRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
+  }
+
+  // Pass 2: walls
+  for (const key of keys) {
+    const [q, r] = key.split(',').map(Number);
+    const hCell = combatData[key];
+    if (!hCell.walls) continue;
+    const p = cellToPixel(q, r);
+    for (let edge = 0; edge < 4; edge++) {
+      const state = hCell.walls[edge];
+      if (state === 0) continue;
+      let x1, y1, x2, y2;
+      if (edge === 0) { x1 = p.x - half; y1 = p.y - half; x2 = p.x + half; y2 = p.y - half; }
+      else if (edge === 1) { x1 = p.x + half; y1 = p.y - half; x2 = p.x + half; y2 = p.y + half; }
+      else if (edge === 2) { x1 = p.x - half; y1 = p.y + half; x2 = p.x + half; y2 = p.y + half; }
+      else { x1 = p.x - half; y1 = p.y - half; x2 = p.x - half; y2 = p.y + half; }
+      if (state === 1) {
+        expCtx.strokeStyle = '#1a1a1a'; expCtx.lineWidth = 3.5;
+        expCtx.beginPath(); expCtx.moveTo(x1, y1); expCtx.lineTo(x2, y2); expCtx.stroke();
+      } else if (state === 2) {
+        expCtx.strokeStyle = '#5a3a15'; expCtx.lineWidth = 3.5;
+        expCtx.setLineDash([5, 4]);
+        expCtx.beginPath(); expCtx.moveTo(x1, y1); expCtx.lineTo(x2, y2); expCtx.stroke();
+        expCtx.setLineDash([]);
+        // 门图标（醒目）
+        const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+        expCtx.font = `${CELL_SIZE * 0.30}px sans-serif`;
+        expCtx.textAlign = 'center'; expCtx.textBaseline = 'middle';
+        let ox = 0, oy = 0;
+        if (edge === 0) oy = 1;
+        else if (edge === 2) oy = -1;
+        else if (edge === 1) ox = -1;
+        else ox = 1;
+        expCtx.fillStyle = '#5a3a15';
+        expCtx.fillRect(mx + ox * 2 - 9, my + oy * 2 - 9, 18, 18);
+        expCtx.fillStyle = '#fff';
+        expCtx.fillText('🚪', mx + ox * 2, my + oy * 2);
+      }
+    }
+  }
+
+  // Pass 3: overlays
+  for (const key of keys) {
+    const [q, r] = key.split(',').map(Number);
+    const hCell = combatData[key];
+    const p = cellToPixel(q, r);
+    const ti = hCell.terrain ? getTerrain(hCell.terrain) : null;
+    if (ti) {
+      expCtx.font = `${CELL_SIZE * 0.32}px sans-serif`;
+      expCtx.textAlign = 'center'; expCtx.textBaseline = 'middle';
+      expCtx.fillStyle = isLightColor(ti.color) ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.85)';
+      expCtx.fillText(ti.icon, p.x, p.y - (hCell.label ? CELL_SIZE * 0.12 : 0));
+    }
+    if (hCell.label) {
+      expCtx.font = `bold ${Math.max(8, CELL_SIZE * 0.26)}px sans-serif`;
+      expCtx.textAlign = 'center'; expCtx.textBaseline = 'bottom';
+      const tw = expCtx.measureText(hCell.label).width;
+      const lh = CELL_SIZE * 0.30;
+      const by = p.y - CELL_SIZE * 0.38;
+      expCtx.fillStyle = 'rgba(0,0,0,0.6)';
+      expCtx.fillRect(p.x - tw/2 - 3, by, tw + 6, lh);
+      expCtx.fillStyle = '#ffd700';
+      expCtx.fillText(hCell.label, p.x, by + lh - 1);
+    }
+  }
+
+  // Pass 4: 自由线段（合成）
+  for (const ln of freeLines) {
+    const p1 = cellToPixel(ln.x1, ln.y1), p2 = cellToPixel(ln.x2, ln.y2);
+    expCtx.strokeStyle = ln.color || '#000';
+    expCtx.lineWidth = ln.width || 3;
+    expCtx.setLineDash(ln.dash ? [8, 5] : []);
+    expCtx.beginPath(); expCtx.moveTo(p1.x, p1.y); expCtx.lineTo(p2.x, p2.y); expCtx.stroke();
+    expCtx.setLineDash([]);
+  }
+
+  // Pass 5: 图形图层（合成）
+  for (const sh of shapes) {
+    const p = cellToPixel(sh.x, sh.y);
+    const w = sh.w * CELL_SIZE, h = sh.h * CELL_SIZE;
+    if (sh.type === 'rect') {
+      expCtx.globalAlpha = Math.max(0, Math.min(1, sh.fillAlpha ?? 0.4));
+      expCtx.fillStyle = sh.fill || '#e94560';
+      expCtx.fillRect(p.x, p.y, w, h);
+      expCtx.globalAlpha = 1;
+      if (sh.strokeWidth > 0) {
+        expCtx.strokeStyle = sh.stroke || '#fff';
+        expCtx.lineWidth = sh.strokeWidth;
+        expCtx.setLineDash(sh.dash ? [6, 4] : []);
+        expCtx.strokeRect(p.x, p.y, w, h);
+        expCtx.setLineDash([]);
+      }
+    } else if (sh.type === 'image' && sh.img) {
+      expCtx.save();
+      expCtx.beginPath();
+      expCtx.rect(p.x, p.y, w, h);
+      expCtx.clip();
+      expCtx.drawImage(sh.img, p.x, p.y, w, h);
+      expCtx.restore();
+    }
+    if (sh.name) {
+      expCtx.fillStyle = 'rgba(0,0,0,0.65)';
+      expCtx.font = `bold 13px sans-serif`;
+      const tw = expCtx.measureText(sh.name).width;
+      const ty = Math.max(2, p.y - 4);
+      expCtx.fillRect(p.x, ty - 12, tw + 6, 14);
+      expCtx.fillStyle = '#ffd700';
+      expCtx.textAlign = 'left'; expCtx.textBaseline = 'middle';
+      expCtx.fillText(sh.name, p.x + 3, ty - 5);
+    }
+  }
+
+  expCtx.restore();
+  return { canvas: expCanvas, minQ, maxQ, minR, maxR, keys };
+}
+
+function exportPNG() {
+  const result = renderMapCanvas();
+  if (!result) {
+    showToast('⚠️ 没有数据可导出');
+    return;
+  }
+  const link = document.createElement('a');
+  link.download = `combatmap_${new Date().toISOString().slice(0,10)}.png`;
+  link.href = result.canvas.toDataURL('image/png');
+  link.click();
+  showToast(`🖼️ PNG 已导出 ${result.canvas.width}×${result.canvas.height}`);
+}
+
+// ============================================================
+//  Export: Legend PNG（图例快照，DM 用）
+// ============================================================
+function exportLegendPNG() {
+  const list = getTerrainList();
+  const CELL = 30, PAD = 10, LINE_H = 34;
+  const cw = 300, ch = PAD * 2 + list.length * LINE_H + 40;
+  const canvas = document.createElement('canvas');
+  canvas.width = cw; canvas.height = ch;
+  const c = canvas.getContext('2d');
+  c.fillStyle = '#16213e';
+  c.fillRect(0, 0, cw, ch);
+  c.fillStyle = '#e94560';
+  c.font = 'bold 16px sans-serif';
+  c.textAlign = 'left'; c.textBaseline = 'middle';
+  c.fillText('⚔️ 战斗地图图例', PAD, 20);
+  c.font = '12px sans-serif';
+  c.fillStyle = '#aaa';
+  c.fillText(`共 ${list.length} 种地形 · 通用战斗地图 ${COMBATMAP_VERSION}`, PAD, 38);
+  list.forEach((id, i) => {
+    const t = getTerrain(id);
+    const y = PAD + 40 + i * LINE_H;
+    c.fillStyle = t.color;
+    c.fillRect(PAD, y, CELL, CELL);
+    c.strokeStyle = 'rgba(255,255,255,0.4)';
+    c.lineWidth = 1;
+    c.strokeRect(PAD, y, CELL, CELL);
+    c.fillStyle = '#fff';
+    c.font = '13px sans-serif';
+    c.textAlign = 'left';
+    c.fillText(`${t.icon} ${t.name}`, PAD + CELL + 10, y + CELL / 2);
+    c.fillStyle = '#888';
+    c.font = '11px sans-serif';
+    const desc = t.desc || '';
+    c.fillText(desc, PAD + CELL + 150, y + CELL / 2);
+  });
+  const link = document.createElement('a');
+  link.download = `combatmap_legend_${new Date().toISOString().slice(0,10)}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+  showToast(`📜 图例已导出（${list.length} 种地形）`);
+}
+
+// ============================================================
+//  Export: Owlbear Rodeo 场景（.owlbear，可在枭熊中导入）
+//  OBR 2.0 场景文件格式：
+//  { "data": { "data": [
+//      { "tableName":"maps", "rows":[{ "id","name","file","grid" }] },
+//      { "tableName":"assets", "rows":[{ "id","mime","file":{"buffer":base64} }] }
+//  ] } }
+// ============================================================
+function exportOwlbearScene() {
+  const result = renderMapCanvas(true);
+  if (!result) {
+    showToast('⚠️ 没有数据可导出');
+    return;
+  }
+  const { canvas, minQ, maxQ, minR, maxR } = result;
+  const cols = maxQ - minQ + 1, rows = maxR - minR + 1;
+  const padding = CELL_SIZE * 2;  // 与 renderMapCanvas 一致
+  const pngDataURL = canvas.toDataURL('image/png');
+  const assetId = 'asset_map_' + Date.now().toString(36);
+  const mapId = 'map_' + Date.now().toString(36);
+
+  const scene = {
+    data: {
+      data: [
+        {
+          tableName: 'maps',
+          rows: [{
+            id: mapId,
+            name: '通用战斗地图 ' + new Date().toISOString().slice(0,10),
+            file: assetId,
+            grid: {
+              type: 'SQUARE',
+              size: CELL_SIZE,
+              color: '#000000',
+              offset: { x: padding, y: padding }
+            }
+          }]
+        },
+        {
+          tableName: 'assets',
+          rows: [{
+            id: assetId,
+            mime: 'image/png',
+            file: { buffer: pngDataURL.split(',')[1] }
+          }]
+        }
+      ]
+    }
+  };
+
+  const blob = new Blob([JSON.stringify(scene)], { type: 'application/json' });
+  downloadBlob(blob, `combatmap_${new Date().toISOString().slice(0,10)}.owlbear`);
+  showToast(`🦉 枭熊场景已导出（${cols}×${rows} 格，48px 网格）— 在枭熊中导入场景即可继续`);
+}
+
+// ============================================================
+//  Save / Load JSON
+// ============================================================
+function saveJSON() {
+  cleanData();
+  const data = {
+    combatData,
+    shapes: shapes.map(s => { const c = { ...s }; delete c.img; return c; }),
+    freeLines, viewX, viewY, zoom
+  };
+  const json = JSON.stringify(data);
+  const blob = new Blob([json], { type: 'application/json' });
+  downloadBlob(blob, `combatmap_${new Date().toISOString().slice(0,10)}.json`);
+  showToast(`💾 已保存 — ${Object.keys(combatData).length} 格 / ${shapes.length} 图形 / ${freeLines.length} 线段`);
+}
+
+function loadJSON() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.json';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        combatData = data.combatData || {};
+        shapes = (data.shapes || []).map(sh => {
+          // 恢复 img 对象（dataURL → Image）
+          if (sh.type === 'image' && sh.imgData && !sh.img) {
+            const img = new Image();
+            img.src = sh.imgData;
+            img.onload = () => render();
+            sh.img = img;
+          }
+          return sh;
+        });
+        freeLines = data.freeLines || [];
+        _shapeSeq = Math.max(_shapeSeq, ...shapes.map(s => parseInt(String(s.id).replace('sh','')) || 0)) + 1;
+        _lineSeq = Math.max(_lineSeq, ...freeLines.map(l => parseInt(String(l.id).replace('ln','')) || 0)) + 1;
+        undoStack = []; redoStack = []; updateUndoButtons();
+        viewX = data.viewX || 0; viewY = data.viewY || 0; zoom = data.zoom || 1;
+        document.getElementById('zoom-indicator').textContent = `🔍 ${Math.round(zoom * 100)}%`;
+        render(); updateInfo();
+        showToast(`📂 已加载 — ${Object.keys(combatData).length} 格 / ${shapes.length} 图形 / ${freeLines.length} 线段`);
+      } catch(err) { showToast('⚠️ 加载失败，文件格式错误'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+// ============================================================
+
+//  Init
+// ============================================================
+function init() {
+  resizeCanvas();
+  refreshTerrains();
+  rebuildTerrainPalette();
+  setTool('select');
+  viewX = canvas.width / 2;
+  viewY = canvas.height / 2;
+  render();
+  updateInfo();
+  const cdn = window.__combatmapCDN || {};
+  const missing = [];
+  if (cdn.xlsx === false) missing.push('SheetJS');
+  if (cdn.jszip === false) missing.push('JSZip');
+  if (missing.length > 0) {
+    const warn = document.getElementById('cdn-warning');
+    if (warn) {
+      warn.style.display = 'block';
+      warn.textContent = `⚠️ 依赖未加载（${missing.join(', ')}）— xlsx 导出将降级，建议联网后刷新`;
+    }
+  }
+  console.log(`⚔️ 通用战斗地图生成器 ${COMBATMAP_VERSION} 已就绪`);
+  console.log('快捷键: V=选择 B=笔刷 W=墙壁 D=门 L=标签 E=擦除 R=区域 T=图片 G=线段 Delete=删除选中');
+  console.log('新增: 区域/图片/线段图层 · 自定义地形(⚙️管理) · 智能区域模板 · 枭熊场景导出 · xlsx 颜色修复');
+  if (typeof initCombatShareUI === 'function') initCombatShareUI();
+}
+
+window.addEventListener('resize', resizeCanvas);
+init();
+
+
+</script>
+</body>
+</html>

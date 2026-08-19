@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>四战黑 - 六角格沙盒地图</title>
+<title>通用六角格沙盒地图</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -115,6 +115,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
       <button class="tool-btn" data-tool="river" title="画河流 (W)"><span class="icon">🌊</span><span class="label">河流(W)</span></button>
       <button class="tool-btn" data-tool="label" title="标文字 (L)"><span class="icon">🏷️</span><span class="label">标签(L)</span></button>
       <button class="tool-btn" data-tool="measure" title="测距 (M)"><span class="icon">📏</span><span class="label">测距(M)</span></button>
+      <button class="tool-btn" data-tool="reveal" title="探索揭示 (F)"><span class="icon">🔦</span><span class="label">探索(F)</span></button>
       <button class="tool-btn" data-tool="erase" title="擦除 (E)"><span class="icon">🧹</span><span class="label">擦除(E)</span></button>
     </div>
     <div id="erase-options" style="display:none;margin:2px 0 0 2px;font-size:12px;">
@@ -185,7 +186,13 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     </div>
     <div style="display:flex;gap:4px;">
       <button id="btn-export-img" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;">🖼️ 导出PNG</button>
+      <button id="btn-export-view" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="仅导出当前视野范围">🎯 导出视野</button>
+    </div>
+    <div style="display:flex;gap:4px;">
+      <button id="btn-search" style="flex:1;padding:4px;background:#6a3093;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="搜索定居点/地名/王国/标注并定位">🔍 搜索定位</button>
+      <button id="btn-share" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="导出紧凑数据串/分享链接 或 粘贴导入">🔗 分享/导入</button>
       <button id="btn-stats" style="flex:1;padding:4px;background:#0f3460;color:#ccc;border:none;border-radius:4px;cursor:pointer;" title="查看地图统计">📊 统计</button>
+      <button id="btn-encounter" style="flex:1;padding:4px;background:#8b3a2a;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="随机遭遇表(按选中格地形)">⚔️ 遭遇</button>
     </div>
     <div style="display:flex;gap:4px;">
       <button id="btn-clear" style="flex:1;padding:4px;background:#6b5b4f;color:#ccc;border:none;border-radius:4px;cursor:pointer;">🗑️ 清空</button>
@@ -225,9 +232,17 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     <label style="font-size:12px;display:block;margin-top:2px;">
       边境透明度: <input type="range" id="border-opacity" min="20" max="100" value="85" style="width:80px;vertical-align:middle;"> <span id="border-opacity-val">85%</span>
     </label>
+    <label style="font-size:12px;border-top:1px solid #0f3460;padding-top:4px;margin-top:2px;">
+      <input type="checkbox" id="chk-fog"> 🌫️ 探索迷雾 <span style="color:#888;font-weight:normal;">(隐藏未探索区)</span>
+    </label>
+    <div style="display:flex;gap:4px;font-size:11px;">
+      <button id="btn-fog-reveal-all" style="flex:1;padding:3px 4px;background:#0f3460;color:#ccc;border:none;border-radius:4px;cursor:pointer;">👁️ 全部揭示</button>
+      <button id="btn-fog-hide-all" style="flex:1;padding:3px 4px;background:#5a1a2e;color:#ccc;border:none;border-radius:4px;cursor:pointer;">🌑 重设迷雾</button>
+    </div>
+    <div style="font-size:10px;color:#666;margin-top:2px;">用「探索」工具(F)点击揭示周边，可逐步展开地图。</div>
     <div style="margin-top:auto;font-size:11px;color:#666;text-align:center;padding-top:8px;">
-      四战黑 · 沙盒六角格地图 v1.0<br>
-      滚轮缩放 · 拖拽平移 · 右键菜单
+      通用六角格地图工具 v1.0<br>
+      滚轮缩放 · 拖拽平移 · 右键菜单 · <a href="CHANGELOG.md" target="_blank" style="color:#3a7abd;text-decoration:none;" title="查看更新日志">📜 更新日志</a>
     </div>
   </div>
 
@@ -574,6 +589,88 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 </div>
 
 
+<!-- Search / Locate Modal -->
+<div id="search-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:460px;max-height:82vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 12px;">
+      <h3 style="color:#e94560;margin:0;font-size:17px;">🔍 搜索定位</h3>
+      <button id="search-btn-close-x" style="background:none;border:none;color:#aaa;font-size:20px;cursor:pointer;padding:0 4px;line-height:1;" title="关闭">&times;</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:8px;">
+      <input id="search-input" type="text" placeholder="输入定居点/地名/王国/标注关键词…" style="flex:1;padding:7px 10px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;">
+      <button id="search-btn-clear" style="padding:4px 10px;background:#3a3a5e;color:#aaa;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🗑️</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+      <label style="display:flex;align-items:center;gap:4px;color:#ccc;font-size:12px;cursor:pointer;">
+        <input type="checkbox" id="search-f-settle" checked> 定居点
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;color:#ccc;font-size:12px;cursor:pointer;">
+        <input type="checkbox" id="search-f-label" checked> 地名标签
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;color:#ccc;font-size:12px;cursor:pointer;">
+        <input type="checkbox" id="search-f-region" checked> 王国
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;color:#ccc;font-size:12px;cursor:pointer;">
+        <input type="checkbox" id="search-f-ann" checked> 标注
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;color:#ccc;font-size:12px;cursor:pointer;">
+        <input type="checkbox" id="search-f-terrain" checked> 坐标
+      </label>
+    </div>
+    <div id="search-results" style="max-height:360px;overflow-y:auto;font-size:13px;"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:12px;">
+      <button id="search-btn-close" style="padding:6px 16px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- Share / Import Modal -->
+<div id="share-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:520px;max-height:84vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">🔗 分享 / 导入</h3>
+    <div id="share-loading" style="display:none;font-size:12px;color:#aaa;margin-bottom:10px;">⏳ 编码中，请稍候…</div>
+    <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+      <button id="share-btn-copy-link" style="padding:5px 12px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">📋 复制分享链接</button>
+      <button id="share-btn-copy-data" style="padding:5px 12px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">📋 复制数据串</button>
+      <button id="share-btn-copy-all" style="padding:5px 12px;background:#0f3460;color:#ccc;border:none;border-radius:4px;cursor:pointer;font-size:12px;">📋 完整JSON(含图片)</button>
+    </div>
+    <div style="font-size:11px;color:#888;margin-bottom:6px;">分享链接：数据经 gzip+Base64Url 编码后放入 URL 片段（#m=…），不经过服务器。大地图生成较慢。</div>
+    <textarea id="share-text" rows="10" style="width:100%;padding:8px;background:#1a1a2e;color:#9ff;border:1px solid #0f3460;border-radius:4px;font-size:12px;font-family:monospace;resize:vertical;" placeholder="此处显示紧凑数据串；或粘贴一份数据串后点击下方「导入」"></textarea>
+    <div style="display:flex;gap:6px;margin-top:10px;justify-content:flex-end;">
+      <button id="share-btn-copy" style="padding:5px 14px;background:#3a3a5e;color:#ccc;border:1px solid #0f3460;border-radius:4px;cursor:pointer;font-size:12px;">📋 复制</button>
+      <button id="share-btn-import" style="padding:6px 16px;background:#c9a84c;color:#000;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;">📂 导入</button>
+      <button id="share-btn-close" style="padding:6px 16px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">关闭</button>
+    </div>
+    <div id="share-status" style="margin-top:8px;font-size:12px;color:#aaa;"></div>
+  </div>
+</div>
+
+<div id="encounter-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:560px;max-height:86vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;" id="encounter-title">⚔️ 遭遇表</h3>
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px;">
+      <label style="font-size:12px;color:#ccc;">骰子:</label>
+      <select id="encounter-die" style="padding:4px 8px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;">
+        <option value="10">d10 (10条)</option>
+        <option value="20">d20 (20条)</option>
+      </select>
+      <button id="btn-encounter-roll" style="padding:6px 14px;background:#8b3a2a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;">🎲 重掷</button>
+      <button id="btn-encounter-pin" style="margin-left:auto;padding:6px 14px;background:#c9a84c;color:#000;border:none;border-radius:4px;cursor:pointer;font-size:13px;">📌 存入选中格</button>
+      <button id="btn-encounter-close" style="padding:6px 12px;background:#0f3460;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">关闭</button>
+    </div>
+    <div id="encounter-result" style="padding:10px 12px;margin-bottom:10px;background:#1a1a2e;border:1px solid #0f3460;border-radius:6px;font-size:14px;color:#ffd700;min-height:20px;">🎲 重掷…</div>
+    <div style="font-size:11px;color:#888;margin-bottom:6px;">表格行可直接编辑文本，改后自动保存到浏览器（localStorage）。</div>
+    <div style="max-height:420px;overflow-y:auto;border:1px solid #0f3460;border-radius:6px;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead><tr style="background:#1a1a2e;color:#aaa;">
+          <th style="padding:6px;text-align:center;">#</th><th style="padding:6px;text-align:center;"></th><th style="padding:6px;text-align:left;">遭遇内容</th>
+        </tr></thead>
+        <tbody id="encounter-table-rows"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <script src="js/config.js"></script>
 <script src="js/icons.js"></script>
 <script src="js/state.js"></script>
@@ -584,6 +681,8 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 <script src="js/generate.js"></script>
 <script src="js/stats.js"></script>
 <script src="js/init.js"></script>
+<script src="js/search.js"></script>
+<script src="js/export.js"></script>
 <script src="js/ai.js"></script>
 </body>
 </html>
