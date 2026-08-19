@@ -17,6 +17,10 @@ let customUnitStatuses = []; // 自定义状态: { name, icon }
 let selectedTool = 'select';
 let selectedTerrain = 'floor';
 let selectedCell = null;
+let viewRole = 'dm';        // 'dm' | 'player' — 手动视图切换：玩家视图预览玩家所见（DM 专属功能禁用）
+function viewRoleIsPlayer() {
+  return viewRole === 'player' || (typeof onlineIsPlayer === 'boolean' && onlineIsPlayer && !!onlinePeer);
+}
 let viewX = 0, viewY = 0;
 let zoom = 1;
 let isDragging = false, dragStartX, dragStartY, viewStartX, viewStartY;

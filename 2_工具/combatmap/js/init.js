@@ -13,6 +13,10 @@ function init() {
   viewY = canvas.height / 2;
   render();
   updateInfo();
+  updateEmptyState();
+  refreshBgAlignButton();
+  if (typeof applyRoleViewUI === 'function') applyRoleViewUI();
+  if (typeof renderTokenLibrary === 'function') renderTokenLibrary();
   const cdn = window.__combatmapCDN || {};
   const missing = [];
   if (cdn.xlsx === false) missing.push('SheetJS');
@@ -26,8 +30,8 @@ function init() {
     }
   }
   console.log(`⚔️ 通用战斗地图生成器 ${COMBATMAP_VERSION} 已就绪`);
-  console.log('快捷键: V=选择 B=笔刷 W=墙壁 D=门 L=标签 E=擦除 R=区域 T=图片 G=线段 U=单位 Y=DM层 F=战雾 Delete=删除选中');
-  console.log('新增: 单位 AC/速度/临时HP/头像/自定义状态 · 右键扣血治疗 · 先攻双向联动 · Shift多选/Ctrl+D复制/编组 · DM层/战雾/行动顺序');
+  console.log('快捷键: V=选择 B=笔刷 W=墙壁 D=门 L=标签 E=擦除 R=区域 T=图片 G=线段 U=单位库 Y=DM层 F=战雾 Delete=删除选中');
+  console.log('v0.8: 网格对齐重做 · 可折叠面板 · DM/玩家视图 · 单位库 · 摆放后自动回选择(Shift连放)');
   if (typeof initCombatShareUI === 'function') initCombatShareUI();
 }
 

@@ -1,6 +1,14 @@
 //  Configuration
 // ============================================================
-const COMBATMAP_VERSION = 'v0.7';
+const COMBATMAP_VERSION = 'v0.8';
+
+// 单位类型 → 环颜色（画布 token 渲染 / 单位库角标统一使用）
+const TOKEN_KIND_COLORS = {
+  player: '#4caf50',   // 玩家绿
+  enemy:  '#e53935',   // 敌人红
+  npc:    '#42a5f5',   // NPC 蓝
+  ally:   '#ffb300',   // 盟友金
+};
 
 const COMBAT_TERRAIN = {
   floor:        { name: '普通地面', color: '#d4c5a9', icon: '⬜', desc: '正常移动' },

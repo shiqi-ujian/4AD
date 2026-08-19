@@ -195,7 +195,13 @@ canvas.addEventListener('mousedown', (e) => {
         tokens.push(t);
         selectedToken = t.id; selectedShape = null; selectedLine = null; selectedCell = null;
         render(); updateInfo();
-        showToast(`🧝 已放置 ${t.name || '单位'}，右键编辑属性`);
+        if (e.shiftKey) {
+          showToast(`🧝 已放置 ${t.name || '单位'}（按住 Shift 可继续连放）`);
+        } else {
+          _unitPending = null; _hoverUnit = null;
+          setTool('select');
+          showToast(`🧝 已放置 ${t.name || '单位'} — 可直接拖动，右键编辑`);
+        }
         return;
       }
       return;
@@ -216,7 +222,13 @@ canvas.addEventListener('mousedown', (e) => {
         shapes.push(sh);
         selectedShape = sh.id; selectedLine = null; selectedCell = null;
         render(); updateInfo();
-        showToast(`🖼️ 已放置图片，拖动/缩放调整`);
+        if (e.shiftKey) {
+          showToast('🖼️ 已放置图片（Shift 连放中）');
+        } else {
+          _tokenPending = null; _hoverToken = null;
+          setTool('select');
+          showToast('🖼️ 已放置图片，拖动/缩放调整');
+        }
         return;
       }
       return;
@@ -597,6 +609,9 @@ canvas.addEventListener('touchstart', (e) => {
       tokens.push(t);
       selectedToken = t.id; selectedShape = null; selectedLine = null; selectedCell = null;
       render(); updateInfo();
+      _unitPending = null; _hoverUnit = null;
+      setTool('select');
+      showToast(`🧝 已放置 ${t.name || '单位'}`);
       return;
     }
     // 图片放置（触摸）
@@ -614,6 +629,9 @@ canvas.addEventListener('touchstart', (e) => {
       shapes.push(sh);
       selectedShape = sh.id; selectedLine = null; selectedCell = null;
       render(); updateInfo();
+      _tokenPending = null; _hoverToken = null;
+      setTool('select');
+      showToast('🖼️ 已放置图片');
       return;
     }
     // DM 层（触摸）
@@ -810,6 +828,7 @@ function showContextMenu(cx, cy, mx, my) {
     const targetIds = Array.from(selectedTokens).filter(id => tokens.some(x => x.id === id));
     const main = tokens.find(x => x.id === selectedToken) || tkHit;
     addItem('🧝 编辑单位属性（主轴）', () => { openUnitModal(main); });
+    addItem('📥 存入单位库（可复用预设）', () => { saveTokenToLibrary(main, false); });
     addItem('💥 受伤 -1', () => { changeTokenHp(main.id, -1); });
     addItem('💥 受伤 -5', () => { changeTokenHp(main.id, -5); });
     addItem('💥 受伤（自定义）…', () => {

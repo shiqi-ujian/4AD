@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>通用战斗地图生成器 v0.7</title>
+<title>通用战斗地图生成器 v0.8</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -17,9 +17,11 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; colo
   overflow-y: auto; border-right: 1px solid #0f3460;
   z-index: 10;
 }
-#toolbar h2 { font-size: 16px; text-align: center; color: #e94560; margin-bottom: 2px; border-bottom: 1px solid #0f3460; padding-bottom: 8px; letter-spacing: 2px; }
+#toolbar h2 { font-size: 15px; text-align: center; color: #e94560; margin-bottom: 6px; border-bottom: 1px solid #0f3460; padding-bottom: 8px; letter-spacing: 1px; }
+#toolbar h2 .ver { font-size: 10px; color: #888; font-weight: normal; letter-spacing: 0; margin-left: 4px; }
 #toolbar h3 { font-size: 12px; color: #aaa; margin: 8px 0 3px; font-weight: 600; letter-spacing: 1px; }
 .tool-group { display: flex; flex-wrap: wrap; gap: 3px; margin: 0; }
+.tool-group .tg-sep { width: 100%; height: 0; }
 .tool-btn {
   height: 34px; border: 2px solid transparent; border-radius: 6px;
   cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;
@@ -33,10 +35,52 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; colo
 }
 .tool-btn[data-tool] .icon { font-size: 15px; }
 .tool-btn[data-tool] .label { font-size: 11px; white-space: nowrap; }
+.tool-btn[data-tool].dm-tool { border-color: rgba(122,74,158,0.55); }
+.tool-btn[data-tool].dm-tool.active { border-color: #e0b0ff; }
 .tool-btn[data-terrain] {
-  width: auto; padding: 0 6px; gap: 2px; min-width: 34px; height: 30px; font-size: 11px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  width: 34px; height: 30px; padding: 0; min-width: 34px; font-size: 14px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.5);
 }
-.tool-btn[data-terrain] .icon { font-size: 13px; }
+.tool-btn[data-terrain] .icon { font-size: 14px; }
+.tool-btn[data-terrain] .label { display: none; }
+
+/* 可折叠分区 */
+details.panel-sec { margin: 3px 0; border: 1px solid #0f3460; border-radius: 7px; background: rgba(26,26,46,0.55); overflow: hidden; }
+details.panel-sec > summary {
+  list-style: none; cursor: pointer; padding: 6px 9px; font-size: 12px; font-weight: 700;
+  color: #ccd; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; user-select: none;
+}
+details.panel-sec > summary::-webkit-details-marker { display: none; }
+details.panel-sec > summary::before { content: '▸'; color: #888; font-size: 10px; transition: transform 0.15s; flex-shrink: 0; }
+details.panel-sec[open] > summary::before { transform: rotate(90deg); }
+details.panel-sec > summary:hover { background: rgba(58,122,189,0.12); }
+details.panel-sec > .sec-body { padding: 6px 8px 8px; border-top: 1px solid #0f3460; }
+.sec-badge { margin-left: auto; font-size: 10px; font-weight: 400; color: #888; background: #1a1a2e; border: 1px solid #0f3460; border-radius: 8px; padding: 0 6px; white-space: nowrap; }
+.sec-badge.dm { color: #e0b0ff; border-color: #7a4a9e; background: rgba(122,74,158,0.25); }
+.dm-locked { opacity: 0.35; filter: grayscale(0.7); pointer-events: none !important; }
+
+/* 角色切换 */
+#role-switch { display: flex; gap: 4px; margin-bottom: 6px; }
+.role-btn { flex: 1; padding: 5px 0; font-size: 12px; border: 1px solid #0f3460; border-radius: 6px; background: #1a1a2e; color: #aaa; cursor: pointer; transition: all 0.1s; }
+.role-btn.active { border-color: #3a7abd; color: #fff; background: rgba(58,122,189,0.25); font-weight: 700; }
+body.player-view .role-btn.dm-role { border-color: #0f3460; color: #666; }
+body.player-view .role-btn.player-role { border-color: #c9a84c; color: #fff; background: rgba(201,168,76,0.22); font-weight: 700; }
+
+/* 单位库 */
+#token-library-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-top: 6px; }
+.tlib-card {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 6px 2px 4px; background: #1a1a2e; border: 1px solid #0f3460; border-radius: 8px;
+  cursor: pointer; transition: all 0.1s; overflow: hidden;
+}
+.tlib-card:hover { border-color: #3a7abd; transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,0.4); }
+.tlib-card .tlib-ava { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 17px; border: 2px solid rgba(255,255,255,0.85); box-shadow: 0 1px 4px rgba(0,0,0,0.5); }
+.tlib-card .tlib-ava img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.tlib-card .tlib-name { font-size: 10px; color: #ddd; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tlib-card .tlib-ops { display: none; position: absolute; top: 2px; right: 2px; gap: 2px; }
+.tlib-card:hover .tlib-ops { display: flex; }
+.tlib-card .tlib-ops button { padding: 1px 4px; font-size: 9px; background: rgba(0,0,0,0.65); color: #fff; border: none; border-radius: 3px; cursor: pointer; }
+.tlib-kind { position: absolute; left: 3px; top: 3px; font-size: 8px; padding: 1px 4px; border-radius: 6px; color: #fff; font-weight: 700; }
+.tlib-kind.pk { background: #4caf50; } .tlib-kind.ek { background: #e53935; } .tlib-kind.nk { background: #42a5f5; } .tlib-kind.ak { background: #ffb300; }
 
 #canvas-container { flex: 1; position: relative; overflow: hidden; background: #2d2d44; cursor: crosshair; }
 #canvas-container.panning { cursor: grab; }
@@ -69,7 +113,10 @@ canvas { display: block; }
 
 @media (max-width: 800px) {
   #toolbar { width: 48px; min-width: 48px; }
-  #toolbar h3 span, #toolbar h2, .tool-btn .label, #tool-hint { display: none; }
+  #toolbar h2, .tool-btn .label, #tool-hint, #role-switch, #player-banner,
+  details.panel-sec > summary .sec-title, .sec-badge, .tlib-card .tlib-name { display: none; }
+  details.panel-sec > summary { justify-content: center; }
+  #token-library-list { grid-template-columns: repeat(1, 1fr); }
 }
 
 input[type="range"] { width: 100%; margin: 2px 0; cursor: pointer; }
@@ -99,100 +146,146 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
 <body>
 <div id="app">
   <div id="toolbar">
-    <h2>⚔️ 战斗地图生成器</h2>
+    <h2>⚔️ 战斗地图 <span class="ver">v0.8</span></h2>
 
-    <h3>🔧 工具 <span style="font-weight:normal;font-size:10px;color:#888;float:right;">(快捷键)</span></h3>
+    <div id="role-switch">
+      <button id="role-dm" class="role-btn dm-role active" title="DM 视图：显示全部工具（含 DM 层/战雾/先攻条等隐藏信息）">🎲 DM 视图</button>
+      <button id="role-player" class="role-btn player-role" title="玩家视图：预览玩家所见，DM 专属功能禁用">👁️ 玩家视图</button>
+    </div>
+    <div id="player-banner" style="display:none;margin-bottom:6px;padding:4px 8px;background:rgba(201,168,76,0.14);border:1px solid #c9a84c;border-radius:6px;font-size:11px;color:#e8d48a;">👁️ 玩家视图：仅玩家可见内容（DM 层 / 战雾绘制 / 先攻条已禁用）</div>
     <div id="cdn-warning" style="display:none;margin:2px 0 4px;padding:4px 6px;background:rgba(233,69,96,0.15);border:1px solid #e94560;border-radius:4px;font-size:10px;color:#e94560;">⚠️ 依赖未加载，部分导出功能不可用</div>
-    <div class="tool-group">
-      <button class="tool-btn active" data-tool="select" title="选择/查看/移动图形 (V)"><span class="icon">👆</span><span class="label">选择(V)</span></button>
-      <button class="tool-btn" data-tool="paint" title="地形笔刷 (B)"><span class="icon">🖌️</span><span class="label">笔刷(B)</span></button>
-      <button class="tool-btn" data-tool="wall" title="画墙壁边界 (W) 可拖拽"><span class="icon">🧱</span><span class="label">墙壁(W)</span></button>
-      <button class="tool-btn" data-tool="door" title="放门 (D) 可拖拽"><span class="icon">🚪</span><span class="label">门(D)</span></button>
-      <button class="tool-btn" data-tool="label" title="标文字 (L)"><span class="icon">🏷️</span><span class="label">标签(L)</span></button>
-      <button class="tool-btn" data-tool="erase" title="擦除 (E)"><span class="icon">🧹</span><span class="label">擦除(E)</span></button>
-      <button class="tool-btn" data-tool="rect" title="画矩形区域/灵气 (R) 拖拽绘制，半透明"><span class="icon">▭</span><span class="label">区域(R)</span></button>
-      <button class="tool-btn" data-tool="token" title="插入图片 token (T)"><span class="icon">🖼️</span><span class="label">图片(T)</span></button>
-      <button class="tool-btn" data-tool="line" title="画自由线段 (G) 任意角度墙/视线阻挡"><span class="icon">📏</span><span class="label">线段(G)</span></button>
-      <button class="tool-btn" data-tool="unit" title="放置单位/玩家/怪物 token，可记 HP 与状态 (U)"><span class="icon">🧝</span><span class="label">单位(U)</span></button>
-      <button class="tool-btn" data-tool="dm" title="画 DM 隐藏层：标记/信息只在 DM 本地显示 (Y)"><span class="icon">🕵️</span><span class="label">DM层(Y)</span></button>
-      <button class="tool-btn" data-tool="fog" title="涂战雾：遮住/揭示格子，跑团时逐步揭开 (F)"><span class="icon">🌫️</span><span class="label">战雾(F)</span></button>
-    </div>
-    <div id="erase-options" style="display:none;margin:2px 0 0 2px;font-size:11px;">
-      <select id="erase-mode" style="width:100%;padding:3px 6px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:11px;">
-        <option value="all">🧹 全部清除</option>
-        <option value="terrain">仅地形</option>
-        <option value="walls">仅墙壁/门边界</option>
-        <option value="label">仅标签</option>
-        <option value="dm">仅 DM 层</option>
-        <option value="fog">仅战雾</option>
-      </select>
-    </div>
-    <div style="margin:6px 0 0 2px;">
-      <label style="font-size:11px;display:block;margin:2px 0;">
-        <input type="checkbox" id="chk-dm" style="width:auto;"> 👁️ 显示 DM 层
-      </label>
-      <label style="font-size:11px;display:block;margin:2px 0;">
-        <input type="checkbox" id="chk-fog" checked style="width:auto;"> 🌫️ 显示战雾
-      </label>
-    </div>
-    <div id="tool-hint" style="font-size:10px;color:#e94560;padding:2px 4px;background:rgba(233,69,96,0.1);border-radius:4px;min-height:16px;">👆 选择工具后操作格子</div>
 
-    <h3>🏞️ 地形 <span style="font-weight:normal;font-size:10px;color:#888;float:right;">选笔刷后涂 <button id="btn-terrain-manage" style="background:#3a3a5e;color:#fff;border:none;border-radius:3px;padding:1px 6px;cursor:pointer;font-size:10px;margin-left:4px;">⚙️ 管理</button></span></h3>
-    <div class="tool-group" id="terrain-palette"></div>
+    <details class="panel-sec" open>
+      <summary><span class="sec-title">🔧 工具</span><span class="sec-badge">快捷键</span></summary>
+      <div class="sec-body">
+        <div class="tool-group">
+          <button class="tool-btn active" data-tool="select" title="选择/查看/移动图形 (V)"><span class="icon">👆</span><span class="label">选择(V)</span></button>
+          <button class="tool-btn" data-tool="paint" title="地形笔刷 (B)"><span class="icon">🖌️</span><span class="label">笔刷(B)</span></button>
+          <button class="tool-btn" data-tool="wall" title="画墙壁边界 (W) 可拖拽"><span class="icon">🧱</span><span class="label">墙壁(W)</span></button>
+          <button class="tool-btn" data-tool="door" title="放门 (D) 可拖拽"><span class="icon">🚪</span><span class="label">门(D)</span></button>
+          <button class="tool-btn" data-tool="label" title="标文字 (L)"><span class="icon">🏷️</span><span class="label">标签(L)</span></button>
+          <button class="tool-btn" data-tool="erase" title="擦除 (E)"><span class="icon">🧹</span><span class="label">擦除(E)</span></button>
+          <button class="tool-btn" data-tool="rect" title="画矩形区域/灵气 (R) 拖拽绘制，半透明"><span class="icon">▭</span><span class="label">区域(R)</span></button>
+          <button class="tool-btn" data-tool="line" title="画自由线段 (G) 任意角度墙/视线阻挡"><span class="icon">📏</span><span class="label">线段(G)</span></button>
+          <button class="tool-btn" data-tool="token" title="插入图片 token (T)"><span class="icon">🖼️</span><span class="label">图片(T)</span></button>
+          <button class="tool-btn" data-tool="unit" title="放置单位 token：点开单位库选择预设，或新建 (U)"><span class="icon">🧝</span><span class="label">单位(U)</span></button>
+          <button class="tool-btn dm-tool" data-tool="dm" title="画 DM 隐藏层：标记/信息只在 DM 本地显示 (Y)"><span class="icon">🕵️</span><span class="label">DM层(Y)</span></button>
+          <button class="tool-btn dm-tool" data-tool="fog" title="涂战雾：遮住/揭示格子，跑团时逐步揭开 (F)"><span class="icon">🌫️</span><span class="label">战雾(F)</span></button>
+        </div>
+        <div id="erase-options" style="display:none;margin:4px 0 0 2px;font-size:11px;">
+          <select id="erase-mode" style="width:100%;padding:3px 6px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:11px;">
+            <option value="all">🧹 全部清除</option>
+            <option value="terrain">仅地形</option>
+            <option value="walls">仅墙壁/门边界</option>
+            <option value="label">仅标签</option>
+            <option value="dm">仅 DM 层</option>
+            <option value="fog">仅战雾</option>
+          </select>
+        </div>
+        <div id="tool-hint" style="font-size:10px;color:#e94560;padding:2px 4px;background:rgba(233,69,96,0.1);border-radius:4px;min-height:16px;margin-top:5px;">👆 选择工具后操作格子</div>
+      </div>
+    </details>
 
-    <h3>📐 模板</h3>
-    <div style="display:flex;gap:4px;flex-wrap:wrap;">
-      <button id="btn-template-room" style="flex:1;min-width:60px;padding:6px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🏠 房间</button>
-      <button id="btn-template-corridor" style="flex:1;min-width:60px;padding:6px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🛤️ 走廊</button>
-      <button id="btn-template-cave" style="flex:1;min-width:60px;padding:6px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🕳️ 洞窟</button>
-      <button id="btn-template-open" style="flex:1;min-width:60px;padding:6px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🌿 空地</button>
-      <button id="btn-template-zone" style="flex:1;min-width:60px;padding:6px;background:#8b5f9e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🧩 区域</button>
-    </div>
-    <div style="display:flex;gap:4px;">
-      <button id="btn-import-map" style="flex:1;padding:8px;background:#5a4a8a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;" title="导入地图图片作为底图，然后调整网格对齐">🖼️ 导入底图</button>
-      <button id="btn-map-settings" style="flex:1;padding:8px;background:#4a5a7a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;" title="调整底图数值/透明度/移除">⚙️ 数值</button>
-    </div>
-    <div style="display:flex;gap:4px;margin-top:2px;">
-      <button id="btn-bg-align" style="flex:1;padding:8px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;" title="在地图上直接拖拽底图/拖边调整格子大小，适配已有网格线的地图">🎯 网格对齐</button>
-    </div>
+    <details class="panel-sec" open>
+      <summary><span class="sec-title">🧺 单位库</span><span class="sec-badge">点击预设→点地图放置</span></summary>
+      <div class="sec-body" id="sec-tokenlib">
+        <div style="display:flex;gap:4px;">
+          <button id="btn-tokenlib-new" style="flex:1;padding:6px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="新建一个可复用的单位预设存入单位库">➕ 新建预设</button>
+          <button id="btn-tokenlib-save-sel" style="flex:1;padding:6px;background:#5a4a8a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;" title="把地图上当前选中的单位存入单位库">📥 存选中单位</button>
+        </div>
+        <div id="token-library-list"></div>
+        <div style="font-size:10px;color:#888;margin-top:5px;line-height:1.5;">💡 点击预设拿起 → 在地图上点击放置；放置后自动回到「选择」，按住 <b>Shift</b> 可连续摆放，<b>Esc</b> 取消。</div>
+      </div>
+    </details>
 
-    <h3>💾 数据</h3>
-    <div style="display:flex;gap:4px;">
-      <button id="btn-export-excel" style="flex:1;padding:8px;background:#217346;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;">📊 导出 Excel</button>
-      <button id="btn-export-img" style="flex:1;padding:8px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;">🖼️ 导出PNG</button>
-    </div>
-    <div style="display:flex;gap:4px;">
-      <button id="btn-export-owlbear" style="flex:1;padding:6px;background:#6b4f8f;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;" title="导出为枭熊(Owlbear Rodeo)场景文件，可在枭熊中导入继续玩">🦉 枭熊场景</button>
-      <button id="btn-export-legend" style="flex:1;padding:6px;background:#4a5a7a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;" title="导出当前地形图例 PNNG（DM 用）">📜 图例</button>
-    </div>
-    <div style="display:flex;gap:4px;">
-      <button id="btn-save" style="flex:1;padding:4px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;">💾 保存</button>
-      <button id="btn-load" style="flex:1;padding:4px;background:#c9a84c;color:#000;border:none;border-radius:4px;cursor:pointer;">📂 加载</button>
-      <button id="btn-share" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="复制紧凑分享链接/数据串，或粘贴导入">🔗 分享</button>
-      <button id="btn-clear" style="flex:1;padding:4px;background:#6b5b4f;color:#ccc;border:none;border-radius:4px;cursor:pointer;">🗑️ 清空</button>
-    </div>
-    <div style="display:flex;gap:4px;margin-top:2px;">
-      <button id="btn-undo" style="flex:1;padding:4px;background:#3a3a5e;color:#fff;border:none;border-radius:4px;cursor:pointer;opacity:0.4;" disabled>↩️ 撤销</button>
-      <button id="btn-redo" style="flex:1;padding:4px;background:#3a3a5e;color:#fff;border:none;border-radius:4px;cursor:pointer;opacity:0.4;" disabled>↪️ 重做</button>
-    </div>
-    <div style="display:flex;gap:4px;">
-      <button id="btn-online" style="flex:1;padding:6px;background:#7a4a9e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="创建/加入远程房间，所有参与者实时同步地图">🌐 在线</button>
-      <button id="btn-online-status" disabled style="flex:1;padding:6px;background:#3a3a5e;color:#aaa;border:1px solid #0f3460;border-radius:4px;cursor:pointer;font-size:11px;" title="在线状态">未连接</button>
-    </div>
-    <div style="display:flex;gap:4px;">
-      <button id="btn-initiative" style="flex:1;padding:6px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="管理行动顺序/先攻条">🧭 行动顺序</button>
-    </div>
-    <div style="display:flex;gap:4px;margin-top:2px;">
-      <button id="btn-group" style="flex:1;padding:6px;background:#5a4a8a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="管理编组：拖动任一成员整组移动">🧩 编组</button>
-    </div>
-    <label style="margin-top:4px;font-size:11px;">
-      <input type="checkbox" id="chk-grid" checked> 显示网格
-    </label>
-    <label style="font-size:11px;">
-      <input type="checkbox" id="chk-coords" checked> 显示坐标
-    </label>
+    <details class="panel-sec">
+      <summary><span class="sec-title">🏞️ 地形</span><span class="sec-badge" id="terrain-selected">⬜</span></summary>
+      <div class="sec-body">
+        <div class="tool-group" id="terrain-palette"></div>
+        <div style="text-align:right;margin-top:4px;">
+          <button id="btn-terrain-manage" style="background:#3a3a5e;color:#fff;border:none;border-radius:3px;padding:2px 8px;cursor:pointer;font-size:10px;">⚙️ 管理地形</button>
+        </div>
+      </div>
+    </details>
+
+    <details class="panel-sec">
+      <summary><span class="sec-title">🗺️ 地图</span><span class="sec-badge dm">DM</span></summary>
+      <div class="sec-body">
+        <div style="display:flex;gap:4px;">
+          <button id="btn-import-map" style="flex:1;padding:8px;background:#5a4a8a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;" title="导入地图图片作为底图，然后调整网格对齐">🖼️ 导入底图</button>
+          <button id="btn-map-settings" style="flex:1;padding:8px;background:#4a5a7a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;" title="调整底图数值/透明度/移除">⚙️ 数值</button>
+        </div>
+        <div style="display:flex;gap:4px;margin-top:2px;">
+          <button id="btn-bg-align" style="flex:1;padding:8px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;" title="在地图上点 3 个格线交点让网格贴合底图（需先导入底图）">🎯 网格对齐</button>
+        </div>
+        <div style="font-size:10px;color:#888;margin:6px 0 3px;">📐 模板：一键生成</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;">
+          <button id="btn-template-room" style="flex:1;min-width:60px;padding:5px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;">🏠 房间</button>
+          <button id="btn-template-corridor" style="flex:1;min-width:60px;padding:5px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;">🛤️ 走廊</button>
+          <button id="btn-template-cave" style="flex:1;min-width:60px;padding:5px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;">🕳️ 洞窟</button>
+          <button id="btn-template-open" style="flex:1;min-width:60px;padding:5px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;">🌿 空地</button>
+          <button id="btn-template-zone" style="flex:1;min-width:60px;padding:5px;background:#8b5f9e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;">🧩 区域</button>
+        </div>
+      </div>
+    </details>
+
+    <details class="panel-sec">
+      <summary><span class="sec-title">💾 数据</span></summary>
+      <div class="sec-body">
+        <div style="display:flex;gap:4px;">
+          <button id="btn-save" style="flex:1;padding:4px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;">💾 保存</button>
+          <button id="btn-load" style="flex:1;padding:4px;background:#c9a84c;color:#000;border:none;border-radius:4px;cursor:pointer;">📂 加载</button>
+          <button id="btn-share" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="复制紧凑分享链接/数据串，或粘贴导入">🔗 分享</button>
+          <button id="btn-clear" style="flex:1;padding:4px;background:#6b5b4f;color:#ccc;border:none;border-radius:4px;cursor:pointer;">🗑️ 清空</button>
+        </div>
+        <div style="display:flex;gap:4px;margin-top:2px;">
+          <button id="btn-undo" style="flex:1;padding:4px;background:#3a3a5e;color:#fff;border:none;border-radius:4px;cursor:pointer;opacity:0.4;" disabled>↩️ 撤销</button>
+          <button id="btn-redo" style="flex:1;padding:4px;background:#3a3a5e;color:#fff;border:none;border-radius:4px;cursor:pointer;opacity:0.4;" disabled>↪️ 重做</button>
+        </div>
+        <div style="display:flex;gap:4px;margin-top:2px;">
+          <button id="btn-export-excel" style="flex:1;padding:6px;background:#217346;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;">📊 导出 Excel</button>
+          <button id="btn-export-img" style="flex:1;padding:6px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🖼️ 导出PNG</button>
+        </div>
+        <div style="display:flex;gap:4px;margin-top:2px;">
+          <button id="btn-export-owlbear" style="flex:1;padding:5px;background:#6b4f8f;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;" title="导出为枭熊(Owlbear Rodeo)场景文件，可在枭熊中导入继续玩">🦉 枭熊场景</button>
+          <button id="btn-export-legend" style="flex:1;padding:5px;background:#4a5a7a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;" title="导出当前地形图例 PNG（DM 用）">📜 图例</button>
+        </div>
+      </div>
+    </details>
+
+    <details class="panel-sec">
+      <summary><span class="sec-title">🌐 房间</span><span class="sec-badge" id="btn-online-status" style="padding:1px 8px;background:#3a3a5e;color:#aaa;border:1px solid #0f3460;border-radius:8px;cursor:pointer;font-size:10px;">未连接</span></summary>
+      <div class="sec-body">
+        <div style="display:flex;gap:4px;">
+          <button id="btn-online" style="flex:1;padding:6px;background:#7a4a9e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="创建/加入远程房间，所有参与者实时同步地图">🌐 在线房间</button>
+        </div>
+        <div style="display:flex;gap:4px;margin-top:2px;">
+          <button id="btn-initiative" style="flex:1;padding:6px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="管理行动顺序/先攻条（DM）">🧭 行动顺序</button>
+          <button id="btn-group" style="flex:1;padding:6px;background:#5a4a8a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="管理编组：拖动任一成员整组移动">🧩 编组</button>
+        </div>
+      </div>
+    </details>
+
+    <details class="panel-sec">
+      <summary><span class="sec-title">⚙️ 显示</span></summary>
+      <div class="sec-body">
+        <label style="font-size:11px;display:block;margin:2px 0;">
+          <input type="checkbox" id="chk-grid" checked style="width:auto;"> 显示网格
+        </label>
+        <label style="font-size:11px;display:block;margin:2px 0;">
+          <input type="checkbox" id="chk-coords" checked style="width:auto;"> 显示坐标
+        </label>
+        <label style="font-size:11px;display:block;margin:2px 0;" title="DM 隐藏层标记（玩家视图下强制关闭）">
+          <input type="checkbox" id="chk-dm" style="width:auto;"> 🕵️ 显示 DM 层
+        </label>
+        <label style="font-size:11px;display:block;margin:2px 0;">
+          <input type="checkbox" id="chk-fog" checked style="width:auto;"> 🌫️ 显示战雾
+        </label>
+      </div>
+    </details>
+
     <div style="margin-top:auto;font-size:10px;color:#555;text-align:center;padding-top:6px;">
-      通用跑团 · 战斗地图 v0.7<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>Shift 多选 / Ctrl+D 复制 / 编组 · 单位/HP/临时HP/AC/状态 · DM层/战雾 · 行动顺序
+      通用跑团 · 战斗地图 v0.8<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>单位库 · Shift 连放 · DM/玩家视图 · 网格对齐
     </div>
   </div>
 
@@ -200,8 +293,21 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
     <div id="coord-indicator">⚪ 选择模式</div>
     <div id="zoom-indicator">🔍 100%</div>
     <canvas id="grid-canvas"></canvas>
+    <div id="empty-hint" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:15;flex-direction:column;align-items:center;gap:10px;background:rgba(22,33,62,0.92);border:1px solid #0f3460;border-radius:12px;padding:22px 28px;box-shadow:0 8px 32px rgba(0,0,0,0.45);text-align:center;max-width:340px;">
+      <div style="font-size:30px;">🗺️</div>
+      <div style="font-size:15px;font-weight:bold;color:#fff;">开始一张新战斗地图</div>
+      <div style="font-size:12px;color:#aaa;line-height:1.7;">三种方式任选：<br>🖼️ <b>导入底图</b> — 用现成地图图片（之后可对齐网格）<br>🖌️ <b>直接用笔刷</b> — 在格子上画地形<br>🏠 <b>模板生成</b> — 一键生成房间 / 洞窟 / 野外</div>
+      <div style="display:flex;gap:8px;">
+        <button id="empty-import" style="padding:6px 14px;background:#5a4a8a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:bold;">🖼️ 导入底图</button>
+        <button id="empty-dismiss" style="padding:6px 14px;background:#3a3a5e;color:#ccc;border:1px solid #0f3460;border-radius:6px;cursor:pointer;font-size:13px;">知道了</button>
+      </div>
+    </div>
     <div id="bg-align-bar" style="display:none;position:absolute;top:44px;left:50%;transform:translateX(-50%);z-index:20;background:rgba(22,33,62,0.95);border:1px solid #3a7abd;border-radius:8px;padding:6px 10px;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(0,0,0,0.4);font-size:12px;">
       <span id="bg-align-status">🎯 对齐模式：点击图中格线交点</span>
+      <label style="display:flex;align-items:center;gap:3px;white-space:nowrap;font-size:11px;color:#ccc;" title="第 2/3 点相对第 1 点跨越的格数（图像上每格算 1 格）">点间
+        <input type="number" id="bg-align-cells" value="1" min="1" max="50" style="width:50px;padding:2px 4px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:11px;text-align:center;">
+        <span id="bg-align-cells-val">1 格</span>
+      </label>
       <button id="bg-align-finish" style="padding:4px 12px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">✓ 完成</button>
       <button id="bg-align-cancel" style="padding:4px 10px;background:#3a3a5e;color:#ccc;border:1px solid #0f3460;border-radius:4px;cursor:pointer;">✕ 取消</button>
     </div>
@@ -442,6 +548,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
       <button id="unit-confirm" style="background:#2d6a2e;color:#fff;">✓ 保存</button>
     </div>
     <input type="hidden" id="unit-id">
+    <input type="hidden" id="unit-modal-mode" value="">
   </div>
 </div>
 
@@ -656,10 +763,31 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
 
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"
         onerror="window.__combatmapCDN = window.__combatmapCDN || {}; window.__combatmapCDN.peerjs = false;"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
 <script>
 //  Configuration
 // ============================================================
-const COMBATMAP_VERSION = 'v0.7';
+const COMBATMAP_VERSION = 'v0.8';
+
+// 单位类型 → 环颜色（画布 token 渲染 / 单位库角标统一使用）
+const TOKEN_KIND_COLORS = {
+  player: '#4caf50',   // 玩家绿
+  enemy:  '#e53935',   // 敌人红
+  npc:    '#42a5f5',   // NPC 蓝
+  ally:   '#ffb300',   // 盟友金
+};
 
 const COMBAT_TERRAIN = {
   floor:        { name: '普通地面', color: '#d4c5a9', icon: '⬜', desc: '正常移动' },
@@ -763,6 +891,10 @@ let customUnitStatuses = []; // 自定义状态: { name, icon }
 let selectedTool = 'select';
 let selectedTerrain = 'floor';
 let selectedCell = null;
+let viewRole = 'dm';        // 'dm' | 'player' — 手动视图切换：玩家视图预览玩家所见（DM 专属功能禁用）
+function viewRoleIsPlayer() {
+  return viewRole === 'player' || (typeof onlineIsPlayer === 'boolean' && onlineIsPlayer && !!onlinePeer);
+}
 let viewX = 0, viewY = 0;
 let zoom = 1;
 let isDragging = false, dragStartX, dragStartY, viewStartX, viewStartY;
@@ -1645,15 +1777,30 @@ function drawTokens() {
   for (const t of tokens) {
     const p = cellToPixel(t.x, t.y);
     const w = t.w * CELL_SIZE, h = t.h * CELL_SIZE;
-    const r = Math.min(8, w / 5);
+    const cx = p.x + w / 2, cy = p.y + h / 2;
 
-    // 圆形底座
+    // 阴影 + 圆形底座
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.45)';
+    ctx.shadowBlur = 6 / zoom;
+    ctx.shadowOffsetY = 2 / zoom;
     ctx.beginPath();
-    ctx.ellipse(p.x + w / 2, p.y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy, w / 2, h / 2, 0, 0, Math.PI * 2);
     ctx.fillStyle = t.color || '#3a7abd';
     ctx.fill();
-    ctx.lineWidth = 2 / zoom;
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.restore();
+
+    // 类型色环（玩家绿 / 敌人红 / NPC 蓝 / 盟友金）
+    const kindColor = TOKEN_KIND_COLORS[t.kind] || '#42a5f5';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, w / 2 + 2 / zoom, h / 2 + 2 / zoom, 0, 0, Math.PI * 2);
+    ctx.lineWidth = 3 / zoom;
+    ctx.strokeStyle = kindColor;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, w / 2, h / 2, 0, 0, Math.PI * 2);
+    ctx.lineWidth = 1.5 / zoom;
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
     ctx.stroke();
 
     // 图片或 emoji
@@ -1666,7 +1813,7 @@ function drawTokens() {
       if (t.img && t.img.complete) {
         ctx.save();
         ctx.beginPath();
-        ctx.ellipse(p.x + w / 2, p.y + h / 2, w / 2 - 3 / zoom, h / 2 - 3 / zoom, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx, cy, w / 2 - 3 / zoom, h / 2 - 3 / zoom, 0, 0, Math.PI * 2);
         ctx.clip();
         ctx.drawImage(t.img, p.x + 3 / zoom, p.y + 3 / zoom, w - 6 / zoom, h - 6 / zoom);
         ctx.restore();
@@ -1675,44 +1822,49 @@ function drawTokens() {
       ctx.font = `${Math.min(w, h) * 0.55}px sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(t.icon, p.x + w / 2, p.y + h / 2 + 1 / zoom);
+      ctx.fillText(t.icon, cx, cy + 1 / zoom);
     }
 
-    // 顶部名称条
+    // 顶部名称条（圆角底牌 + 类型色描边）
     if (t.name) {
       ctx.font = `bold ${Math.max(9, 11 / zoom)}px sans-serif`;
-      const tw = ctx.measureText(t.name).width + 8 / zoom;
-      const by = Math.max(2 / zoom, p.y - 10 / zoom);
-      ctx.fillStyle = 'rgba(0,0,0,0.7)';
-      ctx.fillRect(p.x + w / 2 - tw / 2, by, tw, 14 / zoom);
+      const tw = ctx.measureText(t.name).width + 10 / zoom;
+      const nh = 15 / zoom;
+      const by = Math.max(2 / zoom, p.y - 13 / zoom);
+      ctx.fillStyle = 'rgba(0,0,0,0.74)';
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(cx - tw / 2, by, tw, nh, 4 / zoom);
+      else ctx.rect(cx - tw / 2, by, tw, nh);
+      ctx.fill();
+      ctx.strokeStyle = kindColor;
+      ctx.lineWidth = 1 / zoom;
+      ctx.stroke();
       ctx.fillStyle = '#fff';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(t.name, p.x + w / 2, by + 7 / zoom);
+      ctx.fillText(t.name, cx, by + nh / 2);
     }
 
-    // 血条
+    // 血条（边框 + 临时 HP 蓝条）
     if (typeof t.maxHp === 'number' && t.maxHp > 0) {
       const hp = Math.max(0, Math.min(t.maxHp, t.hp ?? t.maxHp));
-      const barW = Math.max(w * 0.8, 20 / zoom);
-      const barH = 4 / zoom;
-      const bx = p.x + w / 2 - barW / 2;
+      const barW = Math.max(w * 0.8, 22 / zoom);
+      const barH = 5 / zoom;
+      const bx = cx - barW / 2;
       const by = p.y + h - 2 / zoom;
-      // 临时 HP 蓝条（紧贴主血条上方）
       const temp = Math.max(0, t.tempHp || 0);
       if (temp > 0) {
-        const tempH = Math.max(2.5 / zoom, barH * 0.8);
-        const tempY = by - tempH - 1 / zoom;
-        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        const tempH = Math.max(3 / zoom, barH * 0.85);
+        const tempY = by - tempH - 2 / zoom;
+        ctx.fillStyle = 'rgba(0,0,0,0.75)';
         ctx.fillRect(bx - 1, tempY - 1, barW + 2, tempH + 2);
-        ctx.fillStyle = '#4af';
+        ctx.fillStyle = '#42a5f5';
         ctx.fillRect(bx, tempY, barW * Math.min(1, temp / Math.max(1, t.maxHp)), tempH);
       }
-      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillStyle = 'rgba(0,0,0,0.78)';
       ctx.fillRect(bx - 1, by - 1, barW + 2, barH + 2);
-      ctx.fillStyle = '#a33';
-      ctx.fillRect(bx, by, barW, barH);
-      ctx.fillStyle = hp / t.maxHp > 0.5 ? '#3c3' : (hp / t.maxHp > 0.25 ? '#cc3' : '#e33');
-      ctx.fillRect(bx, by, barW * hp / t.maxHp, barH);
+      const ratio = t.maxHp > 0 ? hp / t.maxHp : 0;
+      ctx.fillStyle = ratio > 0.5 ? '#4caf50' : (ratio > 0.25 ? '#ffb300' : '#e53935');
+      ctx.fillRect(bx, by, barW * ratio, barH);
     }
 
     // AC 角标（右下小徽标）
@@ -1888,7 +2040,8 @@ function drawBackgroundMap() {
   const wPx = bm.cols * CELL_SIZE;
   const hPx = bm.rows * CELL_SIZE;
   ctx.save();
-  ctx.globalAlpha = Math.max(0, Math.min(1, bm.opacity ?? 0.85));
+  // 对齐模式下以全不透明度显示，方便看清格线
+  ctx.globalAlpha = _bgAlignRefs ? 1 : Math.max(0, Math.min(1, bm.opacity ?? 0.85));
   if (bm.img && bm.img.complete) {
     ctx.drawImage(bm.img, bm.x * CELL_SIZE, bm.y * CELL_SIZE, wPx, hPx);
   } else {
@@ -1903,7 +2056,7 @@ function drawBackgroundMap() {
     ctx.lineWidth = 1;
     ctx.strokeRect(bm.x * CELL_SIZE, bm.y * CELL_SIZE, wPx, hPx);
   }
-  // 底图对齐模式：绘制底图外框 + 中心 + 可拖动参考线
+  // 底图对齐模式：绘制底图外框 + 手柄 + 参考点 + 对齐网格预览
   if (_bgAlignRefs) {
     ctx.globalAlpha = 1;
     ctx.strokeStyle = '#4af';
@@ -1918,39 +2071,37 @@ function drawBackgroundMap() {
      [bm.x * CELL_SIZE, (bm.y + bm.rows) * CELL_SIZE], [(bm.x + bm.cols) * CELL_SIZE, (bm.y + bm.rows) * CELL_SIZE]].forEach(([px, py]) => {
        ctx.fillRect(px - hs / 2, py - hs / 2, hs, hs);
      });
-    // 参考线
+    // 对齐后的网格实时预览（≥2 点时）
+    previewBgAlignGrid();
+    // 参考点十字线
     if (_bgAlignRefs.pts) {
       _bgAlignRefs.pts.forEach((pt, i) => {
-        const grid = pt.snappedGrid;
-        const gx = grid.q * CELL_SIZE, gy = grid.r * CELL_SIZE;
-        // 参考点在底图上对应的像素
-        const world = pt.world;
-        // 画一条贯穿参考点的十字线
-        ctx.strokeStyle = i === 0 ? '#f80' : (i === 1 ? '#ff0' : '#0ff');
+        const wx = pt.world.x, wy = pt.world.y;
+        const color = i === 0 ? '#f80' : (i === 1 ? '#ff0' : '#0ff');
+        ctx.strokeStyle = color;
         ctx.lineWidth = 2 / zoom;
         ctx.setLineDash([4 / zoom, 3 / zoom]);
         ctx.beginPath();
-        ctx.moveTo(world.x, gy - CELL_SIZE * 3);
-        ctx.lineTo(world.x, gy + CELL_SIZE * 3);
-        ctx.moveTo(gx - CELL_SIZE * 3, world.y);
-        ctx.lineTo(gx + CELL_SIZE * 3, world.y);
+        ctx.moveTo(wx - CELL_SIZE * 3, wy); ctx.lineTo(wx + CELL_SIZE * 3, wy);
+        ctx.moveTo(wx, wy - CELL_SIZE * 3); ctx.lineTo(wx, wy + CELL_SIZE * 3);
         ctx.stroke();
         ctx.setLineDash([]);
         ctx.beginPath();
-        ctx.arc(world.x, world.y, 5 / zoom, 0, Math.PI * 2);
-        ctx.fillStyle = i === 0 ? '#fade' : (i === 1 ? '#ff0' : '#4ff');
+        ctx.arc(wx, wy, 5 / zoom, 0, Math.PI * 2);
+        ctx.fillStyle = color;
         ctx.fill();
       });
     }
     // 提示对齐状态
     const valid = (_bgAlignRefs.pts || []).length >= 2;
+    const cells = (typeof bgAlignCells === 'function') ? bgAlignCells() : 1;
     ctx.restore();
     ctx.globalAlpha = 1;
     ctx.font = `bold 14px sans-serif`;
-    ctx.fillStyle = valid ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.7)';
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
     const tip = valid
-      ? '🎯 已采集 ' + _bgAlignRefs.pts.length + ' 个点：再点击“完成/应用”或回车确认'
-      : '🎯 对齐模式：依次点击图中两个格线交点，再点一下格线方向点（或直接回车）';
+      ? '🎯 已采集 ' + _bgAlignRefs.pts.length + ' 个点（每格 ' + cells + ' 格）：点「完成」应用或继续调整'
+      : '🎯 第 1 点：点底图上一个格线交点；第 2 点：同线向右 ' + cells + ' 格的交点；第 3 点：向下 ' + cells + ' 格的交点';
     const tw = ctx.measureText(tip).width + 20;
     ctx.fillRect(_bgAlignRefs.originX || 10, _bgAlignRefs.originY || 10, tw, 28);
     ctx.fillStyle = '#fff';
@@ -1959,6 +2110,53 @@ function drawBackgroundMap() {
     // 注：ctx.restore 两次保持外层状态安全
     return;
   }
+  ctx.restore();
+}
+
+// 对齐网格实时预览：基于已采集的参考点 + 映射快照算出预期网格并叠加显示
+function previewBgAlignGrid() {
+  if (!_bgAlignRefs || !backgroundMap) return;
+  const pts = _bgAlignRefs.pts || [];
+  const snap = _bgAlignRefs.snap;
+  if (pts.length < 2 || !snap) return;
+  const img = backgroundMap.img;
+  if (!img || !img.naturalWidth) return;
+  const CS = CELL_SIZE;
+  const toImg = (wx, wy) => ({
+    x: ((wx / CS - snap.x) / snap.cols) * img.naturalWidth,
+    y: ((wy / CS - snap.y) / snap.rows) * img.naturalHeight
+  });
+  const cells = (typeof bgAlignCells === 'function') ? bgAlignCells() : 1;
+  const i0 = toImg(pts[0].world.x, pts[0].world.y);
+  const i1 = toImg(pts[1].world.x, pts[1].world.y);
+  const hPx = Math.max(2, Math.abs(i1.x - i0.x) / cells);
+  let vPx = hPx;
+  if (pts.length >= 3) {
+    const i2 = toImg(pts[2].world.x, pts[2].world.y);
+    vPx = Math.max(2, Math.abs(i2.y - i0.y) / cells);
+  }
+  const cols = img.naturalWidth / hPx, rows = img.naturalHeight / vPx;
+  const t0x = Math.round(pts[0].world.x / CS), t0y = Math.round(pts[0].world.y / CS);
+  const bx = t0x - i0.x / hPx, by = t0y - i0.y / vPx;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(0,160,255,0.32)';
+  ctx.lineWidth = 1 / zoom;
+  ctx.beginPath();
+  const maxLines = 400;
+  const xStep = cols > maxLines ? Math.ceil(cols / maxLines) : 1;
+  const yStep = rows > maxLines ? Math.ceil(rows / maxLines) : 1;
+  for (let i = 0; i <= cols; i += xStep) {
+    const x = (bx + i) * CS;
+    ctx.moveTo(x, by * CS); ctx.lineTo(x, (by + rows) * CS);
+  }
+  for (let j = 0; j <= rows; j += yStep) {
+    const y = (by + j) * CS;
+    ctx.moveTo(bx * CS, y); ctx.lineTo((bx + cols) * CS, y);
+  }
+  ctx.stroke();
+  // 基准交点高亮
+  ctx.fillStyle = 'rgba(0,200,255,0.75)';
+  ctx.fillRect(t0x * CS - 4 / zoom, t0y * CS - 4 / zoom, 8 / zoom, 8 / zoom);
   ctx.restore();
 }
 
@@ -2369,7 +2567,13 @@ canvas.addEventListener('mousedown', (e) => {
         tokens.push(t);
         selectedToken = t.id; selectedShape = null; selectedLine = null; selectedCell = null;
         render(); updateInfo();
-        showToast(`🧝 已放置 ${t.name || '单位'}，右键编辑属性`);
+        if (e.shiftKey) {
+          showToast(`🧝 已放置 ${t.name || '单位'}（按住 Shift 可继续连放）`);
+        } else {
+          _unitPending = null; _hoverUnit = null;
+          setTool('select');
+          showToast(`🧝 已放置 ${t.name || '单位'} — 可直接拖动，右键编辑`);
+        }
         return;
       }
       return;
@@ -2390,7 +2594,13 @@ canvas.addEventListener('mousedown', (e) => {
         shapes.push(sh);
         selectedShape = sh.id; selectedLine = null; selectedCell = null;
         render(); updateInfo();
-        showToast(`🖼️ 已放置图片，拖动/缩放调整`);
+        if (e.shiftKey) {
+          showToast('🖼️ 已放置图片（Shift 连放中）');
+        } else {
+          _tokenPending = null; _hoverToken = null;
+          setTool('select');
+          showToast('🖼️ 已放置图片，拖动/缩放调整');
+        }
         return;
       }
       return;
@@ -2771,6 +2981,9 @@ canvas.addEventListener('touchstart', (e) => {
       tokens.push(t);
       selectedToken = t.id; selectedShape = null; selectedLine = null; selectedCell = null;
       render(); updateInfo();
+      _unitPending = null; _hoverUnit = null;
+      setTool('select');
+      showToast(`🧝 已放置 ${t.name || '单位'}`);
       return;
     }
     // 图片放置（触摸）
@@ -2788,6 +3001,9 @@ canvas.addEventListener('touchstart', (e) => {
       shapes.push(sh);
       selectedShape = sh.id; selectedLine = null; selectedCell = null;
       render(); updateInfo();
+      _tokenPending = null; _hoverToken = null;
+      setTool('select');
+      showToast('🖼️ 已放置图片');
       return;
     }
     // DM 层（触摸）
@@ -2984,6 +3200,7 @@ function showContextMenu(cx, cy, mx, my) {
     const targetIds = Array.from(selectedTokens).filter(id => tokens.some(x => x.id === id));
     const main = tokens.find(x => x.id === selectedToken) || tkHit;
     addItem('🧝 编辑单位属性（主轴）', () => { openUnitModal(main); });
+    addItem('📥 存入单位库（可复用预设）', () => { saveTokenToLibrary(main, false); });
     addItem('💥 受伤 -1', () => { changeTokenHp(main.id, -1); });
     addItem('💥 受伤 -5', () => { changeTokenHp(main.id, -5); });
     addItem('💥 受伤（自定义）…', () => {
@@ -3107,6 +3324,15 @@ function showContextMenu(cx, cy, mx, my) {
 //  Tool Switching
 // ============================================================
 function setTool(tool) {
+  // 玩家视图下禁止使用 DM 专属工具
+  if ((tool === 'dm' || tool === 'fog') && viewRoleIsPlayer()) {
+    showToast('👁️ 玩家视图下不可使用 DM 工具');
+    return;
+  }
+  // 切换工具时清理未放置的拾取状态，避免"摆放过一次就卡在放置模式"
+  if (tool !== 'unit') { _unitPending = null; _hoverUnit = null; }
+  if (tool !== 'token') { _tokenPending = null; _hoverToken = null; }
+
   selectedTool = tool;
   document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === tool));
   document.getElementById('erase-options').style.display = tool === 'erase' ? 'block' : 'none';
@@ -3153,12 +3379,12 @@ function setTool(tool) {
       cnt.style.cursor = 'crosshair';
       break;
     case 'token':
-      hint.innerHTML = _tokenPending ? '🖼️ 点击地图放置图片，右键/Esc 取消' : '🖼️ 点击按钮后选择图片文件，然后点击地图放置';
+      hint.innerHTML = _tokenPending ? '🖼️ 点击地图放置图片，按住 Shift 可连放，Esc 取消' : '🖼️ 点击按钮后选择图片文件，然后点击地图放置';
       coord.textContent = '🖼️ 图片模式';
       cnt.style.cursor = _tokenPending ? 'crosshair' : 'pointer';
       break;
     case 'unit':
-      hint.innerHTML = _unitPending ? `🧝 点击地图放置 <b>${_unitPending.name || '单位'}</b>，Esc 取消` : '🧝 点击「放置单位」配置后点击地图放置，右键改属性';
+      hint.innerHTML = _unitPending ? `🧝 点击地图放置 <b>${_unitPending.name || '单位'}</b>，按住 Shift 连放，Esc 取消` : '🧝 从「单位库」选择预设拿起后放置，或点「➕ 新建预设」';
       coord.textContent = '🧝 单位模式';
       cnt.style.cursor = _unitPending ? 'crosshair' : 'pointer';
       break;
@@ -3208,9 +3434,16 @@ function rebuildTerrainPalette() {
       if (selectedTool !== 'paint') setTool('paint');
       const ti = getTerrain(id);
       document.getElementById('coord-indicator').textContent = `🖌️ ${ti.icon} ${ti.name}`;
+      const badge = document.getElementById('terrain-selected');
+      if (badge) { badge.textContent = `${ti.icon} ${ti.name}`; badge.title = ti.desc || ''; }
     });
     palette.appendChild(btn);
   });
+  const badge = document.getElementById('terrain-selected');
+  if (badge) {
+    const ti = getTerrain(selectedTerrain);
+    if (ti) { badge.textContent = `${ti.icon} ${ti.name}`; badge.title = ti.desc || ''; }
+  }
 }
 
 // ============================================================
@@ -3406,8 +3639,11 @@ function clearAll() {
   endBatch();
   selectedCell = null;
   selectedShape = null; selectedLine = null; selectedToken = null;
+  _unitPending = null; _hoverUnit = null;
+  _tokenPending = null; _hoverToken = null;
   render(); updateInfo();
   if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
+  updateEmptyState();
   showToast('🗑️ 已清空');
 }
 
@@ -3486,7 +3722,19 @@ document.addEventListener('keydown', (e) => {
     render(); updateInfo();
     return;
   }
-  const km = { 'v':'select', 'b':'paint', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 'r':'rect', 't':'token', 'g':'line', 'u':'unit', 'y':'dm', 'f':'fog' };
+  // U：打开单位库（token 管理）
+  if (e.key === 'u' || e.key === 'U') {
+    e.preventDefault();
+    if (_unitPending) {
+      _unitPending = null; _hoverUnit = null;
+      setTool('select');
+      showToast('✕ 已取消单位放置');
+    } else {
+      openTokenLibrarySection();
+    }
+    return;
+  }
+  const km = { 'v':'select', 'b':'paint', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 'r':'rect', 't':'token', 'g':'line', 'y':'dm', 'f':'fog' };
   if (km[e.key?.toLowerCase()]) { e.preventDefault(); setTool(km[e.key.toLowerCase()]); }
   // 分享弹窗：Esc 关闭
   if (e.key === 'Escape') {
@@ -3510,14 +3758,14 @@ document.addEventListener('keydown', (e) => {
 
 // ============================================================
 
-//  Button Bindings
+//  Button Bindings（用懒包装调用 export.js 里的函数，保证 dev 多文件模式也可用）
 // ============================================================
-document.getElementById('btn-export-excel').addEventListener('click', exportToExcel);
-document.getElementById('btn-export-img').addEventListener('click', exportPNG);
-document.getElementById('btn-export-legend').addEventListener('click', exportLegendPNG);
-document.getElementById('btn-export-owlbear').addEventListener('click', exportOwlbearScene);
-document.getElementById('btn-save').addEventListener('click', saveJSON);
-document.getElementById('btn-load').addEventListener('click', loadJSON);
+document.getElementById('btn-export-excel').addEventListener('click', () => exportToExcel());
+document.getElementById('btn-export-img').addEventListener('click', () => exportPNG());
+document.getElementById('btn-export-legend').addEventListener('click', () => exportLegendPNG());
+document.getElementById('btn-export-owlbear').addEventListener('click', () => exportOwlbearScene());
+document.getElementById('btn-save').addEventListener('click', () => saveJSON());
+document.getElementById('btn-load').addEventListener('click', () => loadJSON());
 document.getElementById('btn-clear').addEventListener('click', clearAll);
 document.getElementById('btn-undo').addEventListener('click', undo);
 document.getElementById('btn-redo').addEventListener('click', redo);
@@ -3559,17 +3807,29 @@ function pickTokenImage() {
   input.click();
 }
 
-// 图片工具按钮：点击选择文件
+// 图片工具按钮：点击选择文件；已有待放置图片时点击=取消
 document.querySelectorAll('.tool-btn[data-tool="token"]').forEach(btn => {
   btn.addEventListener('click', () => {
-    if (!_tokenPending) pickTokenImage();
+    if (_tokenPending) {
+      _tokenPending = null; _hoverToken = null;
+      setTool('select');
+      showToast('✕ 已取消图片放置');
+      return;
+    }
+    pickTokenImage();
   });
 });
 
-// 单位工具按钮：打开单位创建/编辑弹窗
+// 单位工具按钮：打开单位库选择预设（管理 token 的地方）；已拿起时点击=取消
 document.querySelectorAll('.tool-btn[data-tool="unit"]').forEach(btn => {
   btn.addEventListener('click', () => {
-    if (!_unitPending) openUnitModal();
+    if (_unitPending) {
+      _unitPending = null; _hoverUnit = null;
+      setTool('select');
+      showToast('✕ 已取消单位放置');
+      return;
+    }
+    openTokenLibrarySection();
   });
 });
 
@@ -3592,10 +3852,13 @@ function saveCustomUnitStatuses() {
 }
 loadCustomUnitStatuses();
 
-function openUnitModal(token) {
+function openUnitModal(token, mode) {
+  mode = mode || '';
   const modal = document.getElementById('unit-modal');
   const isEdit = !!token;
-  document.getElementById('unit-modal-title').textContent = isEdit ? '编辑' : '新建';
+  const isLib = mode === 'lib';
+  document.getElementById('unit-modal-mode').value = mode;
+  document.getElementById('unit-modal-title').textContent = isLib ? (isEdit ? '编辑预设' : '新建预设') : (isEdit ? '编辑' : '新建');
   document.getElementById('unit-id').value = token?.id || '';
   document.getElementById('unit-name').value = token?.name || '';
   document.getElementById('unit-kind').value = token?.kind || 'player';
@@ -3612,7 +3875,9 @@ function openUnitModal(token) {
   const imgPreview = document.getElementById('unit-img-preview');
   if (imgPreview && token?.imgData) { imgPreview.src = token.imgData; imgPreview.style.display = 'block'; }
   if (imgPreview && !token?.imgData) { imgPreview.removeAttribute('src'); imgPreview.style.display = 'none'; }
-  document.getElementById('unit-delete').style.display = isEdit ? 'block' : 'none';
+  const delBtn = document.getElementById('unit-delete');
+  delBtn.style.display = isEdit ? 'block' : 'none';
+  delBtn.textContent = isLib ? '🗑️ 删除预设' : '🗑️ 删除';
   // 状态复选框（预设 + 自定义）
   const ck = document.getElementById('unit-status-checkboxes');
   ck.innerHTML = '';
@@ -3670,6 +3935,24 @@ function saveUnitModal() {
 }
 
 function finishUnitSave(id, data) {
+  const mode = document.getElementById('unit-modal-mode').value;
+  // 单位库模式：保存/更新预设，不进入地图放置
+  if (mode === 'lib') {
+    const libData = { ...data };
+    delete libData.img;  // 预设只存 dataURL，不存 Image 对象
+    if (id) {
+      const p = tokenPresets.find(x => x.id === id);
+      if (p) Object.assign(p, libData);
+      else tokenPresets.push({ ...libData, id });
+    } else {
+      tokenPresets.push({ ...libData, id: nextPresetId() });
+    }
+    saveTokenLibrary();
+    renderTokenLibrary();
+    closeUnitModal();
+    showToast('✅ 单位库预设已保存');
+    return;
+  }
   if (id) {
     const t = tokens.find(x => x.id === id);
     if (t) {
@@ -3687,11 +3970,17 @@ function finishUnitSave(id, data) {
   _unitPending = { ...data, imgData: data.imgData || '', img: data.img || null };
   setTool('unit');
   closeUnitModal();
-  showToast('🧝 点击地图放置单位');
+  showToast('🧝 点击地图放置单位（按住 Shift 连放，Esc 取消）');
 }
 
 function deleteUnitConfirm() {
   const id = document.getElementById('unit-id').value;
+  const mode = document.getElementById('unit-modal-mode').value;
+  if (mode === 'lib') {
+    if (id) deleteTokenPreset(id);
+    closeUnitModal();
+    return;
+  }
   if (!id) return;
   pushUndoMeta();
   tokens = tokens.filter(x => x.id !== id);
@@ -3718,16 +4007,34 @@ function addCustomUnitStatus() {
     if (nameEl) nameEl.value = '';
   }
   const open = document.getElementById('unit-modal');
-  if (open && open.style.display === 'block') openUnitModal(tokens.find(t => t.id === document.getElementById('unit-id').value));
+  if (open && open.style.display === 'block') {
+    const mode = document.getElementById('unit-modal-mode').value;
+    let t = null;
+    if (mode === 'lib') {
+      const pid = document.getElementById('unit-id').value;
+      const p = tokenPresets.find(x => x.id === pid);
+      if (p) t = { id: p.id, ...p };
+    } else {
+      t = tokens.find(t => t.id === document.getElementById('unit-id').value);
+    }
+    openUnitModal(t || null, mode);
+  }
 }
 
 function refreshUnitStatusOptions() {
-  // 在弹窗打开时重建状态选项
+  // 在弹窗打开时重建状态选项（单位库模式编辑预设）
   const modal = document.getElementById('unit-modal');
   if (modal && modal.style.display === 'block') {
     const id = document.getElementById('unit-id').value;
-    const t = id ? tokens.find(x => x.id === id) : _unitPending;
-    openUnitModal(t || null);
+    const mode = document.getElementById('unit-modal-mode').value;
+    let t = null;
+    if (mode === 'lib') {
+      const p = tokenPresets.find(x => x.id === id);
+      if (p) t = { id: p.id, ...p };
+    } else {
+      t = id ? tokens.find(x => x.id === id) : _unitPending;
+    }
+    openUnitModal(t || null, mode);
   }
 }
 
@@ -4317,9 +4624,15 @@ function importBackgroundMapFromFile() {
           rows: defRows,
           opacity: 0.85
         };
+        // 导入后不强制进入设置/对齐模式：仅在提示条给出下一步引导
+        const hint = document.getElementById('tool-hint');
+        if (hint) hint.innerHTML = '🖼️ 已导入底图：若网格对不上，点 <b>「🎯 网格对齐」</b>（依次点图中格线交点）或「⚙️ 数值」微调';
+        const coord = document.getElementById('coord-indicator');
+        if (coord) coord.textContent = '🖼️ 底图已导入';
         render();
-        openMapSettingsModal();
-        showToast(`🖼️ 已导入底图 ${img.width}×${img.height}px，默认 ${defCols}×${defRows} 格`);
+        updateEmptyState();
+        refreshBgAlignButton();
+        showToast(`🖼️ 已导入底图 ${img.width}×${img.height}px，默认 ${defCols}×${defRows} 格（可对齐修正）`);
       };
       img.src = ev.target.result;
     };
@@ -4361,8 +4674,16 @@ function removeBackgroundMap() {
   if (!confirm('移除当前底图？此操作可撤销。')) return;
   pushUndoMeta();
   backgroundMap = null;
+  // 移除底图时同步退出对齐模式
+  _bgAlignRefs = null;
+  _bgDragMode = null;
+  isDragging = false;
+  const bar = document.getElementById('bg-align-bar');
+  if (bar) bar.style.display = 'none';
   document.getElementById('map-settings-modal').style.display = 'none';
   render();
+  updateEmptyState();
+  refreshBgAlignButton();
   showToast('🗑️ 底图已移除');
 }
 
@@ -4374,13 +4695,36 @@ function setBackgroundOpacityDisplay() {
 
 function startBgAlign() {
   if (!backgroundMap) { showToast('⚠️ 请先导入底图'); return; }
-  _bgAlignRefs = { pts: [], mode: 'click' };
+  const size = bgNaturalSize();
+  if (!size) { showToast('⚠️ 底图图片尚未加载完成，请稍后再试'); return; }
+  // 记录开始对齐时的底图映射快照：之后所有参考点都基于该快照换算图像像素，
+  // 因此「点间格数」调整 / 拖动微调后重新计算都是幂等的。
+  _bgAlignRefs = {
+    pts: [],
+    mode: 'click',
+    snap: { x: backgroundMap.x, y: backgroundMap.y, cols: backgroundMap.cols, rows: backgroundMap.rows }
+  };
   const modal = document.getElementById('map-settings-modal');
   if (modal) modal.style.display = 'none';
   const bar = document.getElementById('bg-align-bar');
   if (bar) bar.style.display = 'flex';
   updateBgAlignBar();
   render();
+}
+
+// 底图自然像素尺寸（未加载完成时返回 null）
+function bgNaturalSize() {
+  if (backgroundMap && backgroundMap.img && backgroundMap.img.naturalWidth > 0) {
+    return { w: backgroundMap.img.naturalWidth, h: backgroundMap.img.naturalHeight };
+  }
+  return null;
+}
+
+// 对齐条上的「点间格数」（第2/3点相对第1点跨越的格数）
+function bgAlignCells() {
+  const el = document.getElementById('bg-align-cells');
+  const n = el ? parseInt(el.value, 10) : 1;
+  return Math.max(1, isNaN(n) ? 1 : n);
 }
 
 function updateBgAlignStatus(text) {
@@ -4390,10 +4734,11 @@ function updateBgAlignStatus(text) {
 
 function updateBgAlignBar() {
   const n = (_bgAlignRefs && _bgAlignRefs.pts) ? _bgAlignRefs.pts.length : 0;
-  if (n === 0) updateBgAlignStatus('🎯 第 1 点：点击图中一个格线交点（基准点）');
-  else if (n === 1) updateBgAlignStatus('🎯 第 2 点：点击同一水平线上的格线交点');
-  else if (n === 2) updateBgAlignStatus('🎯 第 3 点：点击向下方向上的格线交点（可点「完成」用 2 点结束）');
-  else updateBgAlignStatus('✅ 已收集 3 个点，点「完成」应用对齐');
+  const cells = bgAlignCells();
+  if (n === 0) updateBgAlignStatus(`🎯 第 1 点：点击底图上一个格线交点（基准点）`);
+  else if (n === 1) updateBgAlignStatus(`🎯 第 2 点：点击同一水平格线上、向右 ${cells} 格的交点`);
+  else if (n === 2) updateBgAlignStatus(`🎯 第 3 点：点击向下 ${cells} 格的交点（可点「完成」用 2 点粗略对齐）`);
+  else updateBgAlignStatus(`✅ 已收集 3 个点，点「完成」应用对齐`);
 }
 
 function cancelBgAlign() {
@@ -4414,7 +4759,9 @@ function finishBgAlign() {
   }
   applyBgAlignFromRefs();
   finishBgAlignAfterApply();
-  showToast('✅ 底图对齐完成');
+  const size = bgNaturalSize();
+  const pxPerCell = size && backgroundMap && backgroundMap.cols > 0 ? Math.round(size.w / backgroundMap.cols) : 0;
+  showToast(pxPerCell > 0 ? `✅ 底图对齐完成（约 ${pxPerCell}px/格）` : '✅ 底图对齐完成');
 }
 
 // 已完成时从 applyBgAlignFromRefs 里也收起状态条
@@ -4433,42 +4780,46 @@ document.getElementById('map-settings-begin-align').addEventListener('click', st
 document.getElementById('bg-align-finish').addEventListener('click', finishBgAlign);
 document.getElementById('bg-align-cancel').addEventListener('click', cancelBgAlign);
 
-function applyBgAlignFromRefs() {
+function applyBgAlignFromRefs(recordUndo) {
   if (!_bgAlignRefs || !backgroundMap) return;
   const pts = _bgAlignRefs.pts;
-  if (pts.length < 3) {
-    // 不足 3 点时也允许用 2 点粗略对齐
-    if (pts.length >= 2) {
-      const p0 = pts[0], p1 = pts[1];
-      const worldLen = Math.hypot(p1.world.x - p0.world.x, p1.world.y - p0.world.y);
-      const gridLen = Math.hypot(p1.snappedGrid.q - p0.snappedGrid.q, p1.snappedGrid.r - p0.snappedGrid.r) * CELL_SIZE;
-      if (worldLen > 0.5 && gridLen > 0.5) {
-        const pxPerGrid = worldLen / gridLen;
-        const imgPxW = (backgroundMap.img && backgroundMap.img.naturalWidth) || Math.max(1, backgroundMap.cols * CELL_SIZE);
-        const imgPxH = (backgroundMap.img && backgroundMap.img.naturalHeight) || Math.max(1, backgroundMap.rows * CELL_SIZE);
-        backgroundMap.cols = imgPxW / pxPerGrid;
-        backgroundMap.rows = imgPxH / pxPerGrid;
-        backgroundMap.x = p0.snappedGrid.q - (p0.world.x - backgroundMap.x * CELL_SIZE) / pxPerGrid;
-        backgroundMap.y = p0.snappedGrid.r - (p0.world.y - backgroundMap.y * CELL_SIZE) / pxPerGrid;
-      }
-    }
-    return;
+  const snap = _bgAlignRefs.snap;
+  if (!snap || pts.length < 2) return;
+  const size = bgNaturalSize();
+  if (!size) { showToast('⚠️ 底图图片尚未加载完成，请稍后再试'); return; }
+  const imgW = size.w, imgH = size.h;
+  const CS = CELL_SIZE;
+
+  // 世界坐标（画布 px）→ 图像像素：基于开始对齐时的映射快照换算
+  const toImg = (wx, wy) => ({
+    x: ((wx / CS - snap.x) / snap.cols) * imgW,
+    y: ((wy / CS - snap.y) / snap.rows) * imgH
+  });
+
+  const p0 = pts[0];
+  const i0 = toImg(p0.world.x, p0.world.y);
+  const cells = bgAlignCells();
+
+  // 水平方向：第 2 点相对第 1 点跨越 cells 格 → 每格图像像素
+  const p1 = pts[1];
+  const i1 = toImg(p1.world.x, p1.world.y);
+  const hPx = Math.max(2, Math.abs(i1.x - i0.x) / cells);
+  // 垂直方向：有第 3 点则单独解算，否则假设正方形格子
+  let vPx = hPx;
+  if (pts.length >= 3) {
+    const p2 = pts[2];
+    const i2 = toImg(p2.world.x, p2.world.y);
+    vPx = Math.max(2, Math.abs(i2.y - i0.y) / cells);
   }
-  // 3 点完整解算
-  const p0 = pts[0], p1 = pts[1], p2 = pts[2];
-  const g0 = p0.snappedGrid;
-  const dWx = p1.world.x - p0.world.x, dWy = p1.world.y - p0.world.y;
-  const dGx = p1.snappedGrid.q - g0.q, dGy = p1.snappedGrid.r - g0.r;
-  const lenW = Math.hypot(dWx, dWy);
-  const lenG = Math.hypot(dGx, dGy);
-  if (lenW < 0.5 || lenG < 0.5) { return; }
-  const pxPerGrid = lenW / lenG;
-  const imgPxW = (backgroundMap.img && backgroundMap.img.naturalWidth) || Math.max(1, backgroundMap.cols * CELL_SIZE);
-  const imgPxH = (backgroundMap.img && backgroundMap.img.naturalHeight) || Math.max(1, backgroundMap.rows * CELL_SIZE);
-  backgroundMap.cols = imgPxW / pxPerGrid;
-  backgroundMap.rows = imgPxH / pxPerGrid;
-  backgroundMap.x = g0.q - (p0.world.x - backgroundMap.x * CELL_SIZE) / pxPerGrid;
-  backgroundMap.y = g0.r - (p0.world.y - backgroundMap.y * CELL_SIZE) / pxPerGrid;
+
+  if (recordUndo !== false) pushUndoMeta();
+  backgroundMap.cols = imgW / hPx;
+  backgroundMap.rows = imgH / vPx;
+  // 基准点 I0 落到离点击处最近的工具网格线交点（格线交点 = 4 格共角，坐标为整数格）
+  const t0x = Math.round(p0.world.x / CS);
+  const t0y = Math.round(p0.world.y / CS);
+  backgroundMap.x = t0x - i0.x / hPx;
+  backgroundMap.y = t0y - i0.y / vPx;
 }
 
 // Esc/右键离开对齐模式在交互层统一处理
@@ -4503,7 +4854,300 @@ document.getElementById('map-settings-remove').addEventListener('click', removeB
 document.getElementById('map-settings-close').addEventListener('click', () => { document.getElementById('map-settings-modal').style.display = 'none'; });
 document.getElementById('map-settings-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) this.style.display = 'none'; });
 
+// 对齐条「点间格数」实时重算（幂等：基于开始对齐时的映射快照；不产生撤销记录）
+document.getElementById('bg-align-cells').addEventListener('input', function() {
+  const label = document.getElementById('bg-align-cells-val');
+  if (label) label.textContent = (this.value || '1') + ' 格';
+  if (!_bgAlignRefs) return;
+  updateBgAlignBar();
+  applyBgAlignFromRefs(false);
+  render();
+});
+
 // ============================================================
+//  DM / 玩家视图切换
+// ============================================================
+function setViewRole(role) {
+  viewRole = role;
+  const dmBtn = document.getElementById('role-dm');
+  const plBtn = document.getElementById('role-player');
+  const banner = document.getElementById('player-banner');
+  if (dmBtn) dmBtn.classList.toggle('active', role === 'dm');
+  if (plBtn) plBtn.classList.toggle('active', role === 'player');
+  if (banner) banner.style.display = role === 'player' ? 'block' : 'none';
+  document.body.classList.toggle('player-view', role === 'player');
+  applyRoleViewUI();
+}
+
+function applyRoleViewUI() {
+  const isPlayer = viewRoleIsPlayer();
+  // DM 专属工具按钮：禁用 + 置灰
+  document.querySelectorAll('.tool-btn.dm-tool').forEach(b => {
+    b.disabled = isPlayer;
+    b.classList.toggle('dm-locked', isPlayer);
+    b.title = isPlayer ? '👁️ 玩家视图下不可用（DM 专属）' : (b.dataset.tool === 'dm' ? '画 DM 隐藏层：标记/信息只在 DM 本地显示 (Y)' : '涂战雾：遮住/揭示格子，跑团时逐步揭开 (F)');
+  });
+  // 地图区（导入底图/数值/网格对齐）为 DM 专属
+  ['btn-import-map', 'btn-map-settings', 'btn-bg-align'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.disabled = isPlayer; el.classList.toggle('dm-locked', isPlayer); }
+  });
+  // 行动顺序（DM 专属）
+  const initBtn = document.getElementById('btn-initiative');
+  if (initBtn) { initBtn.disabled = isPlayer; initBtn.classList.toggle('dm-locked', isPlayer); }
+  // DM 层显示：玩家视图强制关闭
+  const dmChk = document.getElementById('chk-dm');
+  if (dmChk) dmChk.disabled = isPlayer;
+  if (isPlayer) {
+    showDmLayer = false;
+    if (dmChk) dmChk.checked = false;
+    if (selectedTool === 'dm' || selectedTool === 'fog') setTool('select');
+  }
+  refreshBgAlignButton();
+  render();
+}
+
+document.getElementById('role-dm').addEventListener('click', () => setViewRole('dm'));
+document.getElementById('role-player').addEventListener('click', () => setViewRole('player'));
+
+// ============================================================
+//  空态引导 + 对齐按钮可用性
+// ============================================================
+const LS_EMPTY_DISMISS_KEY = 'combatmap_empty_dismissed_v1';
+function updateEmptyState() {
+  const el = document.getElementById('empty-hint');
+  if (!el) return;
+  let dismissed = false;
+  try { dismissed = localStorage.getItem(LS_EMPTY_DISMISS_KEY) === '1'; } catch (e) { /* ignore */ }
+  const hasContent = Object.keys(combatData).length > 0 || tokens.length > 0 || shapes.length > 0 || freeLines.length > 0 || !!backgroundMap;
+  el.style.display = (hasContent || dismissed) ? 'none' : 'flex';
+}
+function refreshBgAlignButton() {
+  const el = document.getElementById('btn-bg-align');
+  if (!el) return;
+  const noBg = !backgroundMap;
+  const locked = viewRoleIsPlayer();
+  el.disabled = noBg || locked;
+  el.title = noBg ? '请先「🖼️ 导入底图」再对齐网格' : (locked ? '👁️ 玩家视图下不可用' : '在地图上点 3 个格线交点让网格贴合底图');
+  el.style.opacity = (noBg || locked) ? '0.4' : '1';
+  el.style.cursor = (noBg || locked) ? 'not-allowed' : 'pointer';
+}
+
+document.getElementById('empty-import').addEventListener('click', () => {
+  document.getElementById('empty-hint').style.display = 'none';
+  importBackgroundMapFromFile();
+});
+document.getElementById('empty-dismiss').addEventListener('click', () => {
+  try { localStorage.setItem(LS_EMPTY_DISMISS_KEY, '1'); } catch (e) { /* ignore */ }
+  document.getElementById('empty-hint').style.display = 'none';
+});
+
+// ============================================================
+
+// ============================================================
+//  Token Library (🧺 单位库) — 可复用的单位 token 预设管理
+//  依赖: state.js/render.js/ui.js/terrain.js
+//  预设保存在 localStorage；点击预设 → 拿起 → 点地图放置
+// ============================================================
+const LS_TOKEN_LIB_KEY = 'combatmap_token_lib_v1';
+let tokenPresets = [];
+
+function loadTokenLibrary() {
+  try {
+    const raw = localStorage.getItem(LS_TOKEN_LIB_KEY);
+    tokenPresets = raw ? JSON.parse(raw) : [];
+  } catch (e) { tokenPresets = []; }
+  if (!Array.isArray(tokenPresets)) tokenPresets = [];
+}
+function saveTokenLibrary() {
+  try { localStorage.setItem(LS_TOKEN_LIB_KEY, JSON.stringify(tokenPresets)); } catch (e) { /* ignore */ }
+}
+function nextPresetId() {
+  return 'pre_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+// 首装时的示例预设（可在库中编辑/删除）
+function seedDefaultPresets() {
+  if (tokenPresets.length) return;
+  tokenPresets = [
+    { id: nextPresetId(), name: '战士', kind: 'player', icon: '⚔️', color: '#3a7abd', hp: 24, maxHp: 24, tempHp: 0, ac: '16', speed: '30尺', status: [], w: 1, h: 1, imgData: '', notes: '' },
+    { id: nextPresetId(), name: '法师', kind: 'player', icon: '🔮', color: '#7a5a9e', hp: 18, maxHp: 18, tempHp: 0, ac: '12', speed: '30尺', status: [], w: 1, h: 1, imgData: '', notes: '' },
+    { id: nextPresetId(), name: '游侠', kind: 'player', icon: '🏹', color: '#4a8a4a', hp: 20, maxHp: 20, tempHp: 0, ac: '14', speed: '30尺', status: [], w: 1, h: 1, imgData: '', notes: '' },
+    { id: nextPresetId(), name: '哥布林', kind: 'enemy', icon: '👺', color: '#6a8a3a', hp: 7, maxHp: 7, tempHp: 0, ac: '15', speed: '30尺', status: [], w: 1, h: 1, imgData: '', notes: '' },
+    { id: nextPresetId(), name: '骷髅', kind: 'enemy', icon: '💀', color: '#8a8a9a', hp: 13, maxHp: 13, tempHp: 0, ac: '13', speed: '30尺', status: [], w: 1, h: 1, imgData: '', notes: '' },
+    { id: nextPresetId(), name: '酒馆老板', kind: 'npc', icon: '🍺', color: '#b08a5a', hp: 10, maxHp: 10, tempHp: 0, ac: '', speed: '', status: [], w: 1, h: 1, imgData: '', notes: '' }
+  ];
+  saveTokenLibrary();
+}
+loadTokenLibrary();
+seedDefaultPresets();
+
+const KIND_SHORT = { player: 'pk', enemy: 'ek', npc: 'nk', ally: 'ak' };
+
+// 用预设数据填充“待放置”状态，进入放置模式
+function pickTokenPreset(id) {
+  const p = tokenPresets.find(x => x.id === id);
+  if (!p) return;
+  _unitPending = {
+    kind: p.kind || 'npc',
+    name: p.name || '',
+    icon: p.icon || '🧝',
+    color: p.color || '#3a7abd',
+    hp: (p.hp !== undefined && p.hp !== null) ? p.hp : 10,
+    maxHp: (p.maxHp !== undefined && p.maxHp !== null) ? p.maxHp : 10,
+    tempHp: p.tempHp || 0,
+    ac: p.ac || '',
+    speed: p.speed || '',
+    notes: p.notes || '',
+    status: p.status || [],
+    w: p.w || 1, h: p.h || 1,
+    imgData: p.imgData || '',
+    img: null
+  };
+  if (_unitPending.imgData) {
+    const im = new Image();
+    im.src = _unitPending.imgData;
+    _unitPending.img = im;
+  }
+  _hoverUnit = null;
+  setTool('unit');
+  showToast(`🧝 已拿起「${p.name || '单位'}」— 点击地图放置，按住 Shift 连放，Esc 取消`);
+}
+
+function deleteTokenPreset(id) {
+  const p = tokenPresets.find(x => x.id === id);
+  if (!p) return;
+  if (!confirm(`从单位库删除「${p.name || '单位'}」？地图上已放置的单位不受影响。`)) return;
+  tokenPresets = tokenPresets.filter(x => x.id !== id);
+  saveTokenLibrary();
+  renderTokenLibrary();
+  showToast('🗑️ 已从单位库删除');
+}
+
+// 地图上的单位 → 预设对象（保留 imgData）
+function presetFromToken(t) {
+  return {
+    id: nextPresetId(),
+    name: t.name || '',
+    kind: t.kind || 'npc',
+    icon: t.icon || '🧝',
+    color: t.color || '#3a7abd',
+    hp: (t.hp !== undefined && t.hp !== null) ? t.hp : 10,
+    maxHp: (t.maxHp !== undefined && t.maxHp !== null) ? t.maxHp : 10,
+    tempHp: t.tempHp || 0,
+    ac: t.ac || '',
+    speed: t.speed || '',
+    status: t.status || [],
+    w: t.w || 1, h: t.h || 1,
+    imgData: t.imgData || '',
+    notes: t.notes || ''
+  };
+}
+
+function saveTokenToLibrary(t, silent) {
+  const p = presetFromToken(t);
+  // 同名且同类型时视为同一预设：更新而不是无限堆积
+  const dup = tokenPresets.find(x => x.name === p.name && x.kind === p.kind);
+  if (dup) Object.assign(dup, { ...p, id: dup.id });
+  else tokenPresets.push(p);
+  saveTokenLibrary();
+  renderTokenLibrary();
+  if (!silent) showToast(`📥 已存入单位库：${p.name || '单位'}`);
+}
+
+// 渲染单位库卡片网格
+function renderTokenLibrary() {
+  const list = document.getElementById('token-library-list');
+  if (!list) return;
+  list.innerHTML = '';
+  if (!tokenPresets.length) {
+    list.innerHTML = '<div style="grid-column:1/-1;color:#888;font-size:11px;text-align:center;padding:10px 4px;">单位库为空。点「➕ 新建预设」创建，或在地图上右键单位「📥 存入单位库」。</div>';
+    return;
+  }
+  tokenPresets.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'tlib-card';
+    card.title = `${p.name || '未命名'} · ${p.ac ? 'AC ' + p.ac + ' ' : ''}${p.speed ? p.speed + ' ' : ''}${p.notes ? '—— ' + p.notes : ''}（点击拿起放置）`;
+
+    const kind = document.createElement('span');
+    kind.className = 'tlib-kind ' + (KIND_SHORT[p.kind] || 'nk');
+    kind.textContent = p.kind === 'player' ? '玩' : p.kind === 'enemy' ? '敌' : p.kind === 'ally' ? '盟' : 'NPC';
+
+    const ava = document.createElement('div');
+    ava.className = 'tlib-ava';
+    ava.style.background = p.color || '#3a7abd';
+    if (p.imgData) {
+      const im = document.createElement('img');
+      im.src = p.imgData;
+      ava.appendChild(im);
+    } else {
+      ava.textContent = p.icon || '🧝';
+    }
+
+    const name = document.createElement('div');
+    name.className = 'tlib-name';
+    name.textContent = p.name || '未命名';
+
+    const ops = document.createElement('div');
+    ops.className = 'tlib-ops';
+    const btnEdit = document.createElement('button');
+    btnEdit.textContent = '✏️';
+    btnEdit.title = '编辑预设';
+    btnEdit.addEventListener('click', (e) => { e.stopPropagation(); editTokenPreset(p.id); });
+    const btnDel = document.createElement('button');
+    btnDel.textContent = '🗑️';
+    btnDel.title = '删除预设';
+    btnDel.addEventListener('click', (e) => { e.stopPropagation(); deleteTokenPreset(p.id); });
+    ops.appendChild(btnEdit); ops.appendChild(btnDel);
+
+    card.appendChild(kind); card.appendChild(ava); card.appendChild(name); card.appendChild(ops);
+    card.addEventListener('click', () => pickTokenPreset(p.id));
+    list.appendChild(card);
+  });
+}
+
+// 编辑预设：复用单位弹窗（mode=lib）
+function editTokenPreset(id) {
+  const p = tokenPresets.find(x => x.id === id);
+  if (!p) return;
+  openUnitModal({ id: p.id, ...p }, 'lib');
+}
+
+function openTokenLibrarySection() {
+  const sec = document.getElementById('sec-tokenlib');
+  const det = sec && sec.closest('details');
+  if (det && !det.open) det.open = true;
+  renderTokenLibrary();
+  if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// 新建预设：打开单位弹窗（mode=lib，空表单）
+function newTokenPreset() {
+  openUnitModal(null, 'lib');
+}
+
+// 把当前选中的地图单位存入单位库
+function saveSelectedTokenToLibrary() {
+  const ids = selectedTokens && selectedTokens.size ? Array.from(selectedTokens) : (selectedToken ? [selectedToken] : []);
+  if (!ids.length) { showToast('⚠️ 请先在「选择」工具下点选一个单位'); return; }
+  const t = tokens.find(x => x.id === ids[0]);
+  if (!t) { showToast('⚠️ 未找到选中的单位'); return; }
+  saveTokenToLibrary(t, false);
+  openTokenLibrarySection();
+}
+
+// ============================================================
+//  Bindings
+// ============================================================
+function initTokenLibraryUI() {
+  const btnNew = document.getElementById('btn-tokenlib-new');
+  if (btnNew) btnNew.addEventListener('click', newTokenPreset);
+  const btnSaveSel = document.getElementById('btn-tokenlib-save-sel');
+  if (btnSaveSel) btnSaveSel.addEventListener('click', saveSelectedTokenToLibrary);
+  renderTokenLibrary();
+}
+
+initTokenLibraryUI();
 
 //  Template: Room
 // ============================================================
@@ -4795,6 +5439,7 @@ function buildCombatPayload() {
     tokens: tokens.map(t => { const c = { ...t }; delete c.img; return c; }),
     groups,
     customUnitStatuses,
+    tokenPresets: (typeof tokenPresets !== 'undefined') ? tokenPresets : [],
     viewX, viewY, zoom,
     customTerrains,
     terrainOverrides
@@ -4851,6 +5496,12 @@ function applyCombatData(data) {
     refreshTerrains();
     rebuildTerrainPalette();
   }
+  // 单位库随数据同步（分享/在线）
+  if (Array.isArray(data.tokenPresets) && typeof tokenPresets !== 'undefined') {
+    tokenPresets = data.tokenPresets;
+    saveTokenLibrary();
+    if (typeof renderTokenLibrary === 'function') renderTokenLibrary();
+  }
   _shapeSeq = Math.max(_shapeSeq, ...shapes.map(s => parseInt(String(s.id).replace('sh','')) || 0)) + 1;
   _lineSeq = Math.max(_lineSeq, ...freeLines.map(l => parseInt(String(l.id).replace('ln','')) || 0)) + 1;
   _tokenSeq = Math.max(_tokenSeq, ...tokens.map(t => parseInt(String(t.id).replace('tk','')) || 0)) + 1;
@@ -4859,6 +5510,8 @@ function applyCombatData(data) {
   const zi = document.getElementById('zoom-indicator');
   if (zi) zi.textContent = '🔍 ' + Math.round(zoom * 100) + '%';
   render(); updateInfo();
+  if (typeof updateEmptyState === 'function') updateEmptyState();
+  if (typeof refreshBgAlignButton === 'function') refreshBgAlignButton();
   return Object.keys(combatData).length;
 }
 
@@ -5045,21 +5698,13 @@ function payloadForRole(payload, role) {
 
 function applyOnlineRoleUI() {
   const isPlayer = onlineIsPlayer && !!onlinePeer;
-  const dmBtn = document.querySelector('.tool-btn[data-tool="dm"]');
-  const fogBtn = document.querySelector('.tool-btn[data-tool="fog"]');
-  const dmChk = document.getElementById('chk-dm');
-  const fogChk = document.getElementById('chk-fog');
-  const initBtn = document.getElementById('btn-initiative');
-  if (dmBtn) dmBtn.disabled = isPlayer;
-  if (fogBtn) fogBtn.disabled = isPlayer;
-  if (dmChk) dmChk.disabled = isPlayer;
-  if (fogChk) fogChk.disabled = isPlayer;
-  if (initBtn) initBtn.disabled = isPlayer;
   if (isPlayer) {
     showDmLayer = false;
+    const dmChk = document.getElementById('chk-dm');
     if (dmChk) dmChk.checked = false;
     if (selectedTool === 'dm' || selectedTool === 'fog') setTool('select');
   }
+  if (typeof applyRoleViewUI === 'function') applyRoleViewUI();
 }
 
 function setOnlineStatus(msg) {
@@ -5210,6 +5855,7 @@ function onlineCreateRoom() {
   onlinePeer.on('open', () => {
     onlineSync = true;
     onlineIsPlayer = false;
+    viewRole = 'dm';
     applyOnlineRoleUI();
     setOnlineStatus('✅ 房间已创建：' + roomId + ' · 分享邀请链接给玩家');
     closeOnlineModal();
@@ -5246,6 +5892,7 @@ function onlineJoinRoom(roomRaw) {
   conn.on('open', () => {
     onlineRoom = roomId;
     onlineIsPlayer = true;
+    viewRole = 'player';
     applyOnlineRoleUI();
     // 先不发本地快照，等主机回传；声明自己为玩家，避免收到 DM 隐藏层
     setOnlineStatus('✅ 已加入 ' + roomId + '，正在接收主机地图…');
@@ -5289,6 +5936,7 @@ function onlineLeave() {
   onlineSync = false;
   onlineConnections = [];
   onlineIsPlayer = false;
+  viewRole = 'dm';
   applyOnlineRoleUI();
   setOnlineStatus('已离开房间');
   showToast('🚪 已离开在线房间');
@@ -6292,6 +6940,7 @@ function saveJSON() {
     tokens: tokens.map(t => { const c = { ...t }; delete c.img; return c; }),
     groups,
     customUnitStatuses,
+    tokenPresets: (typeof tokenPresets !== 'undefined') ? tokenPresets : [],
     viewX, viewY, zoom
   };
   const json = JSON.stringify(data);
@@ -6340,6 +6989,10 @@ function init() {
   viewY = canvas.height / 2;
   render();
   updateInfo();
+  updateEmptyState();
+  refreshBgAlignButton();
+  if (typeof applyRoleViewUI === 'function') applyRoleViewUI();
+  if (typeof renderTokenLibrary === 'function') renderTokenLibrary();
   const cdn = window.__combatmapCDN || {};
   const missing = [];
   if (cdn.xlsx === false) missing.push('SheetJS');
@@ -6353,8 +7006,8 @@ function init() {
     }
   }
   console.log(`⚔️ 通用战斗地图生成器 ${COMBATMAP_VERSION} 已就绪`);
-  console.log('快捷键: V=选择 B=笔刷 W=墙壁 D=门 L=标签 E=擦除 R=区域 T=图片 G=线段 U=单位 Y=DM层 F=战雾 Delete=删除选中');
-  console.log('新增: 单位 AC/速度/临时HP/头像/自定义状态 · 右键扣血治疗 · 先攻双向联动 · Shift多选/Ctrl+D复制/编组 · DM层/战雾/行动顺序');
+  console.log('快捷键: V=选择 B=笔刷 W=墙壁 D=门 L=标签 E=擦除 R=区域 T=图片 G=线段 U=单位库 Y=DM层 F=战雾 Delete=删除选中');
+  console.log('v0.8: 网格对齐重做 · 可折叠面板 · DM/玩家视图 · 单位库 · 摆放后自动回选择(Shift连放)');
   if (typeof initCombatShareUI === 'function') initCombatShareUI();
 }
 
