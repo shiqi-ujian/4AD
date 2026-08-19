@@ -1,0 +1,60 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches: [main, qiujian]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build hexmap dist
+        working-directory: 2_工具/hexmap
+        run: node build.js
+
+      - name: Build combatmap dist
+        working-directory: 2_工具/combatmap
+        run: node build.js
+
+      - name: Prepare site
+        run: |
+          mkdir -p _site
+          cp -r web/* _site/
+          mkdir -p _site/2_工具
+          cp 2_工具/hexmap.dist.html _site/2_工具/hexmap.dist.html
+          cp 2_工具/combatmap.dist.html _site/2_工具/combatmap.dist.html
+          cp 2_工具/README.md _site/2_工具/README.md
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

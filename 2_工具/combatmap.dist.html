@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>通用战斗地图生成器 v0.3</title>
+<title>通用战斗地图生成器 v0.4</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -148,6 +148,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
     <div style="display:flex;gap:4px;">
       <button id="btn-save" style="flex:1;padding:4px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;">💾 保存</button>
       <button id="btn-load" style="flex:1;padding:4px;background:#c9a84c;color:#000;border:none;border-radius:4px;cursor:pointer;">📂 加载</button>
+      <button id="btn-share" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="复制紧凑分享链接/数据串，或粘贴导入">🔗 分享</button>
       <button id="btn-clear" style="flex:1;padding:4px;background:#6b5b4f;color:#ccc;border:none;border-radius:4px;cursor:pointer;">🗑️ 清空</button>
     </div>
     <div style="display:flex;gap:4px;margin-top:2px;">
@@ -161,7 +162,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
       <input type="checkbox" id="chk-coords" checked> 显示坐标
     </label>
     <div style="margin-top:auto;font-size:10px;color:#555;text-align:center;padding-top:6px;">
-      通用跑团 · 战斗地图 v0.3<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>区域/线段/图片 · Delete 删除选中
+      通用跑团 · 战斗地图 v0.4<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>区域/线段/图片 · Delete 删除选中
     </div>
   </div>
 
@@ -396,6 +397,27 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
   </div>
 </div>
 
+<!-- 分享/导入 Modal -->
+<div id="share-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:460px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">🔗 分享 / 导入</h3>
+    <div id="share-loading" style="display:none;margin-bottom:8px;padding:6px 8px;background:rgba(255,255,255,0.06);border-radius:4px;font-size:12px;">⏳ 编码中…</div>
+    <div id="share-status" style="min-height:16px;margin-bottom:8px;font-size:12px;color:#aaa;"></div>
+    <textarea id="share-text" rows="5" placeholder="粘贴分享数据串或完整 JSON 后点「导入」，或先生成数据串"
+      style="width:100%;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:11px;padding:6px;font-family:monospace;"></textarea>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;">
+      <button id="share-btn-generate" style="padding:5px 12px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🔗 生成分享</button>
+      <button id="share-btn-copy-link" style="padding:5px 12px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">📋 复制链接</button>
+      <button id="share-btn-copy-data" style="padding:5px 12px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">📋 复制数据串</button>
+      <button id="share-btn-import" style="padding:5px 12px;background:#c9a84c;color:#000;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;">📂 导入</button>
+      <button id="share-btn-close" style="margin-left:auto;padding:5px 12px;background:#3a3a5e;color:#ccc;border:1px solid #0f3460;border-radius:4px;cursor:pointer;font-size:12px;">关闭</button>
+    </div>
+    <div style="font-size:11px;color:#888;line-height:1.6;">
+      提示：分享链接包含完整地图数据（含图片），对方打开后自动导入。链接较长时可复制纯数据串，用「导入」粘贴恢复。
+    </div>
+  </div>
+</div>
+
 <!-- SheetJS CDN for .xlsx export -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"
         onerror="window.__combatmapCDN = window.__combatmapCDN || {}; window.__combatmapCDN.xlsx = false;"></script>
@@ -405,7 +427,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
 <script>
 //  Configuration
 // ============================================================
-const COMBATMAP_VERSION = 'v0.3';
+const COMBATMAP_VERSION = 'v0.4';
 
 const COMBAT_TERRAIN = {
   floor:        { name: '普通地面', color: '#d4c5a9', icon: '⬜', desc: '正常移动' },
@@ -2078,6 +2100,14 @@ document.addEventListener('keydown', (e) => {
   }
   const km = { 'v':'select', 'b':'paint', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 'r':'rect', 't':'token', 'g':'line' };
   if (km[e.key?.toLowerCase()]) { e.preventDefault(); setTool(km[e.key.toLowerCase()]); }
+  // 分享弹窗：Esc 关闭
+  if (e.key === 'Escape') {
+    const shareModal = document.getElementById('share-modal');
+    if (shareModal && shareModal.style.display === 'block') {
+      if (typeof closeCombatShareModal === 'function') closeCombatShareModal();
+      return;
+    }
+  }
 });
 
 // ============================================================
@@ -2658,6 +2688,262 @@ function generateOpenField(centerQ, centerR, w, h, scatter) {
 
 // ============================================================
 
+// ============================================================
+//  Share / Import — 紧凑分享链接（含地图完整数据）
+// 依赖: state.js/core.js/render.js/ui.js/terrain.js
+// 用法: 工具栏「🔗 分享」打开弹窗 → 复制链接/数据串 → 对方打开自动导入
+// ============================================================
+
+// ---------------- Base64URL 帮助函数 ----------------
+function b64UrlEncode(bytes) {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+function b64UrlDecode(str) {
+  let b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (b64.length % 4 !== 0) b64 += '=';
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+function u8toAB(u8) { return u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength); }
+
+// ---------------- 压缩（优先 CompressionStream，兜底无压缩） ----------------
+function compressionSupported() {
+  try {
+    return typeof CompressionStream === 'function' && typeof DecompressionStream === 'function';
+  } catch (e) { return false; }
+}
+
+async function shareCompress(text) {
+  if (compressionSupported()) {
+    const stream = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'));
+    const reader = stream.getReader();
+    const chunks = [];
+    let total = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      total += value.length;
+    }
+    const out = new Uint8Array(total);
+    let off = 0;
+    for (const c of chunks) { out.set(c, off); off += c.length; }
+    return out;
+  }
+  return new TextEncoder().encode(text);
+}
+
+async function shareDecompress(bytes) {
+  if (compressionSupported() && bytes.length > 1 && bytes[0] === 0x1F && bytes[1] === 0x8B) {
+    const stream = new Blob([u8toAB(bytes)], { type: 'application/gzip' }).stream()
+      .pipeThrough(new DecompressionStream('gzip'));
+    const reader = stream.getReader();
+    const chunks = [];
+    let total = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      total += value.length;
+    }
+    const out = new Uint8Array(total);
+    let off = 0;
+    for (const c of chunks) { out.set(c, off); off += c.length; }
+    return new TextDecoder().decode(out);
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+// ---------------- 数据打包 / 解包 ----------------
+function buildCombatPayload() {
+  cleanData();
+  return {
+    combatData,
+    shapes: shapes.map(s => { const c = { ...s }; delete c.img; return c; }),
+    freeLines,
+    viewX, viewY, zoom,
+    customTerrains,
+    terrainOverrides
+  };
+}
+
+function applyCombatData(data) {
+  if (!data || typeof data !== 'object') throw new Error('空数据或格式错误');
+  combatData = data.combatData || {};
+  shapes = (data.shapes || []).map(sh => {
+    if (sh.type === 'image' && sh.imgData && !sh.img) {
+      const img = new Image();
+      img.src = sh.imgData;
+      img.onload = () => render();
+      sh.img = img;
+    }
+    return sh;
+  });
+  freeLines = data.freeLines || [];
+  if (data.customTerrains || data.terrainOverrides) {
+    customTerrains = data.customTerrains || {};
+    terrainOverrides = data.terrainOverrides || {};
+    saveCustomTerrains();
+    refreshTerrains();
+    rebuildTerrainPalette();
+  }
+  _shapeSeq = Math.max(_shapeSeq, ...shapes.map(s => parseInt(String(s.id).replace('sh','')) || 0)) + 1;
+  _lineSeq = Math.max(_lineSeq, ...freeLines.map(l => parseInt(String(l.id).replace('ln','')) || 0)) + 1;
+  undoStack = []; redoStack = []; updateUndoButtons();
+  viewX = data.viewX || 0; viewY = data.viewY || 0; zoom = data.zoom || 1;
+  const zi = document.getElementById('zoom-indicator');
+  if (zi) zi.textContent = '🔍 ' + Math.round(zoom * 100) + '%';
+  render(); updateInfo();
+  return Object.keys(combatData).length;
+}
+
+// 从用户粘贴的文本里取出紧凑串：接受完整链接、纯串、带 #m=/compact: 前缀
+function extractCombatShareText(raw) {
+  let s = (raw || '').trim();
+  if (s.indexOf('#') !== -1) {
+    const frag = s.split('#')[1] || '';
+    const m = frag.match(/m=([A-Za-z0-9_-]+)/);
+    if (m) s = m[1];
+  }
+  if (s.startsWith('compact:')) s = s.slice('compact:'.length);
+  if (s.startsWith('m=')) s = s.slice(2);
+  return s.trim();
+}
+
+async function combatEncodeString() {
+  const json = JSON.stringify(buildCombatPayload());
+  const bytes = await shareCompress(json);
+  return b64UrlEncode(bytes);
+}
+
+async function decodeCombatText(raw) {
+  const body = extractCombatShareText(raw);
+  if (!body) throw new Error('空数据');
+  const bytes = b64UrlDecode(body);
+  const text = await shareDecompress(bytes);
+  return JSON.parse(text);
+}
+
+// ---------------- 分享弹窗 UI ----------------
+function setCombatShareStatus(msg) {
+  const el = document.getElementById('share-status');
+  if (el) el.textContent = msg || '';
+}
+function openCombatShareModal() {
+  const modal = document.getElementById('share-modal');
+  if (!modal) return;
+  modal.style.display = 'block';
+  setCombatShareStatus('点击「生成分享」创建数据串，或粘贴已有数据后导入。');
+  document.getElementById('share-text').value = '';
+  document.getElementById('share-loading').style.display = 'none';
+}
+function closeCombatShareModal() {
+  const modal = document.getElementById('share-modal');
+  if (modal) modal.style.display = 'none';
+}
+function combatShareLinkFor(code) {
+  return location.origin + location.pathname + '?m=1#m=' + encodeURIComponent(code);
+}
+function combatGenerateShare() {
+  const box = document.getElementById('share-text');
+  const loading = document.getElementById('share-loading');
+  loading.style.display = 'block';
+  setCombatShareStatus('⏳ 编码中…');
+  combatEncodeString().then(code => {
+    box.value = combatShareLinkFor(code);
+    loading.style.display = 'none';
+    setCombatShareStatus('✅ 已生成 ' + (code.length / 1024).toFixed(1) + ' KB，可复制链接或数据串。');
+  }).catch(err => {
+    loading.style.display = 'none';
+    setCombatShareStatus('⚠️ 编码失败: ' + (err && err.message));
+  });
+}
+function combatCopyText(value) {
+  if (!value) { setCombatShareStatus('⚠️ 请先生成分享内容'); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(value).then(() => setCombatShareStatus('✅ 已复制'), () => fallbackCombatCopy(value));
+  } else {
+    fallbackCombatCopy(value);
+  }
+}
+function fallbackCombatCopy(text) {
+  const box = document.getElementById('share-text');
+  box.value = text;
+  box.select();
+  try { document.execCommand('copy'); setCombatShareStatus('✅ 已复制'); } catch(e) { setCombatShareStatus('⚠️ 复制失败，请手动复制文本框内容'); }
+}
+function combatCopyData(v) {
+  if (!v) { setCombatShareStatus('⚠️ 请先生成分享内容'); return; }
+  const code = extractCombatShareText(v);
+  if (!code) { setCombatShareStatus('⚠️ 未识别到数据串'); return; }
+  combatCopyText(code);
+}
+function combatImportFromBox() {
+  const raw = document.getElementById('share-text').value.trim();
+  if (!raw) { setCombatShareStatus('⚠️ 请先粘贴数据串或完整 JSON'); return; }
+  setCombatShareStatus('⏳ 解压并导入中…');
+  decodeCombatText(raw).then(data => {
+    const n = applyCombatData(data);
+    setCombatShareStatus('✅ 已导入 ' + n + ' 个格子');
+    closeCombatShareModal();
+  }).catch(() => {
+    // 回退：直接粘贴完整 JSON
+    try {
+      const data = JSON.parse(raw);
+      const n = applyCombatData(data);
+      setCombatShareStatus('✅ 已导入 ' + n + ' 个格子');
+      closeCombatShareModal();
+    } catch (err2) {
+      setCombatShareStatus('⚠️ 导入失败: ' + (err2 && err2.message));
+    }
+  });
+}
+
+function initCombatShareUI() {
+  const btnShare = document.getElementById('btn-share');
+  if (btnShare) btnShare.addEventListener('click', openCombatShareModal);
+  const btnClose = document.getElementById('share-btn-close');
+  if (btnClose) btnClose.addEventListener('click', closeCombatShareModal);
+  const modal = document.getElementById('share-modal');
+  if (modal) modal.addEventListener('click', e => { if (e.target === modal) closeCombatShareModal(); });
+  const btnGen = document.getElementById('share-btn-generate');
+  if (btnGen) btnGen.addEventListener('click', combatGenerateShare);
+  const btnCopyLink = document.getElementById('share-btn-copy-link');
+  if (btnCopyLink) btnCopyLink.addEventListener('click', () => {
+    const v = document.getElementById('share-text').value.trim();
+    if (!v.includes('#')) combatGenerateShare();
+    else combatCopyText(v);
+  });
+  const btnCopyData = document.getElementById('share-btn-copy-data');
+  if (btnCopyData) btnCopyData.addEventListener('click', () => {
+    combatCopyData(document.getElementById('share-text').value.trim());
+  });
+  const btnImport = document.getElementById('share-btn-import');
+  if (btnImport) btnImport.addEventListener('click', combatImportFromBox);
+  // URL 分享地图自动导入在 init() 后调用（export.js 里没有重复监听）
+  setTimeout(loadCombatMapFromUrlShare, 0);
+}
+
+// ---------------- URL 自动导入 ----------------
+function loadCombatMapFromUrlShare() {
+  const mIndex = location.hash.indexOf('m=');
+  if (mIndex === -1) return;
+  const code = decodeURIComponent(location.hash.slice(mIndex + 2));
+  if (!code) return;
+  showToast('🔗 检测到分享地图，正在导入…');
+  decodeCombatText(code).then(data => {
+    const n = applyCombatData(data);
+    showToast('🔗 已导入 ' + n + ' 个格子');
+    if (history.replaceState) {
+      const clean = location.origin + location.pathname + location.search;
+      try { history.replaceState(null, '', clean); } catch (e) { /* ignore */ }
+    }
+  }).catch(err => showToast('⚠️ 分享地图导入失败: ' + ((err && err.message) || '数据无效')));
+}
 //  Export: Excel
 //  主格式 = .xlsx（标准 OOXML，Excel/WPS 都支持颜色与方正规格）
 //  降级   = .xls（HTML 表格，仅当 SheetJS 未加载时使用）
@@ -3575,6 +3861,7 @@ function init() {
   console.log(`⚔️ 通用战斗地图生成器 ${COMBATMAP_VERSION} 已就绪`);
   console.log('快捷键: V=选择 B=笔刷 W=墙壁 D=门 L=标签 E=擦除 R=区域 T=图片 G=线段 Delete=删除选中');
   console.log('新增: 区域/图片/线段图层 · 自定义地形(⚙️管理) · 智能区域模板 · 枭熊场景导出 · xlsx 颜色修复');
+  if (typeof initCombatShareUI === 'function') initCombatShareUI();
 }
 
 window.addEventListener('resize', resizeCanvas);

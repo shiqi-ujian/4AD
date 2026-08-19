@@ -35,6 +35,27 @@ if (fogReveal) fogReveal.addEventListener('click', () => { revealAll(); render()
 const fogHide = document.getElementById('btn-fog-hide-all');
 if (fogHide) fogHide.addEventListener('click', () => { concealfogAll(); render(); updateInfo(); });
 
+// 若 URL 带分享地图(如 ?m=1#m=…)，启动即自动导入（刷新/扫码后直达地图）
+// 注意：export.js 在 init.js 之后加载，因此挂到 DOMContentLoaded 再执行。
+function loadMapDataFromUrlShare() {
+  const mIndex = location.hash.indexOf('m=');
+  if (mIndex === -1) return;
+  const code = decodeURIComponent(location.hash.slice(mIndex + 2));
+  if (!code) return;
+  showDiceResult('🔗', '检测到分享地图，正在导入…');
+  decodeCompactText(code).then(function(data) {
+    const n = applyMapData(data);
+    showDiceResult('🔗 导入成功', '共 ' + n + ' 个六角格');
+    if (history.replaceState) {
+      const clean = location.origin + location.pathname + location.search;
+      try { history.replaceState(null, '', clean); } catch (e) { /* ignore */ }
+    }
+  }).catch(function(err) {
+    showDiceResult('⚠️ 导入失败', (err && err.message) || '数据无效');
+  });
+}
+document.addEventListener('DOMContentLoaded', loadMapDataFromUrlShare);
+
 // Set initial tool — shows hints and updates coord display
 setTool('select');
 render();

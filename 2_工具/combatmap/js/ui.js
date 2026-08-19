@@ -319,6 +319,14 @@ document.addEventListener('keydown', (e) => {
   }
   const km = { 'v':'select', 'b':'paint', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 'r':'rect', 't':'token', 'g':'line' };
   if (km[e.key?.toLowerCase()]) { e.preventDefault(); setTool(km[e.key.toLowerCase()]); }
+  // 分享弹窗：Esc 关闭
+  if (e.key === 'Escape') {
+    const shareModal = document.getElementById('share-modal');
+    if (shareModal && shareModal.style.display === 'block') {
+      if (typeof closeCombatShareModal === 'function') closeCombatShareModal();
+      return;
+    }
+  }
 });
 
 // ============================================================

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>通用跑团地图工具</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: linear-gradient(160deg, #1a1a2e 0%, #16213e 55%, #0f3460 100%);
+    color: #e0e0e0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    text-align: center;
+    padding: 56px 20px 24px;
+  }
+  header h1 { font-size: 34px; letter-spacing: 4px; color: #fff; margin-bottom: 10px; }
+  header p { color: #aaa; font-size: 15px; }
+  main {
+    flex: 1;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 24px 20px 48px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    width: 100%;
+  }
+  .card {
+    background: rgba(22, 33, 62, 0.85);
+    border: 1px solid #0f3460;
+    border-radius: 14px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .card:hover { transform: translateY(-3px); box-shadow: 0 12px 30px rgba(0,0,0,0.45); }
+  .card .emoji { font-size: 40px; line-height: 1; }
+  .card h2 { font-size: 20px; color: #fff; }
+  .card .desc { font-size: 13px; color: #aaa; line-height: 1.7; flex: 1; }
+  .card .tags { font-size: 12px; color: #9ab; display: flex; flex-wrap: wrap; gap: 6px; }
+  .card .tag { background: rgba(58,122,189,.18); border: 1px solid #2f6f9e; padding: 2px 8px; border-radius: 10px; }
+  .card a.launch {
+    display: inline-block; margin-top: 6px; padding: 10px 16px;
+    background: linear-gradient(135deg, #3a7abd, #2f6f9e);
+    color: #fff; text-decoration: none; border-radius: 8px;
+    font-weight: 600; text-align: center;
+  }
+  .card a.launch:hover { filter: brightness(1.1); }
+  footer {
+    text-align: center; padding: 18px; color: #666; font-size: 12px;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>🗺️ 通用跑团地图工具</h1>
+  <p>六角格沙盒 · 战斗地图 — 直接打开发浏览器使用，无需安装</p>
+</header>
+<main>
+  <div class="card">
+    <div class="emoji">⬡</div>
+    <h2>六角格沙盒地图</h2>
+    <div class="desc">
+      适合跑团大地图、开放世界、王国与区域规划。
+      支持无限大地图、多种地形、定居点与道路、河流、海拔、王国边境、
+      探索迷雾、遭遇表、AI 绘图、保存/分享链接、导出 PNG。
+    </div>
+    <div class="tags">
+      <span class="tag">探索迷雾</span>
+      <span class="tag">遭遇表</span>
+      <span class="tag">AI 绘图</span>
+      <span class="tag">分享链接</span>
+    </div>
+    <a class="launch" href="./2_工具/hexmap.dist.html" target="_blank" rel="noopener">打开六角格地图</a>
+  </div>
+  <div class="card">
+    <div class="emoji">⚔️</div>
+    <h2>战斗地图生成器</h2>
+    <div class="desc">
+      适合回合制战斗遭遇、地下城房间与场景布置。
+      格子地形、墙壁/门、区域、线段、图片 token、自定义地形、
+      智能模板（房间/走廊/洞窟/区域）、导出 PNG / Excel / 枭熊场景。
+    </div>
+    <div class="tags">
+      <span class="tag">智能模板</span>
+      <span class="tag">导出 Excel</span>
+      <span class="tag">枭熊场景</span>
+      <span class="tag">分享链接</span>
+    </div>
+    <a class="launch" href="2_工具/combatmap.dist.html" target="_blank" rel="noopener">打开战斗地图</a>
+  </div>
+</main>
+<footer>通用 TRPG / 跑团地图工具 · 浏览器本地运行，数据不离开你的设备</footer>
+</body>
+</html>

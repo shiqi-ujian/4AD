@@ -5,6 +5,18 @@
 ## [x.y.z] — 开发中 (Unreleased)
 
 ### ✨ 新增
+- **URL 分享链接自动加载**：打开带 `#m=` 分享参数的地图链接时，启动即自动导入地图（不再需要点「分享/导入」手动粘贴），刷新/扫码后直达已生成的地图。原有分享按钮和链接格式不变。
+- 自动导入逻辑迁移到 `js/init.js`（`loadMapDataFromUrlShare`），避免 `export.js` 中重复监听 `DOMContentLoaded`。
+
+## [x.y.z] — 开发中 (Unreleased)
+
+### ✨ 新增
+- **URL 分享链接自动加载**：打开带 `#m=` 分享参数的地图链接时，启动即自动导入地图（不再需要点「分享/导入」手动粘贴），刷新/扫码后直达已生成的地图。原有分享按钮和链接格式不变。
+- 自动导入逻辑迁移到 `js/init.js`（`loadMapDataFromUrlShare`），避免 `export.js` 中重复监听 `DOMContentLoaded`。
+
+## [x.y.z] — 开发中 (Unreleased)
+
+### ✨ 新增
 - **遭遇表（Encounter Tables）**：工具栏新增「⚔️ 遭遇」按钮，按**当前选中格地形**挑选对应遭遇表（未选或陌生地形回退到「全图」兜底表）。
   - 每张表 10 条 d10 / 20 条 d20 可切换，支持「🎲 整体重掷」和「单行重掷」。
   - 表内条目**可编辑**，改动自动持久化到 `localStorage`（`encounter_tables`），下次打开仍在。

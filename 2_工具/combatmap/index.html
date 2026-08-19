@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>通用战斗地图生成器 v0.3</title>
+<title>通用战斗地图生成器 v0.4</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -148,6 +148,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
     <div style="display:flex;gap:4px;">
       <button id="btn-save" style="flex:1;padding:4px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;">💾 保存</button>
       <button id="btn-load" style="flex:1;padding:4px;background:#c9a84c;color:#000;border:none;border-radius:4px;cursor:pointer;">📂 加载</button>
+      <button id="btn-share" style="flex:1;padding:4px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="复制紧凑分享链接/数据串，或粘贴导入">🔗 分享</button>
       <button id="btn-clear" style="flex:1;padding:4px;background:#6b5b4f;color:#ccc;border:none;border-radius:4px;cursor:pointer;">🗑️ 清空</button>
     </div>
     <div style="display:flex;gap:4px;margin-top:2px;">
@@ -161,7 +162,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
       <input type="checkbox" id="chk-coords" checked> 显示坐标
     </label>
     <div style="margin-top:auto;font-size:10px;color:#555;text-align:center;padding-top:6px;">
-      通用跑团 · 战斗地图 v0.3<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>区域/线段/图片 · Delete 删除选中
+      通用跑团 · 战斗地图 v0.4<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>区域/线段/图片 · Delete 删除选中
     </div>
   </div>
 
@@ -396,6 +397,27 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
   </div>
 </div>
 
+<!-- 分享/导入 Modal -->
+<div id="share-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:460px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">🔗 分享 / 导入</h3>
+    <div id="share-loading" style="display:none;margin-bottom:8px;padding:6px 8px;background:rgba(255,255,255,0.06);border-radius:4px;font-size:12px;">⏳ 编码中…</div>
+    <div id="share-status" style="min-height:16px;margin-bottom:8px;font-size:12px;color:#aaa;"></div>
+    <textarea id="share-text" rows="5" placeholder="粘贴分享数据串或完整 JSON 后点「导入」，或先生成数据串"
+      style="width:100%;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:11px;padding:6px;font-family:monospace;"></textarea>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;">
+      <button id="share-btn-generate" style="padding:5px 12px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🔗 生成分享</button>
+      <button id="share-btn-copy-link" style="padding:5px 12px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">📋 复制链接</button>
+      <button id="share-btn-copy-data" style="padding:5px 12px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">📋 复制数据串</button>
+      <button id="share-btn-import" style="padding:5px 12px;background:#c9a84c;color:#000;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;">📂 导入</button>
+      <button id="share-btn-close" style="margin-left:auto;padding:5px 12px;background:#3a3a5e;color:#ccc;border:1px solid #0f3460;border-radius:4px;cursor:pointer;font-size:12px;">关闭</button>
+    </div>
+    <div style="font-size:11px;color:#888;line-height:1.6;">
+      提示：分享链接包含完整地图数据（含图片），对方打开后自动导入。链接较长时可复制纯数据串，用「导入」粘贴恢复。
+    </div>
+  </div>
+</div>
+
 <!-- SheetJS CDN for .xlsx export -->
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"
         onerror="window.__combatmapCDN = window.__combatmapCDN || {}; window.__combatmapCDN.xlsx = false;"></script>
@@ -410,6 +432,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
 <script src="js/interact.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/templates.js"></script>
+<script src="js/share.js"></script>
 <script src="js/export.js"></script>
 <script src="js/init.js"></script>
 </body>

@@ -288,20 +288,5 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
-// 自动导入：若页面自带 #m= 参数，加载完成后提示导入
-document.addEventListener('DOMContentLoaded', function() {
-  const mIndex = location.hash.indexOf('m=');
-  if (mIndex === -1) return;
-  const code = decodeURIComponent(location.hash.slice(mIndex + 2));
-  if (!code) return;
-  showDiceResult('🔗', '检测到分享地图，正在导入…');
-  decodeCompactText(code).then(function(data) {
-    const n = applyMapData(data);
-    showDiceResult('🔗 导入成功', '共 ' + n + ' 个六角格');
-    // 尝试清理 URL 片段，避免刷新重复导入
-    if (history.replaceState) {
-      const clean = location.origin + location.pathname + location.search;
-      try { history.replaceState(null, '', clean); } catch (e) { /* ignore */ }
-    }
-  }).catch(function(err) { showDiceResult('⚠️ 导入失败', (err && err.message) || '数据无效'); });
-});
+// 自动导入已移至 init.js（loadMapDataFromUrlShare），避免重复注册 DOMContentLoaded。
+// 自动导入通过 #m= 参数入口完成，初始页面渲染不受影响。
