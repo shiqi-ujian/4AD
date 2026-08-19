@@ -43,7 +43,10 @@ function render() {
   // Pass 5: Shapes (矩形/图片图层)
   drawShapes();
 
-  // Pass 6: Selection boxes
+  // Pass 6: Units (token 层)
+  drawTokens();
+
+  // Pass 7: Selection boxes
   drawSelectionOverlay();
 
   // 绘制预览（矩形/线段）
@@ -85,6 +88,31 @@ function render() {
     ctx.setLineDash([]);
   }
 
+  // 单位放置预览
+  if (_unitPending && _hoverUnit) {
+    const c = _hoverUnit;
+    const p = cellToPixel(c.q, c.r);
+    const w = _unitPending.w * CELL_SIZE, h = _unitPending.h * CELL_SIZE;
+    ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    ctx.ellipse(p.x - w/2 + w/2, p.y - h/2 + h/2, w/2, h/2, 0, 0, Math.PI * 2);
+    ctx.fillStyle = _unitPending.color || '#3a7abd';
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2 / zoom;
+    ctx.setLineDash([4 / zoom, 4 / zoom]);
+    ctx.strokeRect(p.x - w/2, p.y - h/2, w, h);
+    ctx.setLineDash([]);
+    if (_unitPending.icon) {
+      ctx.globalAlpha = 0.8;
+      ctx.font = `${Math.min(w, h) * 0.55}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(_unitPending.icon, p.x, p.y);
+      ctx.globalAlpha = 1;
+    }
+  }
+
   ctx.restore();
 }
 
@@ -98,6 +126,24 @@ function drawSelectionOverlay() {
     ctx.setLineDash([4 / zoom, 4 / zoom]);
     ctx.strokeRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
     ctx.setLineDash([]);
+  }
+  // 单位选择框（最高优先级）
+  if (selectedToken) {
+    const t = tokens.find(x => x.id === selectedToken);
+    if (t) {
+      const p = cellToPixel(t.x, t.y);
+      const w = t.w * CELL_SIZE, h = t.h * CELL_SIZE;
+      ctx.strokeStyle = '#ffe066';
+      ctx.lineWidth = 3 / zoom;
+      ctx.setLineDash([5 / zoom, 3 / zoom]);
+      ctx.strokeRect(p.x - 3 / zoom, p.y - 3 / zoom, w + 6 / zoom, h + 6 / zoom);
+      ctx.setLineDash([]);
+      const hs = 6 / zoom;
+      ctx.fillStyle = '#ffe066';
+      [[p.x, p.y], [p.x + w, p.y], [p.x, p.y + h], [p.x + w, p.y + h]].forEach(([hx, hy]) => {
+        ctx.fillRect(hx - hs / 2, hy - hs / 2, hs, hs);
+      });
+    }
   }
   if (selectedShape) {
     const sh = shapes.find(s => s.id === selectedShape);
@@ -201,6 +247,83 @@ function drawFreeLines() {
     ctx.setLineDash(ln.dash ? [8 / zoom, 5 / zoom] : []);
     ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
     ctx.setLineDash([]);
+  }
+}
+
+function drawTokens() {
+  for (const t of tokens) {
+    const p = cellToPixel(t.x, t.y);
+    const w = t.w * CELL_SIZE, h = t.h * CELL_SIZE;
+    const r = Math.min(8, w / 5);
+
+    // 圆形底座
+    ctx.beginPath();
+    ctx.ellipse(p.x + w / 2, p.y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+    ctx.fillStyle = t.color || '#3a7abd';
+    ctx.fill();
+    ctx.lineWidth = 2 / zoom;
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.stroke();
+
+    // 图片或 emoji
+    if (t.imgData) {
+      if (!t.img) {
+        t.img = new Image();
+        t.img.src = t.imgData;
+        t.img.onload = () => render();
+      }
+      if (t.img && t.img.complete) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(p.x + w / 2, p.y + h / 2, w / 2 - 3 / zoom, h / 2 - 3 / zoom, 0, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(t.img, p.x + 3 / zoom, p.y + 3 / zoom, w - 6 / zoom, h - 6 / zoom);
+        ctx.restore();
+      }
+    } else if (t.icon) {
+      ctx.font = `${Math.min(w, h) * 0.55}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(t.icon, p.x + w / 2, p.y + h / 2 + 1 / zoom);
+    }
+
+    // 顶部名称条
+    if (t.name) {
+      ctx.font = `bold ${Math.max(9, 11 / zoom)}px sans-serif`;
+      const tw = ctx.measureText(t.name).width + 8 / zoom;
+      const by = Math.max(2 / zoom, p.y - 10 / zoom);
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillRect(p.x + w / 2 - tw / 2, by, tw, 14 / zoom);
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(t.name, p.x + w / 2, by + 7 / zoom);
+    }
+
+    // 血条
+    if (typeof t.maxHp === 'number' && t.maxHp > 0) {
+      const hp = Math.max(0, Math.min(t.maxHp, t.hp ?? t.maxHp));
+      const barW = Math.max(w * 0.8, 20 / zoom);
+      const barH = 4 / zoom;
+      const bx = p.x + w / 2 - barW / 2;
+      const by = p.y + h - 2 / zoom;
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillRect(bx - 1, by - 1, barW + 2, barH + 2);
+      ctx.fillStyle = '#a33';
+      ctx.fillRect(bx, by, barW, barH);
+      ctx.fillStyle = hp / t.maxHp > 0.5 ? '#3c3' : (hp / t.maxHp > 0.25 ? '#cc3' : '#e33');
+      ctx.fillRect(bx, by, barW * hp / t.maxHp, barH);
+    }
+
+    // 状态角标
+    if (t.status && t.status.length) {
+      const icons = { '中毒': '☠️', '倒地': '🟥', '昏迷': '💫', '专注': '🎯', '减速': '🐢', '燃烧': '🔥', '冰冻': '🧊' };
+      for (let i = 0; i < t.status.length; i++) {
+        const st = icons[t.status[i]] || '⚠️';
+        ctx.font = `${Math.max(9, 11 / zoom)}px sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(st, p.x + w - 6 / zoom + i * 12 / zoom, p.y + 6 / zoom);
+      }
+    }
   }
 }
 
@@ -432,6 +555,32 @@ function lineEndAt(wx, wy) {
   const hs = 8 / zoom;
   if (Math.abs(wx - p1.x) <= hs && Math.abs(wy - p1.y) <= hs) return 'start';
   if (Math.abs(wx - p2.x) <= hs && Math.abs(wy - p2.y) <= hs) return 'end';
+  return null;
+}
+
+// 单位 token 命中（最顶层优先）
+function hitTestToken(wx, wy) {
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    const t = tokens[i];
+    if (wx >= t.x * CELL_SIZE && wx <= (t.x + t.w) * CELL_SIZE &&
+        wy >= t.y * CELL_SIZE && wy <= (t.y + t.h) * CELL_SIZE) return t;
+  }
+  return null;
+}
+
+// 单位缩放手柄（需已选中）
+const TOKEN_HANDLES = ['nw','ne','se','sw'];
+function tokenHandleAt(wx, wy) {
+  const t = tokens.find(x => x.id === selectedToken);
+  if (!t) return null;
+  const x0 = t.x * CELL_SIZE, y0 = t.y * CELL_SIZE;
+  const x1 = (t.x + t.w) * CELL_SIZE, y1 = (t.y + t.h) * CELL_SIZE;
+  const hs = 8 / zoom;
+  const pts = { nw: [x0, y0], ne: [x1, y0], se: [x1, y1], sw: [x0, y1] };
+  for (const h of TOKEN_HANDLES) {
+    const [hx, hy] = pts[h];
+    if (Math.abs(wx - hx) <= hs && Math.abs(wy - hy) <= hs) return h;
+  }
   return null;
 }
 

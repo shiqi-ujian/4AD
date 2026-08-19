@@ -75,6 +75,7 @@ function buildCombatPayload() {
     combatData,
     shapes: shapes.map(s => { const c = { ...s }; delete c.img; return c; }),
     freeLines,
+    tokens: tokens.map(t => { const c = { ...t }; delete c.img; return c; }),
     viewX, viewY, zoom,
     customTerrains,
     terrainOverrides
@@ -94,6 +95,7 @@ function applyCombatData(data) {
     return sh;
   });
   freeLines = data.freeLines || [];
+  restoreTokens(data.tokens || []);
   if (data.customTerrains || data.terrainOverrides) {
     customTerrains = data.customTerrains || {};
     terrainOverrides = data.terrainOverrides || {};
@@ -103,6 +105,7 @@ function applyCombatData(data) {
   }
   _shapeSeq = Math.max(_shapeSeq, ...shapes.map(s => parseInt(String(s.id).replace('sh','')) || 0)) + 1;
   _lineSeq = Math.max(_lineSeq, ...freeLines.map(l => parseInt(String(l.id).replace('ln','')) || 0)) + 1;
+  _tokenSeq = Math.max(_tokenSeq, ...tokens.map(t => parseInt(String(t.id).replace('tk','')) || 0)) + 1;
   undoStack = []; redoStack = []; updateUndoButtons();
   viewX = data.viewX || 0; viewY = data.viewY || 0; zoom = data.zoom || 1;
   const zi = document.getElementById('zoom-indicator');

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>通用战斗地图生成器 v0.4</title>
+<title>通用战斗地图生成器 v0.5</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -113,6 +113,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
       <button class="tool-btn" data-tool="rect" title="画矩形区域/灵气 (R) 拖拽绘制，半透明"><span class="icon">▭</span><span class="label">区域(R)</span></button>
       <button class="tool-btn" data-tool="token" title="插入图片 token (T)"><span class="icon">🖼️</span><span class="label">图片(T)</span></button>
       <button class="tool-btn" data-tool="line" title="画自由线段 (G) 任意角度墙/视线阻挡"><span class="icon">📏</span><span class="label">线段(G)</span></button>
+      <button class="tool-btn" data-tool="unit" title="放置单位/玩家/怪物 token，可记 HP 与状态 (U)"><span class="icon">🧝</span><span class="label">单位(U)</span></button>
     </div>
     <div id="erase-options" style="display:none;margin:2px 0 0 2px;font-size:11px;">
       <select id="erase-mode" style="width:100%;padding:3px 6px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:11px;">
@@ -155,6 +156,10 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
       <button id="btn-undo" style="flex:1;padding:4px;background:#3a3a5e;color:#fff;border:none;border-radius:4px;cursor:pointer;opacity:0.4;" disabled>↩️ 撤销</button>
       <button id="btn-redo" style="flex:1;padding:4px;background:#3a3a5e;color:#fff;border:none;border-radius:4px;cursor:pointer;opacity:0.4;" disabled>↪️ 重做</button>
     </div>
+    <div style="display:flex;gap:4px;">
+      <button id="btn-online" style="flex:1;padding:6px;background:#7a4a9e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="创建/加入远程房间，所有参与者实时同步地图">🌐 在线</button>
+      <button id="btn-online-status" disabled style="flex:1;padding:6px;background:#3a3a5e;color:#aaa;border:1px solid #0f3460;border-radius:4px;cursor:pointer;font-size:11px;" title="在线状态">未连接</button>
+    </div>
     <label style="margin-top:4px;font-size:11px;">
       <input type="checkbox" id="chk-grid" checked> 显示网格
     </label>
@@ -162,7 +167,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
       <input type="checkbox" id="chk-coords" checked> 显示坐标
     </label>
     <div style="margin-top:auto;font-size:10px;color:#555;text-align:center;padding-top:6px;">
-      通用跑团 · 战斗地图 v0.4<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>区域/线段/图片 · Delete 删除选中
+      通用跑团 · 战斗地图 v0.5<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>区域/线段/图片 · 单位/HP/状态 · Delete 删除选中
     </div>
   </div>
 
@@ -332,6 +337,58 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
   </div>
 </div>
 
+<!-- Token/Unit Modal -->
+<div class="modal-overlay" id="unit-modal">
+  <div class="modal-box">
+    <h3>🧝 单位 Token <span id="unit-modal-title" style="font-size:12px;color:#aaa;font-weight:normal;">新建</span></h3>
+    <label>名称</label>
+    <input type="text" id="unit-name" placeholder="例：加拉汉">
+    <label>类型</label>
+    <select id="unit-kind" style="width:100%;margin-bottom:8px;">
+      <option value="player">🧝 玩家</option>
+      <option value="enemy">👹 敌人</option>
+      <option value="npc">🗣️ NPC</option>
+      <option value="ally">🤝 盟友</option>
+    </select>
+    <div style="display:flex;gap:8px;">
+      <div style="flex:1;">
+        <label>图标 (emoji)</label>
+        <input type="text" id="unit-icon" value="🧝" maxlength="4">
+      </div>
+      <div style="flex:1;">
+        <label>底色</label>
+        <input type="color" id="unit-color" value="#3a7abd" style="width:60px;height:30px;padding:0;border:none;background:none;cursor:pointer;display:block;">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <div style="flex:1;">
+        <label>HP 当前</label>
+        <input type="number" id="unit-hp" value="10" min="0">
+      </div>
+      <div style="flex:1;">
+        <label>HP 上限</label>
+        <input type="number" id="unit-maxhp" value="10" min="1">
+      </div>
+      <div style="flex:1;">
+        <label>宽(格)</label>
+        <input type="number" id="unit-w" value="1" min="1" max="6">
+      </div>
+      <div style="flex:1;">
+        <label>高(格)</label>
+        <input type="number" id="unit-h" value="1" min="1" max="6">
+      </div>
+    </div>
+    <label style="margin-top:4px;">状态标记</label>
+    <div id="unit-status-checkboxes" style="display:flex;flex-wrap:wrap;gap:4px;font-size:11px;margin-bottom:4px;"></div>
+    <div class="btn-row">
+      <button id="unit-delete" style="background:#a33;color:#fff;margin-right:auto;display:none;">🗑️ 删除</button>
+      <button id="unit-cancel" style="background:#3a3a5e;color:#ccc;">取消</button>
+      <button id="unit-confirm" style="background:#2d6a2e;color:#fff;">✓ 保存</button>
+    </div>
+    <input type="hidden" id="unit-id">
+  </div>
+</div>
+
 <!-- Terrain Manage Modal -->
 <div class="modal-overlay" id="terrain-modal">
   <div class="modal-box" style="width:520px;">
@@ -397,7 +454,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
   </div>
 </div>
 
-<!-- 分享/导入 Modal -->
+<!-- Share/Import Modal -->
 <div id="share-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
   <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:460px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
     <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">🔗 分享 / 导入</h3>
@@ -413,7 +470,27 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
       <button id="share-btn-close" style="margin-left:auto;padding:5px 12px;background:#3a3a5e;color:#ccc;border:1px solid #0f3460;border-radius:4px;cursor:pointer;font-size:12px;">关闭</button>
     </div>
     <div style="font-size:11px;color:#888;line-height:1.6;">
-      提示：分享链接包含完整地图数据（含图片），对方打开后自动导入。链接较长时可复制纯数据串，用「导入」粘贴恢复。
+      提示：分享链接包含完整地图数据（含图片/单位），对方打开后自动导入。链接较长时可复制纯数据串，用「导入」粘贴恢复。
+    </div>
+  </div>
+</div>
+
+<!-- Online Modal -->
+<div id="online-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:460px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">🌐 在线房间</h3>
+    <div id="online-status" style="min-height:16px;margin-bottom:8px;font-size:12px;color:#aaa;"></div>
+    <label>房间名（字母/数字，分享给参与者）</label>
+    <input type="text" id="online-room" value="" placeholder="如 dragon-cave-01" style="width:100%;padding:5px 8px;margin-bottom:8px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;">
+      <button id="online-btn-create" style="padding:5px 12px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🎲 创建房间</button>
+      <button id="online-btn-join" style="padding:5px 12px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">📥 加入房间</button>
+      <button id="online-btn-copy" style="padding:5px 12px;background:#3a3a5e;color:#ccc;border:1px solid #0f3460;border-radius:4px;cursor:pointer;font-size:12px;">📋 复制邀请链接</button>
+      <button id="online-btn-leave" style="margin-left:auto;padding:5px 12px;background:#a33;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🚪 离开</button>
+      <button id="online-btn-close" style="padding:5px 12px;background:#3a3a5e;color:#ccc;border:1px solid #0f3460;border-radius:4px;cursor:pointer;font-size:12px;">关闭</button>
+    </div>
+    <div style="font-size:11px;color:#888;line-height:1.6;">
+      PeerJS P2P 实时同步：任意人改动地图都会广播给全房间。首次连接依赖公共信令，数据通道点对点加密。如果你有自己的 PeerServer，稍后可配置。
     </div>
   </div>
 </div>
@@ -424,6 +501,8 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"
         onerror="window.__combatmapCDN = window.__combatmapCDN || {}; window.__combatmapCDN.jszip = false;"></script>
 
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"
+        onerror="window.__combatmapCDN = window.__combatmapCDN || {}; window.__combatmapCDN.peerjs = false;"></script>
 <script src="js/config.js"></script>
 <script src="js/terrain.js"></script>
 <script src="js/state.js"></script>
@@ -433,6 +512,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
 <script src="js/ui.js"></script>
 <script src="js/templates.js"></script>
 <script src="js/share.js"></script>
+<script src="js/online.js"></script>
 <script src="js/export.js"></script>
 <script src="js/init.js"></script>
 </body>

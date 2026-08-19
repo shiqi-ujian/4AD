@@ -365,7 +365,7 @@ function dataURLToArrayBuffer(dataURL) {
 
 async function writeWorkbookWithShapes(wb, minQ, maxQ, minR, maxR, styleKeys, cols, rows) {
   const filename = 'combatmap_' + new Date().toISOString().slice(0,10) + '.xlsx';
-  const hasGraphics = shapes.length > 0 || freeLines.length > 0;
+  const hasGraphics = shapes.length > 0 || freeLines.length > 0 || tokens.length > 0;
 
   if (typeof JSZip === 'undefined') {
     XLSX.writeFile(wb, filename);
@@ -512,7 +512,7 @@ async function writeWorkbookWithShapes(wb, minQ, maxQ, minR, maxR, styleKeys, co
     // 5. 打包下载
     const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     downloadBlob(blob, filename);
-    const gfxNote = hasGraphics ? ` + ${shapes.length} 图形/${freeLines.length} 线段(可拖动)` : '';
+    const gfxNote = hasGraphics ? ` + ${shapes.length} 图形/${freeLines.length} 线段/${tokens.length} 单位(可拖动)` : '';
     showToast(`📊 xlsx 已导出（颜色+方正格子${gfxNote}）`);
   } catch (err) {
     console.error(err);
@@ -542,7 +542,7 @@ function downloadBlob(blob, filename) {
 function renderMapCanvas(exact) {
   cleanData();
   const keys = Object.keys(combatData);
-  const hasGraphics = shapes.length > 0 || freeLines.length > 0;
+  const hasGraphics = shapes.length > 0 || freeLines.length > 0 || tokens.length > 0;
   if (keys.length === 0 && !hasGraphics) return null;
 
   let minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
@@ -561,6 +561,10 @@ function renderMapCanvas(exact) {
   freeLines.forEach(ln => {
     feed(Math.floor(Math.min(ln.x1, ln.x2)), Math.floor(Math.min(ln.y1, ln.y2)));
     feed(Math.ceil(Math.max(ln.x1, ln.x2)), Math.ceil(Math.max(ln.y1, ln.y2)));
+  });
+  tokens.forEach(t => {
+    feed(Math.floor(t.x), Math.floor(t.y));
+    feed(Math.ceil(t.x + t.w), Math.ceil(t.y + t.h));
   });
   if (!isFinite(minQ)) { minQ = -2; maxQ = 2; minR = -2; maxR = 2; }
 
@@ -721,6 +725,53 @@ function renderMapCanvas(exact) {
     }
   }
 
+  // Pass 6: 单位层（合成）
+  for (const t of tokens) {
+    const p = cellToPixel(t.x, t.y);
+    const w = t.w * CELL_SIZE, h = t.h * CELL_SIZE;
+    expCtx.beginPath();
+    expCtx.ellipse(p.x + w / 2, p.y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+    expCtx.fillStyle = t.color || '#3a7abd';
+    expCtx.fill();
+    expCtx.lineWidth = 2;
+    expCtx.strokeStyle = 'rgba(255,255,255,0.85)';
+    expCtx.stroke();
+    if (t.imgData && t.img) {
+      expCtx.save();
+      expCtx.beginPath();
+      expCtx.ellipse(p.x + w / 2, p.y + h / 2, w / 2 - 3, h / 2 - 3, 0, 0, Math.PI * 2);
+      expCtx.clip();
+      expCtx.drawImage(t.img, p.x + 3, p.y + 3, w - 6, h - 6);
+      expCtx.restore();
+    } else if (t.icon) {
+      expCtx.font = `${Math.min(w, h) * 0.55}px sans-serif`;
+      expCtx.textAlign = 'center'; expCtx.textBaseline = 'middle';
+      expCtx.fillText(t.icon, p.x + w / 2, p.y + h / 2);
+    }
+    if (t.name) {
+      expCtx.font = `bold 11px sans-serif`;
+      const tw = expCtx.measureText(t.name).width + 8;
+      const by = Math.max(2, p.y - 10);
+      expCtx.fillStyle = 'rgba(0,0,0,0.7)';
+      expCtx.fillRect(p.x + w / 2 - tw / 2, by, tw, 14);
+      expCtx.fillStyle = '#fff';
+      expCtx.textAlign = 'center'; expCtx.textBaseline = 'middle';
+      expCtx.fillText(t.name, p.x + w / 2, by + 7);
+    }
+    if (typeof t.maxHp === 'number' && t.maxHp > 0) {
+      const hp = Math.max(0, Math.min(t.maxHp, t.hp ?? t.maxHp));
+      const barW = Math.max(w * 0.8, 20);
+      const bx = p.x + w / 2 - barW / 2;
+      const by = p.y + h - 2;
+      expCtx.fillStyle = 'rgba(0,0,0,0.7)';
+      expCtx.fillRect(bx - 1, by - 1, barW + 2, 6);
+      expCtx.fillStyle = '#a33';
+      expCtx.fillRect(bx, by, barW, 4);
+      expCtx.fillStyle = hp / t.maxHp > 0.5 ? '#3c3' : (hp / t.maxHp > 0.25 ? '#cc3' : '#e33');
+      expCtx.fillRect(bx, by, barW * hp / t.maxHp, 4);
+    }
+  }
+
   expCtx.restore();
   return { canvas: expCanvas, minQ, maxQ, minR, maxR, keys };
 }
@@ -783,11 +834,7 @@ function exportLegendPNG() {
 
 // ============================================================
 //  Export: Owlbear Rodeo 场景（.owlbear，可在枭熊中导入）
-//  OBR 2.0 场景文件格式：
-//  { "data": { "data": [
-//      { "tableName":"maps", "rows":[{ "id","name","file","grid" }] },
-//      { "tableName":"assets", "rows":[{ "id","mime","file":{"buffer":base64} }] }
-//  ] } }
+//  含地图 PNG + 单位 token 图片（尽量合成进地图图；当前 token 已随 PNG 合成）
 // ============================================================
 function exportOwlbearScene() {
   const result = renderMapCanvas(true);
@@ -844,12 +891,14 @@ function saveJSON() {
   const data = {
     combatData,
     shapes: shapes.map(s => { const c = { ...s }; delete c.img; return c; }),
-    freeLines, viewX, viewY, zoom
+    freeLines,
+    tokens: tokens.map(t => { const c = { ...t }; delete c.img; return c; }),
+    viewX, viewY, zoom
   };
   const json = JSON.stringify(data);
   const blob = new Blob([json], { type: 'application/json' });
   downloadBlob(blob, `combatmap_${new Date().toISOString().slice(0,10)}.json`);
-  showToast(`💾 已保存 — ${Object.keys(combatData).length} 格 / ${shapes.length} 图形 / ${freeLines.length} 线段`);
+  showToast(`💾 已保存 — ${Object.keys(combatData).length} 格 / ${shapes.length} 图形 / ${freeLines.length} 线段 / ${tokens.length} 单位`);
 }
 
 function loadJSON() {
@@ -874,13 +923,15 @@ function loadJSON() {
           return sh;
         });
         freeLines = data.freeLines || [];
+        restoreTokens(data.tokens || []);
         _shapeSeq = Math.max(_shapeSeq, ...shapes.map(s => parseInt(String(s.id).replace('sh','')) || 0)) + 1;
         _lineSeq = Math.max(_lineSeq, ...freeLines.map(l => parseInt(String(l.id).replace('ln','')) || 0)) + 1;
+        _tokenSeq = Math.max(_tokenSeq, ...tokens.map(t => parseInt(String(t.id).replace('tk','')) || 0)) + 1;
         undoStack = []; redoStack = []; updateUndoButtons();
         viewX = data.viewX || 0; viewY = data.viewY || 0; zoom = data.zoom || 1;
         document.getElementById('zoom-indicator').textContent = `🔍 ${Math.round(zoom * 100)}%`;
         render(); updateInfo();
-        showToast(`📂 已加载 — ${Object.keys(combatData).length} 格 / ${shapes.length} 图形 / ${freeLines.length} 线段`);
+        showToast(`📂 已加载 — ${Object.keys(combatData).length} 格 / ${shapes.length} 图形 / ${freeLines.length} 线段 / ${tokens.length} 单位`);
       } catch(err) { showToast('⚠️ 加载失败，文件格式错误'); }
     };
     reader.readAsText(file);

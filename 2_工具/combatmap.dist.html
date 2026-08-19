@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>通用战斗地图生成器 v0.4</title>
+<title>通用战斗地图生成器 v0.5</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -113,6 +113,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
       <button class="tool-btn" data-tool="rect" title="画矩形区域/灵气 (R) 拖拽绘制，半透明"><span class="icon">▭</span><span class="label">区域(R)</span></button>
       <button class="tool-btn" data-tool="token" title="插入图片 token (T)"><span class="icon">🖼️</span><span class="label">图片(T)</span></button>
       <button class="tool-btn" data-tool="line" title="画自由线段 (G) 任意角度墙/视线阻挡"><span class="icon">📏</span><span class="label">线段(G)</span></button>
+      <button class="tool-btn" data-tool="unit" title="放置单位/玩家/怪物 token，可记 HP 与状态 (U)"><span class="icon">🧝</span><span class="label">单位(U)</span></button>
     </div>
     <div id="erase-options" style="display:none;margin:2px 0 0 2px;font-size:11px;">
       <select id="erase-mode" style="width:100%;padding:3px 6px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:11px;">
@@ -155,6 +156,10 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
       <button id="btn-undo" style="flex:1;padding:4px;background:#3a3a5e;color:#fff;border:none;border-radius:4px;cursor:pointer;opacity:0.4;" disabled>↩️ 撤销</button>
       <button id="btn-redo" style="flex:1;padding:4px;background:#3a3a5e;color:#fff;border:none;border-radius:4px;cursor:pointer;opacity:0.4;" disabled>↪️ 重做</button>
     </div>
+    <div style="display:flex;gap:4px;">
+      <button id="btn-online" style="flex:1;padding:6px;background:#7a4a9e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="创建/加入远程房间，所有参与者实时同步地图">🌐 在线</button>
+      <button id="btn-online-status" disabled style="flex:1;padding:6px;background:#3a3a5e;color:#aaa;border:1px solid #0f3460;border-radius:4px;cursor:pointer;font-size:11px;" title="在线状态">未连接</button>
+    </div>
     <label style="margin-top:4px;font-size:11px;">
       <input type="checkbox" id="chk-grid" checked> 显示网格
     </label>
@@ -162,7 +167,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
       <input type="checkbox" id="chk-coords" checked> 显示坐标
     </label>
     <div style="margin-top:auto;font-size:10px;color:#555;text-align:center;padding-top:6px;">
-      通用跑团 · 战斗地图 v0.4<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>区域/线段/图片 · Delete 删除选中
+      通用跑团 · 战斗地图 v0.5<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>区域/线段/图片 · 单位/HP/状态 · Delete 删除选中
     </div>
   </div>
 
@@ -332,6 +337,58 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
   </div>
 </div>
 
+<!-- Token/Unit Modal -->
+<div class="modal-overlay" id="unit-modal">
+  <div class="modal-box">
+    <h3>🧝 单位 Token <span id="unit-modal-title" style="font-size:12px;color:#aaa;font-weight:normal;">新建</span></h3>
+    <label>名称</label>
+    <input type="text" id="unit-name" placeholder="例：加拉汉">
+    <label>类型</label>
+    <select id="unit-kind" style="width:100%;margin-bottom:8px;">
+      <option value="player">🧝 玩家</option>
+      <option value="enemy">👹 敌人</option>
+      <option value="npc">🗣️ NPC</option>
+      <option value="ally">🤝 盟友</option>
+    </select>
+    <div style="display:flex;gap:8px;">
+      <div style="flex:1;">
+        <label>图标 (emoji)</label>
+        <input type="text" id="unit-icon" value="🧝" maxlength="4">
+      </div>
+      <div style="flex:1;">
+        <label>底色</label>
+        <input type="color" id="unit-color" value="#3a7abd" style="width:60px;height:30px;padding:0;border:none;background:none;cursor:pointer;display:block;">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <div style="flex:1;">
+        <label>HP 当前</label>
+        <input type="number" id="unit-hp" value="10" min="0">
+      </div>
+      <div style="flex:1;">
+        <label>HP 上限</label>
+        <input type="number" id="unit-maxhp" value="10" min="1">
+      </div>
+      <div style="flex:1;">
+        <label>宽(格)</label>
+        <input type="number" id="unit-w" value="1" min="1" max="6">
+      </div>
+      <div style="flex:1;">
+        <label>高(格)</label>
+        <input type="number" id="unit-h" value="1" min="1" max="6">
+      </div>
+    </div>
+    <label style="margin-top:4px;">状态标记</label>
+    <div id="unit-status-checkboxes" style="display:flex;flex-wrap:wrap;gap:4px;font-size:11px;margin-bottom:4px;"></div>
+    <div class="btn-row">
+      <button id="unit-delete" style="background:#a33;color:#fff;margin-right:auto;display:none;">🗑️ 删除</button>
+      <button id="unit-cancel" style="background:#3a3a5e;color:#ccc;">取消</button>
+      <button id="unit-confirm" style="background:#2d6a2e;color:#fff;">✓ 保存</button>
+    </div>
+    <input type="hidden" id="unit-id">
+  </div>
+</div>
+
 <!-- Terrain Manage Modal -->
 <div class="modal-overlay" id="terrain-modal">
   <div class="modal-box" style="width:520px;">
@@ -397,7 +454,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
   </div>
 </div>
 
-<!-- 分享/导入 Modal -->
+<!-- Share/Import Modal -->
 <div id="share-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
   <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:460px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
     <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">🔗 分享 / 导入</h3>
@@ -413,7 +470,27 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
       <button id="share-btn-close" style="margin-left:auto;padding:5px 12px;background:#3a3a5e;color:#ccc;border:1px solid #0f3460;border-radius:4px;cursor:pointer;font-size:12px;">关闭</button>
     </div>
     <div style="font-size:11px;color:#888;line-height:1.6;">
-      提示：分享链接包含完整地图数据（含图片），对方打开后自动导入。链接较长时可复制纯数据串，用「导入」粘贴恢复。
+      提示：分享链接包含完整地图数据（含图片/单位），对方打开后自动导入。链接较长时可复制纯数据串，用「导入」粘贴恢复。
+    </div>
+  </div>
+</div>
+
+<!-- Online Modal -->
+<div id="online-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
+  <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:460px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+    <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">🌐 在线房间</h3>
+    <div id="online-status" style="min-height:16px;margin-bottom:8px;font-size:12px;color:#aaa;"></div>
+    <label>房间名（字母/数字，分享给参与者）</label>
+    <input type="text" id="online-room" value="" placeholder="如 dragon-cave-01" style="width:100%;padding:5px 8px;margin-bottom:8px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;">
+      <button id="online-btn-create" style="padding:5px 12px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🎲 创建房间</button>
+      <button id="online-btn-join" style="padding:5px 12px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">📥 加入房间</button>
+      <button id="online-btn-copy" style="padding:5px 12px;background:#3a3a5e;color:#ccc;border:1px solid #0f3460;border-radius:4px;cursor:pointer;font-size:12px;">📋 复制邀请链接</button>
+      <button id="online-btn-leave" style="margin-left:auto;padding:5px 12px;background:#a33;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🚪 离开</button>
+      <button id="online-btn-close" style="padding:5px 12px;background:#3a3a5e;color:#ccc;border:1px solid #0f3460;border-radius:4px;cursor:pointer;font-size:12px;">关闭</button>
+    </div>
+    <div style="font-size:11px;color:#888;line-height:1.6;">
+      PeerJS P2P 实时同步：任意人改动地图都会广播给全房间。首次连接依赖公共信令，数据通道点对点加密。如果你有自己的 PeerServer，稍后可配置。
     </div>
   </div>
 </div>
@@ -424,10 +501,24 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"
         onerror="window.__combatmapCDN = window.__combatmapCDN || {}; window.__combatmapCDN.jszip = false;"></script>
 
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"
+        onerror="window.__combatmapCDN = window.__combatmapCDN || {}; window.__combatmapCDN.peerjs = false;"></script>
+
+
+
+
+
+
+
+
+
+
+
+
 <script>
 //  Configuration
 // ============================================================
-const COMBATMAP_VERSION = 'v0.4';
+const COMBATMAP_VERSION = 'v0.5';
 
 const COMBAT_TERRAIN = {
   floor:        { name: '普通地面', color: '#d4c5a9', icon: '⬜', desc: '正常移动' },
@@ -518,8 +609,10 @@ const CELL_SIZE = 48;
 let combatData = {};       // key: "q,r" → { terrain, label, walls: [top,right,bottom,left] }
 let shapes = [];           // 图形图层: { id, type:'rect'|'image', x,y,w,h(格), fill, fillAlpha, stroke, strokeWidth, dash, name, imgData }
 let freeLines = [];        // 自由线段: { id, x1,y1,x2,y2(格), color, width, dash, name }
+let tokens = [];           // 单位层: { id, kind, name, x,y,w,h(格), icon, color, hp,maxHp,status[], imgData }
 let selectedShape = null;  // 当前选中 shape id
 let selectedLine = null;   // 当前选中 line id
+let selectedToken = null;  // 当前选中 token id
 let selectedTool = 'select';
 let selectedTerrain = 'floor';
 let selectedCell = null;
@@ -530,16 +623,19 @@ let showGrid = true, showCoords = true;
 let _eraseDragLast = new Set();
 let _shapeSeq = 1;
 let _lineSeq = 1;
-let _dragMode = null;      // 'pan' | 'paint' | 'erase' | 'shape-move' | 'shape-resize' | 'line-move' | 'line-drag' | 'wall-drag' | 'rect-draw' | 'line-draw' | 'token-place'
-let _dragShapeId = null, _dragHandle = null, _dragLineId = null;
+let _tokenSeq = 1;
+let _dragMode = null;      // 'pan' | 'paint' | 'erase' | 'shape-move' | 'shape-resize' | 'line-move' | 'line-drag' | 'wall-drag' | 'rect-draw' | 'line-draw' | 'token-place' | 'token-move' | 'token-resize' | 'unit-place'
+let _dragShapeId = null, _dragHandle = null, _dragLineId = null, _dragTokenId = null;
 let _dragOffX = 0, _dragOffY = 0;
 let _wallDragLast = null;  // 墙/门拖拽去重: "q,r,edge"
 let _drawStart = null;     // rect/line 绘制的起点(格坐标)
 let _rectPreview = null;   // 矩形绘制预览
 let _linePreview = null;   // 线段绘制预览
 let _lineInit = null;      // 线段移动初始位置
-let _tokenPending = null;  // 待放置的图片 { imgData, w, h, img }
-let _hoverToken = null;    // 放置预览位置
+let _tokenPending = null;  // 待放置的图片 token { imgData, w, h, img }
+let _hoverToken = null;    // 放置预览位置（图片）
+let _unitPending = null;   // 待放置的单位 token { name, icon, color, kind, hp, maxHp, w, h, imgData?, img? }
+let _hoverUnit = null;     // 单位放置预览位置
 
 // Undo/Redo
 const MAX_UNDO = 50;
@@ -573,12 +669,25 @@ function pushUndo(key) {
   }
 }
 
-// 图形/线段快照撤销（整个图层入栈；剥离 img 对象避免序列化问题）
+// 图形/线段/单位快照撤销（整个图层入栈；剥离 img 对象避免序列化问题）
 function snapshotMeta() {
   return {
     shapes: JSON.parse(JSON.stringify(shapes.map(s => { const c = { ...s }; delete c.img; return c; }))),
-    freeLines: JSON.parse(JSON.stringify(freeLines))
+    freeLines: JSON.parse(JSON.stringify(freeLines)),
+    tokens: JSON.parse(JSON.stringify(tokens.map(t => { const c = { ...t }; delete c.img; return c; })))
   };
+}
+
+function restoreTokens(list) {
+  tokens = (list || []).map(t => {
+    if (t.imgData && !t.img) {
+      const img = new Image();
+      img.src = t.imgData;
+      img.onload = () => render();
+      t.img = img;
+    }
+    return t;
+  });
 }
 
 function restoreMeta(before) {
@@ -592,6 +701,7 @@ function restoreMeta(before) {
     return sh;
   });
   freeLines = before.freeLines || [];
+  restoreTokens(before.tokens || []);
 }
 
 function pushUndoMeta() {
@@ -626,7 +736,7 @@ function applyUndoEntry(entries) {
     if (key === '__meta__') {
       redoEntries.push({ key, before: snapshotMeta() });
       restoreMeta(before);
-      selectedShape = null; selectedLine = null;
+      selectedShape = null; selectedLine = null; selectedToken = null;
     } else {
       redoEntries.push({ key, before: snapshotCell(key) });
       if (before) { combatData[key] = before; }
@@ -655,7 +765,6 @@ function redo() {
 }
 
 // ============================================================
-
 //  Coordinate System
 // ============================================================
 function cellToPixel(q, r) {
@@ -811,7 +920,10 @@ function render() {
   // Pass 5: Shapes (矩形/图片图层)
   drawShapes();
 
-  // Pass 6: Selection boxes
+  // Pass 6: Units (token 层)
+  drawTokens();
+
+  // Pass 7: Selection boxes
   drawSelectionOverlay();
 
   // 绘制预览（矩形/线段）
@@ -853,6 +965,31 @@ function render() {
     ctx.setLineDash([]);
   }
 
+  // 单位放置预览
+  if (_unitPending && _hoverUnit) {
+    const c = _hoverUnit;
+    const p = cellToPixel(c.q, c.r);
+    const w = _unitPending.w * CELL_SIZE, h = _unitPending.h * CELL_SIZE;
+    ctx.globalAlpha = 0.55;
+    ctx.beginPath();
+    ctx.ellipse(p.x - w/2 + w/2, p.y - h/2 + h/2, w/2, h/2, 0, 0, Math.PI * 2);
+    ctx.fillStyle = _unitPending.color || '#3a7abd';
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2 / zoom;
+    ctx.setLineDash([4 / zoom, 4 / zoom]);
+    ctx.strokeRect(p.x - w/2, p.y - h/2, w, h);
+    ctx.setLineDash([]);
+    if (_unitPending.icon) {
+      ctx.globalAlpha = 0.8;
+      ctx.font = `${Math.min(w, h) * 0.55}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(_unitPending.icon, p.x, p.y);
+      ctx.globalAlpha = 1;
+    }
+  }
+
   ctx.restore();
 }
 
@@ -866,6 +1003,24 @@ function drawSelectionOverlay() {
     ctx.setLineDash([4 / zoom, 4 / zoom]);
     ctx.strokeRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
     ctx.setLineDash([]);
+  }
+  // 单位选择框（最高优先级）
+  if (selectedToken) {
+    const t = tokens.find(x => x.id === selectedToken);
+    if (t) {
+      const p = cellToPixel(t.x, t.y);
+      const w = t.w * CELL_SIZE, h = t.h * CELL_SIZE;
+      ctx.strokeStyle = '#ffe066';
+      ctx.lineWidth = 3 / zoom;
+      ctx.setLineDash([5 / zoom, 3 / zoom]);
+      ctx.strokeRect(p.x - 3 / zoom, p.y - 3 / zoom, w + 6 / zoom, h + 6 / zoom);
+      ctx.setLineDash([]);
+      const hs = 6 / zoom;
+      ctx.fillStyle = '#ffe066';
+      [[p.x, p.y], [p.x + w, p.y], [p.x, p.y + h], [p.x + w, p.y + h]].forEach(([hx, hy]) => {
+        ctx.fillRect(hx - hs / 2, hy - hs / 2, hs, hs);
+      });
+    }
   }
   if (selectedShape) {
     const sh = shapes.find(s => s.id === selectedShape);
@@ -969,6 +1124,83 @@ function drawFreeLines() {
     ctx.setLineDash(ln.dash ? [8 / zoom, 5 / zoom] : []);
     ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
     ctx.setLineDash([]);
+  }
+}
+
+function drawTokens() {
+  for (const t of tokens) {
+    const p = cellToPixel(t.x, t.y);
+    const w = t.w * CELL_SIZE, h = t.h * CELL_SIZE;
+    const r = Math.min(8, w / 5);
+
+    // 圆形底座
+    ctx.beginPath();
+    ctx.ellipse(p.x + w / 2, p.y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+    ctx.fillStyle = t.color || '#3a7abd';
+    ctx.fill();
+    ctx.lineWidth = 2 / zoom;
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.stroke();
+
+    // 图片或 emoji
+    if (t.imgData) {
+      if (!t.img) {
+        t.img = new Image();
+        t.img.src = t.imgData;
+        t.img.onload = () => render();
+      }
+      if (t.img && t.img.complete) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.ellipse(p.x + w / 2, p.y + h / 2, w / 2 - 3 / zoom, h / 2 - 3 / zoom, 0, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(t.img, p.x + 3 / zoom, p.y + 3 / zoom, w - 6 / zoom, h - 6 / zoom);
+        ctx.restore();
+      }
+    } else if (t.icon) {
+      ctx.font = `${Math.min(w, h) * 0.55}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(t.icon, p.x + w / 2, p.y + h / 2 + 1 / zoom);
+    }
+
+    // 顶部名称条
+    if (t.name) {
+      ctx.font = `bold ${Math.max(9, 11 / zoom)}px sans-serif`;
+      const tw = ctx.measureText(t.name).width + 8 / zoom;
+      const by = Math.max(2 / zoom, p.y - 10 / zoom);
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillRect(p.x + w / 2 - tw / 2, by, tw, 14 / zoom);
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(t.name, p.x + w / 2, by + 7 / zoom);
+    }
+
+    // 血条
+    if (typeof t.maxHp === 'number' && t.maxHp > 0) {
+      const hp = Math.max(0, Math.min(t.maxHp, t.hp ?? t.maxHp));
+      const barW = Math.max(w * 0.8, 20 / zoom);
+      const barH = 4 / zoom;
+      const bx = p.x + w / 2 - barW / 2;
+      const by = p.y + h - 2 / zoom;
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillRect(bx - 1, by - 1, barW + 2, barH + 2);
+      ctx.fillStyle = '#a33';
+      ctx.fillRect(bx, by, barW, barH);
+      ctx.fillStyle = hp / t.maxHp > 0.5 ? '#3c3' : (hp / t.maxHp > 0.25 ? '#cc3' : '#e33');
+      ctx.fillRect(bx, by, barW * hp / t.maxHp, barH);
+    }
+
+    // 状态角标
+    if (t.status && t.status.length) {
+      const icons = { '中毒': '☠️', '倒地': '🟥', '昏迷': '💫', '专注': '🎯', '减速': '🐢', '燃烧': '🔥', '冰冻': '🧊' };
+      for (let i = 0; i < t.status.length; i++) {
+        const st = icons[t.status[i]] || '⚠️';
+        ctx.font = `${Math.max(9, 11 / zoom)}px sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(st, p.x + w - 6 / zoom + i * 12 / zoom, p.y + 6 / zoom);
+      }
+    }
   }
 }
 
@@ -1203,6 +1435,32 @@ function lineEndAt(wx, wy) {
   return null;
 }
 
+// 单位 token 命中（最顶层优先）
+function hitTestToken(wx, wy) {
+  for (let i = tokens.length - 1; i >= 0; i--) {
+    const t = tokens[i];
+    if (wx >= t.x * CELL_SIZE && wx <= (t.x + t.w) * CELL_SIZE &&
+        wy >= t.y * CELL_SIZE && wy <= (t.y + t.h) * CELL_SIZE) return t;
+  }
+  return null;
+}
+
+// 单位缩放手柄（需已选中）
+const TOKEN_HANDLES = ['nw','ne','se','sw'];
+function tokenHandleAt(wx, wy) {
+  const t = tokens.find(x => x.id === selectedToken);
+  if (!t) return null;
+  const x0 = t.x * CELL_SIZE, y0 = t.y * CELL_SIZE;
+  const x1 = (t.x + t.w) * CELL_SIZE, y1 = (t.y + t.h) * CELL_SIZE;
+  const hs = 8 / zoom;
+  const pts = { nw: [x0, y0], ne: [x1, y0], se: [x1, y1], sw: [x0, y1] };
+  for (const h of TOKEN_HANDLES) {
+    const [hx, hy] = pts[h];
+    if (Math.abs(wx - hx) <= hs && Math.abs(wy - hy) <= hs) return h;
+  }
+  return null;
+}
+
 // ============================================================
 
 //  Input Handling
@@ -1220,8 +1478,27 @@ canvas.addEventListener('mousedown', (e) => {
   if (e.button === 0) {
     const wx = (mx - viewX) / zoom, wy = (my - viewY) / zoom;
 
-    // --- 选择工具：图形/线段优先 ---
+    // --- 选择工具：单位/图形/线段优先 ---
     if (selectedTool === 'select') {
+      // 单位缩放手柄
+      const th = tokenHandleAt(wx, wy);
+      if (th) {
+        _dragMode = 'token-resize'; _dragTokenId = selectedToken; _dragHandle = th;
+        isDragging = true; dragStartX = wx; dragStartY = wy;
+        pushUndoMeta();
+        return;
+      }
+      // 单位主体（最顶层优先）
+      const tk = hitTestToken(wx, wy);
+      if (tk) {
+        selectedToken = tk.id; selectedShape = null; selectedLine = null; selectedCell = null;
+        _dragMode = 'token-move'; _dragTokenId = tk.id;
+        _dragOffX = wx - tk.x * CELL_SIZE; _dragOffY = wy - tk.y * CELL_SIZE;
+        isDragging = true; dragStartX = wx; dragStartY = wy;
+        pushUndoMeta();
+        render(); updateInfo();
+        return;
+      }
       // 选中图形的缩放手柄
       const handle = shapeHandleAt(wx, wy);
       if (handle) {
@@ -1299,6 +1576,33 @@ canvas.addEventListener('mousedown', (e) => {
       return;
     }
 
+    // --- 单位 token：点击放置 ---
+    if (selectedTool === 'unit') {
+      if (_unitPending) {
+        const c = pixelToCell(wx, wy);
+        const t = {
+          id: 'tk' + (_tokenSeq++),
+          kind: _unitPending.kind || 'npc',
+          name: _unitPending.name || '',
+          x: c.q - _unitPending.w / 2, y: c.r - _unitPending.h / 2,
+          w: _unitPending.w, h: _unitPending.h,
+          icon: _unitPending.icon || '🧝',
+          color: _unitPending.color || '#3a7abd',
+          hp: _unitPending.hp, maxHp: _unitPending.maxHp,
+          status: _unitPending.status || [],
+          imgData: _unitPending.imgData || '', img: _unitPending.img || null,
+          ownerId: ''
+        };
+        pushUndoMeta();
+        tokens.push(t);
+        selectedToken = t.id; selectedShape = null; selectedLine = null; selectedCell = null;
+        render(); updateInfo();
+        showToast(`🧝 已放置 ${t.name || '单位'}，右键编辑属性`);
+        return;
+      }
+      return;
+    }
+
     // --- 图片 token：点击放置 ---
     if (selectedTool === 'token') {
       if (_tokenPending) {
@@ -1349,6 +1653,13 @@ canvas.addEventListener('mousemove', (e) => {
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
   const wx = (mx - viewX) / zoom, wy = (my - viewY) / zoom;
 
+  // token 放置预览跟随（单位）
+  if (selectedTool === 'unit' && _unitPending) {
+    const c = pixelToCell(wx, wy);
+    _hoverUnit = c;
+    render();
+  }
+
   // token 放置预览跟随
   if (selectedTool === 'token' && _tokenPending) {
     const c = pixelToCell(wx, wy);
@@ -1359,15 +1670,18 @@ canvas.addEventListener('mousemove', (e) => {
   if (!isDragging) {
     // 悬停光标反馈
     if (selectedTool === 'select') {
+      const th = tokenHandleAt(wx, wy);
       const h = shapeHandleAt(wx, wy);
       const end = lineEndAt(wx, wy);
-      if (h) {
+      if (th) {
+        canvas.style.cursor = 'nwse-resize';
+      } else if (h) {
         const diag1 = (h === 'nw' || h === 'se');
         const diag2 = (h === 'ne' || h === 'sw');
         canvas.style.cursor = diag1 ? 'nwse-resize' : diag2 ? 'nesw-resize' : (h === 'n' || h === 's') ? 'ns-resize' : 'ew-resize';
       } else if (end) {
         canvas.style.cursor = 'crosshair';
-      } else if (hitTestShape(wx, wy) || hitTestLine(wx, wy)) {
+      } else if (hitTestToken(wx, wy) || hitTestShape(wx, wy) || hitTestLine(wx, wy)) {
         canvas.style.cursor = 'move';
       } else {
         canvas.style.cursor = 'default';
@@ -1419,6 +1733,28 @@ canvas.addEventListener('mousemove', (e) => {
         if (cur !== target) setWall(edge.q, edge.r, edge.edge, target);
         render();
       }
+    }
+  } else if (_dragMode === 'token-move') {
+    const t = tokens.find(x => x.id === _dragTokenId);
+    if (t) {
+      t.x = (wx - _dragOffX) / CELL_SIZE;
+      t.y = (wy - _dragOffY) / CELL_SIZE;
+      render();
+    }
+  } else if (_dragMode === 'token-resize') {
+    const t = tokens.find(x => x.id === _dragTokenId);
+    if (t) {
+      const x0 = t.x * CELL_SIZE, y0 = t.y * CELL_SIZE;
+      const x1 = (t.x + t.w) * CELL_SIZE, y1 = (t.y + t.h) * CELL_SIZE;
+      let nx0 = x0, ny0 = y0, nx1 = x1, ny1 = y1;
+      const h = _dragHandle;
+      if (h.includes('w')) nx0 = Math.min(wx, x1 - CELL_SIZE * 0.5);
+      if (h.includes('e')) nx1 = Math.max(wx, x0 + CELL_SIZE * 0.5);
+      if (h.includes('n')) ny0 = Math.min(wy, y1 - CELL_SIZE * 0.5);
+      if (h.includes('s')) ny1 = Math.max(wy, y0 + CELL_SIZE * 0.5);
+      t.x = nx0 / CELL_SIZE; t.y = ny0 / CELL_SIZE;
+      t.w = (nx1 - nx0) / CELL_SIZE; t.h = (ny1 - ny0) / CELL_SIZE;
+      render();
     }
   } else if (_dragMode === 'shape-move') {
     const sh = shapes.find(s => s.id === _dragShapeId);
@@ -1517,7 +1853,8 @@ canvas.addEventListener('mouseup', () => {
 
   isDragging = false;
   _dragMode = null;
-  _dragShapeId = null; _dragHandle = null; _dragLineId = null;
+  _dragShapeId = null; _dragHandle = null; _dragLineId = null; _dragTokenId = null;
+  _dragTokenId = null;
   _wallDragLast = null;
   _eraseDragLast = new Set();
   render();
@@ -1555,6 +1892,29 @@ canvas.addEventListener('touchstart', (e) => {
     const rect = canvas.getBoundingClientRect();
     const mx = e.touches[0].clientX - rect.left;
     const my = e.touches[0].clientY - rect.top;
+    // 单位放置（触摸）
+    if (selectedTool === 'unit' && _unitPending) {
+      const wx = (mx - viewX) / zoom, wy = (my - viewY) / zoom;
+      const c = pixelToCell(wx, wy);
+      const t = {
+        id: 'tk' + (_tokenSeq++),
+        kind: _unitPending.kind || 'npc',
+        name: _unitPending.name || '',
+        x: c.q - _unitPending.w / 2, y: c.r - _unitPending.h / 2,
+        w: _unitPending.w, h: _unitPending.h,
+        icon: _unitPending.icon || '🧝',
+        color: _unitPending.color || '#3a7abd',
+        hp: _unitPending.hp, maxHp: _unitPending.maxHp,
+        status: _unitPending.status || [],
+        imgData: _unitPending.imgData || '', img: _unitPending.img || null,
+        ownerId: ''
+      };
+      pushUndoMeta();
+      tokens.push(t);
+      selectedToken = t.id; selectedShape = null; selectedLine = null; selectedCell = null;
+      render(); updateInfo();
+      return;
+    }
     // 图片放置（触摸）
     if (selectedTool === 'token' && _tokenPending) {
       const wx = (mx - viewX) / zoom, wy = (my - viewY) / zoom;
@@ -1615,6 +1975,8 @@ canvas.addEventListener('dblclick', (e) => {
   const rect = canvas.getBoundingClientRect();
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
   const wx = (mx - viewX) / zoom, wy = (my - viewY) / zoom;
+  const tk = hitTestToken(wx, wy);
+  if (tk) { openUnitModal(tk); return; }
   const sh = hitTestShape(wx, wy);
   if (sh) { openShapeModal(sh.id); return; }
   const ln = hitTestLine(wx, wy);
@@ -1694,9 +2056,10 @@ function handleEdgeClick(edgeInfo) {
 function showContextMenu(cx, cy, mx, my) {
   const cell = cellAtPixel(mx, my);
   const wx = (mx - viewX) / zoom, wy = (my - viewY) / zoom;
+  const tkHit = hitTestToken(wx, wy);
   const shHit = hitTestShape(wx, wy);
   const lnHit = hitTestLine(wx, wy);
-  if (!cell && !shHit && !lnHit) return;
+  if (!cell && !tkHit && !shHit && !lnHit) return;
 
   // Simple inline context menu using a floating div
   let menu = document.getElementById('ctx-menu');
@@ -1729,6 +2092,19 @@ function showContextMenu(cx, cy, mx, my) {
     menu.appendChild(d);
   };
 
+  // 单位操作（若命中，优先于图形/格子菜单）
+  if (tkHit) {
+    selectedToken = tkHit.id; selectedShape = null; selectedLine = null; selectedCell = null;
+    render(); updateInfo();
+    addItem('🧝 编辑单位属性', () => { openUnitModal(tkHit); });
+    addItem('🗑️ 删除单位', () => {
+      pushUndoMeta();
+      tokens = tokens.filter(x => x.id !== tkHit.id);
+      if (selectedToken === tkHit.id) selectedToken = null;
+      render(); updateInfo();
+    });
+    sep();
+  }
   // 图形操作（若命中，优先于格子菜单）
   if (shHit) {
     selectedShape = shHit.id; selectedLine = null; selectedCell = null;
@@ -1831,6 +2207,11 @@ function setTool(tool) {
       hint.innerHTML = _tokenPending ? '🖼️ 点击地图放置图片，右键/Esc 取消' : '🖼️ 点击按钮后选择图片文件，然后点击地图放置';
       coord.textContent = '🖼️ 图片模式';
       cnt.style.cursor = _tokenPending ? 'crosshair' : 'pointer';
+      break;
+    case 'unit':
+      hint.innerHTML = _unitPending ? `🧝 点击地图放置 <b>${_unitPending.name || '单位'}</b>，Esc 取消` : '🧝 点击「放置单位」配置后点击地图放置，右键改属性';
+      coord.textContent = '🧝 单位模式';
+      cnt.style.cursor = _unitPending ? 'crosshair' : 'pointer';
       break;
     case 'line':
       hint.innerHTML = '📏 <b>拖拽</b>画任意角度线段（墙/视线阻挡/效果线），右键改颜色线宽';
@@ -2051,16 +2432,17 @@ function showToast(msg) {
 //  Clear
 // ============================================================
 function clearAll() {
-  if (!confirm('⚠️ 确认清空所有数据（地形/图形/线段）？此操作可撤销。')) return;
+  if (!confirm('⚠️ 确认清空所有数据（地形/图形/线段/单位）？此操作可撤销。')) return;
   beginBatch();
   for (const key of Object.keys(combatData)) pushUndo(key);
   pushUndoMeta();
   combatData = {};
   shapes = [];
   freeLines = [];
+  tokens = [];
   endBatch();
   selectedCell = null;
-  selectedShape = null; selectedLine = null;
+  selectedShape = null; selectedLine = null; selectedToken = null;
   render(); updateInfo();
   showToast('🗑️ 已清空');
 }
@@ -2074,8 +2456,15 @@ document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redo(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveJSON(); return; }
-  // Delete: 删除选中图形/线段
+  // Delete: 删除选中图形/线段/单位
   if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (selectedToken) {
+      pushUndoMeta();
+      tokens = tokens.filter(x => x.id !== selectedToken);
+      selectedToken = null;
+      render(); updateInfo();
+      return;
+    }
     if (selectedShape) {
       pushUndoMeta();
       shapes = shapes.filter(s => s.id !== selectedShape);
@@ -2091,14 +2480,15 @@ document.addEventListener('keydown', (e) => {
       return;
     }
   }
-  // Esc: 取消图片放置
-  if (e.key === 'Escape' && _tokenPending) {
+  // Esc: 取消图片/单位放置
+  if (e.key === 'Escape' && (_tokenPending || _unitPending)) {
     _tokenPending = null; _hoverToken = null;
+    _unitPending = null; _hoverUnit = null;
     setTool('select');
     render();
     return;
   }
-  const km = { 'v':'select', 'b':'paint', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 'r':'rect', 't':'token', 'g':'line' };
+  const km = { 'v':'select', 'b':'paint', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 'r':'rect', 't':'token', 'g':'line', 'u':'unit' };
   if (km[e.key?.toLowerCase()]) { e.preventDefault(); setTool(km[e.key.toLowerCase()]); }
   // 分享弹窗：Esc 关闭
   if (e.key === 'Escape') {
@@ -2165,6 +2555,104 @@ document.querySelectorAll('.tool-btn[data-tool="token"]').forEach(btn => {
     if (!_tokenPending) pickTokenImage();
   });
 });
+
+// 单位工具按钮：打开单位创建/编辑弹窗
+document.querySelectorAll('.tool-btn[data-tool="unit"]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (!_unitPending) openUnitModal();
+  });
+});
+
+// ============================================================
+//  Unit Token Modal（单位层）
+// ============================================================
+const UNIT_STATUS_OPTIONS = [
+  ['中毒', '☠️'], ['倒地', '🟥'], ['昏迷', '💫'], ['专注', '🎯'],
+  ['减速', '🐢'], ['燃烧', '🔥'], ['冰冻', '🧊'], ['隐形', '👻']
+];
+
+function openUnitModal(token) {
+  const modal = document.getElementById('unit-modal');
+  const isEdit = !!token;
+  document.getElementById('unit-modal-title').textContent = isEdit ? '编辑' : '新建';
+  document.getElementById('unit-id').value = token?.id || '';
+  document.getElementById('unit-name').value = token?.name || '';
+  document.getElementById('unit-kind').value = token?.kind || 'player';
+  document.getElementById('unit-icon').value = token?.icon || '🧝';
+  document.getElementById('unit-color').value = token?.color || '#3a7abd';
+  document.getElementById('unit-hp').value = token?.hp ?? 10;
+  document.getElementById('unit-maxhp').value = token?.maxHp ?? 10;
+  document.getElementById('unit-w').value = token?.w ?? 1;
+  document.getElementById('unit-h').value = token?.h ?? 1;
+  document.getElementById('unit-delete').style.display = isEdit ? 'block' : 'none';
+  // 状态复选框
+  const ck = document.getElementById('unit-status-checkboxes');
+  ck.innerHTML = '';
+  UNIT_STATUS_OPTIONS.forEach(([label, icon]) => {
+    const lid = 'st-' + label;
+    const lab = document.createElement('label');
+    lab.style.cssText = 'display:inline-flex;align-items:center;gap:2px;background:#1a1a2e;border:1px solid #0f3460;border-radius:4px;padding:2px 5px;cursor:pointer;';
+    lab.innerHTML = `<input type="checkbox" id="${lid}" value="${label}" style="width:auto;"> ${icon} ${label}`;
+    const cb = lab.querySelector('input');
+    cb.checked = (token?.status || []).includes(label);
+    ck.appendChild(lab);
+  });
+  modal.style.display = 'block';
+}
+
+function closeUnitModal() {
+  document.getElementById('unit-modal').style.display = 'none';
+}
+
+function saveUnitModal() {
+  const id = document.getElementById('unit-id').value;
+  const status = [];
+  document.querySelectorAll('#unit-status-checkboxes input:checked').forEach(cb => status.push(cb.value));
+  const data = {
+    name: document.getElementById('unit-name').value.trim(),
+    kind: document.getElementById('unit-kind').value,
+    icon: document.getElementById('unit-icon').value.trim() || '🧝',
+    color: document.getElementById('unit-color').value,
+    hp: Math.max(0, parseInt(document.getElementById('unit-hp').value) || 0),
+    maxHp: Math.max(1, parseInt(document.getElementById('unit-maxhp').value) || 1),
+    w: Math.max(0.2, parseInt(document.getElementById('unit-w').value) || 1),
+    h: Math.max(0.2, parseInt(document.getElementById('unit-h').value) || 1),
+    status
+  };
+  if (id) {
+    const t = tokens.find(x => x.id === id);
+    if (t) {
+      pushUndoMeta();
+      Object.assign(t, data);
+      closeUnitModal();
+      render(); updateInfo();
+      showToast('✅ 单位已更新');
+      return;
+    }
+  }
+  // 新建：进入放置模式
+  _unitPending = { ...data, imgData: '', img: null };
+  setTool('unit');
+  closeUnitModal();
+  showToast('🧝 点击地图放置单位');
+}
+
+function deleteUnitConfirm() {
+  const id = document.getElementById('unit-id').value;
+  if (!id) return;
+  pushUndoMeta();
+  tokens = tokens.filter(x => x.id !== id);
+  if (selectedToken === id) selectedToken = null;
+  closeUnitModal();
+  render(); updateInfo();
+  showToast('🗑️ 已删除单位');
+}
+
+// 单位弹窗事件绑定
+document.getElementById('unit-confirm').addEventListener('click', saveUnitModal);
+document.getElementById('unit-cancel').addEventListener('click', closeUnitModal);
+document.getElementById('unit-delete').addEventListener('click', deleteUnitConfirm);
+document.getElementById('unit-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
 
 // ============================================================
 
@@ -2765,6 +3253,7 @@ function buildCombatPayload() {
     combatData,
     shapes: shapes.map(s => { const c = { ...s }; delete c.img; return c; }),
     freeLines,
+    tokens: tokens.map(t => { const c = { ...t }; delete c.img; return c; }),
     viewX, viewY, zoom,
     customTerrains,
     terrainOverrides
@@ -2784,6 +3273,7 @@ function applyCombatData(data) {
     return sh;
   });
   freeLines = data.freeLines || [];
+  restoreTokens(data.tokens || []);
   if (data.customTerrains || data.terrainOverrides) {
     customTerrains = data.customTerrains || {};
     terrainOverrides = data.terrainOverrides || {};
@@ -2793,6 +3283,7 @@ function applyCombatData(data) {
   }
   _shapeSeq = Math.max(_shapeSeq, ...shapes.map(s => parseInt(String(s.id).replace('sh','')) || 0)) + 1;
   _lineSeq = Math.max(_lineSeq, ...freeLines.map(l => parseInt(String(l.id).replace('ln','')) || 0)) + 1;
+  _tokenSeq = Math.max(_tokenSeq, ...tokens.map(t => parseInt(String(t.id).replace('tk','')) || 0)) + 1;
   undoStack = []; redoStack = []; updateUndoButtons();
   viewX = data.viewX || 0; viewY = data.viewY || 0; zoom = data.zoom || 1;
   const zi = document.getElementById('zoom-indicator');
@@ -2944,6 +3435,275 @@ function loadCombatMapFromUrlShare() {
     }
   }).catch(err => showToast('⚠️ 分享地图导入失败: ' + ((err && err.message) || '数据无效')));
 }
+// ============================================================
+//  Online — PeerJS P2P 实时同步（星型：主机=房主，客户端直连主机）
+//  依赖: state.js/core.js/render.js/share.js
+//  用法: 工具栏「🌐 在线」创建房间/加入房间；任一本地改动经过
+//  render() 自动节流广播完整快照。主机收到客户端快照后应用并转播。
+// ============================================================
+
+const PEER_CONFIG = {
+  host: '0.peerjs.com',
+  port: 443,
+  path: '/',
+  secure: true,
+  debug: 0,
+  config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+};
+
+let onlinePeer = null;
+let onlineRoom = '';
+let onlineConnections = [];   // DataConnection 列表
+let onlineSync = false;
+let onlineMseq = 0;
+let onlineApplyRemote = false;
+let onlineTimer = null;
+
+function setOnlineStatus(msg) {
+  const el = document.getElementById('online-status');
+  if (el) el.textContent = msg || '';
+  const st = document.getElementById('btn-online-status');
+  if (st) {
+    st.textContent = onlinePeer ? (onlineSync ? '在线' : '连接中…') : '未连接';
+    st.disabled = !onlinePeer;
+    st.style.opacity = onlinePeer ? '1' : '0.4';
+    st.style.background = onlineSync ? '#2d6a2e' : '#3a3a5e';
+    st.style.color = onlinePeer ? '#fff' : '#aaa';
+  }
+}
+
+function sanitizeRoom(s) {
+  s = (s || '').trim().toLowerCase();
+  s = s.replace(/[^a-z0-9-]/g, '');
+  return s.slice(0, 48);
+}
+
+function openOnlineModal() {
+  const modal = document.getElementById('online-modal');
+  if (!modal) return;
+  if (typeof Peer === 'undefined' || (window.__combatmapCDN && window.__combatmapCDN.peerjs === false)) {
+    setOnlineStatus('⚠️ PeerJS 未加载：请联网后刷新（在线功能依赖 CDN）');
+    return;
+  }
+  const inp = document.getElementById('online-room');
+  if (!inp.value) inp.value = 'dm-' + Date.now().toString(36).slice(-6);
+  modal.style.display = 'block';
+  setOnlineStatus(onlinePeer
+    ? `已连接房间 ${onlineRoom}，${onlineConnections.length + 1} 人在线`
+    : '创建房间或加入已有房间');
+}
+
+function closeOnlineModal() {
+  const modal = document.getElementById('online-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function buildOnlineSnapshot() {
+  return {
+    type: 'snapshot',
+    seq: ++onlineMseq,
+    ts: Date.now(),
+    data: buildCombatPayload()
+  };
+}
+
+function sendTo(conn, payload) {
+  if (!conn || !conn.open) return;
+  try { conn.send(JSON.stringify(payload)); } catch (e) { /* ignore */ }
+}
+
+function broadcastSnapshot(excludeConn) {
+  if (!onlineSync) return;
+  const payload = buildOnlineSnapshot();
+  for (const conn of onlineConnections) {
+    if (conn === excludeConn) continue;
+    sendTo(conn, payload);
+  }
+}
+
+function onlineSendSnapshotTo(conn) {
+  sendTo(conn, buildOnlineSnapshot());
+}
+
+function scheduleOnlineSnapshot() {
+  if (!onlineSync || onlineApplyRemote) return;
+  clearTimeout(onlineTimer);
+  onlineTimer = setTimeout(() => broadcastSnapshot(), 120);
+}
+
+// 包装 render：本地每次渲染后触发节流广播；远端应用期间不转播。
+const __combatmapOriginalRender = render;
+render = function () {
+  __combatmapOriginalRender();
+  scheduleOnlineSnapshot();
+};
+
+function applyRemoteSnapshot(msg) {
+  if (!msg || msg.type !== 'snapshot' || !msg.data) return;
+  // 新加入客户端收到主机首个快照后，才放开同步，避免空图盖掉全屋地图
+  if (onlinePeer && onlineRoom && !onlineSync) onlineSync = true;
+  onlineApplyRemote = true;
+  try {
+    const n = applyCombatData(msg.data);
+    showToast(`🌐 已同步远端地图 ${n} 格 / ${tokens.length} 单位`);
+  } catch (e) {
+    console.error('远端同步失败', e);
+    showToast('⚠️ 远端同步失败: ' + (e && e.message));
+  }
+  onlineApplyRemote = false;
+  render();
+}
+
+function handleOnlineData(conn, raw) {
+  let msg;
+  try { msg = JSON.parse(raw); } catch (e) { return; }
+  if (!msg || !msg.type) return;
+  if (msg.type === 'snapshot') {
+    applyRemoteSnapshot(msg);
+    // 主机收到客户端快照后应用，并转播给其他连接
+    if (onlineRoom && onlineConnections.length > 0) broadcastSnapshot(conn);
+  } else if (msg.type === 'hello') {
+    // 新客户端请求首次快照
+    sendTo(conn, buildOnlineSnapshot());
+  } else if (msg.type === 'ping') {
+    sendTo(conn, { type: 'pong', ts: Date.now() });
+  }
+}
+
+function onlineAddConn(conn) {
+  if (onlineConnections.some(c => c === conn)) return;
+  onlineConnections.push(conn);
+  conn.on('data', (raw) => handleOnlineData(conn, raw));
+  conn.on('close', () => {
+    onlineConnections = onlineConnections.filter(c => c !== conn);
+    setOnlineStatus(`↗️ 有成员离开，当前在线 ${onlineConnections.length + 1}`);
+  });
+  onlineSendSnapshotTo(conn);
+  setOnlineStatus(`🎉 新成员加入，当前在线 ${onlineConnections.length + 1}`);
+  render();
+}
+
+function onlineCreateRoom() {
+  if (onlinePeer) { setOnlineStatus('⚠️ 已在房间中，请先离开'); return; }
+  if (typeof Peer === 'undefined') { setOnlineStatus('⚠️ PeerJS 未加载'); return; }
+  const roomId = sanitizeRoom(document.getElementById('online-room')?.value || '');
+  if (!roomId) { setOnlineStatus('⚠️ 请输入房间名'); return; }
+  onlineRoom = roomId;
+  onlineSync = false;
+  try {
+    onlinePeer = new Peer(roomId, PEER_CONFIG);
+  } catch (e) {
+    setOnlineStatus('⚠️ 创建失败: ' + e.message);
+    return;
+  }
+  onlinePeer.on('open', () => {
+    onlineSync = true;
+    setOnlineStatus('✅ 房间已创建：' + roomId + ' · 分享邀请链接给玩家');
+    closeOnlineModal();
+    showToast('🌐 房间已创建：' + roomId);
+  });
+  onlinePeer.on('connection', (conn) => {
+    conn.on('open', () => onlineAddConn(conn));
+  });
+  onlinePeer.on('error', (err) => {
+    console.error(err);
+    setOnlineStatus('⚠️ 创建失败: ' + ((err && err.type) || '房间名可能被占用'));
+  });
+}
+
+function onlineJoinRoom(roomRaw) {
+  if (onlinePeer) { setOnlineStatus('⚠️ 已在房间中，请先离开'); return; }
+  const roomId = sanitizeRoom(roomRaw);
+  if (!roomId) { setOnlineStatus('⚠️ 房间名不能为空'); return; }
+  if (typeof Peer === 'undefined') { setOnlineStatus('⚠️ PeerJS 未加载'); return; }
+  onlineSync = false;
+  try {
+    onlinePeer = new Peer(undefined, PEER_CONFIG);
+  } catch (e) {
+    setOnlineStatus('⚠️ 加入失败: ' + e.message);
+    return;
+  }
+  const conn = onlinePeer.connect(roomId, { reliable: true });
+  onlineConnections = [conn];
+
+  conn.on('open', () => {
+    onlineRoom = roomId;
+    // 先不发本地快照，等主机回传
+    setOnlineStatus('✅ 已加入 ' + roomId + '，正在接收主机地图…');
+    closeOnlineModal();
+    showToast('🌐 已加入房间 ' + roomId);
+    sendTo(conn, { type: 'hello', ts: Date.now() });
+  });
+  conn.on('data', (raw) => handleOnlineData(conn, raw));
+  conn.on('close', () => {
+    onlineSync = false;
+    setOnlineStatus('⚠️ 与主机连接断开');
+  });
+  onlinePeer.on('error', (err) => {
+    console.error(err);
+    setOnlineStatus('⚠️ 加入失败: ' + ((err && err.type) || err.message || '房间不存在'));
+  });
+}
+
+function onlineCopyInvite() {
+  if (!onlineRoom) { setOnlineStatus('⚠️ 先创建/加入房间'); return; }
+  const url = location.origin + location.pathname + '?room=' + encodeURIComponent(onlineRoom) + '&online=1';
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(() => setOnlineStatus('📋 邀请链接已复制'), () => fallbackCopyOnline(url));
+  } else fallbackCopyOnline(url);
+}
+
+function fallbackCopyOnline(text) {
+  const el = document.createElement('input');
+  el.value = text;
+  document.body.appendChild(el);
+  el.select();
+  try { document.execCommand('copy'); setOnlineStatus('📋 邀请链接已复制'); } catch (e) { setOnlineStatus('请手动复制：' + text); }
+  el.remove();
+}
+
+function onlineLeave() {
+  if (!onlinePeer) { setOnlineStatus('未连接'); return; }
+  try { onlinePeer.destroy(); } catch (e) { /* ignore */ }
+  onlinePeer = null;
+  onlineRoom = '';
+  onlineSync = false;
+  onlineConnections = [];
+  setOnlineStatus('已离开房间');
+  showToast('🚪 已离开在线房间');
+}
+
+function initOnlineUI() {
+  const modal = document.getElementById('online-modal');
+  if (!modal) return;
+  document.getElementById('btn-online').addEventListener('click', openOnlineModal);
+  document.getElementById('online-btn-create').addEventListener('click', onlineCreateRoom);
+  document.getElementById('online-btn-join').addEventListener('click', () => onlineJoinRoom(document.getElementById('online-room').value));
+  document.getElementById('online-btn-copy').addEventListener('click', onlineCopyInvite);
+  document.getElementById('online-btn-leave').addEventListener('click', onlineLeave);
+  document.getElementById('online-btn-close').addEventListener('click', closeOnlineModal);
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeOnlineModal(); });
+
+  // 从 ?room= 自动加入
+  const params = new URLSearchParams(location.search);
+  const room = params.get('room');
+  if (room && params.get('online') === '1') {
+    setTimeout(() => {
+      const inp = document.getElementById('online-room');
+      if (inp) inp.value = room;
+      onlineJoinRoom(room);
+    }, 600);
+  }
+}
+
+function initOnline() {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initOnlineUI);
+  } else {
+    initOnlineUI();
+  }
+}
+initOnline();
 //  Export: Excel
 //  主格式 = .xlsx（标准 OOXML，Excel/WPS 都支持颜色与方正规格）
 //  降级   = .xls（HTML 表格，仅当 SheetJS 未加载时使用）
@@ -3311,7 +4071,7 @@ function dataURLToArrayBuffer(dataURL) {
 
 async function writeWorkbookWithShapes(wb, minQ, maxQ, minR, maxR, styleKeys, cols, rows) {
   const filename = 'combatmap_' + new Date().toISOString().slice(0,10) + '.xlsx';
-  const hasGraphics = shapes.length > 0 || freeLines.length > 0;
+  const hasGraphics = shapes.length > 0 || freeLines.length > 0 || tokens.length > 0;
 
   if (typeof JSZip === 'undefined') {
     XLSX.writeFile(wb, filename);
@@ -3458,7 +4218,7 @@ async function writeWorkbookWithShapes(wb, minQ, maxQ, minR, maxR, styleKeys, co
     // 5. 打包下载
     const blob = await zip.generateAsync({ type: 'blob', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     downloadBlob(blob, filename);
-    const gfxNote = hasGraphics ? ` + ${shapes.length} 图形/${freeLines.length} 线段(可拖动)` : '';
+    const gfxNote = hasGraphics ? ` + ${shapes.length} 图形/${freeLines.length} 线段/${tokens.length} 单位(可拖动)` : '';
     showToast(`📊 xlsx 已导出（颜色+方正格子${gfxNote}）`);
   } catch (err) {
     console.error(err);
@@ -3488,7 +4248,7 @@ function downloadBlob(blob, filename) {
 function renderMapCanvas(exact) {
   cleanData();
   const keys = Object.keys(combatData);
-  const hasGraphics = shapes.length > 0 || freeLines.length > 0;
+  const hasGraphics = shapes.length > 0 || freeLines.length > 0 || tokens.length > 0;
   if (keys.length === 0 && !hasGraphics) return null;
 
   let minQ = Infinity, maxQ = -Infinity, minR = Infinity, maxR = -Infinity;
@@ -3507,6 +4267,10 @@ function renderMapCanvas(exact) {
   freeLines.forEach(ln => {
     feed(Math.floor(Math.min(ln.x1, ln.x2)), Math.floor(Math.min(ln.y1, ln.y2)));
     feed(Math.ceil(Math.max(ln.x1, ln.x2)), Math.ceil(Math.max(ln.y1, ln.y2)));
+  });
+  tokens.forEach(t => {
+    feed(Math.floor(t.x), Math.floor(t.y));
+    feed(Math.ceil(t.x + t.w), Math.ceil(t.y + t.h));
   });
   if (!isFinite(minQ)) { minQ = -2; maxQ = 2; minR = -2; maxR = 2; }
 
@@ -3667,6 +4431,53 @@ function renderMapCanvas(exact) {
     }
   }
 
+  // Pass 6: 单位层（合成）
+  for (const t of tokens) {
+    const p = cellToPixel(t.x, t.y);
+    const w = t.w * CELL_SIZE, h = t.h * CELL_SIZE;
+    expCtx.beginPath();
+    expCtx.ellipse(p.x + w / 2, p.y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+    expCtx.fillStyle = t.color || '#3a7abd';
+    expCtx.fill();
+    expCtx.lineWidth = 2;
+    expCtx.strokeStyle = 'rgba(255,255,255,0.85)';
+    expCtx.stroke();
+    if (t.imgData && t.img) {
+      expCtx.save();
+      expCtx.beginPath();
+      expCtx.ellipse(p.x + w / 2, p.y + h / 2, w / 2 - 3, h / 2 - 3, 0, 0, Math.PI * 2);
+      expCtx.clip();
+      expCtx.drawImage(t.img, p.x + 3, p.y + 3, w - 6, h - 6);
+      expCtx.restore();
+    } else if (t.icon) {
+      expCtx.font = `${Math.min(w, h) * 0.55}px sans-serif`;
+      expCtx.textAlign = 'center'; expCtx.textBaseline = 'middle';
+      expCtx.fillText(t.icon, p.x + w / 2, p.y + h / 2);
+    }
+    if (t.name) {
+      expCtx.font = `bold 11px sans-serif`;
+      const tw = expCtx.measureText(t.name).width + 8;
+      const by = Math.max(2, p.y - 10);
+      expCtx.fillStyle = 'rgba(0,0,0,0.7)';
+      expCtx.fillRect(p.x + w / 2 - tw / 2, by, tw, 14);
+      expCtx.fillStyle = '#fff';
+      expCtx.textAlign = 'center'; expCtx.textBaseline = 'middle';
+      expCtx.fillText(t.name, p.x + w / 2, by + 7);
+    }
+    if (typeof t.maxHp === 'number' && t.maxHp > 0) {
+      const hp = Math.max(0, Math.min(t.maxHp, t.hp ?? t.maxHp));
+      const barW = Math.max(w * 0.8, 20);
+      const bx = p.x + w / 2 - barW / 2;
+      const by = p.y + h - 2;
+      expCtx.fillStyle = 'rgba(0,0,0,0.7)';
+      expCtx.fillRect(bx - 1, by - 1, barW + 2, 6);
+      expCtx.fillStyle = '#a33';
+      expCtx.fillRect(bx, by, barW, 4);
+      expCtx.fillStyle = hp / t.maxHp > 0.5 ? '#3c3' : (hp / t.maxHp > 0.25 ? '#cc3' : '#e33');
+      expCtx.fillRect(bx, by, barW * hp / t.maxHp, 4);
+    }
+  }
+
   expCtx.restore();
   return { canvas: expCanvas, minQ, maxQ, minR, maxR, keys };
 }
@@ -3729,11 +4540,7 @@ function exportLegendPNG() {
 
 // ============================================================
 //  Export: Owlbear Rodeo 场景（.owlbear，可在枭熊中导入）
-//  OBR 2.0 场景文件格式：
-//  { "data": { "data": [
-//      { "tableName":"maps", "rows":[{ "id","name","file","grid" }] },
-//      { "tableName":"assets", "rows":[{ "id","mime","file":{"buffer":base64} }] }
-//  ] } }
+//  含地图 PNG + 单位 token 图片（尽量合成进地图图；当前 token 已随 PNG 合成）
 // ============================================================
 function exportOwlbearScene() {
   const result = renderMapCanvas(true);
@@ -3790,12 +4597,14 @@ function saveJSON() {
   const data = {
     combatData,
     shapes: shapes.map(s => { const c = { ...s }; delete c.img; return c; }),
-    freeLines, viewX, viewY, zoom
+    freeLines,
+    tokens: tokens.map(t => { const c = { ...t }; delete c.img; return c; }),
+    viewX, viewY, zoom
   };
   const json = JSON.stringify(data);
   const blob = new Blob([json], { type: 'application/json' });
   downloadBlob(blob, `combatmap_${new Date().toISOString().slice(0,10)}.json`);
-  showToast(`💾 已保存 — ${Object.keys(combatData).length} 格 / ${shapes.length} 图形 / ${freeLines.length} 线段`);
+  showToast(`💾 已保存 — ${Object.keys(combatData).length} 格 / ${shapes.length} 图形 / ${freeLines.length} 线段 / ${tokens.length} 单位`);
 }
 
 function loadJSON() {
@@ -3820,13 +4629,15 @@ function loadJSON() {
           return sh;
         });
         freeLines = data.freeLines || [];
+        restoreTokens(data.tokens || []);
         _shapeSeq = Math.max(_shapeSeq, ...shapes.map(s => parseInt(String(s.id).replace('sh','')) || 0)) + 1;
         _lineSeq = Math.max(_lineSeq, ...freeLines.map(l => parseInt(String(l.id).replace('ln','')) || 0)) + 1;
+        _tokenSeq = Math.max(_tokenSeq, ...tokens.map(t => parseInt(String(t.id).replace('tk','')) || 0)) + 1;
         undoStack = []; redoStack = []; updateUndoButtons();
         viewX = data.viewX || 0; viewY = data.viewY || 0; zoom = data.zoom || 1;
         document.getElementById('zoom-indicator').textContent = `🔍 ${Math.round(zoom * 100)}%`;
         render(); updateInfo();
-        showToast(`📂 已加载 — ${Object.keys(combatData).length} 格 / ${shapes.length} 图形 / ${freeLines.length} 线段`);
+        showToast(`📂 已加载 — ${Object.keys(combatData).length} 格 / ${shapes.length} 图形 / ${freeLines.length} 线段 / ${tokens.length} 单位`);
       } catch(err) { showToast('⚠️ 加载失败，文件格式错误'); }
     };
     reader.readAsText(file);
@@ -3851,16 +4662,17 @@ function init() {
   const missing = [];
   if (cdn.xlsx === false) missing.push('SheetJS');
   if (cdn.jszip === false) missing.push('JSZip');
+  if (cdn.peerjs === false) missing.push('PeerJS');
   if (missing.length > 0) {
     const warn = document.getElementById('cdn-warning');
     if (warn) {
       warn.style.display = 'block';
-      warn.textContent = `⚠️ 依赖未加载（${missing.join(', ')}）— xlsx 导出将降级，建议联网后刷新`;
+      warn.textContent = `⚠️ 依赖未加载（${missing.join(', ')}）— xlsx 导出降级 / 在线功能不可用，建议联网后刷新`;
     }
   }
   console.log(`⚔️ 通用战斗地图生成器 ${COMBATMAP_VERSION} 已就绪`);
-  console.log('快捷键: V=选择 B=笔刷 W=墙壁 D=门 L=标签 E=擦除 R=区域 T=图片 G=线段 Delete=删除选中');
-  console.log('新增: 区域/图片/线段图层 · 自定义地形(⚙️管理) · 智能区域模板 · 枭熊场景导出 · xlsx 颜色修复');
+  console.log('快捷键: V=选择 B=笔刷 W=墙壁 D=门 L=标签 E=擦除 R=区域 T=图片 G=线段 U=单位 Delete=删除选中');
+  console.log('新增: 单位 Token/HP/状态 · PeerJS 实时在线房间 · 区域/图片/线段图层 · 智能模板 · xlsx 颜色');
   if (typeof initCombatShareUI === 'function') initCombatShareUI();
 }
 

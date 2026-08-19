@@ -51,6 +51,11 @@ function setTool(tool) {
       coord.textContent = '🖼️ 图片模式';
       cnt.style.cursor = _tokenPending ? 'crosshair' : 'pointer';
       break;
+    case 'unit':
+      hint.innerHTML = _unitPending ? `🧝 点击地图放置 <b>${_unitPending.name || '单位'}</b>，Esc 取消` : '🧝 点击「放置单位」配置后点击地图放置，右键改属性';
+      coord.textContent = '🧝 单位模式';
+      cnt.style.cursor = _unitPending ? 'crosshair' : 'pointer';
+      break;
     case 'line':
       hint.innerHTML = '📏 <b>拖拽</b>画任意角度线段（墙/视线阻挡/效果线），右键改颜色线宽';
       coord.textContent = '📏 线段模式';
@@ -270,16 +275,17 @@ function showToast(msg) {
 //  Clear
 // ============================================================
 function clearAll() {
-  if (!confirm('⚠️ 确认清空所有数据（地形/图形/线段）？此操作可撤销。')) return;
+  if (!confirm('⚠️ 确认清空所有数据（地形/图形/线段/单位）？此操作可撤销。')) return;
   beginBatch();
   for (const key of Object.keys(combatData)) pushUndo(key);
   pushUndoMeta();
   combatData = {};
   shapes = [];
   freeLines = [];
+  tokens = [];
   endBatch();
   selectedCell = null;
-  selectedShape = null; selectedLine = null;
+  selectedShape = null; selectedLine = null; selectedToken = null;
   render(); updateInfo();
   showToast('🗑️ 已清空');
 }
@@ -293,8 +299,15 @@ document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redo(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveJSON(); return; }
-  // Delete: 删除选中图形/线段
+  // Delete: 删除选中图形/线段/单位
   if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (selectedToken) {
+      pushUndoMeta();
+      tokens = tokens.filter(x => x.id !== selectedToken);
+      selectedToken = null;
+      render(); updateInfo();
+      return;
+    }
     if (selectedShape) {
       pushUndoMeta();
       shapes = shapes.filter(s => s.id !== selectedShape);
@@ -310,14 +323,15 @@ document.addEventListener('keydown', (e) => {
       return;
     }
   }
-  // Esc: 取消图片放置
-  if (e.key === 'Escape' && _tokenPending) {
+  // Esc: 取消图片/单位放置
+  if (e.key === 'Escape' && (_tokenPending || _unitPending)) {
     _tokenPending = null; _hoverToken = null;
+    _unitPending = null; _hoverUnit = null;
     setTool('select');
     render();
     return;
   }
-  const km = { 'v':'select', 'b':'paint', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 'r':'rect', 't':'token', 'g':'line' };
+  const km = { 'v':'select', 'b':'paint', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 'r':'rect', 't':'token', 'g':'line', 'u':'unit' };
   if (km[e.key?.toLowerCase()]) { e.preventDefault(); setTool(km[e.key.toLowerCase()]); }
   // 分享弹窗：Esc 关闭
   if (e.key === 'Escape') {
@@ -384,6 +398,104 @@ document.querySelectorAll('.tool-btn[data-tool="token"]').forEach(btn => {
     if (!_tokenPending) pickTokenImage();
   });
 });
+
+// 单位工具按钮：打开单位创建/编辑弹窗
+document.querySelectorAll('.tool-btn[data-tool="unit"]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (!_unitPending) openUnitModal();
+  });
+});
+
+// ============================================================
+//  Unit Token Modal（单位层）
+// ============================================================
+const UNIT_STATUS_OPTIONS = [
+  ['中毒', '☠️'], ['倒地', '🟥'], ['昏迷', '💫'], ['专注', '🎯'],
+  ['减速', '🐢'], ['燃烧', '🔥'], ['冰冻', '🧊'], ['隐形', '👻']
+];
+
+function openUnitModal(token) {
+  const modal = document.getElementById('unit-modal');
+  const isEdit = !!token;
+  document.getElementById('unit-modal-title').textContent = isEdit ? '编辑' : '新建';
+  document.getElementById('unit-id').value = token?.id || '';
+  document.getElementById('unit-name').value = token?.name || '';
+  document.getElementById('unit-kind').value = token?.kind || 'player';
+  document.getElementById('unit-icon').value = token?.icon || '🧝';
+  document.getElementById('unit-color').value = token?.color || '#3a7abd';
+  document.getElementById('unit-hp').value = token?.hp ?? 10;
+  document.getElementById('unit-maxhp').value = token?.maxHp ?? 10;
+  document.getElementById('unit-w').value = token?.w ?? 1;
+  document.getElementById('unit-h').value = token?.h ?? 1;
+  document.getElementById('unit-delete').style.display = isEdit ? 'block' : 'none';
+  // 状态复选框
+  const ck = document.getElementById('unit-status-checkboxes');
+  ck.innerHTML = '';
+  UNIT_STATUS_OPTIONS.forEach(([label, icon]) => {
+    const lid = 'st-' + label;
+    const lab = document.createElement('label');
+    lab.style.cssText = 'display:inline-flex;align-items:center;gap:2px;background:#1a1a2e;border:1px solid #0f3460;border-radius:4px;padding:2px 5px;cursor:pointer;';
+    lab.innerHTML = `<input type="checkbox" id="${lid}" value="${label}" style="width:auto;"> ${icon} ${label}`;
+    const cb = lab.querySelector('input');
+    cb.checked = (token?.status || []).includes(label);
+    ck.appendChild(lab);
+  });
+  modal.style.display = 'block';
+}
+
+function closeUnitModal() {
+  document.getElementById('unit-modal').style.display = 'none';
+}
+
+function saveUnitModal() {
+  const id = document.getElementById('unit-id').value;
+  const status = [];
+  document.querySelectorAll('#unit-status-checkboxes input:checked').forEach(cb => status.push(cb.value));
+  const data = {
+    name: document.getElementById('unit-name').value.trim(),
+    kind: document.getElementById('unit-kind').value,
+    icon: document.getElementById('unit-icon').value.trim() || '🧝',
+    color: document.getElementById('unit-color').value,
+    hp: Math.max(0, parseInt(document.getElementById('unit-hp').value) || 0),
+    maxHp: Math.max(1, parseInt(document.getElementById('unit-maxhp').value) || 1),
+    w: Math.max(0.2, parseInt(document.getElementById('unit-w').value) || 1),
+    h: Math.max(0.2, parseInt(document.getElementById('unit-h').value) || 1),
+    status
+  };
+  if (id) {
+    const t = tokens.find(x => x.id === id);
+    if (t) {
+      pushUndoMeta();
+      Object.assign(t, data);
+      closeUnitModal();
+      render(); updateInfo();
+      showToast('✅ 单位已更新');
+      return;
+    }
+  }
+  // 新建：进入放置模式
+  _unitPending = { ...data, imgData: '', img: null };
+  setTool('unit');
+  closeUnitModal();
+  showToast('🧝 点击地图放置单位');
+}
+
+function deleteUnitConfirm() {
+  const id = document.getElementById('unit-id').value;
+  if (!id) return;
+  pushUndoMeta();
+  tokens = tokens.filter(x => x.id !== id);
+  if (selectedToken === id) selectedToken = null;
+  closeUnitModal();
+  render(); updateInfo();
+  showToast('🗑️ 已删除单位');
+}
+
+// 单位弹窗事件绑定
+document.getElementById('unit-confirm').addEventListener('click', saveUnitModal);
+document.getElementById('unit-cancel').addEventListener('click', closeUnitModal);
+document.getElementById('unit-delete').addEventListener('click', deleteUnitConfirm);
+document.getElementById('unit-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
 
 // ============================================================
 
