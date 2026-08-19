@@ -1,6 +1,6 @@
 //  Configuration
 // ============================================================
-const COMBATMAP_VERSION = 'v0.8';
+const COMBATMAP_VERSION = 'v0.81';
 
 // 单位类型 → 环颜色（画布 token 渲染 / 单位库角标统一使用）
 const TOKEN_KIND_COLORS = {

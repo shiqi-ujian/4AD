@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>通用战斗地图生成器 v0.8</title>
+<title>通用战斗地图生成器 v0.81</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -151,7 +151,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
 <body>
 <div id="app">
   <div id="toolbar">
-    <h2>⚔️ 战斗地图 <span class="ver">v0.8</span></h2>
+    <h2>⚔️ 战斗地图 <span class="ver">v0.81</span></h2>
 
     <div id="role-switch">
       <button id="role-dm" class="role-btn dm-role active" title="DM 视图：显示全部工具（含 DM 层/战雾/先攻条等隐藏信息）">🎲 DM 视图</button>
@@ -287,7 +287,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
     </div>
 
     <div style="margin-top:auto;font-size:10px;color:#555;text-align:center;padding-top:6px;">
-      通用跑团 · 战斗地图 v0.8<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>单位库 · Shift 连放 · DM/玩家视图 · 网格对齐
+      通用跑团 · 战斗地图 v0.81<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>单位库 · Shift 连放 · DM/玩家视图 · 网格对齐
     </div>
   </div>
 
@@ -304,7 +304,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
         <button id="empty-dismiss" style="padding:6px 14px;background:#3a3a5e;color:#ccc;border:1px solid #0f3460;border-radius:6px;cursor:pointer;font-size:13px;">知道了</button>
       </div>
     </div>
-    <div id="bg-align-bar" style="display:none;position:absolute;top:44px;left:50%;transform:translateX(-50%);z-index:20;background:rgba(22,33,62,0.95);border:1px solid #3a7abd;border-radius:8px;padding:6px 10px;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(0,0,0,0.4);font-size:12px;">
+    <div id="bg-align-bar" style="display:none;position:absolute;top:44px;left:50%;transform:translateX(-50%);z-index:20;background:rgba(22,33,62,0.95);border:1px solid #3a7abd;border-radius:8px;padding:6px 10px;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(0,0,0,0.4);font-size:12px;">
       <span id="bg-align-status">🎯 对齐模式：点击图中格线交点</span>
       <label style="display:flex;align-items:center;gap:3px;white-space:nowrap;font-size:11px;color:#ccc;" title="第 2/3 点相对第 1 点跨越的格数（图像上每格算 1 格）">点间
         <input type="number" id="bg-align-cells" value="1" min="1" max="50" style="width:50px;padding:2px 4px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:11px;text-align:center;">
