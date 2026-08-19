@@ -12,9 +12,9 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; colo
 #toolbar {
   width: 290px; min-width: 290px;
   background: #16213e;
-  padding: 12px 10px;
+  padding: 12px 10px 8px;
   display: flex; flex-direction: column; gap: 4px;
-  overflow-y: auto; border-right: 1px solid #0f3460;
+  overflow: hidden; border-right: 1px solid #0f3460;
   z-index: 10;
 }
 #toolbar h2 { font-size: 15px; text-align: center; color: #e94560; margin-bottom: 6px; border-bottom: 1px solid #0f3460; padding-bottom: 8px; letter-spacing: 1px; }
@@ -43,19 +43,23 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; colo
 .tool-btn[data-terrain] .icon { font-size: 14px; }
 .tool-btn[data-terrain] .label { display: none; }
 
-/* 可折叠分区 */
-details.panel-sec { margin: 3px 0; border: 1px solid #0f3460; border-radius: 7px; background: rgba(26,26,46,0.55); overflow: hidden; }
-details.panel-sec > summary {
-  list-style: none; cursor: pointer; padding: 6px 9px; font-size: 12px; font-weight: 700;
-  color: #ccd; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; user-select: none;
+/* 页签面板：每个子页独立滚动，不挤在一长列里 */
+#panel-tabs { display: flex; gap: 3px; margin-bottom: 6px; flex-wrap: wrap; }
+.panel-tab {
+  flex: 1; min-width: 44px; padding: 5px 2px; font-size: 11px; text-align: center;
+  border: 1px solid #0f3460; border-radius: 6px; background: #1a1a2e; color: #999; cursor: pointer;
+  white-space: nowrap; transition: all 0.1s;
 }
-details.panel-sec > summary::-webkit-details-marker { display: none; }
-details.panel-sec > summary::before { content: '▸'; color: #888; font-size: 10px; transition: transform 0.15s; flex-shrink: 0; }
-details.panel-sec[open] > summary::before { transform: rotate(90deg); }
-details.panel-sec > summary:hover { background: rgba(58,122,189,0.12); }
-details.panel-sec > .sec-body { padding: 6px 8px 8px; border-top: 1px solid #0f3460; }
-.sec-badge { margin-left: auto; font-size: 10px; font-weight: 400; color: #888; background: #1a1a2e; border: 1px solid #0f3460; border-radius: 8px; padding: 0 6px; white-space: nowrap; }
-.sec-badge.dm { color: #e0b0ff; border-color: #7a4a9e; background: rgba(122,74,158,0.25); }
+.panel-tab:hover { color: #fff; background: rgba(58,122,189,0.15); }
+.panel-tab.active { border-color: #3a7abd; color: #fff; background: rgba(58,122,189,0.28); font-weight: 700; }
+.panel-tab .tab-badge { font-size: 9px; color: #e0b0ff; font-weight: 400; }
+#panel-pages { flex: 1; position: relative; overflow: hidden; min-height: 0; }
+.panel-page { display: none; position: absolute; inset: 0; overflow-y: auto; padding: 2px 4px 8px; }
+.panel-page.active { display: block; }
+.panel-page::-webkit-scrollbar { width: 4px; }
+.panel-page::-webkit-scrollbar-thumb { background: #0f3460; border-radius: 2px; }
+.panel-page .page-hint { font-size: 10px; color: #888; margin: 4px 0; line-height: 1.5; }
+.page-title { font-size: 11px; color: #aaa; margin: 2px 0 4px; font-weight: 600; letter-spacing: 0.5px; }
 .dm-locked { opacity: 0.35; filter: grayscale(0.7); pointer-events: none !important; }
 
 /* 角色切换 */
@@ -114,8 +118,9 @@ canvas { display: block; }
 @media (max-width: 800px) {
   #toolbar { width: 48px; min-width: 48px; }
   #toolbar h2, .tool-btn .label, #tool-hint, #role-switch, #player-banner,
-  details.panel-sec > summary .sec-title, .sec-badge, .tlib-card .tlib-name { display: none; }
-  details.panel-sec > summary { justify-content: center; }
+  .panel-tab .tab-label, .panel-tab .tab-badge, .tlib-card .tlib-name, .page-title, .page-hint { display: none; }
+  #panel-tabs { flex-direction: column; }
+  .panel-tab { min-width: 0; font-size: 15px; padding: 6px 0; }
   #token-library-list { grid-template-columns: repeat(1, 1fr); }
 }
 
@@ -155,9 +160,18 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
     <div id="player-banner" style="display:none;margin-bottom:6px;padding:4px 8px;background:rgba(201,168,76,0.14);border:1px solid #c9a84c;border-radius:6px;font-size:11px;color:#e8d48a;">👁️ 玩家视图：仅玩家可见内容（DM 层 / 战雾绘制 / 先攻条已禁用）</div>
     <div id="cdn-warning" style="display:none;margin:2px 0 4px;padding:4px 6px;background:rgba(233,69,96,0.15);border:1px solid #e94560;border-radius:4px;font-size:10px;color:#e94560;">⚠️ 依赖未加载，部分导出功能不可用</div>
 
-    <details class="panel-sec" open>
-      <summary><span class="sec-title">🔧 工具</span><span class="sec-badge">快捷键</span></summary>
-      <div class="sec-body">
+    <div id="panel-tabs">
+      <button class="panel-tab active" data-panel="tools" title="绘图工具 + 地形">🔧<span class="tab-label"> 工具</span></button>
+      <button class="panel-tab" data-panel="lib" title="单位库：可复用 token 预设">🧺<span class="tab-label"> 单位库</span></button>
+      <button class="panel-tab" data-panel="map" title="底图导入 / 网格对齐 / 模板（DM）">🗺️<span class="tab-label"> 地图</span><span class="tab-badge">DM</span></button>
+      <button class="panel-tab" data-panel="data" title="保存 / 加载 / 分享 / 导出">💾<span class="tab-label"> 数据</span></button>
+      <button class="panel-tab" data-panel="room" title="在线房间 / 行动顺序 / 编组">🌐<span class="tab-label"> 房间</span></button>
+      <button class="panel-tab" data-panel="display" title="网格 / 坐标 / DM层 / 战雾 显示开关">⚙️<span class="tab-label"> 显示</span></button>
+    </div>
+    <div id="panel-pages">
+
+      <div class="panel-page active" id="page-tools">
+        <div class="page-title">🔧 绘图工具</div>
         <div class="tool-group">
           <button class="tool-btn active" data-tool="select" title="选择/查看/移动图形 (V)"><span class="icon">👆</span><span class="label">选择(V)</span></button>
           <button class="tool-btn" data-tool="paint" title="地形笔刷 (B)"><span class="icon">🖌️</span><span class="label">笔刷(B)</span></button>
@@ -168,7 +182,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
           <button class="tool-btn" data-tool="rect" title="画矩形区域/灵气 (R) 拖拽绘制，半透明"><span class="icon">▭</span><span class="label">区域(R)</span></button>
           <button class="tool-btn" data-tool="line" title="画自由线段 (G) 任意角度墙/视线阻挡"><span class="icon">📏</span><span class="label">线段(G)</span></button>
           <button class="tool-btn" data-tool="token" title="插入图片 token (T)"><span class="icon">🖼️</span><span class="label">图片(T)</span></button>
-          <button class="tool-btn" data-tool="unit" title="放置单位 token：点开单位库选择预设，或新建 (U)"><span class="icon">🧝</span><span class="label">单位(U)</span></button>
+          <button class="tool-btn" data-tool="unit" title="放置单位 token：打开单位库选择预设，或新建 (U)"><span class="icon">🧝</span><span class="label">单位(U)</span></button>
           <button class="tool-btn dm-tool" data-tool="dm" title="画 DM 隐藏层：标记/信息只在 DM 本地显示 (Y)"><span class="icon">🕵️</span><span class="label">DM层(Y)</span></button>
           <button class="tool-btn dm-tool" data-tool="fog" title="涂战雾：遮住/揭示格子，跑团时逐步揭开 (F)"><span class="icon">🌫️</span><span class="label">战雾(F)</span></button>
         </div>
@@ -182,35 +196,25 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
             <option value="fog">仅战雾</option>
           </select>
         </div>
-        <div id="tool-hint" style="font-size:10px;color:#e94560;padding:2px 4px;background:rgba(233,69,96,0.1);border-radius:4px;min-height:16px;margin-top:5px;">👆 选择工具后操作格子</div>
+        <div class="page-title" style="margin-top:8px;">🏞️ 地形 <span id="terrain-selected" style="color:#888;font-weight:normal;font-size:10px;">⬜</span>
+          <button id="btn-terrain-manage" style="float:right;background:#3a3a5e;color:#fff;border:none;border-radius:3px;padding:1px 8px;cursor:pointer;font-size:10px;">⚙️ 管理</button>
+        </div>
+        <div class="tool-group" id="terrain-palette"></div>
+        <div id="tool-hint" style="font-size:10px;color:#e94560;padding:2px 4px;background:rgba(233,69,96,0.1);border-radius:4px;min-height:16px;margin-top:6px;">👆 选择工具后操作格子</div>
       </div>
-    </details>
 
-    <details class="panel-sec" open>
-      <summary><span class="sec-title">🧺 单位库</span><span class="sec-badge">点击预设→点地图放置</span></summary>
-      <div class="sec-body" id="sec-tokenlib">
-        <div style="display:flex;gap:4px;">
+      <div class="panel-page" id="page-lib">
+        <div class="page-title">🧺 单位库 <span style="font-weight:normal;font-size:10px;color:#888;">可复用 token 预设</span></div>
+        <div style="display:flex;gap:4px;" id="sec-tokenlib">
           <button id="btn-tokenlib-new" style="flex:1;padding:6px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="新建一个可复用的单位预设存入单位库">➕ 新建预设</button>
           <button id="btn-tokenlib-save-sel" style="flex:1;padding:6px;background:#5a4a8a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;" title="把地图上当前选中的单位存入单位库">📥 存选中单位</button>
         </div>
         <div id="token-library-list"></div>
-        <div style="font-size:10px;color:#888;margin-top:5px;line-height:1.5;">💡 点击预设拿起 → 在地图上点击放置；放置后自动回到「选择」，按住 <b>Shift</b> 可连续摆放，<b>Esc</b> 取消。</div>
+        <div class="page-hint">💡 点击预设拿起 → 在地图上点击放置；放置后自动回到「选择」，按住 <b>Shift</b> 可连续摆放，<b>Esc</b> 取消。</div>
       </div>
-    </details>
 
-    <details class="panel-sec">
-      <summary><span class="sec-title">🏞️ 地形</span><span class="sec-badge" id="terrain-selected">⬜</span></summary>
-      <div class="sec-body">
-        <div class="tool-group" id="terrain-palette"></div>
-        <div style="text-align:right;margin-top:4px;">
-          <button id="btn-terrain-manage" style="background:#3a3a5e;color:#fff;border:none;border-radius:3px;padding:2px 8px;cursor:pointer;font-size:10px;">⚙️ 管理地形</button>
-        </div>
-      </div>
-    </details>
-
-    <details class="panel-sec">
-      <summary><span class="sec-title">🗺️ 地图</span><span class="sec-badge dm">DM</span></summary>
-      <div class="sec-body">
+      <div class="panel-page" id="page-map">
+        <div class="page-title">🗺️ 底图 <span class="tab-badge">DM</span></div>
         <div style="display:flex;gap:4px;">
           <button id="btn-import-map" style="flex:1;padding:8px;background:#5a4a8a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;" title="导入地图图片作为底图，然后调整网格对齐">🖼️ 导入底图</button>
           <button id="btn-map-settings" style="flex:1;padding:8px;background:#4a5a7a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;" title="调整底图数值/透明度/移除">⚙️ 数值</button>
@@ -218,7 +222,8 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
         <div style="display:flex;gap:4px;margin-top:2px;">
           <button id="btn-bg-align" style="flex:1;padding:8px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;" title="在地图上点 3 个格线交点让网格贴合底图（需先导入底图）">🎯 网格对齐</button>
         </div>
-        <div style="font-size:10px;color:#888;margin:6px 0 3px;">📐 模板：一键生成</div>
+        <div class="page-hint">网格对不上？先「导入底图」，再点「网格对齐」：依次点图中 3 个格线交点（第 2/3 点可调「点间格数」）。</div>
+        <div class="page-title" style="margin-top:8px;">📐 模板：一键生成</div>
         <div style="display:flex;gap:4px;flex-wrap:wrap;">
           <button id="btn-template-room" style="flex:1;min-width:60px;padding:5px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;">🏠 房间</button>
           <button id="btn-template-corridor" style="flex:1;min-width:60px;padding:5px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;">🛤️ 走廊</button>
@@ -227,11 +232,9 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
           <button id="btn-template-zone" style="flex:1;min-width:60px;padding:5px;background:#8b5f9e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;">🧩 区域</button>
         </div>
       </div>
-    </details>
 
-    <details class="panel-sec">
-      <summary><span class="sec-title">💾 数据</span></summary>
-      <div class="sec-body">
+      <div class="panel-page" id="page-data">
+        <div class="page-title">💾 保存 / 分享</div>
         <div style="display:flex;gap:4px;">
           <button id="btn-save" style="flex:1;padding:4px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;">💾 保存</button>
           <button id="btn-load" style="flex:1;padding:4px;background:#c9a84c;color:#000;border:none;border-radius:4px;cursor:pointer;">📂 加载</button>
@@ -242,7 +245,8 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
           <button id="btn-undo" style="flex:1;padding:4px;background:#3a3a5e;color:#fff;border:none;border-radius:4px;cursor:pointer;opacity:0.4;" disabled>↩️ 撤销</button>
           <button id="btn-redo" style="flex:1;padding:4px;background:#3a3a5e;color:#fff;border:none;border-radius:4px;cursor:pointer;opacity:0.4;" disabled>↪️ 重做</button>
         </div>
-        <div style="display:flex;gap:4px;margin-top:2px;">
+        <div class="page-title" style="margin-top:8px;">📤 导出</div>
+        <div style="display:flex;gap:4px;">
           <button id="btn-export-excel" style="flex:1;padding:6px;background:#217346;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;">📊 导出 Excel</button>
           <button id="btn-export-img" style="flex:1;padding:6px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🖼️ 导出PNG</button>
         </div>
@@ -251,38 +255,36 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
           <button id="btn-export-legend" style="flex:1;padding:5px;background:#4a5a7a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;" title="导出当前地形图例 PNG（DM 用）">📜 图例</button>
         </div>
       </div>
-    </details>
 
-    <details class="panel-sec">
-      <summary><span class="sec-title">🌐 房间</span><span class="sec-badge" id="btn-online-status" style="padding:1px 8px;background:#3a3a5e;color:#aaa;border:1px solid #0f3460;border-radius:8px;cursor:pointer;font-size:10px;">未连接</span></summary>
-      <div class="sec-body">
+      <div class="panel-page" id="page-room">
+        <div class="page-title">🌐 在线房间</div>
+        <div id="btn-online-status" style="margin-bottom:4px;padding:4px 8px;background:#3a3a5e;color:#aaa;border:1px solid #0f3460;border-radius:6px;cursor:pointer;font-size:11px;text-align:center;">未连接</div>
+        <button id="btn-online" style="width:100%;padding:7px;background:#7a4a9e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="创建/加入远程房间，所有参与者实时同步地图">🌐 打开在线房间</button>
+        <div class="page-title" style="margin-top:8px;">🎭 跑团辅助 <span class="tab-badge">DM</span></div>
         <div style="display:flex;gap:4px;">
-          <button id="btn-online" style="flex:1;padding:6px;background:#7a4a9e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="创建/加入远程房间，所有参与者实时同步地图">🌐 在线房间</button>
+          <button id="btn-initiative" style="flex:1;padding:7px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="管理行动顺序/先攻条（DM）">🧭 行动顺序</button>
+          <button id="btn-group" style="flex:1;padding:7px;background:#5a4a8a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="管理编组：拖动任一成员整组移动">🧩 编组</button>
         </div>
-        <div style="display:flex;gap:4px;margin-top:2px;">
-          <button id="btn-initiative" style="flex:1;padding:6px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="管理行动顺序/先攻条（DM）">🧭 行动顺序</button>
-          <button id="btn-group" style="flex:1;padding:6px;background:#5a4a8a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="管理编组：拖动任一成员整组移动">🧩 编组</button>
-        </div>
+        <div class="page-hint">行动顺序/编组为 DM 专属；玩家视图下禁用。</div>
       </div>
-    </details>
 
-    <details class="panel-sec">
-      <summary><span class="sec-title">⚙️ 显示</span></summary>
-      <div class="sec-body">
-        <label style="font-size:11px;display:block;margin:2px 0;">
+      <div class="panel-page" id="page-display">
+        <div class="page-title">⚙️ 显示开关</div>
+        <label style="font-size:12px;display:block;margin:4px 0;padding:5px 8px;background:#1a1a2e;border:1px solid #0f3460;border-radius:6px;cursor:pointer;">
           <input type="checkbox" id="chk-grid" checked style="width:auto;"> 显示网格
         </label>
-        <label style="font-size:11px;display:block;margin:2px 0;">
+        <label style="font-size:12px;display:block;margin:4px 0;padding:5px 8px;background:#1a1a2e;border:1px solid #0f3460;border-radius:6px;cursor:pointer;">
           <input type="checkbox" id="chk-coords" checked style="width:auto;"> 显示坐标
         </label>
-        <label style="font-size:11px;display:block;margin:2px 0;" title="DM 隐藏层标记（玩家视图下强制关闭）">
+        <label style="font-size:12px;display:block;margin:4px 0;padding:5px 8px;background:#1a1a2e;border:1px solid #0f3460;border-radius:6px;cursor:pointer;" title="DM 隐藏层标记（玩家视图下强制关闭）">
           <input type="checkbox" id="chk-dm" style="width:auto;"> 🕵️ 显示 DM 层
         </label>
-        <label style="font-size:11px;display:block;margin:2px 0;">
+        <label style="font-size:12px;display:block;margin:4px 0;padding:5px 8px;background:#1a1a2e;border:1px solid #0f3460;border-radius:6px;cursor:pointer;">
           <input type="checkbox" id="chk-fog" checked style="width:auto;"> 🌫️ 显示战雾
         </label>
       </div>
-    </details>
+
+    </div>
 
     <div style="margin-top:auto;font-size:10px;color:#555;text-align:center;padding-top:6px;">
       通用跑团 · 战斗地图 v0.8<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>单位库 · Shift 连放 · DM/玩家视图 · 网格对齐

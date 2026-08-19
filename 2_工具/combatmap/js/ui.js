@@ -1588,6 +1588,19 @@ document.getElementById('role-dm').addEventListener('click', () => setViewRole('
 document.getElementById('role-player').addEventListener('click', () => setViewRole('player'));
 
 // ============================================================
+//  页签面板：左侧栏分成几个选项，每个子页独立滚动
+// ============================================================
+function switchPanel(name) {
+  document.querySelectorAll('.panel-tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+  document.querySelectorAll('.panel-page').forEach(p => p.classList.toggle('active', p.id === 'page-' + name));
+  const page = document.getElementById('page-' + name);
+  if (page) page.scrollTop = 0;
+}
+document.querySelectorAll('.panel-tab').forEach(t => {
+  t.addEventListener('click', () => switchPanel(t.dataset.panel));
+});
+
+// ============================================================
 //  空态引导 + 对齐按钮可用性
 // ============================================================
 const LS_EMPTY_DISMISS_KEY = 'combatmap_empty_dismissed_v1';
