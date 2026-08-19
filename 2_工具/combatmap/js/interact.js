@@ -13,8 +13,27 @@ canvas.addEventListener('mousedown', (e) => {
   if (e.button === 0) {
     const wx = (mx - viewX) / zoom, wy = (my - viewY) / zoom;
 
-    // --- 选择工具：图形/线段优先 ---
+    // --- 选择工具：单位/图形/线段优先 ---
     if (selectedTool === 'select') {
+      // 单位缩放手柄
+      const th = tokenHandleAt(wx, wy);
+      if (th) {
+        _dragMode = 'token-resize'; _dragTokenId = selectedToken; _dragHandle = th;
+        isDragging = true; dragStartX = wx; dragStartY = wy;
+        pushUndoMeta();
+        return;
+      }
+      // 单位主体（最顶层优先）
+      const tk = hitTestToken(wx, wy);
+      if (tk) {
+        selectedToken = tk.id; selectedShape = null; selectedLine = null; selectedCell = null;
+        _dragMode = 'token-move'; _dragTokenId = tk.id;
+        _dragOffX = wx - tk.x * CELL_SIZE; _dragOffY = wy - tk.y * CELL_SIZE;
+        isDragging = true; dragStartX = wx; dragStartY = wy;
+        pushUndoMeta();
+        render(); updateInfo();
+        return;
+      }
       // 选中图形的缩放手柄
       const handle = shapeHandleAt(wx, wy);
       if (handle) {
@@ -92,6 +111,33 @@ canvas.addEventListener('mousedown', (e) => {
       return;
     }
 
+    // --- 单位 token：点击放置 ---
+    if (selectedTool === 'unit') {
+      if (_unitPending) {
+        const c = pixelToCell(wx, wy);
+        const t = {
+          id: 'tk' + (_tokenSeq++),
+          kind: _unitPending.kind || 'npc',
+          name: _unitPending.name || '',
+          x: c.q - _unitPending.w / 2, y: c.r - _unitPending.h / 2,
+          w: _unitPending.w, h: _unitPending.h,
+          icon: _unitPending.icon || '🧝',
+          color: _unitPending.color || '#3a7abd',
+          hp: _unitPending.hp, maxHp: _unitPending.maxHp,
+          status: _unitPending.status || [],
+          imgData: _unitPending.imgData || '', img: _unitPending.img || null,
+          ownerId: ''
+        };
+        pushUndoMeta();
+        tokens.push(t);
+        selectedToken = t.id; selectedShape = null; selectedLine = null; selectedCell = null;
+        render(); updateInfo();
+        showToast(`🧝 已放置 ${t.name || '单位'}，右键编辑属性`);
+        return;
+      }
+      return;
+    }
+
     // --- 图片 token：点击放置 ---
     if (selectedTool === 'token') {
       if (_tokenPending) {
@@ -142,6 +188,13 @@ canvas.addEventListener('mousemove', (e) => {
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
   const wx = (mx - viewX) / zoom, wy = (my - viewY) / zoom;
 
+  // token 放置预览跟随（单位）
+  if (selectedTool === 'unit' && _unitPending) {
+    const c = pixelToCell(wx, wy);
+    _hoverUnit = c;
+    render();
+  }
+
   // token 放置预览跟随
   if (selectedTool === 'token' && _tokenPending) {
     const c = pixelToCell(wx, wy);
@@ -152,15 +205,18 @@ canvas.addEventListener('mousemove', (e) => {
   if (!isDragging) {
     // 悬停光标反馈
     if (selectedTool === 'select') {
+      const th = tokenHandleAt(wx, wy);
       const h = shapeHandleAt(wx, wy);
       const end = lineEndAt(wx, wy);
-      if (h) {
+      if (th) {
+        canvas.style.cursor = 'nwse-resize';
+      } else if (h) {
         const diag1 = (h === 'nw' || h === 'se');
         const diag2 = (h === 'ne' || h === 'sw');
         canvas.style.cursor = diag1 ? 'nwse-resize' : diag2 ? 'nesw-resize' : (h === 'n' || h === 's') ? 'ns-resize' : 'ew-resize';
       } else if (end) {
         canvas.style.cursor = 'crosshair';
-      } else if (hitTestShape(wx, wy) || hitTestLine(wx, wy)) {
+      } else if (hitTestToken(wx, wy) || hitTestShape(wx, wy) || hitTestLine(wx, wy)) {
         canvas.style.cursor = 'move';
       } else {
         canvas.style.cursor = 'default';
@@ -212,6 +268,28 @@ canvas.addEventListener('mousemove', (e) => {
         if (cur !== target) setWall(edge.q, edge.r, edge.edge, target);
         render();
       }
+    }
+  } else if (_dragMode === 'token-move') {
+    const t = tokens.find(x => x.id === _dragTokenId);
+    if (t) {
+      t.x = (wx - _dragOffX) / CELL_SIZE;
+      t.y = (wy - _dragOffY) / CELL_SIZE;
+      render();
+    }
+  } else if (_dragMode === 'token-resize') {
+    const t = tokens.find(x => x.id === _dragTokenId);
+    if (t) {
+      const x0 = t.x * CELL_SIZE, y0 = t.y * CELL_SIZE;
+      const x1 = (t.x + t.w) * CELL_SIZE, y1 = (t.y + t.h) * CELL_SIZE;
+      let nx0 = x0, ny0 = y0, nx1 = x1, ny1 = y1;
+      const h = _dragHandle;
+      if (h.includes('w')) nx0 = Math.min(wx, x1 - CELL_SIZE * 0.5);
+      if (h.includes('e')) nx1 = Math.max(wx, x0 + CELL_SIZE * 0.5);
+      if (h.includes('n')) ny0 = Math.min(wy, y1 - CELL_SIZE * 0.5);
+      if (h.includes('s')) ny1 = Math.max(wy, y0 + CELL_SIZE * 0.5);
+      t.x = nx0 / CELL_SIZE; t.y = ny0 / CELL_SIZE;
+      t.w = (nx1 - nx0) / CELL_SIZE; t.h = (ny1 - ny0) / CELL_SIZE;
+      render();
     }
   } else if (_dragMode === 'shape-move') {
     const sh = shapes.find(s => s.id === _dragShapeId);
@@ -310,7 +388,8 @@ canvas.addEventListener('mouseup', () => {
 
   isDragging = false;
   _dragMode = null;
-  _dragShapeId = null; _dragHandle = null; _dragLineId = null;
+  _dragShapeId = null; _dragHandle = null; _dragLineId = null; _dragTokenId = null;
+  _dragTokenId = null;
   _wallDragLast = null;
   _eraseDragLast = new Set();
   render();
@@ -348,6 +427,29 @@ canvas.addEventListener('touchstart', (e) => {
     const rect = canvas.getBoundingClientRect();
     const mx = e.touches[0].clientX - rect.left;
     const my = e.touches[0].clientY - rect.top;
+    // 单位放置（触摸）
+    if (selectedTool === 'unit' && _unitPending) {
+      const wx = (mx - viewX) / zoom, wy = (my - viewY) / zoom;
+      const c = pixelToCell(wx, wy);
+      const t = {
+        id: 'tk' + (_tokenSeq++),
+        kind: _unitPending.kind || 'npc',
+        name: _unitPending.name || '',
+        x: c.q - _unitPending.w / 2, y: c.r - _unitPending.h / 2,
+        w: _unitPending.w, h: _unitPending.h,
+        icon: _unitPending.icon || '🧝',
+        color: _unitPending.color || '#3a7abd',
+        hp: _unitPending.hp, maxHp: _unitPending.maxHp,
+        status: _unitPending.status || [],
+        imgData: _unitPending.imgData || '', img: _unitPending.img || null,
+        ownerId: ''
+      };
+      pushUndoMeta();
+      tokens.push(t);
+      selectedToken = t.id; selectedShape = null; selectedLine = null; selectedCell = null;
+      render(); updateInfo();
+      return;
+    }
     // 图片放置（触摸）
     if (selectedTool === 'token' && _tokenPending) {
       const wx = (mx - viewX) / zoom, wy = (my - viewY) / zoom;
@@ -408,6 +510,8 @@ canvas.addEventListener('dblclick', (e) => {
   const rect = canvas.getBoundingClientRect();
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
   const wx = (mx - viewX) / zoom, wy = (my - viewY) / zoom;
+  const tk = hitTestToken(wx, wy);
+  if (tk) { openUnitModal(tk); return; }
   const sh = hitTestShape(wx, wy);
   if (sh) { openShapeModal(sh.id); return; }
   const ln = hitTestLine(wx, wy);
@@ -487,9 +591,10 @@ function handleEdgeClick(edgeInfo) {
 function showContextMenu(cx, cy, mx, my) {
   const cell = cellAtPixel(mx, my);
   const wx = (mx - viewX) / zoom, wy = (my - viewY) / zoom;
+  const tkHit = hitTestToken(wx, wy);
   const shHit = hitTestShape(wx, wy);
   const lnHit = hitTestLine(wx, wy);
-  if (!cell && !shHit && !lnHit) return;
+  if (!cell && !tkHit && !shHit && !lnHit) return;
 
   // Simple inline context menu using a floating div
   let menu = document.getElementById('ctx-menu');
@@ -522,6 +627,19 @@ function showContextMenu(cx, cy, mx, my) {
     menu.appendChild(d);
   };
 
+  // 单位操作（若命中，优先于图形/格子菜单）
+  if (tkHit) {
+    selectedToken = tkHit.id; selectedShape = null; selectedLine = null; selectedCell = null;
+    render(); updateInfo();
+    addItem('🧝 编辑单位属性', () => { openUnitModal(tkHit); });
+    addItem('🗑️ 删除单位', () => {
+      pushUndoMeta();
+      tokens = tokens.filter(x => x.id !== tkHit.id);
+      if (selectedToken === tkHit.id) selectedToken = null;
+      render(); updateInfo();
+    });
+    sep();
+  }
   // 图形操作（若命中，优先于格子菜单）
   if (shHit) {
     selectedShape = shHit.id; selectedLine = null; selectedCell = null;
