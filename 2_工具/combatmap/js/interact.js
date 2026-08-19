@@ -13,6 +13,47 @@ canvas.addEventListener('mousedown', (e) => {
   if (e.button === 0) {
     const wx = (mx - viewX) / zoom, wy = (my - viewY) / zoom;
 
+    // --- 底图对齐模式：点击采集参考点 / 拖拽底图 / 缩放手柄 ---
+    if (_bgAlignRefs) {
+      if (!backgroundMap) { _bgAlignRefs = null; render(); }
+      else {
+        const bm = backgroundMap;
+        const x0 = bm.x * CELL_SIZE, y0 = bm.y * CELL_SIZE;
+        const x1 = (bm.x + bm.cols) * CELL_SIZE, y1 = (bm.y + bm.rows) * CELL_SIZE;
+        const hs = 10 / zoom;
+        if (Math.abs(wx - x1) <= hs && Math.abs(wy - y1) <= hs) {
+          _bgDragMode = 'bg-resize-corner'; dragStartX = wx; dragStartY = wy; isDragging = true;
+          return;
+        }
+        if (Math.abs(wx - x0) <= hs && Math.abs(wy - y0) <= hs) {
+          _bgDragMode = 'bg-move'; _dragOffX = wx - x0; _dragOffY = wy - y0; isDragging = true;
+          return;
+        }
+        if (Math.abs(wx - x1) <= hs && Math.abs(wy - y0) <= hs) {
+          _bgDragMode = 'bg-resize-e'; dragStartX = wx; dragStartY = wy; isDragging = true;
+          return;
+        }
+        if (Math.abs(wx - x0) <= hs && Math.abs(wy - y1) <= hs) {
+          _bgDragMode = 'bg-resize-s'; dragStartX = wx; dragStartY = wy; isDragging = true;
+          return;
+        }
+        // 点击采集参考点
+        _bgAlignRefs.pts = _bgAlignRefs.pts || [];
+        if (_bgAlignRefs.pts.length < 3) {
+          _bgAlignRefs.pts.push({
+            world: { x: wx, y: wy },
+            snappedGrid: pixelToCell(wx, wy),
+            originX: e.clientX - rect.left,
+            originY: e.clientY - rect.top
+          });
+          render();
+          if (typeof updateBgAlignBar === 'function') updateBgAlignBar();
+          // 不再自动完成，等用户点“完成”
+        }
+        return;
+      }
+    }
+
     // --- 选择工具：单位/图形/线段优先 ---
     if (selectedTool === 'select') {
       // 单位缩放手柄
@@ -159,6 +200,28 @@ canvas.addEventListener('mousedown', (e) => {
       return;
     }
 
+    // --- DM 层：点击编辑/新建隐藏标记 ---
+    if (selectedTool === 'dm') {
+      const cell = cellAtPixel(mx, my);
+      if (cell) showDmModal(cell.q, cell.r);
+      return;
+    }
+
+    // --- 战雾：点击切换遮住/揭示，拖拽连续涂/擦 ---
+    if (selectedTool === 'fog') {
+      const cell = cellAtPixel(mx, my);
+      if (cell) {
+        beginBatch();
+        _fogPaintTarget = !e.altKey ? !isFogCell(cell.q, cell.r) : isFogCell(cell.q, cell.r);
+        setFogCell(cell.q, cell.r, _fogPaintTarget);
+        _dragMode = 'fog';
+        _eraseDragLast = new Set([cellKey(cell.q, cell.r)]);
+        isDragging = true;
+        render(); updateInfo();
+        return;
+      }
+    }
+
     const cell = cellAtPixel(mx, my);
     if (cell) {
       handleCellClick(cell.q, cell.r, e);
@@ -187,6 +250,14 @@ canvas.addEventListener('mousemove', (e) => {
   const rect = canvas.getBoundingClientRect();
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
   const wx = (mx - viewX) / zoom, wy = (my - viewY) / zoom;
+
+  // DM 层悬停预览 / 鼠标样式
+  if (selectedTool === 'dm') {
+    canvas.style.cursor = 'crosshair';
+  }
+  if (selectedTool === 'fog') {
+    canvas.style.cursor = 'crosshair';
+  }
 
   // token 放置预览跟随（单位）
   if (selectedTool === 'unit' && _unitPending) {
@@ -244,6 +315,7 @@ canvas.addEventListener('mousemove', (e) => {
       const mode = document.getElementById('erase-mode').value;
       if (mode === 'all') {
         setCell(cell.q, cell.r, { terrain: null, label: '', walls: [0,0,0,0] });
+        setDmCell(cell.q, cell.r, { mark: '', label: '' });
       } else if (mode === 'terrain') {
         setCell(cell.q, cell.r, { terrain: null });
       } else if (mode === 'walls') {
@@ -253,7 +325,20 @@ canvas.addEventListener('mousemove', (e) => {
         }
       } else if (mode === 'label') {
         setCell(cell.q, cell.r, { label: '' });
+      } else if (mode === 'dm') {
+        removeDmCell(cell.q, cell.r);
+      } else if (mode === 'fog') {
+        setFogCell(cell.q, cell.r, false);
       }
+      render();
+    }
+  } else if (_dragMode === 'fog') {
+    const cell = cellAtPixel(mx, my);
+    if (cell) {
+      const k = cellKey(cell.q, cell.r);
+      if (_eraseDragLast.has(k)) return;
+      _eraseDragLast.add(k);
+      setFogCell(cell.q, cell.r, _fogPaintTarget === true);
       render();
     }
   } else if (_dragMode === 'wall-drag') {
@@ -348,11 +433,40 @@ canvas.addEventListener('mousemove', (e) => {
     viewX = viewStartX + (mx - dragStartX);
     viewY = viewStartY + (my - dragStartY);
     render();
+  } else if (_dragMode === 'bg-move') {
+    if (backgroundMap && _bgAlignRefs) {
+      backgroundMap.x = (wx - _dragOffX) / CELL_SIZE;
+      backgroundMap.y = (wy - _dragOffY) / CELL_SIZE;
+      render();
+    }
+  } else if (_dragMode === 'bg-resize-corner') {
+    if (backgroundMap && _bgAlignRefs) {
+      const bm = backgroundMap;
+      const x0 = bm.x * CELL_SIZE, y0 = bm.y * CELL_SIZE;
+      bm.cols = Math.max(0.5, (wx - x0) / CELL_SIZE);
+      bm.rows = Math.max(0.5, (wy - y0) / CELL_SIZE);
+      render();
+    }
+  } else if (_dragMode === 'bg-resize-e') {
+    if (backgroundMap && _bgAlignRefs) {
+      const bm = backgroundMap;
+      const x0 = bm.x * CELL_SIZE;
+      bm.cols = Math.max(0.5, (wx - x0) / CELL_SIZE);
+      render();
+    }
+  } else if (_dragMode === 'bg-resize-s') {
+    if (backgroundMap && _bgAlignRefs) {
+      const bm = backgroundMap;
+      const y0 = bm.y * CELL_SIZE;
+      bm.rows = Math.max(0.5, (wy - y0) / CELL_SIZE);
+      render();
+    }
   }
 });
 
 canvas.addEventListener('mouseup', () => {
-  if (_dragMode === 'wall-drag') endBatch();
+  if (_dragMode === 'wall-drag' || _dragMode === 'fog') endBatch();
+  _bgDragMode = null;
 
   if (_dragMode === 'rect-draw' && _rectPreview && (_rectPreview.w > 0.15 || _rectPreview.h > 0.15)) {
     const sh = {
@@ -397,7 +511,7 @@ canvas.addEventListener('mouseup', () => {
 });
 
 canvas.addEventListener('mouseleave', () => {
-  if (_dragMode === 'wall-drag') endBatch();
+  if (_dragMode === 'wall-drag' || _dragMode === 'fog') endBatch();
   isDragging = false;
   _dragMode = null;
   _rectPreview = null;
@@ -467,6 +581,21 @@ canvas.addEventListener('touchstart', (e) => {
       render(); updateInfo();
       return;
     }
+    // DM 层（触摸）
+    if (selectedTool === 'dm') {
+      const c = cellAtPixel(mx, my);
+      if (c) showDmModal(c.q, c.r);
+      return;
+    }
+    // 战雾（触摸，点击切换）
+    if (selectedTool === 'fog') {
+      const c = cellAtPixel(mx, my);
+      if (c) {
+        setFogCell(c.q, c.r, !isFogCell(c.q, c.r));
+        render(); updateInfo();
+        return;
+      }
+    }
     const cell = cellAtPixel(mx, my);
     if (cell) { handleCellClick(cell.q, cell.r, {}); isDragging = false; return; }
     isDragging = true;
@@ -502,7 +631,12 @@ canvas.addEventListener('touchmove', (e) => {
   }
 }, { passive: false });
 
-canvas.addEventListener('touchend', () => { isDragging = false; });
+canvas.addEventListener('touchend', () => {
+  isDragging = false;
+  if (_dragMode === 'fog') endBatch();
+  _dragMode = null;
+  _eraseDragLast = new Set();
+});
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
 // 双击：编辑选中的图形/线段属性
@@ -534,6 +668,7 @@ function handleCellClick(q, r, e) {
     const mode = document.getElementById('erase-mode').value;
     if (mode === 'all') {
       setCell(q, r, { terrain: null, label: '', walls: [0,0,0,0] });
+      setDmCell(q, r, { mark: '', label: '' });
     } else if (mode === 'terrain') {
       setCell(q, r, { terrain: null });
     } else if (mode === 'walls') {
@@ -543,6 +678,10 @@ function handleCellClick(q, r, e) {
       }
     } else if (mode === 'label') {
       setCell(q, r, { label: '' });
+    } else if (mode === 'dm') {
+      removeDmCell(q, r);
+    } else if (mode === 'fog') {
+      setFogCell(q, r, false);
     }
     render();
     updateInfo();
@@ -669,6 +808,14 @@ function showContextMenu(cx, cy, mx, my) {
   // 格子操作
   if (cell) {
     addItem(`📍 选中 (${cell.q}, ${cell.r})`, () => { selectedCell = cell; updateInfo(); render(); });
+    sep();
+
+    // DM 层快捷操作
+    addItem('🕵️ 编辑 DM 层标记', () => { selectedCell = cell; showDmModal(cell.q, cell.r); render(); });
+    addItem(isFogCell(cell.q, cell.r) ? '🌫️ 揭示此格' : '🌫️ 遮住此格', () => {
+      toggleFogCell(cell.q, cell.r);
+      render(); updateInfo();
+    });
     sep();
 
     // Terrain submenu

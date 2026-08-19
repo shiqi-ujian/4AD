@@ -61,6 +61,16 @@ function setTool(tool) {
       coord.textContent = '📏 线段模式';
       cnt.style.cursor = 'crosshair';
       break;
+    case 'dm':
+      hint.innerHTML = '🕵️ 点击格子添加 <b>DM 隐藏标记/说明</b>；勾选「显示 DM 层」查看，未勾选时玩家图完全不可见';
+      coord.textContent = '🕵️ DM 层模式';
+      cnt.style.cursor = 'crosshair';
+      break;
+    case 'fog':
+      hint.innerHTML = '🌫️ 点击/拖拽 <b>遮住</b>格子，按住 <b>Alt</b> 或点击已遮格可以<b>揭示</b>；用「擦除→仅战雾」可批量清除';
+      coord.textContent = '🌫️ 战雾模式';
+      cnt.style.cursor = 'crosshair';
+      break;
   }
   render();
 }
@@ -275,7 +285,7 @@ function showToast(msg) {
 //  Clear
 // ============================================================
 function clearAll() {
-  if (!confirm('⚠️ 确认清空所有数据（地形/图形/线段/单位）？此操作可撤销。')) return;
+  if (!confirm('⚠️ 确认清空所有数据（地形/图形/线段/单位/DM层/战雾/行动顺序）？此操作可撤销。')) return;
   beginBatch();
   for (const key of Object.keys(combatData)) pushUndo(key);
   pushUndoMeta();
@@ -283,10 +293,15 @@ function clearAll() {
   shapes = [];
   freeLines = [];
   tokens = [];
+  dmData = {};
+  fog = {};
+  initiativeOrder = [];
+  initiativeIndex = 0;
   endBatch();
   selectedCell = null;
   selectedShape = null; selectedLine = null; selectedToken = null;
   render(); updateInfo();
+  if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
   showToast('🗑️ 已清空');
 }
 
@@ -331,13 +346,23 @@ document.addEventListener('keydown', (e) => {
     render();
     return;
   }
-  const km = { 'v':'select', 'b':'paint', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 'r':'rect', 't':'token', 'g':'line', 'u':'unit' };
+  const km = { 'v':'select', 'b':'paint', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 'r':'rect', 't':'token', 'g':'line', 'u':'unit', 'y':'dm', 'f':'fog' };
   if (km[e.key?.toLowerCase()]) { e.preventDefault(); setTool(km[e.key.toLowerCase()]); }
   // 分享弹窗：Esc 关闭
   if (e.key === 'Escape') {
     const shareModal = document.getElementById('share-modal');
     if (shareModal && shareModal.style.display === 'block') {
       if (typeof closeCombatShareModal === 'function') closeCombatShareModal();
+      return;
+    }
+    const dmModal = document.getElementById('dm-modal');
+    if (dmModal && dmModal.style.display === 'block') {
+      closeDmModal();
+      return;
+    }
+    const initModal = document.getElementById('initiative-modal');
+    if (initModal && initModal.style.display === 'block') {
+      closeInitiativeModal();
       return;
     }
   }
@@ -358,6 +383,8 @@ document.getElementById('btn-undo').addEventListener('click', undo);
 document.getElementById('btn-redo').addEventListener('click', redo);
 document.getElementById('chk-grid').addEventListener('change', (e) => { showGrid = e.target.checked; render(); });
 document.getElementById('chk-coords').addEventListener('change', (e) => { showCoords = e.target.checked; render(); });
+document.getElementById('chk-dm').addEventListener('change', (e) => { showDmLayer = e.target.checked; render(); });
+document.getElementById('chk-fog').addEventListener('change', (e) => { showFogLayer = e.target.checked; render(); });
 
 // ============================================================
 
@@ -812,5 +839,374 @@ document.getElementById('zone-confirm').addEventListener('click', () => {
   showToast(`🧩 已生成区域「${document.getElementById('zone-type').selectedOptions[0].textContent.trim()}」`);
 });
 document.getElementById('zone-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
+
+// ============================================================
+//  DM Layer Modal（隐藏层标记）
+// ============================================================
+function showDmModal(q, r) {
+  const d = getDmCell(q, r);
+  document.getElementById('dm-modal-q').value = q;
+  document.getElementById('dm-modal-r').value = r;
+  document.getElementById('dm-modal-coord').textContent = `(${q}, ${r})`;
+  document.getElementById('dm-modal-mark').value = d.mark || '';
+  document.getElementById('dm-modal-label').value = d.label || '';
+  document.getElementById('dm-modal').style.display = 'block';
+  setTimeout(() => document.getElementById('dm-modal-mark').focus(), 50);
+}
+
+function closeDmModal() {
+  document.getElementById('dm-modal').style.display = 'none';
+}
+
+function saveDmModal() {
+  const q = parseInt(document.getElementById('dm-modal-q').value);
+  const r = parseInt(document.getElementById('dm-modal-r').value);
+  const mark = document.getElementById('dm-modal-mark').value.trim();
+  const label = document.getElementById('dm-modal-label').value.trim();
+  setDmCell(q, r, { mark, label });
+  showDmLayer = true;
+  const dmCheck = document.getElementById('chk-dm');
+  if (dmCheck && !dmCheck.checked) dmCheck.checked = true;
+  closeDmModal();
+  selectedCell = { q, r };
+  render(); updateInfo();
+  showToast('🕵️ DM 层已保存（未勾选“显示 DM 层”时玩家不可见）');
+}
+
+document.getElementById('dm-modal-confirm').addEventListener('click', saveDmModal);
+document.getElementById('dm-modal-cancel').addEventListener('click', closeDmModal);
+document.getElementById('dm-modal-clear').addEventListener('click', () => {
+  const q = parseInt(document.getElementById('dm-modal-q').value);
+  const r = parseInt(document.getElementById('dm-modal-r').value);
+  removeDmCell(q, r);
+  closeDmModal();
+  render(); updateInfo();
+  showToast('🗑️ 已清除 DM 层标记');
+});
+document.getElementById('dm-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
+document.getElementById('dm-modal-mark').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') saveDmModal();
+  if (e.key === 'Escape') closeDmModal();
+});
+
+// ============================================================
+//  Initiative / Turn Order Panel
+// ============================================================
+function initiativeEntryRow(item, idx) {
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 6px;border:1px solid #0f3460;border-radius:4px;margin-bottom:4px;background:' + (idx === initiativeIndex ? 'rgba(45,106,46,0.35)' : '#1a1a2e') + ';';
+  const marker = document.createElement('span');
+  marker.textContent = idx === initiativeIndex ? '▶️' : (idx + 1);
+  marker.style.cssText = 'width:22px;text-align:center;flex-shrink:0;color:#ffd700;font-size:12px;';
+  const icon = document.createElement('span');
+  icon.textContent = item.icon || '🧝';
+  icon.style.cssText = 'font-size:15px;flex-shrink:0;';
+  const name = document.createElement('span');
+  name.textContent = item.name || '未命名';
+  name.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:#fff;cursor:pointer;';
+  name.title = '点击编辑 HP';
+  name.addEventListener('click', () => editInitiativeEntry(idx));
+  const hp = document.createElement('span');
+  hp.textContent = (item.hp !== '' && item.hp !== undefined) ? `${item.hp}/${item.maxHp ?? ''}` : '';
+  hp.style.cssText = 'font-size:11px;color:#aaa;min-width:38px;text-align:right;cursor:pointer;';
+  hp.addEventListener('click', () => editInitiativeEntry(idx));
+  const up = document.createElement('button');
+  up.textContent = '↑';
+  up.title = '上移';
+  up.style.cssText = 'padding:2px 5px;background:#3a3a5e;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
+  up.addEventListener('click', () => moveInitiativeAt(idx, idx - 1));
+  const down = document.createElement('button');
+  down.textContent = '↓';
+  down.title = '下移';
+  down.style.cssText = 'padding:2px 5px;background:#3a3a5e;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
+  down.addEventListener('click', () => moveInitiativeAt(idx, idx + 1));
+  const del = document.createElement('button');
+  del.textContent = '✕';
+  del.title = '删除';
+  del.style.cssText = 'padding:2px 6px;background:#a33;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
+  del.addEventListener('click', () => removeInitiativeAt(idx));
+  div.appendChild(marker); div.appendChild(icon); div.appendChild(name); div.appendChild(hp); div.appendChild(up); div.appendChild(down); div.appendChild(del);
+  return div;
+}
+
+function updateInitiativePanel() {
+  const list = document.getElementById('initiative-list');
+  if (!list) return;
+  list.innerHTML = '';
+  if (!initiativeOrder.length) {
+    list.innerHTML = '<div style="color:#888;font-size:12px;text-align:center;padding:8px;">暂无行动顺序条目。可从单位导入，或手动添加。</div>';
+    return;
+  }
+  initiativeOrder.forEach((item, idx) => { list.appendChild(initiativeEntryRow(item, idx)); });
+}
+
+function openInitiativeModal() {
+  document.getElementById('initiative-modal').style.display = 'block';
+  updateInitiativePanel();
+}
+
+function closeInitiativeModal() {
+  document.getElementById('initiative-modal').style.display = 'none';
+}
+
+function editInitiativeEntry(idx) {
+  const item = initiativeOrder[idx];
+  if (!item) return;
+  const hp = prompt(`条目 "${item.name || '未命名'}" 的 HP（当前/上限，留空表示无血条）：`, item.hp !== '' ? `${item.hp}/${item.maxHp ?? ''}` : '');
+  if (hp === null) return;
+  const parts = hp.split('/').map(s => s.trim());
+  pushUndoMeta();
+  if (parts.length >= 2) {
+    item.hp = parts[0] === '' ? '' : Math.max(0, parseInt(parts[0]) || 0);
+    item.maxHp = parts[1] === '' ? '' : Math.max(0, parseInt(parts[1]) || 0);
+  } else {
+    item.hp = hp === '' ? '' : Math.max(0, parseInt(hp) || 0);
+    item.maxHp = item.maxHp ?? '';
+  }
+  updateInitiativePanel();
+}
+
+document.getElementById('btn-initiative').addEventListener('click', openInitiativeModal);
+document.getElementById('initiative-close').addEventListener('click', closeInitiativeModal);
+document.getElementById('initiative-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
+document.getElementById('initiative-add').addEventListener('click', () => {
+  const name = prompt('新条目名称：', '');
+  if (name === null) return;
+  pushUndoMeta();
+  initiativeOrder.push({ id: 'init_' + Date.now().toString(36), name: name.trim() || '未命名', icon: '⚔️', kind: 'npc', hp: '', maxHp: '' });
+  updateInitiativePanel();
+});
+document.getElementById('initiative-add-tokens').addEventListener('click', () => {
+  const oldLen = initiativeOrder.length;
+  addAllTokensToInitiative();
+  updateInitiativePanel();
+  showToast(`🧝 已导入 ${initiativeOrder.length - oldLen} 个单位到行动顺序`);
+});
+document.getElementById('initiative-clear').addEventListener('click', () => {
+  if (!confirm('清空行动顺序？')) return;
+  clearInitiative();
+  updateInitiativePanel();
+});
+document.getElementById('initiative-next').addEventListener('click', () => {
+  nextInitiative();
+  updateInitiativePanel();
+});
+document.getElementById('initiative-prev').addEventListener('click', () => {
+  prevInitiative();
+  updateInitiativePanel();
+});
+
+// ============================================================
+//  Import Background Map (图片底图 + 网格对齐)
+// ============================================================
+function importBackgroundMapFromFile() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        // 默认按原始图片的宽高比铺到 20×? 格子区域，起点放在 0,0
+        const defCols = Math.max(5, Math.round(img.width / 48));
+        const defRows = Math.max(5, Math.round(img.height / 48));
+        pushUndoMeta();
+        backgroundMap = {
+          id: 'bgmap_' + Date.now().toString(36),
+          imgData: ev.target.result,
+          img,
+          x: 0, y: 0,
+          cols: defCols,
+          rows: defRows,
+          opacity: 0.85
+        };
+        render();
+        openMapSettingsModal();
+        showToast(`🖼️ 已导入底图 ${img.width}×${img.height}px，默认 ${defCols}×${defRows} 格`);
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+
+function openMapSettingsModal() {
+  const modal = document.getElementById('map-settings-modal');
+  if (!modal) return;
+  if (!backgroundMap) { showToast('⚠️ 请先导入底图'); return; }
+  document.getElementById('bg-settings-x').value = backgroundMap.x;
+  document.getElementById('bg-settings-y').value = backgroundMap.y;
+  document.getElementById('bg-settings-cols').value = backgroundMap.cols;
+  document.getElementById('bg-settings-rows').value = backgroundMap.rows;
+  document.getElementById('bg-settings-opacity').value = Math.round((backgroundMap.opacity ?? 0.85) * 100);
+  document.getElementById('map-settings-opacity-val').textContent = Math.round((backgroundMap.opacity ?? 0.85) * 100) + '%';
+  document.getElementById('map-settings-img').style.display = backgroundMap.imgData ? 'block' : 'none';
+  document.getElementById('map-settings-img').src = backgroundMap.imgData || '';
+  modal.style.display = 'block';
+}
+
+function applyMapSettings() {
+  if (!backgroundMap) return;
+  pushUndoMeta();
+  backgroundMap.x = parseFloat(document.getElementById('bg-settings-x').value) || 0;
+  backgroundMap.y = parseFloat(document.getElementById('bg-settings-y').value) || 0;
+  backgroundMap.cols = Math.max(1, parseFloat(document.getElementById('bg-settings-cols').value) || 8);
+  backgroundMap.rows = Math.max(1, parseFloat(document.getElementById('bg-settings-rows').value) || 8);
+  backgroundMap.opacity = Math.max(0, Math.min(1, (parseInt(document.getElementById('bg-settings-opacity').value) || 85) / 100));
+  document.getElementById('map-settings-modal').style.display = 'none';
+  render();
+  showToast('⚙️ 底图设置已应用');
+}
+
+function removeBackgroundMap() {
+  if (!backgroundMap) return;
+  if (!confirm('移除当前底图？此操作可撤销。')) return;
+  pushUndoMeta();
+  backgroundMap = null;
+  document.getElementById('map-settings-modal').style.display = 'none';
+  render();
+  showToast('🗑️ 底图已移除');
+}
+
+function setBackgroundOpacityDisplay() {
+  const v = document.getElementById('bg-settings-opacity').value;
+  const el = document.getElementById('map-settings-opacity-val');
+  if (el) el.textContent = v + '%';
+}
+
+function startBgAlign() {
+  if (!backgroundMap) { showToast('⚠️ 请先导入底图'); return; }
+  _bgAlignRefs = { pts: [], mode: 'click' };
+  const modal = document.getElementById('map-settings-modal');
+  if (modal) modal.style.display = 'none';
+  const bar = document.getElementById('bg-align-bar');
+  if (bar) bar.style.display = 'flex';
+  updateBgAlignBar();
+  render();
+}
+
+function updateBgAlignStatus(text) {
+  const el = document.getElementById('bg-align-status');
+  if (el) el.textContent = text || '';
+}
+
+function updateBgAlignBar() {
+  const n = (_bgAlignRefs && _bgAlignRefs.pts) ? _bgAlignRefs.pts.length : 0;
+  if (n === 0) updateBgAlignStatus('🎯 第 1 点：点击图中一个格线交点（基准点）');
+  else if (n === 1) updateBgAlignStatus('🎯 第 2 点：点击同一水平线上的格线交点');
+  else if (n === 2) updateBgAlignStatus('🎯 第 3 点：点击向下方向上的格线交点（可点「完成」用 2 点结束）');
+  else updateBgAlignStatus('✅ 已收集 3 个点，点「完成」应用对齐');
+}
+
+function cancelBgAlign() {
+  _bgAlignRefs = null;
+  _bgDragMode = null;
+  isDragging = false;
+  const bar = document.getElementById('bg-align-bar');
+  if (bar) bar.style.display = 'none';
+  render();
+  showToast('✕ 已取消底图对齐');
+}
+
+function finishBgAlign() {
+  if (!_bgAlignRefs) return;
+  if (!_bgAlignRefs.pts || _bgAlignRefs.pts.length < 2) {
+    showToast('⚠️ 至少需要点击 2 个参考点');
+    return;
+  }
+  applyBgAlignFromRefs();
+  finishBgAlignAfterApply();
+  showToast('✅ 底图对齐完成');
+}
+
+// 已完成时从 applyBgAlignFromRefs 里也收起状态条
+function finishBgAlignAfterApply() {
+  const bar = document.getElementById('bg-align-bar');
+  if (bar) bar.style.display = 'none';
+  _bgAlignRefs = null;
+  _bgDragMode = null;
+  isDragging = false;
+  render();
+}
+
+// 事件绑定：对齐模式 UI
+document.getElementById('btn-bg-align').addEventListener('click', startBgAlign);
+document.getElementById('map-settings-begin-align').addEventListener('click', startBgAlign);
+document.getElementById('bg-align-finish').addEventListener('click', finishBgAlign);
+document.getElementById('bg-align-cancel').addEventListener('click', cancelBgAlign);
+
+function applyBgAlignFromRefs() {
+  if (!_bgAlignRefs || !backgroundMap) return;
+  const pts = _bgAlignRefs.pts;
+  if (pts.length < 3) {
+    // 不足 3 点时也允许用 2 点粗略对齐
+    if (pts.length >= 2) {
+      const p0 = pts[0], p1 = pts[1];
+      const worldLen = Math.hypot(p1.world.x - p0.world.x, p1.world.y - p0.world.y);
+      const gridLen = Math.hypot(p1.snappedGrid.q - p0.snappedGrid.q, p1.snappedGrid.r - p0.snappedGrid.r) * CELL_SIZE;
+      if (worldLen > 0.5 && gridLen > 0.5) {
+        const pxPerGrid = worldLen / gridLen;
+        const imgPxW = (backgroundMap.img && backgroundMap.img.naturalWidth) || Math.max(1, backgroundMap.cols * CELL_SIZE);
+        const imgPxH = (backgroundMap.img && backgroundMap.img.naturalHeight) || Math.max(1, backgroundMap.rows * CELL_SIZE);
+        backgroundMap.cols = imgPxW / pxPerGrid;
+        backgroundMap.rows = imgPxH / pxPerGrid;
+        backgroundMap.x = p0.snappedGrid.q - (p0.world.x - backgroundMap.x * CELL_SIZE) / pxPerGrid;
+        backgroundMap.y = p0.snappedGrid.r - (p0.world.y - backgroundMap.y * CELL_SIZE) / pxPerGrid;
+      }
+    }
+    return;
+  }
+  // 3 点完整解算
+  const p0 = pts[0], p1 = pts[1], p2 = pts[2];
+  const g0 = p0.snappedGrid;
+  const dWx = p1.world.x - p0.world.x, dWy = p1.world.y - p0.world.y;
+  const dGx = p1.snappedGrid.q - g0.q, dGy = p1.snappedGrid.r - g0.r;
+  const lenW = Math.hypot(dWx, dWy);
+  const lenG = Math.hypot(dGx, dGy);
+  if (lenW < 0.5 || lenG < 0.5) { return; }
+  const pxPerGrid = lenW / lenG;
+  const imgPxW = (backgroundMap.img && backgroundMap.img.naturalWidth) || Math.max(1, backgroundMap.cols * CELL_SIZE);
+  const imgPxH = (backgroundMap.img && backgroundMap.img.naturalHeight) || Math.max(1, backgroundMap.rows * CELL_SIZE);
+  backgroundMap.cols = imgPxW / pxPerGrid;
+  backgroundMap.rows = imgPxH / pxPerGrid;
+  backgroundMap.x = g0.q - (p0.world.x - backgroundMap.x * CELL_SIZE) / pxPerGrid;
+  backgroundMap.y = g0.r - (p0.world.y - backgroundMap.y * CELL_SIZE) / pxPerGrid;
+}
+
+// Esc/右键离开对齐模式在交互层统一处理
+// 实时预览：修改设置后立即应用到画布，方便网格对齐
+['bg-settings-x','bg-settings-y'].forEach(id => {
+  document.getElementById(id).addEventListener('input', function() {
+    if (!backgroundMap) return;
+    backgroundMap.x = parseFloat(document.getElementById('bg-settings-x').value) || 0;
+    backgroundMap.y = parseFloat(document.getElementById('bg-settings-y').value) || 0;
+    render();
+  });
+});
+['bg-settings-cols','bg-settings-rows'].forEach(id => {
+  document.getElementById(id).addEventListener('input', function() {
+    if (!backgroundMap) return;
+    backgroundMap.cols = Math.max(1, parseFloat(document.getElementById('bg-settings-cols').value) || 8);
+    backgroundMap.rows = Math.max(1, parseFloat(document.getElementById('bg-settings-rows').value) || 8);
+    render();
+  });
+});
+document.getElementById('bg-settings-opacity').addEventListener('input', function() {
+  setBackgroundOpacityDisplay();
+  if (!backgroundMap) return;
+  backgroundMap.opacity = Math.max(0, Math.min(1, (parseInt(this.value) || 85) / 100));
+  render();
+});
+
+document.getElementById('btn-import-map').addEventListener('click', importBackgroundMapFromFile);
+document.getElementById('btn-map-settings').addEventListener('click', openMapSettingsModal);
+document.getElementById('map-settings-confirm').addEventListener('click', applyMapSettings);
+document.getElementById('map-settings-remove').addEventListener('click', removeBackgroundMap);
+document.getElementById('map-settings-close').addEventListener('click', () => { document.getElementById('map-settings-modal').style.display = 'none'; });
+document.getElementById('map-settings-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) this.style.display = 'none'; });
 
 // ============================================================

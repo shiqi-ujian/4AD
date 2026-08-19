@@ -71,8 +71,14 @@ async function shareDecompress(bytes) {
 // ---------------- 数据打包 / 解包 ----------------
 function buildCombatPayload() {
   cleanData();
+  cleanMetaRefs();
   return {
     combatData,
+    dmData,
+    fog,
+    backgroundMap: backgroundMap ? { ...backgroundMap, img: undefined } : null,
+    initiativeOrder,
+    initiativeIndex,
     shapes: shapes.map(s => { const c = { ...s }; delete c.img; return c; }),
     freeLines,
     tokens: tokens.map(t => { const c = { ...t }; delete c.img; return c; }),
@@ -96,6 +102,29 @@ function applyCombatData(data) {
   });
   freeLines = data.freeLines || [];
   restoreTokens(data.tokens || []);
+  dmData = data.dmData || {};
+  fog = data.fog || {};
+  backgroundMap = data.backgroundMap ? { ...data.backgroundMap } : null;
+  if (backgroundMap && backgroundMap.imgData && !backgroundMap.img) {
+    const img = new Image();
+    img.src = backgroundMap.imgData;
+    img.onload = () => render();
+    backgroundMap.img = img;
+  }
+  initiativeOrder = data.initiativeOrder || [];
+  initiativeIndex = data.initiativeIndex || 0;
+  if (data.backgroundMap) {
+    backgroundMap = { ...data.backgroundMap };
+    if (backgroundMap.imgData && !backgroundMap.img) {
+      const img = new Image();
+      img.src = backgroundMap.imgData;
+      img.onload = () => render();
+      backgroundMap.img = img;
+    }
+  } else {
+    backgroundMap = null;
+  }
+  if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
   if (data.customTerrains || data.terrainOverrides) {
     customTerrains = data.customTerrains || {};
     terrainOverrides = data.terrainOverrides || {};
