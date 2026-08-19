@@ -11,6 +11,8 @@
 
 > **开发重心**：目前地图工具的**新开发集中在 `2_工具/hexmap/` 与 `2_工具/combatmap/` 两个主力工具**。`squaremap.html` / `citymap.html` 已霜冻（不主动改）。citymap / squaremap 里已具备、但主力工具还没有的能力（如需）应迁移到主力工具，而不是继续在旧工具里加。
 
+> **combatmap 版本号约定**：战斗地图工具（`combatmap/`）的版本号采用 `v0.81 → v0.82 → …` 的小步递增格式（用户明确要求，避免快速冲到 1.0 用光版本号），**禁止** 直接跳到 `v0.9` / `v1.0` 这种大步号。每次改动在 `config.js` 的 `COMBATMAP_VERSION`、`index.html` 标题/页脚同步更新，并在 `CHANGELOG.md` 顶部新增对应小节。
+
 > 🔑 **GitHub 自动化能力（重要）**：本环境可通过 `C:\Program Files\Git\mingw64\bin\git-credential-manager.exe get` 读取用户的 GitHub PAT，用 Bearer token 调用 REST API：
 > - 创建 PR：`POST /repos/shiqi-ujian/4AD/pulls`（`head` 分支 → `base=main`）
 > - 合并 PR：`PUT /repos/shiqi-ujian/4AD/pulls/{number}/merge`（可用 `squash`）

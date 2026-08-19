@@ -31,7 +31,7 @@ function init() {
   }
   console.log(`⚔️ 通用战斗地图生成器 ${COMBATMAP_VERSION} 已就绪`);
   console.log('快捷键: V=选择 B=笔刷 W=墙壁 D=门 L=标签 E=擦除 R=区域 T=图片 G=线段 U=单位库 Y=DM层 F=战雾 Delete=删除选中');
-  console.log('v0.8: 网格对齐重做 · 可折叠面板 · DM/玩家视图 · 单位库 · 摆放后自动回选择(Shift连放)');
+  console.log('v0.81: 页签面板 · 网格对齐重做 · DM/玩家视图 · 单位库 · 摆放后自动回选择(Shift连放)');
   if (typeof initCombatShareUI === 'function') initCombatShareUI();
 }
 
