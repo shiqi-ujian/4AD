@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>通用战斗地图生成器 v0.2</title>
+<title>通用战斗地图生成器 v0.3</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -102,6 +102,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
     <h2>⚔️ 战斗地图生成器</h2>
 
     <h3>🔧 工具 <span style="font-weight:normal;font-size:10px;color:#888;float:right;">(快捷键)</span></h3>
+    <div id="cdn-warning" style="display:none;margin:2px 0 4px;padding:4px 6px;background:rgba(233,69,96,0.15);border:1px solid #e94560;border-radius:4px;font-size:10px;color:#e94560;">⚠️ 依赖未加载，部分导出功能不可用</div>
     <div class="tool-group">
       <button class="tool-btn active" data-tool="select" title="选择/查看/移动图形 (V)"><span class="icon">👆</span><span class="label">选择(V)</span></button>
       <button class="tool-btn" data-tool="paint" title="地形笔刷 (B)"><span class="icon">🖌️</span><span class="label">笔刷(B)</span></button>
@@ -142,7 +143,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
     </div>
     <div style="display:flex;gap:4px;">
       <button id="btn-export-owlbear" style="flex:1;padding:6px;background:#6b4f8f;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;" title="导出为枭熊(Owlbear Rodeo)场景文件，可在枭熊中导入继续玩">🦉 枭熊场景</button>
-      <button id="btn-export-legend" style="flex:1;padding:6px;background:#4a5a7a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;" title="导出当前地形图例 PNG（DM 用）">📜 图例</button>
+      <button id="btn-export-legend" style="flex:1;padding:6px;background:#4a5a7a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;" title="导出当前地形图例 PNNG（DM 用）">📜 图例</button>
     </div>
     <div style="display:flex;gap:4px;">
       <button id="btn-save" style="flex:1;padding:4px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;">💾 保存</button>
@@ -160,7 +161,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
       <input type="checkbox" id="chk-coords" checked> 显示坐标
     </label>
     <div style="margin-top:auto;font-size:10px;color:#555;text-align:center;padding-top:6px;">
-      通用跑团 · 战斗地图 v0.2<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>区域/线段/图片 · Delete 删除选中
+      通用跑团 · 战斗地图 v0.3<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>区域/线段/图片 · Delete 删除选中
     </div>
   </div>
 
@@ -180,9 +181,9 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
     <input type="range" id="room-w" min="3" max="30" value="8" style="width:100%;">
     <label>高度 (格子数): <span id="room-h-val">6</span></label>
     <input type="range" id="room-h" min="3" max="30" value="6" style="width:100%;">
-    <label>生成位置</label>
+    <label>生成位置 <span style="color:#888;font-weight:normal;font-size:11px;">选中的格子作为起点</span></label>
     <select id="room-pos" style="width:100%;">
-      <option value="center">视图中心</option>
+      <option value="center">视图中心（选中格或原点）</option>
       <option value="origin">坐标原点 (0,0)</option>
     </select>
     <div class="btn-row">
@@ -207,9 +208,9 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
     <input type="range" id="corr-len" min="4" max="30" value="10" style="width:100%;">
     <label>宽度: <span id="corr-w-val">2</span></label>
     <input type="range" id="corr-w" min="1" max="3" value="2" style="width:100%;">
-    <label>生成位置</label>
+    <label>生成位置 <span style="color:#888;font-weight:normal;font-size:11px;">选中的格子作为起点</span></label>
     <select id="corr-pos" style="width:100%;">
-      <option value="center">视图中心</option>
+      <option value="center">视图中心（选中格或原点）</option>
       <option value="origin">坐标原点 (0,0)</option>
     </select>
     <div class="btn-row">
@@ -229,9 +230,9 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
     <input type="range" id="cave-h" min="8" max="40" value="15" style="width:100%;">
     <label>墙壁密度: <span id="cave-d-val">45%</span></label>
     <input type="range" id="cave-d" min="30" max="60" value="45" style="width:100%;">
-    <label>生成位置</label>
+    <label>生成位置 <span style="color:#888;font-weight:normal;font-size:11px;">选中的格子作为中心</span></label>
     <select id="cave-pos" style="width:100%;">
-      <option value="center">视图中心</option>
+      <option value="center">视图中心（选中格或原点）</option>
       <option value="origin">坐标原点 (0,0)</option>
     </select>
     <div class="btn-row">
@@ -251,9 +252,9 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
     <input type="range" id="open-h" min="5" max="40" value="12" style="width:100%;">
     <label>散落地形比例: <span id="open-scatter-val">15%</span></label>
     <input type="range" id="open-scatter" min="0" max="40" value="15" style="width:100%;">
-    <label>生成位置</label>
+    <label>生成位置 <span style="color:#888;font-weight:normal;font-size:11px;">选中的格子作为中心</span></label>
     <select id="open-pos" style="width:100%;">
-      <option value="center">视图中心</option>
+      <option value="center">视图中心（选中格或原点）</option>
       <option value="origin">坐标原点 (0,0)</option>
     </select>
     <div class="btn-row">
@@ -383,9 +384,9 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
     <label>内容比例: <span id="zone-d-val">25%</span></label>
     <input type="range" id="zone-d" min="5" max="60" value="25" style="width:100%;">
     <label style="margin:4px 0;"><input type="checkbox" id="zone-wall" checked style="width:auto;"> 区域边缘加墙</label>
-    <label>生成位置</label>
+    <label>生成位置 <span style="color:#888;font-weight:normal;font-size:11px;">选中的格子作为中心</span></label>
     <select id="zone-pos" style="width:100%;">
-      <option value="center">视图中心</option>
+      <option value="center">视图中心（选中格或原点）</option>
       <option value="origin">坐标原点 (0,0)</option>
     </select>
     <div class="btn-row">
@@ -396,13 +397,16 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
 </div>
 
 <!-- SheetJS CDN for .xlsx export -->
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"
+        onerror="window.__combatmapCDN = window.__combatmapCDN || {}; window.__combatmapCDN.xlsx = false;"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"
+        onerror="window.__combatmapCDN = window.__combatmapCDN || {}; window.__combatmapCDN.jszip = false;"></script>
 
 <script>
-// ============================================================
 //  Configuration
 // ============================================================
+const COMBATMAP_VERSION = 'v0.3';
+
 const COMBAT_TERRAIN = {
   floor:        { name: '普通地面', color: '#d4c5a9', icon: '⬜', desc: '正常移动' },
   wall_cell:    { name: '墙壁(填充)', color: '#4a4a4a', icon: '🧱', desc: '不可通行' },
@@ -442,6 +446,7 @@ const EXTRA_TERRAIN = {
 };
 
 // ============================================================
+
 //  Custom Terrain System (localStorage 持久化)
 // ============================================================
 const LS_TERRAIN_KEY = 'combatmap_custom_terrains_v2';
@@ -484,6 +489,7 @@ loadCustomTerrains();
 refreshTerrains();
 
 // ============================================================
+
 //  State
 // ============================================================
 const CELL_SIZE = 48;
@@ -627,6 +633,7 @@ function redo() {
 }
 
 // ============================================================
+
 //  Coordinate System
 // ============================================================
 function cellToPixel(q, r) {
@@ -736,6 +743,7 @@ function resizeCanvas() {
 }
 
 // ============================================================
+
 //  Rendering
 // ============================================================
 function render() {
@@ -1174,6 +1182,7 @@ function lineEndAt(wx, wy) {
 }
 
 // ============================================================
+
 //  Input Handling
 // ============================================================
 canvas.addEventListener('mousedown', (e) => {
@@ -1747,6 +1756,7 @@ function showContextMenu(cx, cy, mx, my) {
 }
 
 // ============================================================
+
 //  Tool Switching
 // ============================================================
 function setTool(tool) {
@@ -2005,6 +2015,445 @@ function updateInfo() {
 }
 
 // ============================================================
+
+
+//  Toast / Notification
+// ============================================================
+function showToast(msg) {
+  const panel = document.getElementById('info-panel');
+  panel.innerHTML = `<div class="row" style="justify-content:center;"><span style="font-size:15px;font-weight:bold;color:#e94560;">${msg}</span></div>`;
+}
+
+// ============================================================
+
+//  Clear
+// ============================================================
+function clearAll() {
+  if (!confirm('⚠️ 确认清空所有数据（地形/图形/线段）？此操作可撤销。')) return;
+  beginBatch();
+  for (const key of Object.keys(combatData)) pushUndo(key);
+  pushUndoMeta();
+  combatData = {};
+  shapes = [];
+  freeLines = [];
+  endBatch();
+  selectedCell = null;
+  selectedShape = null; selectedLine = null;
+  render(); updateInfo();
+  showToast('🗑️ 已清空');
+}
+
+// ============================================================
+
+//  Keyboard Shortcuts
+// ============================================================
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redo(); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveJSON(); return; }
+  // Delete: 删除选中图形/线段
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (selectedShape) {
+      pushUndoMeta();
+      shapes = shapes.filter(s => s.id !== selectedShape);
+      selectedShape = null;
+      render(); updateInfo();
+      return;
+    }
+    if (selectedLine) {
+      pushUndoMeta();
+      freeLines = freeLines.filter(l => l.id !== selectedLine);
+      selectedLine = null;
+      render(); updateInfo();
+      return;
+    }
+  }
+  // Esc: 取消图片放置
+  if (e.key === 'Escape' && _tokenPending) {
+    _tokenPending = null; _hoverToken = null;
+    setTool('select');
+    render();
+    return;
+  }
+  const km = { 'v':'select', 'b':'paint', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 'r':'rect', 't':'token', 'g':'line' };
+  if (km[e.key?.toLowerCase()]) { e.preventDefault(); setTool(km[e.key.toLowerCase()]); }
+});
+
+// ============================================================
+
+//  Button Bindings
+// ============================================================
+document.getElementById('btn-export-excel').addEventListener('click', exportToExcel);
+document.getElementById('btn-export-img').addEventListener('click', exportPNG);
+document.getElementById('btn-export-legend').addEventListener('click', exportLegendPNG);
+document.getElementById('btn-export-owlbear').addEventListener('click', exportOwlbearScene);
+document.getElementById('btn-save').addEventListener('click', saveJSON);
+document.getElementById('btn-load').addEventListener('click', loadJSON);
+document.getElementById('btn-clear').addEventListener('click', clearAll);
+document.getElementById('btn-undo').addEventListener('click', undo);
+document.getElementById('btn-redo').addEventListener('click', redo);
+document.getElementById('chk-grid').addEventListener('change', (e) => { showGrid = e.target.checked; render(); });
+document.getElementById('chk-coords').addEventListener('change', (e) => { showCoords = e.target.checked; render(); });
+
+// ============================================================
+
+//  Token 图片选择（T 工具）
+// ============================================================
+function pickTokenImage() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new Image();
+      img.onload = () => {
+        // 默认 2×2 格，保持原比例
+        const scale = Math.min(2 / (img.width / 48), 2 / (img.height / 48), 6);
+        _tokenPending = {
+          imgData: ev.target.result,
+          img,
+          w: Math.max(1, Math.min(4, (img.width / 48) * scale)),
+          h: Math.max(1, Math.min(4, (img.height / 48) * scale))
+        };
+        _hoverToken = null;
+        setTool('token');
+        showToast('🖼️ 点击地图放置图片，Esc 取消');
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+  input.click();
+}
+
+// 图片工具按钮：点击选择文件
+document.querySelectorAll('.tool-btn[data-tool="token"]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (!_tokenPending) pickTokenImage();
+  });
+});
+
+// ============================================================
+
+//  Terrain Manage Modal（自定义地形）
+// ============================================================
+let _terrainEditId = null;  // null = 新增
+
+function openTerrainModal() {
+  _terrainEditId = null;
+  document.getElementById('terrain-edit').style.display = 'none';
+  renderTerrainList();
+  document.getElementById('terrain-modal').style.display = 'block';
+}
+
+function renderTerrainList() {
+  const list = document.getElementById('terrain-list');
+  list.innerHTML = '';
+  const entries = [];
+  getTerrainList().forEach(id => {
+    const t = getTerrain(id);
+    const isCustom = !!customTerrains[id];
+    entries.push({ id, t, isCustom });
+  });
+  entries.forEach(({ id, t, isCustom }) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 6px;border-bottom:1px solid #0f3460;font-size:12px;';
+    const sw = document.createElement('span');
+    sw.style.cssText = `display:inline-block;width:18px;height:18px;border-radius:3px;background:${t.color};border:1px solid #888;flex-shrink:0;`;
+    const info = document.createElement('span');
+    info.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+    info.textContent = `${t.icon} ${t.name}${isCustom ? ' ✏️' : ''}`;
+    info.title = t.desc || '';
+    const editBtn = document.createElement('button');
+    editBtn.textContent = '编辑';
+    editBtn.style.cssText = 'padding:2px 8px;background:#3a7abd;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
+    editBtn.addEventListener('click', () => { _terrainEditId = id; showTerrainEditForm(t); });
+    row.appendChild(sw); row.appendChild(info); row.appendChild(editBtn);
+    if (isCustom) {
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '删除';
+      delBtn.style.cssText = 'padding:2px 8px;background:#a33;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
+      delBtn.addEventListener('click', () => {
+        if (!confirm(`删除自定义地形「${t.name}」？地图上使用它的格子将变为普通地面。`)) return;
+        delete customTerrains[id];
+        // 地图上的格子转地面（批量撤销）
+        beginBatch();
+        for (const k of Object.keys(combatData)) {
+          if (combatData[k].terrain === id) {
+            pushUndo(k);
+            combatData[k].terrain = null;
+          }
+        }
+        endBatch();
+        if (selectedTerrain === id) selectedTerrain = 'floor';
+        saveCustomTerrains(); refreshTerrains();
+        rebuildTerrainPalette(); renderTerrainList(); render();
+        showToast(`🗑️ 已删除地形「${t.name}」`);
+      });
+      row.appendChild(delBtn);
+    }
+    list.appendChild(row);
+  });
+}
+
+function showTerrainEditForm(t) {
+  const form = document.getElementById('terrain-edit');
+  document.getElementById('terrain-edit-name').value = t.name;
+  document.getElementById('terrain-edit-icon').value = t.icon;
+  document.getElementById('terrain-edit-color').value = t.color;
+  document.getElementById('terrain-edit-desc').value = t.desc || '';
+  form.style.display = 'block';
+  document.getElementById('terrain-edit-name').focus();
+}
+
+function saveTerrainEdit() {
+  const name = document.getElementById('terrain-edit-name').value.trim();
+  const icon = document.getElementById('terrain-edit-icon').value.trim() || '❓';
+  const color = document.getElementById('terrain-edit-color').value;
+  const desc = document.getElementById('terrain-edit-desc').value.trim();
+  if (!name) { showToast('⚠️ 请输入地形名称'); return; }
+  if (_terrainEditId === null) {
+    // 新增：生成唯一 id
+    let id = 'custom_' + Date.now().toString(36);
+    customTerrains[id] = { name, icon, color, desc };
+  } else {
+    const id = _terrainEditId;
+    if (customTerrains[id]) {
+      customTerrains[id] = { name, icon, color, desc };
+    } else {
+      // 覆盖内置地形属性
+      terrainOverrides[id] = { name, icon, color, desc };
+    }
+  }
+  saveCustomTerrains(); refreshTerrains();
+  rebuildTerrainPalette(); renderTerrainList(); render();
+  document.getElementById('terrain-edit').style.display = 'none';
+  showToast('✅ 地形已保存');
+}
+
+document.getElementById('btn-terrain-manage').addEventListener('click', openTerrainModal);
+document.getElementById('terrain-add').addEventListener('click', () => {
+  _terrainEditId = null;
+  showTerrainEditForm({ name: '', icon: '❓', color: '#808080', desc: '' });
+});
+document.getElementById('terrain-edit-save').addEventListener('click', saveTerrainEdit);
+document.getElementById('terrain-edit-cancel').addEventListener('click', () => { document.getElementById('terrain-edit').style.display = 'none'; });
+document.getElementById('terrain-modal-close').addEventListener('click', () => { document.getElementById('terrain-modal').style.display = 'none'; });
+document.getElementById('terrain-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
+
+// Template buttons
+document.getElementById('btn-template-room').addEventListener('click', () => { document.getElementById('room-modal').style.display = 'block'; });
+document.getElementById('btn-template-corridor').addEventListener('click', () => { document.getElementById('corridor-modal').style.display = 'block'; });
+document.getElementById('btn-template-cave').addEventListener('click', () => { document.getElementById('cave-modal').style.display = 'block'; });
+document.getElementById('btn-template-open').addEventListener('click', () => { document.getElementById('open-modal').style.display = 'block'; });
+
+// Template: Room modal
+['room-w','room-h'].forEach(id => {
+  document.getElementById(id).addEventListener('input', function() {
+    document.getElementById(id + '-val').textContent = this.value;
+  });
+});
+function getGenPos(posSelectId) {
+  const pos = document.getElementById(posSelectId).value;
+  if (pos === 'center' && selectedCell) return { q: selectedCell.q, r: selectedCell.r };
+  return { q: 0, r: 0 };
+}
+document.getElementById('room-cancel').addEventListener('click', () => { document.getElementById('room-modal').style.display = 'none'; });
+document.getElementById('room-confirm').addEventListener('click', () => {
+  const w = parseInt(document.getElementById('room-w').value);
+  const h = parseInt(document.getElementById('room-h').value);
+  const { q, r } = getGenPos('room-pos');
+  document.getElementById('room-modal').style.display = 'none';
+  generateRoom(q, r, w, h);
+  render(); updateInfo();
+  showToast(`🏠 已生成 ${w}×${h} 房间`);
+});
+document.getElementById('room-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
+
+// Template: Corridor modal
+['corr-len'].forEach(id => {
+  document.getElementById(id).addEventListener('input', function() {
+    document.getElementById(id + '-val').textContent = this.value;
+  });
+});
+document.getElementById('corr-w').addEventListener('input', function() {
+  document.getElementById('corr-w-val').textContent = this.value;
+});
+document.getElementById('corr-cancel').addEventListener('click', () => { document.getElementById('corridor-modal').style.display = 'none'; });
+document.getElementById('corr-confirm').addEventListener('click', () => {
+  const type = document.getElementById('corr-type').value;
+  const len = parseInt(document.getElementById('corr-len').value);
+  const wid = parseInt(document.getElementById('corr-w').value);
+  const { q, r } = getGenPos('corr-pos');
+  document.getElementById('corridor-modal').style.display = 'none';
+  generateCorridor(q, r, type, len, wid);
+  render(); updateInfo();
+  showToast(`🛤️ 已生成${type}走廊`);
+});
+document.getElementById('corridor-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
+
+// Template: Cave modal
+['cave-w','cave-h'].forEach(id => {
+  document.getElementById(id).addEventListener('input', function() {
+    document.getElementById(id + '-val').textContent = this.value;
+  });
+});
+document.getElementById('cave-d').addEventListener('input', function() {
+  document.getElementById('cave-d-val').textContent = this.value + '%';
+});
+document.getElementById('cave-cancel').addEventListener('click', () => { document.getElementById('cave-modal').style.display = 'none'; });
+document.getElementById('cave-confirm').addEventListener('click', () => {
+  const w = parseInt(document.getElementById('cave-w').value);
+  const h = parseInt(document.getElementById('cave-h').value);
+  const d = parseInt(document.getElementById('cave-d').value);
+  const { q, r } = getGenPos('cave-pos');
+  document.getElementById('cave-modal').style.display = 'none';
+  generateCave(q, r, w, h, d);
+  render(); updateInfo();
+  showToast(`🕳️ 已生成 ${w}×${h} 洞窟`);
+});
+document.getElementById('cave-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
+
+// Template: Open Field modal
+['open-w','open-h'].forEach(id => {
+  document.getElementById(id).addEventListener('input', function() {
+    document.getElementById(id + '-val').textContent = this.value;
+  });
+});
+document.getElementById('open-scatter').addEventListener('input', function() {
+  document.getElementById('open-scatter-val').textContent = this.value + '%';
+});
+document.getElementById('open-cancel').addEventListener('click', () => { document.getElementById('open-modal').style.display = 'none'; });
+document.getElementById('open-confirm').addEventListener('click', () => {
+  const w = parseInt(document.getElementById('open-w').value);
+  const h = parseInt(document.getElementById('open-h').value);
+  const s = parseInt(document.getElementById('open-scatter').value);
+  const { q, r } = getGenPos('open-pos');
+  document.getElementById('open-modal').style.display = 'none';
+  generateOpenField(q, r, w, h, s);
+  render(); updateInfo();
+  showToast(`🌿 已生成 ${w}×${h} 空地`);
+});
+document.getElementById('open-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
+
+// ============================================================
+
+//  Template: Zone（智能区域模板，新人友好范例）
+// ============================================================
+function generateZone(centerQ, centerR, type, w, h, density, wallBorder) {
+  beginBatch();
+  const seed = Date.now() + 3;
+  function mulberry32(a) {
+    return function() {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  const rng = mulberry32(seed);
+  const halfW = Math.floor(w / 2), halfH = Math.floor(h / 2);
+
+  const setAt = (q, r, terrain) => setCell(centerQ + q, centerR + r, { terrain });
+
+  for (let q = -halfW; q < w - halfW; q++) {
+    for (let r = -halfH; r < h - halfH; r++) {
+      const edge = q === -halfW || q === w - halfW - 1 || r === -halfH || r === h - halfH - 1;
+      switch (type) {
+        case 'difficult':
+          if (edge) { setAt(q, r, 'floor'); break; }
+          if (rng() < density / 100) setAt(q, r, 'difficult');
+          else if (rng() < 0.08) setAt(q, r, rng() < 0.5 ? 'cover_half' : 'cover_full');
+          else setAt(q, r, 'floor');
+          break;
+        case 'water':
+          if (edge) { setAt(q, r, 'floor'); break; }
+          if (rng() < density / 100) setAt(q, r, 'water');
+          else if (rng() < 0.12) setAt(q, r, 'difficult'); // 浅滩
+          else setAt(q, r, 'floor');
+          break;
+        case 'fire':
+          if (edge) { setAt(q, r, 'floor'); break; }
+          if (rng() < density / 100) setAt(q, r, 'hazard_fire');
+          else setAt(q, r, 'floor');
+          break;
+        case 'acid':
+          if (edge) { setAt(q, r, 'floor'); break; }
+          if (rng() < density / 100) setAt(q, r, 'hazard_acid');
+          else setAt(q, r, 'floor');
+          break;
+        case 'spike':
+          if (edge) { setAt(q, r, 'floor'); break; }
+          if (rng() < density / 100) setAt(q, r, 'hazard_spike');
+          else setAt(q, r, 'floor');
+          break;
+        case 'elevated':
+          if (edge) { setAt(q, r, 'wall_cell'); break; }
+          setAt(q, r, 'elevated');
+          if (rng() < 0.1) setAt(q, r, 'cover_half'); // 城垛
+          break;
+        case 'teach': {
+          // 教学示例：中间墙柱 + 困难带 + 水池 + 火焰 + 高台 + 掩体
+          if (edge) { setAt(q, r, 'floor'); break; }
+          const dx = Math.abs(q), dy = Math.abs(r);
+          if (dx === 2 && dy === 2) { setAt(q, r, 'wall_cell'); break; }           // 四角墙柱
+          if (q === 0 && r === 0) { setAt(q, r, 'wall_cell'); break; }             // 中心柱
+          if (dx === 0 && dy <= 2) { setAt(q, r, 'water'); break; }                // 中央水池
+          if (dy === 0 && dx <= 2) { setAt(q, r, 'water'); break; }
+          if (dx === 1 || dy === 1) { setAt(q, r, 'difficult'); break; }           // 困难带
+          if (dx === 3 && dy === 3) { setAt(q, r, 'hazard_fire'); break; }         // 四角火焰
+          if (rng() < 0.15) setAt(q, r, 'cover_half');
+          else setAt(q, r, 'floor');
+          break;
+        }
+      }
+    }
+  }
+
+  // 边缘加墙
+  if (wallBorder && type !== 'elevated') {
+    const lastQ = w - halfW - 1, lastR = h - halfH - 1;
+    for (let q = -halfW; q <= lastQ; q++) {
+      setWall(centerQ + q, centerR - halfH, 0, 1);
+      setWall(centerQ + q, centerR + lastR, 2, 1);
+    }
+    for (let r = -halfH; r <= lastR; r++) {
+      setWall(centerQ - halfW, centerR + r, 3, 1);
+      setWall(centerQ + lastQ, centerR + r, 1, 1);
+    }
+  }
+  endBatch();
+}
+
+document.getElementById('btn-template-zone').addEventListener('click', () => { document.getElementById('zone-modal').style.display = 'block'; });
+['zone-w','zone-h'].forEach(id => {
+  document.getElementById(id).addEventListener('input', function() {
+    document.getElementById(id + '-val').textContent = this.value;
+  });
+});
+document.getElementById('zone-d').addEventListener('input', function() {
+  document.getElementById('zone-d-val').textContent = this.value + '%';
+});
+document.getElementById('zone-cancel').addEventListener('click', () => { document.getElementById('zone-modal').style.display = 'none'; });
+document.getElementById('zone-confirm').addEventListener('click', () => {
+  const type = document.getElementById('zone-type').value;
+  const w = parseInt(document.getElementById('zone-w').value);
+  const h = parseInt(document.getElementById('zone-h').value);
+  const d = parseInt(document.getElementById('zone-d').value);
+  const wall = document.getElementById('zone-wall').checked;
+  const { q, r } = getGenPos('zone-pos');
+  document.getElementById('zone-modal').style.display = 'none';
+  generateZone(q, r, type, w, h, d, wall);
+  render(); updateInfo();
+  showToast(`🧩 已生成区域「${document.getElementById('zone-type').selectedOptions[0].textContent.trim()}」`);
+});
+document.getElementById('zone-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
+
+// ============================================================
+
 //  Template: Room
 // ============================================================
 function generateRoom(centerQ, centerR, w, h) {
@@ -2193,8 +2642,8 @@ function generateOpenField(centerQ, centerR, w, h, scatter) {
   const halfW = Math.floor(w / 2), halfH = Math.floor(h / 2);
   const scatterTerrains = ['difficult', 'cover_half', 'cover_full', 'water', 'elevated'];
 
-  for (let q = -halfW; q <= halfW; q++) {
-    for (let r = -halfH; r <= halfH; r++) {
+  for (let q = -halfW; q < w - halfW; q++) {
+    for (let r = -halfH; r < h - halfH; r++) {
       const mq = centerQ + q, mr = centerR + r;
       if (rng() < (scatter / 100)) {
         const t = scatterTerrains[Math.floor(rng() * scatterTerrains.length)];
@@ -2208,11 +2657,12 @@ function generateOpenField(centerQ, centerR, w, h, scatter) {
 }
 
 // ============================================================
+
 //  Export: Excel
 //  主格式 = .xlsx（标准 OOXML，Excel/WPS 都支持颜色与方正规格）
 //  降级   = .xls（HTML 表格，仅当 SheetJS 未加载时使用）
 // ============================================================
-function exportToExcel() {
+async function exportToExcel() {
   cleanData();
   const keys = Object.keys(combatData);
   if (keys.length === 0) { showToast('⚠️ 没有数据可导出，先生成地图！'); return; }
@@ -2232,7 +2682,7 @@ function exportToExcel() {
     return;
   }
   try {
-    exportMultiSheetXLSX(minQ, maxQ, minR, maxR);
+    await exportMultiSheetXLSX(minQ, maxQ, minR, maxR);
   } catch (err) {
     console.error(err);
     exportStyledHTML(minQ, maxQ, minR, maxR);
@@ -2453,7 +2903,7 @@ function exportMultiSheetXLSX(minQ, maxQ, minR, maxR) {
   XLSX.utils.book_append_sheet(wb, wsLegend, '图例');
 
   // 写入 xlsx（JSZip 注入：颜色样式 + 方正列宽 + 图形层）
-  writeWorkbookWithShapes(wb, minQ, maxQ, minR, maxR, styleKeys, cols, rows);
+  return writeWorkbookWithShapes(wb, minQ, maxQ, minR, maxR, styleKeys, cols, rows);
 }
 
 // ============================================================
@@ -2966,7 +3416,7 @@ function exportLegendPNG() {
   c.fillText('⚔️ 战斗地图图例', PAD, 20);
   c.font = '12px sans-serif';
   c.fillStyle = '#aaa';
-  c.fillText(`共 ${list.length} 种地形 · 通用战斗地图 v0.2`, PAD, 38);
+  c.fillText(`共 ${list.length} 种地形 · 通用战斗地图 ${COMBATMAP_VERSION}`, PAD, 38);
   list.forEach((id, i) => {
     const t = getTerrain(id);
     const y = PAD + 40 + i * LINE_H;
@@ -3099,435 +3549,7 @@ function loadJSON() {
 }
 
 // ============================================================
-//  Toast / Notification
-// ============================================================
-function showToast(msg) {
-  const panel = document.getElementById('info-panel');
-  panel.innerHTML = `<div class="row" style="justify-content:center;"><span style="font-size:15px;font-weight:bold;color:#e94560;">${msg}</span></div>`;
-}
 
-// ============================================================
-//  Clear
-// ============================================================
-function clearAll() {
-  if (!confirm('⚠️ 确认清空所有数据（地形/图形/线段）？此操作可撤销。')) return;
-  beginBatch();
-  for (const key of Object.keys(combatData)) pushUndo(key);
-  pushUndoMeta();
-  combatData = {};
-  shapes = [];
-  freeLines = [];
-  endBatch();
-  selectedCell = null;
-  selectedShape = null; selectedLine = null;
-  render(); updateInfo();
-  showToast('🗑️ 已清空');
-}
-
-// ============================================================
-//  Keyboard Shortcuts
-// ============================================================
-document.addEventListener('keydown', (e) => {
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
-  if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
-  if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redo(); return; }
-  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveJSON(); return; }
-  // Delete: 删除选中图形/线段
-  if (e.key === 'Delete' || e.key === 'Backspace') {
-    if (selectedShape) {
-      pushUndoMeta();
-      shapes = shapes.filter(s => s.id !== selectedShape);
-      selectedShape = null;
-      render(); updateInfo();
-      return;
-    }
-    if (selectedLine) {
-      pushUndoMeta();
-      freeLines = freeLines.filter(l => l.id !== selectedLine);
-      selectedLine = null;
-      render(); updateInfo();
-      return;
-    }
-  }
-  // Esc: 取消图片放置
-  if (e.key === 'Escape' && _tokenPending) {
-    _tokenPending = null; _hoverToken = null;
-    setTool('select');
-    render();
-    return;
-  }
-  const km = { 'v':'select', 'b':'paint', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 'r':'rect', 't':'token', 'g':'line' };
-  if (km[e.key?.toLowerCase()]) { e.preventDefault(); setTool(km[e.key.toLowerCase()]); }
-});
-
-// ============================================================
-//  Button Bindings
-// ============================================================
-document.getElementById('btn-export-excel').addEventListener('click', exportToExcel);
-document.getElementById('btn-export-img').addEventListener('click', exportPNG);
-document.getElementById('btn-export-legend').addEventListener('click', exportLegendPNG);
-document.getElementById('btn-export-owlbear').addEventListener('click', exportOwlbearScene);
-document.getElementById('btn-save').addEventListener('click', saveJSON);
-document.getElementById('btn-load').addEventListener('click', loadJSON);
-document.getElementById('btn-clear').addEventListener('click', clearAll);
-document.getElementById('btn-undo').addEventListener('click', undo);
-document.getElementById('btn-redo').addEventListener('click', redo);
-document.getElementById('chk-grid').addEventListener('change', (e) => { showGrid = e.target.checked; render(); });
-document.getElementById('chk-coords').addEventListener('change', (e) => { showCoords = e.target.checked; render(); });
-
-// ============================================================
-//  Token 图片选择（T 工具）
-// ============================================================
-function pickTokenImage() {
-  const input = document.createElement('input');
-  input.type = 'file'; input.accept = 'image/*';
-  input.onchange = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const img = new Image();
-      img.onload = () => {
-        // 默认 2×2 格，保持原比例
-        const scale = Math.min(2 / (img.width / 48), 2 / (img.height / 48), 6);
-        _tokenPending = {
-          imgData: ev.target.result,
-          img,
-          w: Math.max(1, Math.min(4, (img.width / 48) * scale)),
-          h: Math.max(1, Math.min(4, (img.height / 48) * scale))
-        };
-        _hoverToken = null;
-        setTool('token');
-        showToast('🖼️ 点击地图放置图片，Esc 取消');
-      };
-      img.src = ev.target.result;
-    };
-    reader.readAsDataURL(file);
-  };
-  input.click();
-}
-
-// 图片工具按钮：点击选择文件
-document.querySelectorAll('.tool-btn[data-tool="token"]').forEach(btn => {
-  btn.addEventListener('click', () => {
-    if (!_tokenPending) pickTokenImage();
-  });
-});
-
-// ============================================================
-//  Terrain Manage Modal（自定义地形）
-// ============================================================
-let _terrainEditId = null;  // null = 新增
-
-function openTerrainModal() {
-  _terrainEditId = null;
-  document.getElementById('terrain-edit').style.display = 'none';
-  renderTerrainList();
-  document.getElementById('terrain-modal').style.display = 'block';
-}
-
-function renderTerrainList() {
-  const list = document.getElementById('terrain-list');
-  list.innerHTML = '';
-  const entries = [];
-  getTerrainList().forEach(id => {
-    const t = getTerrain(id);
-    const isCustom = !!customTerrains[id];
-    entries.push({ id, t, isCustom });
-  });
-  entries.forEach(({ id, t, isCustom }) => {
-    const row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 6px;border-bottom:1px solid #0f3460;font-size:12px;';
-    const sw = document.createElement('span');
-    sw.style.cssText = `display:inline-block;width:18px;height:18px;border-radius:3px;background:${t.color};border:1px solid #888;flex-shrink:0;`;
-    const info = document.createElement('span');
-    info.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
-    info.textContent = `${t.icon} ${t.name}${isCustom ? ' ✏️' : ''}`;
-    info.title = t.desc || '';
-    const editBtn = document.createElement('button');
-    editBtn.textContent = '编辑';
-    editBtn.style.cssText = 'padding:2px 8px;background:#3a7abd;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
-    editBtn.addEventListener('click', () => { _terrainEditId = id; showTerrainEditForm(t); });
-    row.appendChild(sw); row.appendChild(info); row.appendChild(editBtn);
-    if (isCustom) {
-      const delBtn = document.createElement('button');
-      delBtn.textContent = '删除';
-      delBtn.style.cssText = 'padding:2px 8px;background:#a33;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
-      delBtn.addEventListener('click', () => {
-        if (!confirm(`删除自定义地形「${t.name}」？地图上使用它的格子将变为普通地面。`)) return;
-        delete customTerrains[id];
-        // 地图上的格子转地面（批量撤销）
-        beginBatch();
-        for (const k of Object.keys(combatData)) {
-          if (combatData[k].terrain === id) {
-            pushUndo(k);
-            combatData[k].terrain = null;
-          }
-        }
-        endBatch();
-        if (selectedTerrain === id) selectedTerrain = 'floor';
-        saveCustomTerrains(); refreshTerrains();
-        rebuildTerrainPalette(); renderTerrainList(); render();
-        showToast(`🗑️ 已删除地形「${t.name}」`);
-      });
-      row.appendChild(delBtn);
-    }
-    list.appendChild(row);
-  });
-}
-
-function showTerrainEditForm(t) {
-  const form = document.getElementById('terrain-edit');
-  document.getElementById('terrain-edit-name').value = t.name;
-  document.getElementById('terrain-edit-icon').value = t.icon;
-  document.getElementById('terrain-edit-color').value = t.color;
-  document.getElementById('terrain-edit-desc').value = t.desc || '';
-  form.style.display = 'block';
-  document.getElementById('terrain-edit-name').focus();
-}
-
-function saveTerrainEdit() {
-  const name = document.getElementById('terrain-edit-name').value.trim();
-  const icon = document.getElementById('terrain-edit-icon').value.trim() || '❓';
-  const color = document.getElementById('terrain-edit-color').value;
-  const desc = document.getElementById('terrain-edit-desc').value.trim();
-  if (!name) { showToast('⚠️ 请输入地形名称'); return; }
-  if (_terrainEditId === null) {
-    // 新增：生成唯一 id
-    let id = 'custom_' + Date.now().toString(36);
-    customTerrains[id] = { name, icon, color, desc };
-  } else {
-    const id = _terrainEditId;
-    if (customTerrains[id]) {
-      customTerrains[id] = { name, icon, color, desc };
-    } else {
-      // 覆盖内置地形属性
-      terrainOverrides[id] = { name, icon, color, desc };
-    }
-  }
-  saveCustomTerrains(); refreshTerrains();
-  rebuildTerrainPalette(); renderTerrainList(); render();
-  document.getElementById('terrain-edit').style.display = 'none';
-  showToast('✅ 地形已保存');
-}
-
-document.getElementById('btn-terrain-manage').addEventListener('click', openTerrainModal);
-document.getElementById('terrain-add').addEventListener('click', () => {
-  _terrainEditId = null;
-  showTerrainEditForm({ name: '', icon: '❓', color: '#808080', desc: '' });
-});
-document.getElementById('terrain-edit-save').addEventListener('click', saveTerrainEdit);
-document.getElementById('terrain-edit-cancel').addEventListener('click', () => { document.getElementById('terrain-edit').style.display = 'none'; });
-document.getElementById('terrain-modal-close').addEventListener('click', () => { document.getElementById('terrain-modal').style.display = 'none'; });
-document.getElementById('terrain-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
-
-// Template buttons
-document.getElementById('btn-template-room').addEventListener('click', () => { document.getElementById('room-modal').style.display = 'block'; });
-document.getElementById('btn-template-corridor').addEventListener('click', () => { document.getElementById('corridor-modal').style.display = 'block'; });
-document.getElementById('btn-template-cave').addEventListener('click', () => { document.getElementById('cave-modal').style.display = 'block'; });
-document.getElementById('btn-template-open').addEventListener('click', () => { document.getElementById('open-modal').style.display = 'block'; });
-
-// Template: Room modal
-['room-w','room-h'].forEach(id => {
-  document.getElementById(id).addEventListener('input', function() {
-    document.getElementById(id + '-val').textContent = this.value;
-  });
-});
-function getGenPos(posSelectId) {
-  const pos = document.getElementById(posSelectId).value;
-  if (pos === 'center' && selectedCell) return { q: selectedCell.q, r: selectedCell.r };
-  return { q: 0, r: 0 };
-}
-document.getElementById('room-cancel').addEventListener('click', () => { document.getElementById('room-modal').style.display = 'none'; });
-document.getElementById('room-confirm').addEventListener('click', () => {
-  const w = parseInt(document.getElementById('room-w').value);
-  const h = parseInt(document.getElementById('room-h').value);
-  const { q, r } = getGenPos('room-pos');
-  document.getElementById('room-modal').style.display = 'none';
-  generateRoom(q, r, w, h);
-  render(); updateInfo();
-  showToast(`🏠 已生成 ${w}×${h} 房间`);
-});
-document.getElementById('room-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
-
-// Template: Corridor modal
-['corr-len'].forEach(id => {
-  document.getElementById(id).addEventListener('input', function() {
-    document.getElementById(id + '-val').textContent = this.value;
-  });
-});
-document.getElementById('corr-w').addEventListener('input', function() {
-  document.getElementById('corr-w-val').textContent = this.value;
-});
-document.getElementById('corr-cancel').addEventListener('click', () => { document.getElementById('corridor-modal').style.display = 'none'; });
-document.getElementById('corr-confirm').addEventListener('click', () => {
-  const type = document.getElementById('corr-type').value;
-  const len = parseInt(document.getElementById('corr-len').value);
-  const wid = parseInt(document.getElementById('corr-w').value);
-  const { q, r } = getGenPos('corr-pos');
-  document.getElementById('corridor-modal').style.display = 'none';
-  generateCorridor(q, r, type, len, wid);
-  render(); updateInfo();
-  showToast(`🛤️ 已生成${type}走廊`);
-});
-document.getElementById('corridor-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
-
-// Template: Cave modal
-['cave-w','cave-h'].forEach(id => {
-  document.getElementById(id).addEventListener('input', function() {
-    document.getElementById(id + '-val').textContent = this.value;
-  });
-});
-document.getElementById('cave-d').addEventListener('input', function() {
-  document.getElementById('cave-d-val').textContent = this.value + '%';
-});
-document.getElementById('cave-cancel').addEventListener('click', () => { document.getElementById('cave-modal').style.display = 'none'; });
-document.getElementById('cave-confirm').addEventListener('click', () => {
-  const w = parseInt(document.getElementById('cave-w').value);
-  const h = parseInt(document.getElementById('cave-h').value);
-  const d = parseInt(document.getElementById('cave-d').value);
-  const { q, r } = getGenPos('cave-pos');
-  document.getElementById('cave-modal').style.display = 'none';
-  generateCave(q, r, w, h, d);
-  render(); updateInfo();
-  showToast(`🕳️ 已生成 ${w}×${h} 洞窟`);
-});
-document.getElementById('cave-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
-
-// Template: Open Field modal
-['open-w','open-h'].forEach(id => {
-  document.getElementById(id).addEventListener('input', function() {
-    document.getElementById(id + '-val').textContent = this.value;
-  });
-});
-document.getElementById('open-scatter').addEventListener('input', function() {
-  document.getElementById('open-scatter-val').textContent = this.value + '%';
-});
-document.getElementById('open-cancel').addEventListener('click', () => { document.getElementById('open-modal').style.display = 'none'; });
-document.getElementById('open-confirm').addEventListener('click', () => {
-  const w = parseInt(document.getElementById('open-w').value);
-  const h = parseInt(document.getElementById('open-h').value);
-  const s = parseInt(document.getElementById('open-scatter').value);
-  const { q, r } = getGenPos('open-pos');
-  document.getElementById('open-modal').style.display = 'none';
-  generateOpenField(q, r, w, h, s);
-  render(); updateInfo();
-  showToast(`🌿 已生成 ${w}×${h} 空地`);
-});
-document.getElementById('open-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
-
-// ============================================================
-//  Template: Zone（智能区域模板，新人友好范例）
-// ============================================================
-function generateZone(centerQ, centerR, type, w, h, density, wallBorder) {
-  beginBatch();
-  const seed = Date.now() + 3;
-  function mulberry32(a) {
-    return function() {
-      a |= 0; a = a + 0x6D2B79F5 | 0;
-      let t = Math.imul(a ^ a >>> 15, 1 | a);
-      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-      return ((t ^ t >>> 14) >>> 0) / 4294967296;
-    };
-  }
-  const rng = mulberry32(seed);
-  const halfW = Math.floor(w / 2), halfH = Math.floor(h / 2);
-
-  const setAt = (q, r, terrain) => setCell(centerQ + q, centerR + r, { terrain });
-
-  for (let q = -halfW; q <= halfW; q++) {
-    for (let r = -halfH; r <= halfH; r++) {
-      const edge = Math.abs(q) === halfW || Math.abs(r) === halfH;
-      switch (type) {
-        case 'difficult':
-          if (edge) { setAt(q, r, 'floor'); break; }
-          if (rng() < density / 100) setAt(q, r, 'difficult');
-          else if (rng() < 0.08) setAt(q, r, rng() < 0.5 ? 'cover_half' : 'cover_full');
-          else setAt(q, r, 'floor');
-          break;
-        case 'water':
-          if (edge) { setAt(q, r, 'floor'); break; }
-          if (rng() < density / 100) setAt(q, r, 'water');
-          else if (rng() < 0.12) setAt(q, r, 'difficult'); // 浅滩
-          else setAt(q, r, 'floor');
-          break;
-        case 'fire':
-          if (edge) { setAt(q, r, 'floor'); break; }
-          if (rng() < density / 100) setAt(q, r, 'hazard_fire');
-          else setAt(q, r, 'floor');
-          break;
-        case 'acid':
-          if (edge) { setAt(q, r, 'floor'); break; }
-          if (rng() < density / 100) setAt(q, r, 'hazard_acid');
-          else setAt(q, r, 'floor');
-          break;
-        case 'spike':
-          if (edge) { setAt(q, r, 'floor'); break; }
-          if (rng() < density / 100) setAt(q, r, 'hazard_spike');
-          else setAt(q, r, 'floor');
-          break;
-        case 'elevated':
-          if (edge) { setAt(q, r, 'wall_cell'); break; }
-          setAt(q, r, 'elevated');
-          if (rng() < 0.1) setAt(q, r, 'cover_half'); // 城垛
-          break;
-        case 'teach': {
-          // 教学示例：中间墙柱 + 困难带 + 水池 + 火焰 + 高台 + 掩体
-          if (edge) { setAt(q, r, 'floor'); break; }
-          const dx = Math.abs(q), dy = Math.abs(r);
-          if (dx === 2 && dy === 2) { setAt(q, r, 'wall_cell'); break; }           // 四角墙柱
-          if (q === 0 && r === 0) { setAt(q, r, 'wall_cell'); break; }             // 中心柱
-          if (dx === 0 && dy <= 2) { setAt(q, r, 'water'); break; }                // 中央水池
-          if (dy === 0 && dx <= 2) { setAt(q, r, 'water'); break; }
-          if (dx === 1 || dy === 1) { setAt(q, r, 'difficult'); break; }           // 困难带
-          if (dx === 3 && dy === 3) { setAt(q, r, 'hazard_fire'); break; }         // 四角火焰
-          if (rng() < 0.15) setAt(q, r, 'cover_half');
-          else setAt(q, r, 'floor');
-          break;
-        }
-      }
-    }
-  }
-
-  // 边缘加墙
-  if (wallBorder && type !== 'elevated') {
-    for (let q = -halfW; q <= halfW; q++) {
-      setWall(centerQ + q, centerR - halfH, 0, 1);
-      setWall(centerQ + q, centerR + halfH, 2, 1);
-    }
-    for (let r = -halfH; r <= halfH; r++) {
-      setWall(centerQ - halfW, centerR + r, 3, 1);
-      setWall(centerQ + halfW, centerR + r, 1, 1);
-    }
-  }
-  endBatch();
-}
-
-document.getElementById('btn-template-zone').addEventListener('click', () => { document.getElementById('zone-modal').style.display = 'block'; });
-['zone-w','zone-h'].forEach(id => {
-  document.getElementById(id).addEventListener('input', function() {
-    document.getElementById(id + '-val').textContent = this.value;
-  });
-});
-document.getElementById('zone-d').addEventListener('input', function() {
-  document.getElementById('zone-d-val').textContent = this.value + '%';
-});
-document.getElementById('zone-cancel').addEventListener('click', () => { document.getElementById('zone-modal').style.display = 'none'; });
-document.getElementById('zone-confirm').addEventListener('click', () => {
-  const type = document.getElementById('zone-type').value;
-  const w = parseInt(document.getElementById('zone-w').value);
-  const h = parseInt(document.getElementById('zone-h').value);
-  const d = parseInt(document.getElementById('zone-d').value);
-  const wall = document.getElementById('zone-wall').checked;
-  const { q, r } = getGenPos('zone-pos');
-  document.getElementById('zone-modal').style.display = 'none';
-  generateZone(q, r, type, w, h, d, wall);
-  render(); updateInfo();
-  showToast(`🧩 已生成区域「${document.getElementById('zone-type').selectedOptions[0].textContent.trim()}」`);
-});
-document.getElementById('zone-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
-
-// ============================================================
 //  Init
 // ============================================================
 function init() {
@@ -3539,13 +3561,26 @@ function init() {
   viewY = canvas.height / 2;
   render();
   updateInfo();
-  console.log('⚔️ 通用战斗地图生成器 v0.2 已就绪');
+  const cdn = window.__combatmapCDN || {};
+  const missing = [];
+  if (cdn.xlsx === false) missing.push('SheetJS');
+  if (cdn.jszip === false) missing.push('JSZip');
+  if (missing.length > 0) {
+    const warn = document.getElementById('cdn-warning');
+    if (warn) {
+      warn.style.display = 'block';
+      warn.textContent = `⚠️ 依赖未加载（${missing.join(', ')}）— xlsx 导出将降级，建议联网后刷新`;
+    }
+  }
+  console.log(`⚔️ 通用战斗地图生成器 ${COMBATMAP_VERSION} 已就绪`);
   console.log('快捷键: V=选择 B=笔刷 W=墙壁 D=门 L=标签 E=擦除 R=区域 T=图片 G=线段 Delete=删除选中');
   console.log('新增: 区域/图片/线段图层 · 自定义地形(⚙️管理) · 智能区域模板 · 枭熊场景导出 · xlsx 颜色修复');
 }
 
 window.addEventListener('resize', resizeCanvas);
 init();
+
+
 </script>
 </body>
 </html>
