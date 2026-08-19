@@ -168,10 +168,9 @@ function editTokenPreset(id) {
 }
 
 function openTokenLibrarySection() {
-  const sec = document.getElementById('sec-tokenlib');
-  const det = sec && sec.closest('details');
-  if (det && !det.open) det.open = true;
+  if (typeof switchPanel === 'function') switchPanel('lib');
   renderTokenLibrary();
+  const sec = document.getElementById('sec-tokenlib');
   if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
