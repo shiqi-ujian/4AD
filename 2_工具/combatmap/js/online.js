@@ -3,6 +3,8 @@
 //  依赖: state.js/core.js/render.js/share.js
 //  用法: 工具栏「🌐 在线」创建房间/加入房间；任一本地改动经过
 //  render() 自动节流广播完整快照。主机收到客户端快照后应用并转播。
+//  注意：DM 层/战雾/行动顺序随完整快照同步；若需要 DM 隐藏层
+//  不对玩家公开，应后续加角色权限过滤（当前为全量 P2P 同步）。
 // ============================================================
 
 const PEER_CONFIG = {
@@ -21,16 +23,47 @@ let onlineSync = false;
 let onlineMseq = 0;
 let onlineApplyRemote = false;
 let onlineTimer = null;
+let onlineIsPlayer = false;   // true = 加入房间的玩家；false = 创建房间的 DM
+
+function payloadForRole(payload, role) {
+  if (role !== 'player') return payload;
+  // 玩家只接收“玩家可见地图”：DM 隐藏层、战雾、行动顺序、DM 专用底图设置不下发
+  const p = JSON.parse(JSON.stringify(payload || {}));
+  delete p.dmData;
+  delete p.fog;
+  delete p.initiativeOrder;
+  delete p.initiativeIndex;
+  return p;
+}
+
+function applyOnlineRoleUI() {
+  const isPlayer = onlineIsPlayer && !!onlinePeer;
+  const dmBtn = document.querySelector('.tool-btn[data-tool="dm"]');
+  const fogBtn = document.querySelector('.tool-btn[data-tool="fog"]');
+  const dmChk = document.getElementById('chk-dm');
+  const fogChk = document.getElementById('chk-fog');
+  const initBtn = document.getElementById('btn-initiative');
+  if (dmBtn) dmBtn.disabled = isPlayer;
+  if (fogBtn) fogBtn.disabled = isPlayer;
+  if (dmChk) dmChk.disabled = isPlayer;
+  if (fogChk) fogChk.disabled = isPlayer;
+  if (initBtn) initBtn.disabled = isPlayer;
+  if (isPlayer) {
+    showDmLayer = false;
+    if (dmChk) dmChk.checked = false;
+    if (selectedTool === 'dm' || selectedTool === 'fog') setTool('select');
+  }
+}
 
 function setOnlineStatus(msg) {
   const el = document.getElementById('online-status');
   if (el) el.textContent = msg || '';
   const st = document.getElementById('btn-online-status');
   if (st) {
-    st.textContent = onlinePeer ? (onlineSync ? '在线' : '连接中…') : '未连接';
+    st.textContent = onlinePeer ? (onlineSync ? (onlineIsPlayer ? '玩家' : 'DM') : '连接中…') : '未连接';
     st.disabled = !onlinePeer;
     st.style.opacity = onlinePeer ? '1' : '0.4';
-    st.style.background = onlineSync ? '#2d6a2e' : '#3a3a5e';
+    st.style.background = onlineSync ? (onlineIsPlayer ? '#3a7abd' : '#2d6a2e') : '#3a3a5e';
     st.style.color = onlinePeer ? '#fff' : '#aaa';
   }
 }
@@ -61,6 +94,7 @@ function closeOnlineModal() {
   if (modal) modal.style.display = 'none';
 }
 
+// cleanMetaRefs 已并入 share.js buildCombatPayload
 function buildOnlineSnapshot() {
   return {
     type: 'snapshot',
@@ -80,12 +114,12 @@ function broadcastSnapshot(excludeConn) {
   const payload = buildOnlineSnapshot();
   for (const conn of onlineConnections) {
     if (conn === excludeConn) continue;
-    sendTo(conn, payload);
+    sendTo(conn, payloadForRole(payload, conn._combatRole || 'player'));
   }
 }
 
 function onlineSendSnapshotTo(conn) {
-  sendTo(conn, buildOnlineSnapshot());
+  sendTo(conn, payloadForRole(buildOnlineSnapshot(), conn._combatRole || 'player'));
 }
 
 function scheduleOnlineSnapshot() {
@@ -101,6 +135,7 @@ render = function () {
   scheduleOnlineSnapshot();
 };
 
+// 数据同步由 buildCombatPayload/applyCombatData 统一处理（已含 DM 层/战雾/行动顺序）
 function applyRemoteSnapshot(msg) {
   if (!msg || msg.type !== 'snapshot' || !msg.data) return;
   // 新加入客户端收到主机首个快照后，才放开同步，避免空图盖掉全屋地图
@@ -126,8 +161,14 @@ function handleOnlineData(conn, raw) {
     // 主机收到客户端快照后应用，并转播给其他连接
     if (onlineRoom && onlineConnections.length > 0) broadcastSnapshot(conn);
   } else if (msg.type === 'hello') {
-    // 新客户端请求首次快照
-    sendTo(conn, buildOnlineSnapshot());
+    // 新客户端请求首次快照；先按该连接声明的角色发送
+    conn._combatRole = msg.role === 'dm' ? 'dm' : 'player';
+    onlineSendSnapshotTo(conn);
+    setOnlineStatus(`🎭 ${msg.role === 'dm' ? 'DM' : '玩家'} 已连接，当前在线 ${onlineConnections.length + 1}`);
+  } else if (msg.type === 'role') {
+    conn._combatRole = msg.role === 'dm' ? 'dm' : 'player';
+    onlineSendSnapshotTo(conn);
+    setOnlineStatus(`🎭 ${msg.role === 'dm' ? 'DM' : '玩家'} 已连接，当前在线 ${onlineConnections.length + 1}`);
   } else if (msg.type === 'ping') {
     sendTo(conn, { type: 'pong', ts: Date.now() });
   }
@@ -136,12 +177,12 @@ function handleOnlineData(conn, raw) {
 function onlineAddConn(conn) {
   if (onlineConnections.some(c => c === conn)) return;
   onlineConnections.push(conn);
+  conn._combatRole = 'player'; // 默认玩家，先不给 DM 层；收到 hello/role 后更新
   conn.on('data', (raw) => handleOnlineData(conn, raw));
   conn.on('close', () => {
     onlineConnections = onlineConnections.filter(c => c !== conn);
     setOnlineStatus(`↗️ 有成员离开，当前在线 ${onlineConnections.length + 1}`);
   });
-  onlineSendSnapshotTo(conn);
   setOnlineStatus(`🎉 新成员加入，当前在线 ${onlineConnections.length + 1}`);
   render();
 }
@@ -161,12 +202,18 @@ function onlineCreateRoom() {
   }
   onlinePeer.on('open', () => {
     onlineSync = true;
+    onlineIsPlayer = false;
+    applyOnlineRoleUI();
     setOnlineStatus('✅ 房间已创建：' + roomId + ' · 分享邀请链接给玩家');
     closeOnlineModal();
-    showToast('🌐 房间已创建：' + roomId);
+    showToast('🌐 房间已创建：' + roomId + '（DM）');
   });
   onlinePeer.on('connection', (conn) => {
-    conn.on('open', () => onlineAddConn(conn));
+    conn.on('open', () => {
+      onlineAddConn(conn);
+      // 新连接默认按玩家视角给首次快照；如果对方声明自己是 DM，会在 hello 里更新
+      onlineSendSnapshotTo(conn);
+    });
   });
   onlinePeer.on('error', (err) => {
     console.error(err);
@@ -191,11 +238,13 @@ function onlineJoinRoom(roomRaw) {
 
   conn.on('open', () => {
     onlineRoom = roomId;
-    // 先不发本地快照，等主机回传
+    onlineIsPlayer = true;
+    applyOnlineRoleUI();
+    // 先不发本地快照，等主机回传；声明自己为玩家，避免收到 DM 隐藏层
     setOnlineStatus('✅ 已加入 ' + roomId + '，正在接收主机地图…');
     closeOnlineModal();
-    showToast('🌐 已加入房间 ' + roomId);
-    sendTo(conn, { type: 'hello', ts: Date.now() });
+    showToast('🌐 已加入房间 ' + roomId + '（玩家视角）');
+    sendTo(conn, { type: 'hello', ts: Date.now(), role: 'player' });
   });
   conn.on('data', (raw) => handleOnlineData(conn, raw));
   conn.on('close', () => {
@@ -232,6 +281,8 @@ function onlineLeave() {
   onlineRoom = '';
   onlineSync = false;
   onlineConnections = [];
+  onlineIsPlayer = false;
+  applyOnlineRoleUI();
   setOnlineStatus('已离开房间');
   showToast('🚪 已离开在线房间');
 }
@@ -247,7 +298,7 @@ function initOnlineUI() {
   document.getElementById('online-btn-close').addEventListener('click', closeOnlineModal);
   modal.addEventListener('click', (e) => { if (e.target === modal) closeOnlineModal(); });
 
-  // 从 ?room= 自动加入
+  // 从 ?room= 自动加入（玩家）
   const params = new URLSearchParams(location.search);
   const room = params.get('room');
   if (room && params.get('online') === '1') {

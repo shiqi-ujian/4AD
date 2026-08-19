@@ -568,10 +568,21 @@ function renderMapCanvas(exact) {
   });
   if (!isFinite(minQ)) { minQ = -2; maxQ = 2; minR = -2; maxR = 2; }
 
+  // 导出范围包含底图区域
+  if (backgroundMap) {
+    feed(Math.floor(backgroundMap.x), Math.floor(backgroundMap.y));
+    feed(Math.ceil(backgroundMap.x + backgroundMap.cols), Math.ceil(backgroundMap.y + backgroundMap.rows));
+  }
+
   const half = CELL_SIZE / 2;
   const padding = CELL_SIZE * 2;
   const topLeftX = minQ * CELL_SIZE - half;
   const topLeftY = minR * CELL_SIZE - half;
+  // 导出范围包含被战雾覆盖的格子，避免只导出已揭示区域导致边界缺失
+  Object.keys(fog).forEach(k => {
+    const [q, r] = k.split(',').map(Number);
+    feed(q, r);
+  });
   const w = Math.ceil((maxQ - minQ + 1) * CELL_SIZE + padding * 2);
   const h = Math.ceil((maxR - minR + 1) * CELL_SIZE + padding * 2);
   const MAX_EXPORT = 8000;
@@ -613,6 +624,17 @@ function renderMapCanvas(exact) {
     expCtx.strokeStyle = 'rgba(255,255,255,0.10)';
     expCtx.lineWidth = 0.5;
     expCtx.strokeRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
+  }
+
+  // Pass 1.5: 底图（导出包含背景，DM/玩家图均一致）
+  if (backgroundMap && backgroundMap.imgData) {
+    const bm = backgroundMap;
+    expCtx.save();
+    expCtx.globalAlpha = Math.max(0, Math.min(1, bm.opacity ?? 0.85));
+    if (bm.img && bm.img.complete) {
+      expCtx.drawImage(bm.img, bm.x * CELL_SIZE, bm.y * CELL_SIZE, bm.cols * CELL_SIZE, bm.rows * CELL_SIZE);
+    }
+    expCtx.restore();
   }
 
   // Pass 2: walls
@@ -772,6 +794,18 @@ function renderMapCanvas(exact) {
     }
   }
 
+  // Pass 7: 战雾遮罩（导出玩家可见图时保留；DM 层不导出）
+  if (showFogLayer) {
+    // 输出范围内逐格绘制雾
+    for (let q = minQ; q <= maxQ; q++) {
+      for (let r = minR; r <= maxR; r++) {
+        if (!isFogCell(q, r)) continue;
+        expCtx.fillStyle = 'rgba(12, 12, 20, 0.82)';
+        expCtx.fillRect(q * CELL_SIZE - CELL_SIZE / 2, r * CELL_SIZE - CELL_SIZE / 2, CELL_SIZE, CELL_SIZE);
+      }
+    }
+  }
+
   expCtx.restore();
   return { canvas: expCanvas, minQ, maxQ, minR, maxR, keys };
 }
@@ -888,8 +922,14 @@ function exportOwlbearScene() {
 // ============================================================
 function saveJSON() {
   cleanData();
+  cleanMetaRefs();
   const data = {
     combatData,
+    dmData,
+    fog,
+    backgroundMap: backgroundMap ? { ...backgroundMap, img: undefined } : null,
+    initiativeOrder,
+    initiativeIndex,
     shapes: shapes.map(s => { const c = { ...s }; delete c.img; return c; }),
     freeLines,
     tokens: tokens.map(t => { const c = { ...t }; delete c.img; return c; }),
@@ -924,6 +964,18 @@ function loadJSON() {
         });
         freeLines = data.freeLines || [];
         restoreTokens(data.tokens || []);
+        dmData = data.dmData || {};
+        fog = data.fog || {};
+        backgroundMap = data.backgroundMap ? { ...data.backgroundMap } : null;
+        if (backgroundMap && backgroundMap.imgData && !backgroundMap.img) {
+          const img = new Image();
+          img.src = backgroundMap.imgData;
+          img.onload = () => render();
+          backgroundMap.img = img;
+        }
+        initiativeOrder = data.initiativeOrder || [];
+        initiativeIndex = data.initiativeIndex || 0;
+        if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
         _shapeSeq = Math.max(_shapeSeq, ...shapes.map(s => parseInt(String(s.id).replace('sh','')) || 0)) + 1;
         _lineSeq = Math.max(_lineSeq, ...freeLines.map(l => parseInt(String(l.id).replace('ln','')) || 0)) + 1;
         _tokenSeq = Math.max(_tokenSeq, ...tokens.map(t => parseInt(String(t.id).replace('tk','')) || 0)) + 1;

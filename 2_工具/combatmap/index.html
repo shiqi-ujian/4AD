@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>通用战斗地图生成器 v0.5</title>
+<title>通用战斗地图生成器 v0.6</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -114,6 +114,8 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
       <button class="tool-btn" data-tool="token" title="插入图片 token (T)"><span class="icon">🖼️</span><span class="label">图片(T)</span></button>
       <button class="tool-btn" data-tool="line" title="画自由线段 (G) 任意角度墙/视线阻挡"><span class="icon">📏</span><span class="label">线段(G)</span></button>
       <button class="tool-btn" data-tool="unit" title="放置单位/玩家/怪物 token，可记 HP 与状态 (U)"><span class="icon">🧝</span><span class="label">单位(U)</span></button>
+      <button class="tool-btn" data-tool="dm" title="画 DM 隐藏层：标记/信息只在 DM 本地显示 (Y)"><span class="icon">🕵️</span><span class="label">DM层(Y)</span></button>
+      <button class="tool-btn" data-tool="fog" title="涂战雾：遮住/揭示格子，跑团时逐步揭开 (F)"><span class="icon">🌫️</span><span class="label">战雾(F)</span></button>
     </div>
     <div id="erase-options" style="display:none;margin:2px 0 0 2px;font-size:11px;">
       <select id="erase-mode" style="width:100%;padding:3px 6px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:11px;">
@@ -121,7 +123,17 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
         <option value="terrain">仅地形</option>
         <option value="walls">仅墙壁/门边界</option>
         <option value="label">仅标签</option>
+        <option value="dm">仅 DM 层</option>
+        <option value="fog">仅战雾</option>
       </select>
+    </div>
+    <div style="margin:6px 0 0 2px;">
+      <label style="font-size:11px;display:block;margin:2px 0;">
+        <input type="checkbox" id="chk-dm" style="width:auto;"> 👁️ 显示 DM 层
+      </label>
+      <label style="font-size:11px;display:block;margin:2px 0;">
+        <input type="checkbox" id="chk-fog" checked style="width:auto;"> 🌫️ 显示战雾
+      </label>
     </div>
     <div id="tool-hint" style="font-size:10px;color:#e94560;padding:2px 4px;background:rgba(233,69,96,0.1);border-radius:4px;min-height:16px;">👆 选择工具后操作格子</div>
 
@@ -135,6 +147,13 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
       <button id="btn-template-cave" style="flex:1;min-width:60px;padding:6px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🕳️ 洞窟</button>
       <button id="btn-template-open" style="flex:1;min-width:60px;padding:6px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🌿 空地</button>
       <button id="btn-template-zone" style="flex:1;min-width:60px;padding:6px;background:#8b5f9e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🧩 区域</button>
+    </div>
+    <div style="display:flex;gap:4px;">
+      <button id="btn-import-map" style="flex:1;padding:8px;background:#5a4a8a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;" title="导入地图图片作为底图，然后调整网格对齐">🖼️ 导入底图</button>
+      <button id="btn-map-settings" style="flex:1;padding:8px;background:#4a5a7a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;" title="调整底图数值/透明度/移除">⚙️ 数值</button>
+    </div>
+    <div style="display:flex;gap:4px;margin-top:2px;">
+      <button id="btn-bg-align" style="flex:1;padding:8px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;" title="在地图上直接拖拽底图/拖边调整格子大小，适配已有网格线的地图">🎯 网格对齐</button>
     </div>
 
     <h3>💾 数据</h3>
@@ -160,6 +179,9 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
       <button id="btn-online" style="flex:1;padding:6px;background:#7a4a9e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="创建/加入远程房间，所有参与者实时同步地图">🌐 在线</button>
       <button id="btn-online-status" disabled style="flex:1;padding:6px;background:#3a3a5e;color:#aaa;border:1px solid #0f3460;border-radius:4px;cursor:pointer;font-size:11px;" title="在线状态">未连接</button>
     </div>
+    <div style="display:flex;gap:4px;">
+      <button id="btn-initiative" style="flex:1;padding:6px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="管理行动顺序/先攻条">🧭 行动顺序</button>
+    </div>
     <label style="margin-top:4px;font-size:11px;">
       <input type="checkbox" id="chk-grid" checked> 显示网格
     </label>
@@ -167,7 +189,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
       <input type="checkbox" id="chk-coords" checked> 显示坐标
     </label>
     <div style="margin-top:auto;font-size:10px;color:#555;text-align:center;padding-top:6px;">
-      通用跑团 · 战斗地图 v0.5<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>区域/线段/图片 · 单位/HP/状态 · Delete 删除选中
+      通用跑团 · 战斗地图 v0.6<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>区域/线段/图片 · 单位/HP/状态 · DM层/战雾 · 行动顺序
     </div>
   </div>
 
@@ -175,6 +197,11 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
     <div id="coord-indicator">⚪ 选择模式</div>
     <div id="zoom-indicator">🔍 100%</div>
     <canvas id="grid-canvas"></canvas>
+    <div id="bg-align-bar" style="display:none;position:absolute;top:44px;left:50%;transform:translateX(-50%);z-index:20;background:rgba(22,33,62,0.95);border:1px solid #3a7abd;border-radius:8px;padding:6px 10px;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(0,0,0,0.4);font-size:12px;">
+      <span id="bg-align-status">🎯 对齐模式：点击图中格线交点</span>
+      <button id="bg-align-finish" style="padding:4px 12px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">✓ 完成</button>
+      <button id="bg-align-cancel" style="padding:4px 10px;background:#3a3a5e;color:#ccc;border:1px solid #0f3460;border-radius:4px;cursor:pointer;">✕ 取消</button>
+    </div>
     <div id="info-panel"><div class="row"><span class="label">💡 选择工具 → 操作格子 → 导出 Excel</span></div></div>
   </div>
 </div>
@@ -454,6 +481,83 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
   </div>
 </div>
 
+<!-- DM Layer Modal -->
+<div class="modal-overlay" id="dm-modal">
+  <div class="modal-box">
+    <h3>🕵️ DM 层标记 <span id="dm-modal-coord" style="font-size:12px;color:#888;font-weight:normal;"></span></h3>
+    <label>标记/图标（可空）</label>
+    <input type="text" id="dm-modal-mark" placeholder="例：🔑、⚠️、🕳️" maxlength="8">
+    <label>说明（仅 DM 可见）</label>
+    <input type="text" id="dm-modal-label" placeholder="例：暗门，DC15 察觉">
+    <div class="btn-row">
+      <button id="dm-modal-clear" style="background:#a33;color:#fff;margin-right:auto;">🗑️ 清除</button>
+      <button id="dm-modal-cancel" style="background:#3a3a5e;color:#ccc;">取消</button>
+      <button id="dm-modal-confirm" style="background:#2d6a2e;color:#fff;">✓ 保存</button>
+    </div>
+    <input type="hidden" id="dm-modal-q">
+    <input type="hidden" id="dm-modal-r">
+  </div>
+</div>
+
+<!-- Initiative Modal -->
+<div class="modal-overlay" id="initiative-modal">
+  <div class="modal-box" style="width:460px;">
+    <h3>🧭 行动顺序 / 先攻条 <span style="font-size:11px;color:#888;font-weight:normal;">点击名称编辑 HP/数值</span></h3>
+    <div id="initiative-list" style="max-height:300px;overflow-y:auto;margin-bottom:8px;"></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+      <button id="initiative-add" style="flex:1;padding:6px 10px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">➕ 添加条目</button>
+      <button id="initiative-add-tokens" style="flex:1;padding:6px 10px;background:#7a4a9e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🧝 导入全部单位</button>
+      <button id="initiative-clear" style="flex:1;padding:6px 10px;background:#6b5b4f;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;">🗑️ 清空</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:10px;">
+      <button id="initiative-prev" style="flex:1;padding:6px;background:#3a3a5e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;">⏮</button>
+      <button id="initiative-next" style="flex:1;padding:6px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;">⏭</button>
+    </div>
+    <div class="btn-row">
+      <button id="initiative-close" style="background:#3a3a5e;color:#ccc;">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- Map Settings Modal -->
+<div class="modal-overlay" id="map-settings-modal">
+  <div class="modal-box" style="width:520px;">
+    <h3>🖼️ 底图设置 <span style="font-size:11px;color:#888;font-weight:normal;">调整格子数量与偏移，让网格对齐图片</span></h3>
+    <img id="map-settings-img" alt="底图预览" style="width:100%;max-height:180px;object-fit:contain;background:#1a1a2e;border:1px solid #0f3460;border-radius:4px;margin-bottom:8px;">
+    <div style="display:flex;gap:8px;">
+      <div style="flex:1;">
+        <label>左上角 X (格)</label>
+        <input type="number" id="bg-settings-x" step="0.1" value="0">
+      </div>
+      <div style="flex:1;">
+        <label>左上角 Y (格)</label>
+        <input type="number" id="bg-settings-y" step="0.1" value="0">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <div style="flex:1;">
+        <label>宽度 (格数)</label>
+        <input type="number" id="bg-settings-cols" min="1" step="0.1" value="20">
+      </div>
+      <div style="flex:1;">
+        <label>高度 (格数)</label>
+        <input type="number" id="bg-settings-rows" min="1" step="0.1" value="15">
+      </div>
+    </div>
+    <label>底图不透明度: <span id="map-settings-opacity-val">85%</span></label>
+    <input type="range" id="bg-settings-opacity" min="10" max="100" value="85">
+    <div style="font-size:11px;color:#888;margin:6px 0;line-height:1.5;">
+      💡 有现成网格线的地图：直接点「🎯 网格对齐」，在画布上把三条参考线拖到图中的格线上，系统会自动算出比例和对齐。
+    </div>
+    <div class="btn-row">
+      <button id="map-settings-begin-align" style="background:#3a7abd;color:#fff;margin-right:auto;">🎯 开始对齐</button>
+      <button id="map-settings-remove" style="background:#a33;color:#fff;">🗑️ 移除</button>
+      <button id="map-settings-close" style="background:#3a3a5e;color:#ccc;">取消</button>
+      <button id="map-settings-confirm" style="background:#2d6a2e;color:#fff;">✓ 应用</button>
+    </div>
+  </div>
+</div>
+
 <!-- Share/Import Modal -->
 <div id="share-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
   <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:460px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
@@ -470,7 +574,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
       <button id="share-btn-close" style="margin-left:auto;padding:5px 12px;background:#3a3a5e;color:#ccc;border:1px solid #0f3460;border-radius:4px;cursor:pointer;font-size:12px;">关闭</button>
     </div>
     <div style="font-size:11px;color:#888;line-height:1.6;">
-      提示：分享链接包含完整地图数据（含图片/单位），对方打开后自动导入。链接较长时可复制纯数据串，用「导入」粘贴恢复。
+      提示：分享链接包含完整地图数据（含图片/单位/DM层/战雾/行动顺序），对方打开后自动导入。链接较长时可复制纯数据串，用「导入」粘贴恢复。
     </div>
   </div>
 </div>
