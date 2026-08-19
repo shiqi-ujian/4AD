@@ -1,0 +1,12 @@
+{
+  "_说明": "网站「更新日志」数据源（4AD）。agent 每批修复后在此追加 entry，并运行 node tools/gen-changelog.mjs 重新生成 web/更新日志.html。本文件入库。",
+  "entries": [
+    {
+      "date": "2026-08-19",
+      "version": "workflow",
+      "release": "反馈→修复→发布 全自动管线上线：群友在收集表提交的问题会由系统定时读取、修复并发布，结果在此页公示。",
+      "fixes": [],
+      "pending": []
+    }
+  ]
+}
