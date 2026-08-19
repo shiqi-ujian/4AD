@@ -67,10 +67,30 @@ canvas.addEventListener('mousedown', (e) => {
       // 单位主体（最顶层优先）
       const tk = hitTestToken(wx, wy);
       if (tk) {
+        // Shift/Ctrl 点选切换多选；切换时不立即拖动，方便继续点选
+        if (e.shiftKey || e.ctrlKey || e.metaKey) {
+          if (selectedTokens.has(tk.id)) {
+            selectedTokens.delete(tk.id);
+            selectedToken = selectedTokens.size ? Array.from(selectedTokens).pop() : null;
+          } else {
+            selectedToken = tk.id;
+            selectedTokens.add(tk.id);
+          }
+          selectedShape = null; selectedLine = null; selectedCell = null;
+          render(); updateInfo();
+          return;
+        }
         selectedToken = tk.id; selectedShape = null; selectedLine = null; selectedCell = null;
+        selectedTokens.add(tk.id);
+        const dragIds = tokenDragIds(tk.id);
+        _selDragOff = new Map();
+        for (const id of dragIds) {
+          const tt = tokens.find(x => x.id === id);
+          if (tt) _selDragOff.set(id, { offX: wx - tt.x * CELL_SIZE, offY: wy - tt.y * CELL_SIZE, nx: tt.x, ny: tt.y });
+        }
         _dragMode = 'token-move'; _dragTokenId = tk.id;
-        _dragOffX = wx - tk.x * CELL_SIZE; _dragOffY = wy - tk.y * CELL_SIZE;
-        isDragging = true; dragStartX = wx; dragStartY = wy;
+        dragStartX = wx; dragStartY = wy;
+        isDragging = true;
         pushUndoMeta();
         render(); updateInfo();
         return;
@@ -165,6 +185,8 @@ canvas.addEventListener('mousedown', (e) => {
           icon: _unitPending.icon || '🧝',
           color: _unitPending.color || '#3a7abd',
           hp: _unitPending.hp, maxHp: _unitPending.maxHp,
+          tempHp: _unitPending.tempHp || 0,
+          ac: _unitPending.ac || '', speed: _unitPending.speed || '', notes: _unitPending.notes || '',
           status: _unitPending.status || [],
           imgData: _unitPending.imgData || '', img: _unitPending.img || null,
           ownerId: ''
@@ -357,8 +379,18 @@ canvas.addEventListener('mousemove', (e) => {
   } else if (_dragMode === 'token-move') {
     const t = tokens.find(x => x.id === _dragTokenId);
     if (t) {
-      t.x = (wx - _dragOffX) / CELL_SIZE;
-      t.y = (wy - _dragOffY) / CELL_SIZE;
+      if (_selDragOff && _selDragOff.size) {
+        const deltaX = wx - dragStartX, deltaY = wy - dragStartY;
+        const moves = new Map();
+        for (const [id, off] of _selDragOff) {
+          const tt = tokens.find(x => x.id === id);
+          if (tt) moves.set(id, { nx: off.nx + deltaX / CELL_SIZE, ny: off.ny + deltaY / CELL_SIZE });
+        }
+        moveTokensByOffsets(moves);
+      } else {
+        t.x = (wx - _dragOffX) / CELL_SIZE;
+        t.y = (wy - _dragOffY) / CELL_SIZE;
+      }
       render();
     }
   } else if (_dragMode === 'token-resize') {
@@ -503,7 +535,7 @@ canvas.addEventListener('mouseup', () => {
   isDragging = false;
   _dragMode = null;
   _dragShapeId = null; _dragHandle = null; _dragLineId = null; _dragTokenId = null;
-  _dragTokenId = null;
+  _selDragOff = new Map();
   _wallDragLast = null;
   _eraseDragLast = new Set();
   render();
@@ -514,6 +546,7 @@ canvas.addEventListener('mouseleave', () => {
   if (_dragMode === 'wall-drag' || _dragMode === 'fog') endBatch();
   isDragging = false;
   _dragMode = null;
+  _selDragOff = new Map();
   _rectPreview = null;
   _linePreview = null;
   _wallDragLast = null;
@@ -554,6 +587,8 @@ canvas.addEventListener('touchstart', (e) => {
         icon: _unitPending.icon || '🧝',
         color: _unitPending.color || '#3a7abd',
         hp: _unitPending.hp, maxHp: _unitPending.maxHp,
+        tempHp: _unitPending.tempHp || 0,
+        ac: _unitPending.ac || '', speed: _unitPending.speed || '', notes: _unitPending.notes || '',
         status: _unitPending.status || [],
         imgData: _unitPending.imgData || '', img: _unitPending.img || null,
         ownerId: ''
@@ -635,6 +670,7 @@ canvas.addEventListener('touchend', () => {
   isDragging = false;
   if (_dragMode === 'fog') endBatch();
   _dragMode = null;
+  _selDragOff = new Map();
   _eraseDragLast = new Set();
 });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -769,13 +805,70 @@ function showContextMenu(cx, cy, mx, my) {
   // 单位操作（若命中，优先于图形/格子菜单）
   if (tkHit) {
     selectedToken = tkHit.id; selectedShape = null; selectedLine = null; selectedCell = null;
+    if (!selectedTokens.has(tkHit.id)) selectedTokens = new Set([tkHit.id]);
     render(); updateInfo();
-    addItem('🧝 编辑单位属性', () => { openUnitModal(tkHit); });
-    addItem('🗑️ 删除单位', () => {
+    const targetIds = Array.from(selectedTokens).filter(id => tokens.some(x => x.id === id));
+    const main = tokens.find(x => x.id === selectedToken) || tkHit;
+    addItem('🧝 编辑单位属性（主轴）', () => { openUnitModal(main); });
+    addItem('💥 受伤 -1', () => { changeTokenHp(main.id, -1); });
+    addItem('💥 受伤 -5', () => { changeTokenHp(main.id, -5); });
+    addItem('💥 受伤（自定义）…', () => {
+      const v = prompt('扣除多少伤害？', '');
+      if (v === null) return;
+      const dmg = parseInt(v, 10);
+      if (isNaN(dmg) || dmg <= 0) return;
+      const r = changeTokenHp(main.id, -dmg);
+      showToast(r ? `💥 ${main.name || '单位'} -${dmg}，临时HP吸收 ${r.absorbed || 0}` : '⚠️ 未找到单位');
+    });
+    addItem('💚 治疗 +1', () => { changeTokenHp(main.id, 1); });
+    addItem('💚 治疗 +5', () => { changeTokenHp(main.id, 5); });
+    addItem('💚 治疗（自定义）…', () => {
+      const v = prompt('自定义治疗量？', '');
+      if (v === null) return;
+      const dmg = parseInt(v, 10);
+      if (isNaN(dmg) || dmg <= 0) return;
+      changeTokenHp(main.id, dmg);
+    });
+    addItem('🩸 设置 HP…', () => {
+      const v = prompt(`设置 ${main.name || '单位'} HP（当前/上限）：`, `${main.hp ?? ''}/${main.maxHp ?? ''}`);
+      if (v === null) return;
+      const parts = v.split('/');
       pushUndoMeta();
-      tokens = tokens.filter(x => x.id !== tkHit.id);
-      if (selectedToken === tkHit.id) selectedToken = null;
+      if (parts.length >= 2) {
+        main.hp = parts[0].trim() === '' ? '' : Math.max(0, parseInt(parts[0]) || 0);
+        main.maxHp = parts[1].trim() === '' ? '' : Math.max(1, parseInt(parts[1]) || 1);
+      } else {
+        main.hp = v.trim() === '' ? '' : Math.max(0, parseInt(v) || 0);
+      }
+      syncTokenInitiative(main);
       render(); updateInfo();
+    });
+    if (targetIds.length >= 2) {
+      addItem('🧩 创建编组（当前选中）…', () => {
+        const name = prompt('编组名称：', '小队');
+        if (name === null) return;
+        const color = prompt('编组颜色（十六进制）：', '#7fb0ff');
+        if (color === null) return;
+        addTokenGroup(name, color, targetIds);
+        render(); updateInfo();
+      });
+    }
+    const curGroup = getTokenGroup(main.id);
+    if (curGroup) {
+      addItem(`🚫 移出编组「${curGroup.name || '编组'}」`, () => {
+        removeTokenFromGroups(main.id);
+        render(); updateInfo();
+      });
+    }
+    addItem('🗑️ 删除选中单位' + (targetIds.length > 1 ? `（${targetIds.length} 个）` : ''), () => {
+      pushUndoMeta();
+      tokens = tokens.filter(x => !targetIds.includes(x.id));
+      targetIds.forEach(id => clearInitiativeTokenRefs(id));
+      selectedTokens = new Set();
+      selectedToken = null;
+      pruneGroups();
+      render(); updateInfo();
+      if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
     });
     sep();
   }

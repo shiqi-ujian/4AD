@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>通用战斗地图生成器 v0.6</title>
+<title>通用战斗地图生成器 v0.7</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -182,6 +182,9 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
     <div style="display:flex;gap:4px;">
       <button id="btn-initiative" style="flex:1;padding:6px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="管理行动顺序/先攻条">🧭 行动顺序</button>
     </div>
+    <div style="display:flex;gap:4px;margin-top:2px;">
+      <button id="btn-group" style="flex:1;padding:6px;background:#5a4a8a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="管理编组：拖动任一成员整组移动">🧩 编组</button>
+    </div>
     <label style="margin-top:4px;font-size:11px;">
       <input type="checkbox" id="chk-grid" checked> 显示网格
     </label>
@@ -189,7 +192,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
       <input type="checkbox" id="chk-coords" checked> 显示坐标
     </label>
     <div style="margin-top:auto;font-size:10px;color:#555;text-align:center;padding-top:6px;">
-      通用跑团 · 战斗地图 v0.6<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>区域/线段/图片 · 单位/HP/状态 · DM层/战雾 · 行动顺序
+      通用跑团 · 战斗地图 v0.7<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>Shift 多选 / Ctrl+D 复制 / 编组 · 单位/HP/临时HP/AC/状态 · DM层/战雾 · 行动顺序
     </div>
   </div>
 
@@ -364,9 +367,9 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
   </div>
 </div>
 
-<!-- Token/Unit Modal -->
+<!-- Unit Token Modal -->
 <div class="modal-overlay" id="unit-modal">
-  <div class="modal-box">
+  <div class="modal-box" style="width:520px;">
     <h3>🧝 单位 Token <span id="unit-modal-title" style="font-size:12px;color:#aaa;font-weight:normal;">新建</span></h3>
     <label>名称</label>
     <input type="text" id="unit-name" placeholder="例：加拉汉">
@@ -385,6 +388,20 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
       <div style="flex:1;">
         <label>底色</label>
         <input type="color" id="unit-color" value="#3a7abd" style="width:60px;height:30px;padding:0;border:none;background:none;cursor:pointer;display:block;">
+      </div>
+      <div style="flex:1;">
+        <label>临时 HP</label>
+        <input type="number" id="unit-temphp" value="0" min="0">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <div style="flex:1;">
+        <label>AC（可空，显示在右下角）</label>
+        <input type="text" id="unit-ac" placeholder="如 16">
+      </div>
+      <div style="flex:1;">
+        <label>速度（可空）</label>
+        <input type="text" id="unit-speed" placeholder="如 30尺 / 6格">
       </div>
     </div>
     <div style="display:flex;gap:8px;">
@@ -405,8 +422,20 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
         <input type="number" id="unit-h" value="1" min="1" max="6">
       </div>
     </div>
+    <label style="margin-top:4px;">头像图片（可选，圆形裁剪）</label>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;">
+      <img id="unit-img-preview" alt="预览" style="width:40px;height:40px;border-radius:50%;object-fit:cover;background:#1a1a2e;border:1px solid #0f3460;display:none;">
+      <input type="file" id="unit-img-file" accept="image/*" style="flex:1;font-size:11px;color:#ccc;">
+    </div>
     <label style="margin-top:4px;">状态标记</label>
     <div id="unit-status-checkboxes" style="display:flex;flex-wrap:wrap;gap:4px;font-size:11px;margin-bottom:4px;"></div>
+    <div style="display:flex;gap:6px;align-items:center;background:#1a1a2e;border:1px solid #0f3460;border-radius:4px;padding:6px;margin-bottom:6px;font-size:11px;">
+      <input type="text" id="unit-status-custom-name" placeholder="新状态名" style="flex:1;margin:0;background:#16213e;">
+      <input type="text" id="unit-status-custom-icon" placeholder="图标" value="⚠️" style="width:50px;margin:0;background:#16213e;">
+      <button id="unit-status-add" style="padding:4px 8px;background:#3a7abd;color:#fff;border:none;border-radius:3px;cursor:pointer;">➕ 添加</button>
+    </div>
+    <label>备注（本机/DM 查看，不显示在地图上）</label>
+    <textarea id="unit-notes" rows="2" placeholder="特攻、弱点、战术记录…" style="width:100%;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:12px;padding:5px 8px;font-family:inherit;"></textarea>
     <div class="btn-row">
       <button id="unit-delete" style="background:#a33;color:#fff;margin-right:auto;display:none;">🗑️ 删除</button>
       <button id="unit-cancel" style="background:#3a3a5e;color:#ccc;">取消</button>
@@ -513,8 +542,28 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
       <button id="initiative-prev" style="flex:1;padding:6px;background:#3a3a5e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;">⏮</button>
       <button id="initiative-next" style="flex:1;padding:6px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;">⏭</button>
     </div>
+    <div style="font-size:11px;color:#888;margin-bottom:10px;line-height:1.5;">
+      💡 单位与先攻条目已双向联动：右键扣血/治疗会自动同步到这里；在此改 HP 也会回写地图上的单位。
+    </div>
     <div class="btn-row">
       <button id="initiative-close" style="background:#3a3a5e;color:#ccc;">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- Group Modal -->
+<div class="modal-overlay" id="group-modal">
+  <div class="modal-box" style="width:440px;">
+    <h3>🧩 编组管理 <span style="font-size:11px;color:#888;font-weight:normal;">同组单位拖动时一起移动</span></h3>
+    <div id="group-list" style="max-height:260px;overflow-y:auto;margin-bottom:8px;"></div>
+    <div style="display:flex;gap:6px;margin-bottom:10px;">
+      <button id="group-create-selected" style="flex:1;padding:6px;background:#5a4a8a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;" title="先 Shift 点选多个单位">🧩 创建当前选中为编组</button>
+    </div>
+    <div style="font-size:11px;color:#888;line-height:1.5;">
+      💡 先用「选择」工具 Shift/Ctrl 点选 2 个以上单位，再点「创建当前选中为编组」；之后拖动组内任一成员，整组一起移动。
+    </div>
+    <div class="btn-row">
+      <button id="group-close" style="background:#3a3a5e;color:#ccc;">关闭</button>
     </div>
   </div>
 </div>
@@ -607,22 +656,10 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
 
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"
         onerror="window.__combatmapCDN = window.__combatmapCDN || {}; window.__combatmapCDN.peerjs = false;"></script>
-
-
-
-
-
-
-
-
-
-
-
-
 <script>
 //  Configuration
 // ============================================================
-const COMBATMAP_VERSION = 'v0.6';
+const COMBATMAP_VERSION = 'v0.7';
 
 const COMBAT_TERRAIN = {
   floor:        { name: '普通地面', color: '#d4c5a9', icon: '⬜', desc: '正常移动' },
@@ -716,10 +753,13 @@ let fog = {};              // key: "q,r" → 1，表示被战雾遮蔽的格子
 let backgroundMap = null;  // 底图: { id, imgData, img, x, y, cols, rows, opacity }  // 导入图片地图的底图/背景层
 let shapes = [];           // 图形图层: { id, type:'rect'|'image', x,y,w,h(格), fill, fillAlpha, stroke, strokeWidth, dash, name, imgData }
 let freeLines = [];        // 自由线段: { id, x1,y1,x2,y2(格), color, width, dash, name }
-let tokens = [];           // 单位层: { id, kind, name, x,y,w,h(格), icon, color, hp,maxHp,status[], imgData }
+let tokens = [];           // 单位层: { id, kind, name, x,y,w,h(格), icon, color, hp,maxHp,tempHp,ac,speed,notes,status[],imgData,img }
 let selectedShape = null;  // 当前选中 shape id
 let selectedLine = null;   // 当前选中 line id
-let selectedToken = null;  // 当前选中 token id
+let selectedToken = null;  // 当前选中 token id（主轴/最近选中的单位）
+let selectedTokens = new Set(); // 多选单位 id 集（Shift/Ctrl 点选；选中主轴 selectedToken 一定在集内）
+let groups = [];           // 编组: { id, name, color, tokenIds[] } —— 拖动任一成员时整组移动
+let customUnitStatuses = []; // 自定义状态: { name, icon }
 let selectedTool = 'select';
 let selectedTerrain = 'floor';
 let selectedCell = null;
@@ -729,7 +769,7 @@ let isDragging = false, dragStartX, dragStartY, viewStartX, viewStartY;
 let showGrid = true, showCoords = true;
 let showDmLayer = false;   // 是否显示 DM 层（标记/说明）
 let showFogLayer = true;   // 是否显示战雾遮罩
-let initiativeOrder = [];  // 行动顺序条目: { id, name, icon, kind, hp, maxHp }
+let initiativeOrder = [];  // 行动顺序条目: { id, tokenId?, name, icon, kind, hp, maxHp }
 let initiativeIndex = 0;
 let _eraseDragLast = new Set();
 let _shapeSeq = 1;
@@ -737,6 +777,7 @@ let _lineSeq = 1;
 let _tokenSeq = 1;
 let _dragMode = null;      // 'pan' | 'paint' | 'erase' | 'shape-move' | 'shape-resize' | 'line-move' | 'line-drag' | 'wall-drag' | 'rect-draw' | 'line-draw' | 'token-place' | 'token-move' | 'token-resize' | 'unit-place' | 'dm' | 'fog'
 let _dragShapeId = null, _dragHandle = null, _dragLineId = null, _dragTokenId = null;
+let _selDragOff = new Map(); // 多选/编组拖动初始偏移: tokenId -> { offX, offY }
 let _dragOffX = 0, _dragOffY = 0;
 let _wallDragLast = null;  // 墙/门拖拽去重: "q,r,edge"
 let _drawStart = null;     // rect/line 绘制的起点(格坐标)
@@ -745,7 +786,7 @@ let _linePreview = null;   // 线段绘制预览
 let _lineInit = null;      // 线段移动初始位置
 let _tokenPending = null;  // 待放置的图片 token { imgData, w, h, img }
 let _hoverToken = null;    // 放置预览位置（图片）
-let _unitPending = null;   // 待放置的单位 token { name, icon, color, kind, hp, maxHp, w, h, imgData?, img? }
+let _unitPending = null;   // 待放置的单位 token { name, icon, color, kind, hp, maxHp, tempHp, ac, speed, notes, w, h, imgData?, img? }
 let _hoverUnit = null;     // 单位放置预览位置
 let _fogPaintTarget = null; // 战雾拖拽目标值：true=遮住 false=揭示
 let _bgAlignRefs = null;   // 底图对齐参考点/参考线: { pts:[{world:{x,y}, snappedGrid:{q,r}, horizontal?}], mode }
@@ -783,7 +824,7 @@ function pushUndo(key) {
   }
 }
 
-// 图形/线段/单位/DM/战雾/行动顺序快照撤销（整个图层入栈；剥离 img 对象避免序列化问题）
+// 图形/线段/单位/DM/战雾/行动顺序/编组/自定义状态快照撤销（整个图层入栈；剥离 img 对象避免序列化问题）
 function snapshotMeta() {
   return {
     shapes: JSON.parse(JSON.stringify(shapes.map(s => { const c = { ...s }; delete c.img; return c; }))),
@@ -793,7 +834,11 @@ function snapshotMeta() {
     fog: JSON.parse(JSON.stringify(fog)),
     initiativeOrder: JSON.parse(JSON.stringify(initiativeOrder)),
     initiativeIndex,
-    backgroundMap: backgroundMap ? JSON.parse(JSON.stringify({ ...backgroundMap, img: undefined })) : null
+    backgroundMap: backgroundMap ? JSON.parse(JSON.stringify({ ...backgroundMap, img: undefined })) : null,
+    groups: JSON.parse(JSON.stringify(groups)),
+    customUnitStatuses: JSON.parse(JSON.stringify(customUnitStatuses)),
+    selectedToken: selectedToken || null,
+    selectedTokens: Array.from(selectedTokens)
   };
 }
 
@@ -825,6 +870,12 @@ function restoreMeta(before) {
   fog = before.fog || {};
   initiativeOrder = before.initiativeOrder || [];
   initiativeIndex = before.initiativeIndex || 0;
+  groups = before.groups || [];
+  customUnitStatuses = before.customUnitStatuses || [];
+  selectedToken = before.selectedToken ?? selectedToken;
+  selectedTokens = new Set((before.selectedTokens || Array.from(selectedTokens)).filter(id => tokens.some(t => t.id === id)));
+  if (selectedToken && !tokens.some(t => t.id === selectedToken)) selectedToken = null;
+  if (selectedToken && !selectedTokens.has(selectedToken)) selectedTokens.add(selectedToken);
   if (before.backgroundMap) {
     backgroundMap = before.backgroundMap;
     if (backgroundMap.imgData && !backgroundMap.img) {
@@ -871,7 +922,7 @@ function applyUndoEntry(entries) {
     if (key === '__meta__') {
       redoEntries.push({ key, before: snapshotMeta() });
       restoreMeta(before);
-      selectedShape = null; selectedLine = null; selectedToken = null;
+      selectedShape = null; selectedLine = null;
     } else {
       redoEntries.push({ key, before: snapshotCell(key) });
       if (before) { combatData[key] = before; }
@@ -946,19 +997,93 @@ function initiativeSnapshot() {
   return JSON.parse(JSON.stringify({ initiativeOrder, initiativeIndex }));
 }
 
+// 预设状态图标（render/ui 共用；自定义状态也有 icon 字段）
+const UNIT_STATUS_ICONS = {
+  '中毒': '☠️', '倒地': '🟥', '昏迷': '💫', '专注': '🎯',
+  '减速': '🐢', '燃烧': '🔥', '冰冻': '🧊', '隐形': '👻'
+};
+
+function statusIcon(status) {
+  if (UNIT_STATUS_ICONS[status]) return UNIT_STATUS_ICONS[status];
+  const cs = (customUnitStatuses || []).find(s => s.name === status);
+  return cs?.icon || '⚠️';
+}
+
+function tokenInitiativeIds(tokenId) {
+  return (initiativeOrder || [])
+    .filter(e => (e.tokenId && e.tokenId === tokenId) || (!e.tokenId && e.id === tokenId))
+    .map(e => e.id);
+}
+
+// 单位 HP 变更后同步先攻条对应条目（tokenId 优先，兼容旧 id 命名）
+function syncTokenInitiative(token) {
+  if (!token) return;
+  (initiativeOrder || []).forEach(e => {
+    const linked = e.tokenId ? e.tokenId === token.id : e.id === token.id;
+    if (linked) {
+      e.hp = token.hp ?? '';
+      e.maxHp = token.maxHp ?? '';
+    }
+  });
+  if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
+}
+
+// 单位删除后清对应先攻条目（tokenId 或旧式 tk id 均清除；手动条目不受影响）
+function clearInitiativeTokenRefs(tokenId) {
+  if (!tokenId) return;
+  initiativeOrder = (initiativeOrder || []).filter(e => {
+    if (e.tokenId) return e.tokenId !== tokenId;
+    return String(e.id || '') !== String(tokenId);
+  });
+  if (initiativeIndex >= initiativeOrder.length) initiativeIndex = Math.max(0, initiativeOrder.length - 1);
+}
+
+// 扣血/治疗入口：负 delta=受伤（先吃临时HP），正 delta=治疗（先回血，溢出进临时HP）
+function changeTokenHp(tokenId, delta) {
+  const t = tokens.find(x => x.id === tokenId);
+  if (!t || !delta) return null;
+  pushUndoMeta();
+  delta = Math.round(delta || 0);
+  let absorbed = 0;
+  if (delta < 0) {
+    const dmg = -delta;
+    if (t.tempHp > 0) {
+      absorbed = Math.min(t.tempHp, dmg);
+      t.tempHp = Math.max(0, (t.tempHp || 0) - absorbed);
+    }
+    const rest = dmg - absorbed;
+    if (rest > 0) t.hp = Math.max(0, (t.hp ?? 0) - rest);
+  } else {
+    if (typeof t.hp === 'number' && typeof t.maxHp === 'number') {
+      const missing = t.maxHp - t.hp;
+      const heal = Math.min(missing, delta);
+      t.hp += heal;
+      t.tempHp = (t.tempHp || 0) + (delta - heal);
+    } else {
+      t.tempHp = (t.tempHp || 0) + delta;
+    }
+  }
+  syncTokenInitiative(t);
+  render();
+  if (typeof updateInfo === 'function') updateInfo();
+  return { hp: t.hp, tempHp: t.tempHp || 0, absorbed };
+}
+
 function addTokenToInitiative(token) {
   if (!token) return null;
   pushUndoMeta();
-  initiativeOrder.push({
+  const entry = {
     id: token.id || ('init_' + Date.now().toString(36)),
+    tokenId: token.id || null,
     name: token.name || '未命名',
     icon: token.icon || '🧝',
     kind: token.kind || 'npc',
     hp: token.hp ?? '',
     maxHp: token.maxHp ?? ''
-  });
+  };
+  initiativeOrder.push(entry);
   if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
-  return initiativeOrder[initiativeOrder.length - 1];
+  return entry;
 }
 
 function addAllTokensToInitiative() {
@@ -967,6 +1092,7 @@ function addAllTokensToInitiative() {
   tokens.forEach(t => {
     initiativeOrder.push({
       id: t.id || ('t_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6)),
+      tokenId: t.id || null,
       name: t.name || '未命名',
       icon: t.icon || '🧝',
       kind: t.kind || 'npc',
@@ -975,6 +1101,89 @@ function addAllTokensToInitiative() {
     });
   });
   if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
+}
+
+// ---------------- 编组 / 多选 ----------------
+function getTokenGroup(tokenId) {
+  return (groups || []).find(g => (g.tokenIds || []).includes(tokenId)) || null;
+}
+
+function addTokenGroup(name, color, tokenIds) {
+  const ids = (tokenIds || []).filter(id => tokens.some(t => t.id === id));
+  if (!ids.length) return null;
+  pushUndoMeta();
+  const g = { id: 'grp_' + Date.now().toString(36), name: name || '编组', color: color || '#7fb0ff', tokenIds: ids };
+  groups.push(g);
+  return g;
+}
+
+function removeGroup(groupId) {
+  if (!groups.some(g => g.id === groupId)) return;
+  pushUndoMeta();
+  groups = groups.filter(g => g.id !== groupId);
+}
+
+function removeTokenFromGroups(tokenId) {
+  const hit = groups.some(g => (g.tokenIds || []).includes(tokenId));
+  if (!hit) return;
+  pushUndoMeta();
+  groups.forEach(g => { g.tokenIds = (g.tokenIds || []).filter(id => id !== tokenId); });
+  groups = groups.filter(g => (g.tokenIds || []).length > 0);
+}
+
+function pruneGroups() {
+  const valid = new Set(tokens.map(t => t.id));
+  groups = (groups || []).map(g => ({ ...g, tokenIds: (g.tokenIds || []).filter(id => valid.has(id)) }))
+    .filter(g => (g.tokenIds || []).length > 0);
+}
+
+function clearSelection() {
+  selectedToken = null;
+  selectedTokens = new Set();
+}
+
+// 多选状态下该 token 是否随整体拖动；返回应跟随移动的 id 数组
+function tokenDragIds(tokenId) {
+  if (!tokenId) return [];
+  // 多选优先：移动所有已选；否则小组内任一成员移动整组
+  if (selectedTokens.has(tokenId)) {
+    return Array.from(selectedTokens).filter(id => tokens.some(t => t.id === id) || id === tokenId);
+  }
+  const g = getTokenGroup(tokenId);
+  if (g) return g.tokenIds.slice();
+  return [tokenId];
+}
+
+function moveTokensByOffsets(offsets) {
+  for (const [id, off] of (offsets || new Map())) {
+    const t = tokens.find(x => x.id === id);
+    if (t) { t.x = off.nx; t.y = off.ny; }
+  }
+}
+
+function duplicateTokens(ids) {
+  const list = (ids && ids.length ? ids : selectedTokens.size ? Array.from(selectedTokens) : (selectedToken ? [selectedToken] : []));
+  if (!list.length) return [];
+  pushUndoMeta();
+  const created = [];
+  for (const id of list) {
+    const src = tokens.find(t => t.id === id);
+    if (!src) continue;
+    const copy = JSON.parse(JSON.stringify({ ...src, img: undefined }));
+    copy.id = 'tk' + (_tokenSeq++);
+    copy.imgData = src.imgData || '';
+    copy.img = src.imgData ? (() => { const im = new Image(); im.src = src.imgData; return im; })() : null;
+    copy.x = (src.x || 0) + 0.5;
+    copy.y = (src.y || 0) + 0.5;
+    tokens.push(copy);
+    created.push(copy);
+  }
+  clearSelection();
+  selectedToken = created.length ? created[created.length - 1].id : null;
+  if (selectedToken) selectedTokens.add(selectedToken);
+  render(); updateInfo();
+  showToast(`📋 已复制 ${created.length} 个单位（副本不自动进先攻条）`);
+  return created;
 }
 
 function clearInitiative(recordUndo = true) {
@@ -1018,9 +1227,13 @@ function prevInitiative() {
 // 清理 DM 层/战雾/行动顺序中不存在的单位引用（简单去孤儿）
 function cleanMetaRefs() {
   const valid = new Set(tokens.map(t => t.id));
-  initiativeOrder = (initiativeOrder || []).filter(e => !e.id || !String(e.id).startsWith('tk') || valid.has(e.id));
+  initiativeOrder = (initiativeOrder || []).filter(e => {
+    if (e.tokenId) return valid.has(e.tokenId);
+    return !String(e.id || '').startsWith('tk') || valid.has(e.id);
+  });
   // 保持索引不越界
   if (initiativeIndex >= initiativeOrder.length) initiativeIndex = Math.max(0, initiativeOrder.length - 1);
+  pruneGroups();
 }
 
 // ============================================================
@@ -1272,7 +1485,7 @@ function drawSelectionOverlay() {
     ctx.strokeRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
     ctx.setLineDash([]);
   }
-  // 单位选择框（最高优先级）
+  // 单位选择框（主轴黄色 + 多选蓝色 + 编组环提示）
   if (selectedToken) {
     const t = tokens.find(x => x.id === selectedToken);
     if (t) {
@@ -1288,6 +1501,39 @@ function drawSelectionOverlay() {
       [[p.x, p.y], [p.x + w, p.y], [p.x, p.y + h], [p.x + w, p.y + h]].forEach(([hx, hy]) => {
         ctx.fillRect(hx - hs / 2, hy - hs / 2, hs, hs);
       });
+    }
+  }
+  // 其余多选单位：蓝色虚线框
+  if (selectedTokens && selectedTokens.size > 1) {
+    for (const id of selectedTokens) {
+      if (id === selectedToken) continue;
+      const tt = tokens.find(x => x.id === id);
+      if (!tt) continue;
+      const p2 = cellToPixel(tt.x, tt.y);
+      const w2 = tt.w * CELL_SIZE, h2 = tt.h * CELL_SIZE;
+      ctx.strokeStyle = '#7fb0ff';
+      ctx.lineWidth = 2 / zoom;
+      ctx.setLineDash([5 / zoom, 3 / zoom]);
+      ctx.strokeRect(p2.x - 2 / zoom, p2.y - 2 / zoom, w2 + 4 / zoom, h2 + 4 / zoom);
+      ctx.setLineDash([]);
+    }
+  }
+  // 编组环：主轴所属组其它成员（未被多选时）细色环
+  if (selectedToken) {
+    const g = getTokenGroup(selectedToken);
+    if (g) {
+      for (const id of g.tokenIds || []) {
+        if (id === selectedToken || (selectedTokens && selectedTokens.has(id))) continue;
+        const tt = tokens.find(x => x.id === id);
+        if (!tt) continue;
+        const p3 = cellToPixel(tt.x, tt.y);
+        const w3 = tt.w * CELL_SIZE, h3 = tt.h * CELL_SIZE;
+        ctx.strokeStyle = g.color || '#7fb0ff';
+        ctx.lineWidth = 1.5 / zoom;
+        ctx.setLineDash([3 / zoom, 2 / zoom]);
+        ctx.strokeRect(p3.x - 3 / zoom, p3.y - 3 / zoom, w3 + 6 / zoom, h3 + 6 / zoom);
+        ctx.setLineDash([]);
+      }
     }
   }
   if (selectedShape) {
@@ -1451,6 +1697,16 @@ function drawTokens() {
       const barH = 4 / zoom;
       const bx = p.x + w / 2 - barW / 2;
       const by = p.y + h - 2 / zoom;
+      // 临时 HP 蓝条（紧贴主血条上方）
+      const temp = Math.max(0, t.tempHp || 0);
+      if (temp > 0) {
+        const tempH = Math.max(2.5 / zoom, barH * 0.8);
+        const tempY = by - tempH - 1 / zoom;
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillRect(bx - 1, tempY - 1, barW + 2, tempH + 2);
+        ctx.fillStyle = '#4af';
+        ctx.fillRect(bx, tempY, barW * Math.min(1, temp / Math.max(1, t.maxHp)), tempH);
+      }
       ctx.fillStyle = 'rgba(0,0,0,0.7)';
       ctx.fillRect(bx - 1, by - 1, barW + 2, barH + 2);
       ctx.fillStyle = '#a33';
@@ -1459,12 +1715,39 @@ function drawTokens() {
       ctx.fillRect(bx, by, barW * hp / t.maxHp, barH);
     }
 
+    // AC 角标（右下小徽标）
+    if (t.ac !== undefined && t.ac !== null && String(t.ac).trim() !== '') {
+      const txt = 'AC ' + String(t.ac).trim();
+      ctx.font = "bold " + Math.max(8, 10 / zoom) + "px sans-serif";
+      const tw2 = ctx.measureText(txt).width + 8 / zoom;
+      const ah = 13 / zoom;
+      const ay = p.y + h - ah / 2 - 1 / zoom;
+      ctx.fillStyle = 'rgba(10,10,20,0.78)';
+      ctx.fillRect(p.x + w - tw2 - 2 / zoom, ay, tw2, ah);
+      ctx.fillStyle = '#ffd700';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(txt, p.x + w - tw2 / 2 - 2 / zoom, ay + ah / 2 + 0.5 / zoom);
+    }
+
+    // 速度角标（左下角）
+    if (t.speed !== undefined && t.speed !== null && String(t.speed).trim() !== '') {
+      const spTxt = String(t.speed).trim();
+      ctx.font = "bold " + Math.max(8, 10 / zoom) + "px sans-serif";
+      const twS = ctx.measureText(spTxt).width + 8 / zoom;
+      const ahS = 13 / zoom;
+      const ayS = p.y + h - ahS / 2 - 1 / zoom;
+      ctx.fillStyle = 'rgba(10,10,20,0.78)';
+      ctx.fillRect(p.x + 2 / zoom, ayS, twS, ahS);
+      ctx.fillStyle = '#8cf';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(spTxt, p.x + 2 / zoom + twS / 2, ayS + ahS / 2 + 0.5 / zoom);
+    }
+
     // 状态角标
     if (t.status && t.status.length) {
-      const icons = { '中毒': '☠️', '倒地': '🟥', '昏迷': '💫', '专注': '🎯', '减速': '🐢', '燃烧': '🔥', '冰冻': '🧊' };
       for (let i = 0; i < t.status.length; i++) {
-        const st = icons[t.status[i]] || '⚠️';
-        ctx.font = `${Math.max(9, 11 / zoom)}px sans-serif`;
+        const st = statusIcon(t.status[i]);
+        ctx.font = "bold " + Math.max(9, 11 / zoom) + "px sans-serif";
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(st, p.x + w - 6 / zoom + i * 12 / zoom, p.y + 6 / zoom);
       }
@@ -1958,10 +2241,30 @@ canvas.addEventListener('mousedown', (e) => {
       // 单位主体（最顶层优先）
       const tk = hitTestToken(wx, wy);
       if (tk) {
+        // Shift/Ctrl 点选切换多选；切换时不立即拖动，方便继续点选
+        if (e.shiftKey || e.ctrlKey || e.metaKey) {
+          if (selectedTokens.has(tk.id)) {
+            selectedTokens.delete(tk.id);
+            selectedToken = selectedTokens.size ? Array.from(selectedTokens).pop() : null;
+          } else {
+            selectedToken = tk.id;
+            selectedTokens.add(tk.id);
+          }
+          selectedShape = null; selectedLine = null; selectedCell = null;
+          render(); updateInfo();
+          return;
+        }
         selectedToken = tk.id; selectedShape = null; selectedLine = null; selectedCell = null;
+        selectedTokens.add(tk.id);
+        const dragIds = tokenDragIds(tk.id);
+        _selDragOff = new Map();
+        for (const id of dragIds) {
+          const tt = tokens.find(x => x.id === id);
+          if (tt) _selDragOff.set(id, { offX: wx - tt.x * CELL_SIZE, offY: wy - tt.y * CELL_SIZE, nx: tt.x, ny: tt.y });
+        }
         _dragMode = 'token-move'; _dragTokenId = tk.id;
-        _dragOffX = wx - tk.x * CELL_SIZE; _dragOffY = wy - tk.y * CELL_SIZE;
-        isDragging = true; dragStartX = wx; dragStartY = wy;
+        dragStartX = wx; dragStartY = wy;
+        isDragging = true;
         pushUndoMeta();
         render(); updateInfo();
         return;
@@ -2056,6 +2359,8 @@ canvas.addEventListener('mousedown', (e) => {
           icon: _unitPending.icon || '🧝',
           color: _unitPending.color || '#3a7abd',
           hp: _unitPending.hp, maxHp: _unitPending.maxHp,
+          tempHp: _unitPending.tempHp || 0,
+          ac: _unitPending.ac || '', speed: _unitPending.speed || '', notes: _unitPending.notes || '',
           status: _unitPending.status || [],
           imgData: _unitPending.imgData || '', img: _unitPending.img || null,
           ownerId: ''
@@ -2248,8 +2553,18 @@ canvas.addEventListener('mousemove', (e) => {
   } else if (_dragMode === 'token-move') {
     const t = tokens.find(x => x.id === _dragTokenId);
     if (t) {
-      t.x = (wx - _dragOffX) / CELL_SIZE;
-      t.y = (wy - _dragOffY) / CELL_SIZE;
+      if (_selDragOff && _selDragOff.size) {
+        const deltaX = wx - dragStartX, deltaY = wy - dragStartY;
+        const moves = new Map();
+        for (const [id, off] of _selDragOff) {
+          const tt = tokens.find(x => x.id === id);
+          if (tt) moves.set(id, { nx: off.nx + deltaX / CELL_SIZE, ny: off.ny + deltaY / CELL_SIZE });
+        }
+        moveTokensByOffsets(moves);
+      } else {
+        t.x = (wx - _dragOffX) / CELL_SIZE;
+        t.y = (wy - _dragOffY) / CELL_SIZE;
+      }
       render();
     }
   } else if (_dragMode === 'token-resize') {
@@ -2394,7 +2709,7 @@ canvas.addEventListener('mouseup', () => {
   isDragging = false;
   _dragMode = null;
   _dragShapeId = null; _dragHandle = null; _dragLineId = null; _dragTokenId = null;
-  _dragTokenId = null;
+  _selDragOff = new Map();
   _wallDragLast = null;
   _eraseDragLast = new Set();
   render();
@@ -2405,6 +2720,7 @@ canvas.addEventListener('mouseleave', () => {
   if (_dragMode === 'wall-drag' || _dragMode === 'fog') endBatch();
   isDragging = false;
   _dragMode = null;
+  _selDragOff = new Map();
   _rectPreview = null;
   _linePreview = null;
   _wallDragLast = null;
@@ -2445,6 +2761,8 @@ canvas.addEventListener('touchstart', (e) => {
         icon: _unitPending.icon || '🧝',
         color: _unitPending.color || '#3a7abd',
         hp: _unitPending.hp, maxHp: _unitPending.maxHp,
+        tempHp: _unitPending.tempHp || 0,
+        ac: _unitPending.ac || '', speed: _unitPending.speed || '', notes: _unitPending.notes || '',
         status: _unitPending.status || [],
         imgData: _unitPending.imgData || '', img: _unitPending.img || null,
         ownerId: ''
@@ -2526,6 +2844,7 @@ canvas.addEventListener('touchend', () => {
   isDragging = false;
   if (_dragMode === 'fog') endBatch();
   _dragMode = null;
+  _selDragOff = new Map();
   _eraseDragLast = new Set();
 });
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -2660,13 +2979,70 @@ function showContextMenu(cx, cy, mx, my) {
   // 单位操作（若命中，优先于图形/格子菜单）
   if (tkHit) {
     selectedToken = tkHit.id; selectedShape = null; selectedLine = null; selectedCell = null;
+    if (!selectedTokens.has(tkHit.id)) selectedTokens = new Set([tkHit.id]);
     render(); updateInfo();
-    addItem('🧝 编辑单位属性', () => { openUnitModal(tkHit); });
-    addItem('🗑️ 删除单位', () => {
+    const targetIds = Array.from(selectedTokens).filter(id => tokens.some(x => x.id === id));
+    const main = tokens.find(x => x.id === selectedToken) || tkHit;
+    addItem('🧝 编辑单位属性（主轴）', () => { openUnitModal(main); });
+    addItem('💥 受伤 -1', () => { changeTokenHp(main.id, -1); });
+    addItem('💥 受伤 -5', () => { changeTokenHp(main.id, -5); });
+    addItem('💥 受伤（自定义）…', () => {
+      const v = prompt('扣除多少伤害？', '');
+      if (v === null) return;
+      const dmg = parseInt(v, 10);
+      if (isNaN(dmg) || dmg <= 0) return;
+      const r = changeTokenHp(main.id, -dmg);
+      showToast(r ? `💥 ${main.name || '单位'} -${dmg}，临时HP吸收 ${r.absorbed || 0}` : '⚠️ 未找到单位');
+    });
+    addItem('💚 治疗 +1', () => { changeTokenHp(main.id, 1); });
+    addItem('💚 治疗 +5', () => { changeTokenHp(main.id, 5); });
+    addItem('💚 治疗（自定义）…', () => {
+      const v = prompt('自定义治疗量？', '');
+      if (v === null) return;
+      const dmg = parseInt(v, 10);
+      if (isNaN(dmg) || dmg <= 0) return;
+      changeTokenHp(main.id, dmg);
+    });
+    addItem('🩸 设置 HP…', () => {
+      const v = prompt(`设置 ${main.name || '单位'} HP（当前/上限）：`, `${main.hp ?? ''}/${main.maxHp ?? ''}`);
+      if (v === null) return;
+      const parts = v.split('/');
       pushUndoMeta();
-      tokens = tokens.filter(x => x.id !== tkHit.id);
-      if (selectedToken === tkHit.id) selectedToken = null;
+      if (parts.length >= 2) {
+        main.hp = parts[0].trim() === '' ? '' : Math.max(0, parseInt(parts[0]) || 0);
+        main.maxHp = parts[1].trim() === '' ? '' : Math.max(1, parseInt(parts[1]) || 1);
+      } else {
+        main.hp = v.trim() === '' ? '' : Math.max(0, parseInt(v) || 0);
+      }
+      syncTokenInitiative(main);
       render(); updateInfo();
+    });
+    if (targetIds.length >= 2) {
+      addItem('🧩 创建编组（当前选中）…', () => {
+        const name = prompt('编组名称：', '小队');
+        if (name === null) return;
+        const color = prompt('编组颜色（十六进制）：', '#7fb0ff');
+        if (color === null) return;
+        addTokenGroup(name, color, targetIds);
+        render(); updateInfo();
+      });
+    }
+    const curGroup = getTokenGroup(main.id);
+    if (curGroup) {
+      addItem(`🚫 移出编组「${curGroup.name || '编组'}」`, () => {
+        removeTokenFromGroups(main.id);
+        render(); updateInfo();
+      });
+    }
+    addItem('🗑️ 删除选中单位' + (targetIds.length > 1 ? `（${targetIds.length} 个）` : ''), () => {
+      pushUndoMeta();
+      tokens = tokens.filter(x => !targetIds.includes(x.id));
+      targetIds.forEach(id => clearInitiativeTokenRefs(id));
+      selectedTokens = new Set();
+      selectedToken = null;
+      pruneGroups();
+      render(); updateInfo();
+      if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
     });
     sep();
   }
@@ -2741,7 +3117,7 @@ function setTool(tool) {
 
   switch (tool) {
     case 'select':
-      hint.innerHTML = '👆 点击格子查看信息；点击区域/线段/图片可拖动、缩放（8 手柄），双击或右键改属性，Delete 删除';
+      hint.innerHTML = '👆 点击格子查看信息；点击区域/线段/图片可拖动、缩放（8 手柄），双击或右键改属性，Delete 删除；Shift/Ctrl 点单位可多选，Ctrl+D 复制';
       coord.textContent = '⚪ 选择模式';
       cnt.style.cursor = 'default';
       break;
@@ -3044,13 +3420,36 @@ document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redo(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveJSON(); return; }
-  // Delete: 删除选中图形/线段/单位
+  // Ctrl/Cmd+D: 复制选中单位
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
+    e.preventDefault();
+    duplicateTokens();
+    return;
+  }
+  // Delete: 删除选中图形/线段/单位（多选优先）
   if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (selectedTokens && selectedTokens.size > 0) {
+      const ids = Array.from(selectedTokens).filter(id => tokens.some(t => t.id === id));
+      if (ids.length) {
+        pushUndoMeta();
+        tokens = tokens.filter(t => !ids.includes(t.id));
+        ids.forEach(id => clearInitiativeTokenRefs(id));
+        selectedTokens = new Set();
+        selectedToken = null;
+        pruneGroups();
+        render(); updateInfo();
+        if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
+        return;
+      }
+    }
     if (selectedToken) {
       pushUndoMeta();
       tokens = tokens.filter(x => x.id !== selectedToken);
+      clearInitiativeTokenRefs(selectedToken);
       selectedToken = null;
+      pruneGroups();
       render(); updateInfo();
+      if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
       return;
     }
     if (selectedShape) {
@@ -3068,12 +3467,23 @@ document.addEventListener('keydown', (e) => {
       return;
     }
   }
-  // Esc: 取消图片/单位放置
+
+  // Esc: 取消图片/单位放置 / 清空多选
   if (e.key === 'Escape' && (_tokenPending || _unitPending)) {
     _tokenPending = null; _hoverToken = null;
     _unitPending = null; _hoverUnit = null;
     setTool('select');
     render();
+    return;
+  }
+  if (e.key === 'Escape' && selectedTokens && selectedTokens.size > 1) {
+    clearSelection();
+    render(); updateInfo();
+    return;
+  }
+  if (e.key === 'Escape' && selectedToken && (!selectedTokens || selectedTokens.size <= 1)) {
+    clearSelection();
+    render(); updateInfo();
     return;
   }
   const km = { 'v':'select', 'b':'paint', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 'r':'rect', 't':'token', 'g':'line', 'u':'unit', 'y':'dm', 'f':'fog' };
@@ -3170,6 +3580,17 @@ const UNIT_STATUS_OPTIONS = [
   ['中毒', '☠️'], ['倒地', '🟥'], ['昏迷', '💫'], ['专注', '🎯'],
   ['减速', '🐢'], ['燃烧', '🔥'], ['冰冻', '🧊'], ['隐形', '👻']
 ];
+const LS_UNIT_STATUS_KEY = 'combatmap_custom_unit_statuses_v1';
+function loadCustomUnitStatuses() {
+  try {
+    const raw = localStorage.getItem(LS_UNIT_STATUS_KEY);
+    if (raw) customUnitStatuses = JSON.parse(raw) || [];
+  } catch (e) { /* ignore */ }
+}
+function saveCustomUnitStatuses() {
+  try { localStorage.setItem(LS_UNIT_STATUS_KEY, JSON.stringify(customUnitStatuses || [])); } catch (e) { /* ignore */ }
+}
+loadCustomUnitStatuses();
 
 function openUnitModal(token) {
   const modal = document.getElementById('unit-modal');
@@ -3182,13 +3603,22 @@ function openUnitModal(token) {
   document.getElementById('unit-color').value = token?.color || '#3a7abd';
   document.getElementById('unit-hp').value = token?.hp ?? 10;
   document.getElementById('unit-maxhp').value = token?.maxHp ?? 10;
+  document.getElementById('unit-temphp').value = token?.tempHp ?? 0;
+  document.getElementById('unit-ac').value = token?.ac ?? '';
+  document.getElementById('unit-speed').value = token?.speed ?? '';
+  document.getElementById('unit-notes').value = token?.notes ?? '';
   document.getElementById('unit-w').value = token?.w ?? 1;
   document.getElementById('unit-h').value = token?.h ?? 1;
+  const imgPreview = document.getElementById('unit-img-preview');
+  if (imgPreview && token?.imgData) { imgPreview.src = token.imgData; imgPreview.style.display = 'block'; }
+  if (imgPreview && !token?.imgData) { imgPreview.removeAttribute('src'); imgPreview.style.display = 'none'; }
   document.getElementById('unit-delete').style.display = isEdit ? 'block' : 'none';
-  // 状态复选框
+  // 状态复选框（预设 + 自定义）
   const ck = document.getElementById('unit-status-checkboxes');
   ck.innerHTML = '';
-  UNIT_STATUS_OPTIONS.forEach(([label, icon]) => {
+  const allStatus = UNIT_STATUS_OPTIONS.slice();
+  (customUnitStatuses || []).forEach(s => { if (!UNIT_STATUS_OPTIONS.some(([n]) => n === s.name)) allStatus.push([s.name, s.icon || '⚠️']); });
+  allStatus.forEach(([label, icon]) => {
     const lid = 'st-' + label;
     const lab = document.createElement('label');
     lab.style.cssText = 'display:inline-flex;align-items:center;gap:2px;background:#1a1a2e;border:1px solid #0f3460;border-radius:4px;padding:2px 5px;cursor:pointer;';
@@ -3215,23 +3645,46 @@ function saveUnitModal() {
     color: document.getElementById('unit-color').value,
     hp: Math.max(0, parseInt(document.getElementById('unit-hp').value) || 0),
     maxHp: Math.max(1, parseInt(document.getElementById('unit-maxhp').value) || 1),
+    tempHp: Math.max(0, parseInt(document.getElementById('unit-temphp').value) || 0),
+    ac: document.getElementById('unit-ac').value.trim(),
+    speed: document.getElementById('unit-speed').value.trim(),
+    notes: document.getElementById('unit-notes').value.trim(),
     w: Math.max(0.2, parseInt(document.getElementById('unit-w').value) || 1),
     h: Math.max(0.2, parseInt(document.getElementById('unit-h').value) || 1),
     status
   };
+  const imgInput = document.getElementById('unit-img-file');
+  if (imgInput && imgInput.files && imgInput.files[0]) {
+    const file = imgInput.files[0];
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      data.imgData = ev.target.result;
+      data.img = new Image();
+      data.img.src = data.imgData;
+      finishUnitSave(id, data);
+    };
+    reader.readAsDataURL(file);
+    return;
+  }
+  finishUnitSave(id, data);
+}
+
+function finishUnitSave(id, data) {
   if (id) {
     const t = tokens.find(x => x.id === id);
     if (t) {
       pushUndoMeta();
       Object.assign(t, data);
+      syncTokenInitiative(t);
       closeUnitModal();
       render(); updateInfo();
+      if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
       showToast('✅ 单位已更新');
       return;
     }
   }
   // 新建：进入放置模式
-  _unitPending = { ...data, imgData: '', img: null };
+  _unitPending = { ...data, imgData: data.imgData || '', img: data.img || null };
   setTool('unit');
   closeUnitModal();
   showToast('🧝 点击地图放置单位');
@@ -3242,10 +3695,48 @@ function deleteUnitConfirm() {
   if (!id) return;
   pushUndoMeta();
   tokens = tokens.filter(x => x.id !== id);
+  clearInitiativeTokenRefs(id);
   if (selectedToken === id) selectedToken = null;
+  selectedTokens.delete(id);
+  pruneGroups();
   closeUnitModal();
   render(); updateInfo();
+  if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
   showToast('🗑️ 已删除单位');
+}
+
+// 自定义状态：添加 / 删除
+function addCustomUnitStatus() {
+  const name = (document.getElementById('unit-status-custom-name')?.value || '').trim();
+  const icon = (document.getElementById('unit-status-custom-icon')?.value || '').trim() || '⚠️';
+  if (!name) { showToast('⚠️ 请输入状态名称'); return; }
+  if (!customUnitStatuses.some(s => s.name === name)) {
+    customUnitStatuses.push({ name, icon });
+    saveCustomUnitStatuses();
+    if (typeof refreshUnitStatusOptions === 'function') refreshUnitStatusOptions();
+    const nameEl = document.getElementById('unit-status-custom-name');
+    if (nameEl) nameEl.value = '';
+  }
+  const open = document.getElementById('unit-modal');
+  if (open && open.style.display === 'block') openUnitModal(tokens.find(t => t.id === document.getElementById('unit-id').value));
+}
+
+function refreshUnitStatusOptions() {
+  // 在弹窗打开时重建状态选项
+  const modal = document.getElementById('unit-modal');
+  if (modal && modal.style.display === 'block') {
+    const id = document.getElementById('unit-id').value;
+    const t = id ? tokens.find(x => x.id === id) : _unitPending;
+    openUnitModal(t || null);
+  }
+}
+
+function removeCustomUnitStatus(name) {
+  if (!name) return;
+  customUnitStatuses = (customUnitStatuses || []).filter(s => s.name !== name);
+  saveCustomUnitStatuses();
+  // 已使用该状态的单位保留字符串，图标回落到 ⚠️/预设；只从可选列表移除
+  refreshUnitStatusOptions();
 }
 
 // 单位弹窗事件绑定
@@ -3253,6 +3744,17 @@ document.getElementById('unit-confirm').addEventListener('click', saveUnitModal)
 document.getElementById('unit-cancel').addEventListener('click', closeUnitModal);
 document.getElementById('unit-delete').addEventListener('click', deleteUnitConfirm);
 document.getElementById('unit-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
+document.getElementById('unit-img-file').addEventListener('change', function(e) {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const img = document.getElementById('unit-img-preview');
+    if (img) { img.src = ev.target.result; img.style.display = 'block'; }
+  };
+  reader.readAsDataURL(f);
+});
+document.getElementById('unit-status-add').addEventListener('click', addCustomUnitStatus);
 
 // ============================================================
 
@@ -3693,6 +4195,13 @@ function editInitiativeEntry(idx) {
     item.hp = hp === '' ? '' : Math.max(0, parseInt(hp) || 0);
     item.maxHp = item.maxHp ?? '';
   }
+  // 双向联动：带 tokenId 的条目回写单位
+  const linkedToken = item.tokenId ? tokens.find(t => t.id === item.tokenId) : (!item.tokenId && String(item.id).startsWith('tk') ? tokens.find(t => t.id === item.id) : null);
+  if (linkedToken) {
+    linkedToken.hp = item.hp;
+    linkedToken.maxHp = item.maxHp;
+    render(); updateInfo();
+  }
   updateInitiativePanel();
 }
 
@@ -3724,6 +4233,61 @@ document.getElementById('initiative-next').addEventListener('click', () => {
 document.getElementById('initiative-prev').addEventListener('click', () => {
   prevInitiative();
   updateInitiativePanel();
+});
+
+// ============================================================
+//  Group Modal（编组）
+// ============================================================
+function openGroupModal() {
+  const modal = document.getElementById('group-modal');
+  if (!modal) return;
+  renderGroupList();
+  const btn = document.getElementById('group-create-selected');
+  if (btn) {
+    btn.disabled = !(selectedTokens && selectedTokens.size >= 2);
+    btn.style.opacity = btn.disabled ? '0.4' : '1';
+  }
+  modal.style.display = 'block';
+}
+function closeGroupModal() {
+  document.getElementById('group-modal').style.display = 'none';
+}
+function renderGroupList() {
+  const list = document.getElementById('group-list');
+  if (!list) return;
+  list.innerHTML = '';
+  if (!groups.length) {
+    list.innerHTML = '<div style="color:#888;font-size:12px;text-align:center;padding:8px;">暂无编组</div>';
+    return;
+  }
+  groups.forEach(g => {
+    const div = document.createElement('div');
+    div.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 6px;border:1px solid #0f3460;border-radius:4px;margin-bottom:4px;background:#1a1a2e;';
+    const dot = document.createElement('span');
+    dot.style.cssText = 'width:10px;height:10px;border-radius:50%;flex-shrink:0;background:' + (g.color || '#7fb0ff') + ';';
+    const name = document.createElement('span');
+    name.textContent = (g.name || '编组') + ' · ' + (g.tokenIds || []).length + ' 个单位';
+    name.style.cssText = 'flex:1;font-size:12px;color:#fff;';
+    const del = document.createElement('button');
+    del.textContent = '🗑️';
+    del.style.cssText = 'padding:2px 6px;background:#a33;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
+    del.addEventListener('click', () => { removeGroup(g.id); renderGroupList(); render(); updateInfo(); });
+    div.appendChild(dot); div.appendChild(name); div.appendChild(del);
+    list.appendChild(div);
+  });
+}
+document.getElementById('btn-group').addEventListener('click', openGroupModal);
+document.getElementById('group-close').addEventListener('click', closeGroupModal);
+document.getElementById('group-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
+document.getElementById('group-create-selected').addEventListener('click', () => {
+  const ids = Array.from(selectedTokens).filter(id => tokens.some(t => t.id === id));
+  if (ids.length < 2) return;
+  const name = prompt('编组名称：', '小队');
+  if (name === null) return;
+  const color = prompt('编组颜色（十六进制）：', '#7fb0ff');
+  if (color === null) return;
+  addTokenGroup(name, color, ids);
+  renderGroupList(); render(); updateInfo();
 });
 
 // ============================================================
@@ -4229,6 +4793,8 @@ function buildCombatPayload() {
     shapes: shapes.map(s => { const c = { ...s }; delete c.img; return c; }),
     freeLines,
     tokens: tokens.map(t => { const c = { ...t }; delete c.img; return c; }),
+    groups,
+    customUnitStatuses,
     viewX, viewY, zoom,
     customTerrains,
     terrainOverrides
@@ -4260,6 +4826,11 @@ function applyCombatData(data) {
   }
   initiativeOrder = data.initiativeOrder || [];
   initiativeIndex = data.initiativeIndex || 0;
+  groups = data.groups || [];
+  customUnitStatuses = data.customUnitStatuses || customUnitStatuses;
+  pruneGroups();
+  selectedTokens = new Set();
+  selectedToken = null;
   if (data.backgroundMap) {
     backgroundMap = { ...data.backgroundMap };
     if (backgroundMap.imgData && !backgroundMap.img) {
@@ -4272,6 +4843,7 @@ function applyCombatData(data) {
     backgroundMap = null;
   }
   if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
+  if (typeof saveCustomUnitStatuses === 'function') saveCustomUnitStatuses();
   if (data.customTerrains || data.terrainOverrides) {
     customTerrains = data.customTerrains || {};
     terrainOverrides = data.terrainOverrides || {};
@@ -5540,12 +6112,42 @@ function renderMapCanvas(exact) {
       const barW = Math.max(w * 0.8, 20);
       const bx = p.x + w / 2 - barW / 2;
       const by = p.y + h - 2;
+      const temp = Math.max(0, t.tempHp || 0);
+      if (temp > 0) {
+        const tempH = 3;
+        expCtx.fillStyle = 'rgba(0,0,0,0.7)';
+        expCtx.fillRect(bx - 1, by - tempH - 1, barW + 2, tempH + 2);
+        expCtx.fillStyle = '#4af';
+        expCtx.fillRect(bx, by - tempH - 1, barW * Math.min(1, temp / Math.max(1, t.maxHp)), tempH);
+      }
       expCtx.fillStyle = 'rgba(0,0,0,0.7)';
       expCtx.fillRect(bx - 1, by - 1, barW + 2, 6);
       expCtx.fillStyle = '#a33';
       expCtx.fillRect(bx, by, barW, 4);
       expCtx.fillStyle = hp / t.maxHp > 0.5 ? '#3c3' : (hp / t.maxHp > 0.25 ? '#cc3' : '#e33');
       expCtx.fillRect(bx, by, barW * hp / t.maxHp, 4);
+    }
+    // AC 角标（导出与画布一致）
+    if (t.ac !== undefined && t.ac !== null && String(t.ac).trim() !== '') {
+      expCtx.font = "bold 10px sans-serif";
+      const txt = 'AC ' + String(t.ac).trim();
+      const tw3 = expCtx.measureText(txt).width + 8;
+      expCtx.fillStyle = 'rgba(10,10,20,0.78)';
+      expCtx.fillRect(p.x + w - tw3 - 2, p.y + h - 15, tw3, 13);
+      expCtx.fillStyle = '#ffd700';
+      expCtx.textAlign = 'center'; expCtx.textBaseline = 'middle';
+      expCtx.fillText(txt, p.x + w - tw3 / 2 - 2, p.y + h - 8.5);
+    }
+    // 速度角标（导出与画布一致）
+    if (t.speed !== undefined && t.speed !== null && String(t.speed).trim() !== '') {
+      const spTxt = String(t.speed).trim();
+      expCtx.font = "bold 10px sans-serif";
+      const twS = expCtx.measureText(spTxt).width + 8;
+      expCtx.fillStyle = 'rgba(10,10,20,0.78)';
+      expCtx.fillRect(p.x + 2, p.y + h - 15, twS, 13);
+      expCtx.fillStyle = '#8cf';
+      expCtx.textAlign = 'center'; expCtx.textBaseline = 'middle';
+      expCtx.fillText(spTxt, p.x + 2 + twS / 2, p.y + h - 8.5);
     }
   }
 
@@ -5688,6 +6290,8 @@ function saveJSON() {
     shapes: shapes.map(s => { const c = { ...s }; delete c.img; return c; }),
     freeLines,
     tokens: tokens.map(t => { const c = { ...t }; delete c.img; return c; }),
+    groups,
+    customUnitStatuses,
     viewX, viewY, zoom
   };
   const json = JSON.stringify(data);
@@ -5706,39 +6310,12 @@ function loadJSON() {
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
-        combatData = data.combatData || {};
-        shapes = (data.shapes || []).map(sh => {
-          // 恢复 img 对象（dataURL → Image）
-          if (sh.type === 'image' && sh.imgData && !sh.img) {
-            const img = new Image();
-            img.src = sh.imgData;
-            img.onload = () => render();
-            sh.img = img;
-          }
-          return sh;
-        });
-        freeLines = data.freeLines || [];
-        restoreTokens(data.tokens || []);
-        dmData = data.dmData || {};
-        fog = data.fog || {};
-        backgroundMap = data.backgroundMap ? { ...data.backgroundMap } : null;
-        if (backgroundMap && backgroundMap.imgData && !backgroundMap.img) {
-          const img = new Image();
-          img.src = backgroundMap.imgData;
-          img.onload = () => render();
-          backgroundMap.img = img;
+        if (data && data.combatData !== undefined && data.tokens !== undefined) {
+          const n = applyCombatData(data);
+          showToast(`📂 已加载 — ${n} 格 / ${shapes.length} 图形 / ${freeLines.length} 线段 / ${tokens.length} 单位`);
+          return;
         }
-        initiativeOrder = data.initiativeOrder || [];
-        initiativeIndex = data.initiativeIndex || 0;
-        if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
-        _shapeSeq = Math.max(_shapeSeq, ...shapes.map(s => parseInt(String(s.id).replace('sh','')) || 0)) + 1;
-        _lineSeq = Math.max(_lineSeq, ...freeLines.map(l => parseInt(String(l.id).replace('ln','')) || 0)) + 1;
-        _tokenSeq = Math.max(_tokenSeq, ...tokens.map(t => parseInt(String(t.id).replace('tk','')) || 0)) + 1;
-        undoStack = []; redoStack = []; updateUndoButtons();
-        viewX = data.viewX || 0; viewY = data.viewY || 0; zoom = data.zoom || 1;
-        document.getElementById('zoom-indicator').textContent = `🔍 ${Math.round(zoom * 100)}%`;
-        render(); updateInfo();
-        showToast(`📂 已加载 — ${Object.keys(combatData).length} 格 / ${shapes.length} 图形 / ${freeLines.length} 线段 / ${tokens.length} 单位`);
+        showToast('⚠️ 加载失败，文件格式不完整');
       } catch(err) { showToast('⚠️ 加载失败，文件格式错误'); }
     };
     reader.readAsText(file);
@@ -5777,7 +6354,7 @@ function init() {
   }
   console.log(`⚔️ 通用战斗地图生成器 ${COMBATMAP_VERSION} 已就绪`);
   console.log('快捷键: V=选择 B=笔刷 W=墙壁 D=门 L=标签 E=擦除 R=区域 T=图片 G=线段 U=单位 Y=DM层 F=战雾 Delete=删除选中');
-  console.log('新增: 单位 Token/HP/状态 · DM 层 · 战雾 · 行动顺序 · PeerJS 实时在线房间 · 区域/图片/线段图层 · xlsx 颜色');
+  console.log('新增: 单位 AC/速度/临时HP/头像/自定义状态 · 右键扣血治疗 · 先攻双向联动 · Shift多选/Ctrl+D复制/编组 · DM层/战雾/行动顺序');
   if (typeof initCombatShareUI === 'function') initCombatShareUI();
 }
 

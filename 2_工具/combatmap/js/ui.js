@@ -11,7 +11,7 @@ function setTool(tool) {
 
   switch (tool) {
     case 'select':
-      hint.innerHTML = '👆 点击格子查看信息；点击区域/线段/图片可拖动、缩放（8 手柄），双击或右键改属性，Delete 删除';
+      hint.innerHTML = '👆 点击格子查看信息；点击区域/线段/图片可拖动、缩放（8 手柄），双击或右键改属性，Delete 删除；Shift/Ctrl 点单位可多选，Ctrl+D 复制';
       coord.textContent = '⚪ 选择模式';
       cnt.style.cursor = 'default';
       break;
@@ -314,13 +314,36 @@ document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redo(); return; }
   if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveJSON(); return; }
-  // Delete: 删除选中图形/线段/单位
+  // Ctrl/Cmd+D: 复制选中单位
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
+    e.preventDefault();
+    duplicateTokens();
+    return;
+  }
+  // Delete: 删除选中图形/线段/单位（多选优先）
   if (e.key === 'Delete' || e.key === 'Backspace') {
+    if (selectedTokens && selectedTokens.size > 0) {
+      const ids = Array.from(selectedTokens).filter(id => tokens.some(t => t.id === id));
+      if (ids.length) {
+        pushUndoMeta();
+        tokens = tokens.filter(t => !ids.includes(t.id));
+        ids.forEach(id => clearInitiativeTokenRefs(id));
+        selectedTokens = new Set();
+        selectedToken = null;
+        pruneGroups();
+        render(); updateInfo();
+        if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
+        return;
+      }
+    }
     if (selectedToken) {
       pushUndoMeta();
       tokens = tokens.filter(x => x.id !== selectedToken);
+      clearInitiativeTokenRefs(selectedToken);
       selectedToken = null;
+      pruneGroups();
       render(); updateInfo();
+      if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
       return;
     }
     if (selectedShape) {
@@ -338,12 +361,23 @@ document.addEventListener('keydown', (e) => {
       return;
     }
   }
-  // Esc: 取消图片/单位放置
+
+  // Esc: 取消图片/单位放置 / 清空多选
   if (e.key === 'Escape' && (_tokenPending || _unitPending)) {
     _tokenPending = null; _hoverToken = null;
     _unitPending = null; _hoverUnit = null;
     setTool('select');
     render();
+    return;
+  }
+  if (e.key === 'Escape' && selectedTokens && selectedTokens.size > 1) {
+    clearSelection();
+    render(); updateInfo();
+    return;
+  }
+  if (e.key === 'Escape' && selectedToken && (!selectedTokens || selectedTokens.size <= 1)) {
+    clearSelection();
+    render(); updateInfo();
     return;
   }
   const km = { 'v':'select', 'b':'paint', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 'r':'rect', 't':'token', 'g':'line', 'u':'unit', 'y':'dm', 'f':'fog' };
@@ -440,6 +474,17 @@ const UNIT_STATUS_OPTIONS = [
   ['中毒', '☠️'], ['倒地', '🟥'], ['昏迷', '💫'], ['专注', '🎯'],
   ['减速', '🐢'], ['燃烧', '🔥'], ['冰冻', '🧊'], ['隐形', '👻']
 ];
+const LS_UNIT_STATUS_KEY = 'combatmap_custom_unit_statuses_v1';
+function loadCustomUnitStatuses() {
+  try {
+    const raw = localStorage.getItem(LS_UNIT_STATUS_KEY);
+    if (raw) customUnitStatuses = JSON.parse(raw) || [];
+  } catch (e) { /* ignore */ }
+}
+function saveCustomUnitStatuses() {
+  try { localStorage.setItem(LS_UNIT_STATUS_KEY, JSON.stringify(customUnitStatuses || [])); } catch (e) { /* ignore */ }
+}
+loadCustomUnitStatuses();
 
 function openUnitModal(token) {
   const modal = document.getElementById('unit-modal');
@@ -452,13 +497,22 @@ function openUnitModal(token) {
   document.getElementById('unit-color').value = token?.color || '#3a7abd';
   document.getElementById('unit-hp').value = token?.hp ?? 10;
   document.getElementById('unit-maxhp').value = token?.maxHp ?? 10;
+  document.getElementById('unit-temphp').value = token?.tempHp ?? 0;
+  document.getElementById('unit-ac').value = token?.ac ?? '';
+  document.getElementById('unit-speed').value = token?.speed ?? '';
+  document.getElementById('unit-notes').value = token?.notes ?? '';
   document.getElementById('unit-w').value = token?.w ?? 1;
   document.getElementById('unit-h').value = token?.h ?? 1;
+  const imgPreview = document.getElementById('unit-img-preview');
+  if (imgPreview && token?.imgData) { imgPreview.src = token.imgData; imgPreview.style.display = 'block'; }
+  if (imgPreview && !token?.imgData) { imgPreview.removeAttribute('src'); imgPreview.style.display = 'none'; }
   document.getElementById('unit-delete').style.display = isEdit ? 'block' : 'none';
-  // 状态复选框
+  // 状态复选框（预设 + 自定义）
   const ck = document.getElementById('unit-status-checkboxes');
   ck.innerHTML = '';
-  UNIT_STATUS_OPTIONS.forEach(([label, icon]) => {
+  const allStatus = UNIT_STATUS_OPTIONS.slice();
+  (customUnitStatuses || []).forEach(s => { if (!UNIT_STATUS_OPTIONS.some(([n]) => n === s.name)) allStatus.push([s.name, s.icon || '⚠️']); });
+  allStatus.forEach(([label, icon]) => {
     const lid = 'st-' + label;
     const lab = document.createElement('label');
     lab.style.cssText = 'display:inline-flex;align-items:center;gap:2px;background:#1a1a2e;border:1px solid #0f3460;border-radius:4px;padding:2px 5px;cursor:pointer;';
@@ -485,23 +539,46 @@ function saveUnitModal() {
     color: document.getElementById('unit-color').value,
     hp: Math.max(0, parseInt(document.getElementById('unit-hp').value) || 0),
     maxHp: Math.max(1, parseInt(document.getElementById('unit-maxhp').value) || 1),
+    tempHp: Math.max(0, parseInt(document.getElementById('unit-temphp').value) || 0),
+    ac: document.getElementById('unit-ac').value.trim(),
+    speed: document.getElementById('unit-speed').value.trim(),
+    notes: document.getElementById('unit-notes').value.trim(),
     w: Math.max(0.2, parseInt(document.getElementById('unit-w').value) || 1),
     h: Math.max(0.2, parseInt(document.getElementById('unit-h').value) || 1),
     status
   };
+  const imgInput = document.getElementById('unit-img-file');
+  if (imgInput && imgInput.files && imgInput.files[0]) {
+    const file = imgInput.files[0];
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      data.imgData = ev.target.result;
+      data.img = new Image();
+      data.img.src = data.imgData;
+      finishUnitSave(id, data);
+    };
+    reader.readAsDataURL(file);
+    return;
+  }
+  finishUnitSave(id, data);
+}
+
+function finishUnitSave(id, data) {
   if (id) {
     const t = tokens.find(x => x.id === id);
     if (t) {
       pushUndoMeta();
       Object.assign(t, data);
+      syncTokenInitiative(t);
       closeUnitModal();
       render(); updateInfo();
+      if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
       showToast('✅ 单位已更新');
       return;
     }
   }
   // 新建：进入放置模式
-  _unitPending = { ...data, imgData: '', img: null };
+  _unitPending = { ...data, imgData: data.imgData || '', img: data.img || null };
   setTool('unit');
   closeUnitModal();
   showToast('🧝 点击地图放置单位');
@@ -512,10 +589,48 @@ function deleteUnitConfirm() {
   if (!id) return;
   pushUndoMeta();
   tokens = tokens.filter(x => x.id !== id);
+  clearInitiativeTokenRefs(id);
   if (selectedToken === id) selectedToken = null;
+  selectedTokens.delete(id);
+  pruneGroups();
   closeUnitModal();
   render(); updateInfo();
+  if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
   showToast('🗑️ 已删除单位');
+}
+
+// 自定义状态：添加 / 删除
+function addCustomUnitStatus() {
+  const name = (document.getElementById('unit-status-custom-name')?.value || '').trim();
+  const icon = (document.getElementById('unit-status-custom-icon')?.value || '').trim() || '⚠️';
+  if (!name) { showToast('⚠️ 请输入状态名称'); return; }
+  if (!customUnitStatuses.some(s => s.name === name)) {
+    customUnitStatuses.push({ name, icon });
+    saveCustomUnitStatuses();
+    if (typeof refreshUnitStatusOptions === 'function') refreshUnitStatusOptions();
+    const nameEl = document.getElementById('unit-status-custom-name');
+    if (nameEl) nameEl.value = '';
+  }
+  const open = document.getElementById('unit-modal');
+  if (open && open.style.display === 'block') openUnitModal(tokens.find(t => t.id === document.getElementById('unit-id').value));
+}
+
+function refreshUnitStatusOptions() {
+  // 在弹窗打开时重建状态选项
+  const modal = document.getElementById('unit-modal');
+  if (modal && modal.style.display === 'block') {
+    const id = document.getElementById('unit-id').value;
+    const t = id ? tokens.find(x => x.id === id) : _unitPending;
+    openUnitModal(t || null);
+  }
+}
+
+function removeCustomUnitStatus(name) {
+  if (!name) return;
+  customUnitStatuses = (customUnitStatuses || []).filter(s => s.name !== name);
+  saveCustomUnitStatuses();
+  // 已使用该状态的单位保留字符串，图标回落到 ⚠️/预设；只从可选列表移除
+  refreshUnitStatusOptions();
 }
 
 // 单位弹窗事件绑定
@@ -523,6 +638,17 @@ document.getElementById('unit-confirm').addEventListener('click', saveUnitModal)
 document.getElementById('unit-cancel').addEventListener('click', closeUnitModal);
 document.getElementById('unit-delete').addEventListener('click', deleteUnitConfirm);
 document.getElementById('unit-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
+document.getElementById('unit-img-file').addEventListener('change', function(e) {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const img = document.getElementById('unit-img-preview');
+    if (img) { img.src = ev.target.result; img.style.display = 'block'; }
+  };
+  reader.readAsDataURL(f);
+});
+document.getElementById('unit-status-add').addEventListener('click', addCustomUnitStatus);
 
 // ============================================================
 
@@ -963,6 +1089,13 @@ function editInitiativeEntry(idx) {
     item.hp = hp === '' ? '' : Math.max(0, parseInt(hp) || 0);
     item.maxHp = item.maxHp ?? '';
   }
+  // 双向联动：带 tokenId 的条目回写单位
+  const linkedToken = item.tokenId ? tokens.find(t => t.id === item.tokenId) : (!item.tokenId && String(item.id).startsWith('tk') ? tokens.find(t => t.id === item.id) : null);
+  if (linkedToken) {
+    linkedToken.hp = item.hp;
+    linkedToken.maxHp = item.maxHp;
+    render(); updateInfo();
+  }
   updateInitiativePanel();
 }
 
@@ -994,6 +1127,61 @@ document.getElementById('initiative-next').addEventListener('click', () => {
 document.getElementById('initiative-prev').addEventListener('click', () => {
   prevInitiative();
   updateInitiativePanel();
+});
+
+// ============================================================
+//  Group Modal（编组）
+// ============================================================
+function openGroupModal() {
+  const modal = document.getElementById('group-modal');
+  if (!modal) return;
+  renderGroupList();
+  const btn = document.getElementById('group-create-selected');
+  if (btn) {
+    btn.disabled = !(selectedTokens && selectedTokens.size >= 2);
+    btn.style.opacity = btn.disabled ? '0.4' : '1';
+  }
+  modal.style.display = 'block';
+}
+function closeGroupModal() {
+  document.getElementById('group-modal').style.display = 'none';
+}
+function renderGroupList() {
+  const list = document.getElementById('group-list');
+  if (!list) return;
+  list.innerHTML = '';
+  if (!groups.length) {
+    list.innerHTML = '<div style="color:#888;font-size:12px;text-align:center;padding:8px;">暂无编组</div>';
+    return;
+  }
+  groups.forEach(g => {
+    const div = document.createElement('div');
+    div.style.cssText = 'display:flex;align-items:center;gap:6px;padding:4px 6px;border:1px solid #0f3460;border-radius:4px;margin-bottom:4px;background:#1a1a2e;';
+    const dot = document.createElement('span');
+    dot.style.cssText = 'width:10px;height:10px;border-radius:50%;flex-shrink:0;background:' + (g.color || '#7fb0ff') + ';';
+    const name = document.createElement('span');
+    name.textContent = (g.name || '编组') + ' · ' + (g.tokenIds || []).length + ' 个单位';
+    name.style.cssText = 'flex:1;font-size:12px;color:#fff;';
+    const del = document.createElement('button');
+    del.textContent = '🗑️';
+    del.style.cssText = 'padding:2px 6px;background:#a33;color:#fff;border:none;border-radius:3px;cursor:pointer;font-size:11px;';
+    del.addEventListener('click', () => { removeGroup(g.id); renderGroupList(); render(); updateInfo(); });
+    div.appendChild(dot); div.appendChild(name); div.appendChild(del);
+    list.appendChild(div);
+  });
+}
+document.getElementById('btn-group').addEventListener('click', openGroupModal);
+document.getElementById('group-close').addEventListener('click', closeGroupModal);
+document.getElementById('group-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
+document.getElementById('group-create-selected').addEventListener('click', () => {
+  const ids = Array.from(selectedTokens).filter(id => tokens.some(t => t.id === id));
+  if (ids.length < 2) return;
+  const name = prompt('编组名称：', '小队');
+  if (name === null) return;
+  const color = prompt('编组颜色（十六进制）：', '#7fb0ff');
+  if (color === null) return;
+  addTokenGroup(name, color, ids);
+  renderGroupList(); render(); updateInfo();
 });
 
 // ============================================================

@@ -82,6 +82,8 @@ function buildCombatPayload() {
     shapes: shapes.map(s => { const c = { ...s }; delete c.img; return c; }),
     freeLines,
     tokens: tokens.map(t => { const c = { ...t }; delete c.img; return c; }),
+    groups,
+    customUnitStatuses,
     viewX, viewY, zoom,
     customTerrains,
     terrainOverrides
@@ -113,6 +115,11 @@ function applyCombatData(data) {
   }
   initiativeOrder = data.initiativeOrder || [];
   initiativeIndex = data.initiativeIndex || 0;
+  groups = data.groups || [];
+  customUnitStatuses = data.customUnitStatuses || customUnitStatuses;
+  pruneGroups();
+  selectedTokens = new Set();
+  selectedToken = null;
   if (data.backgroundMap) {
     backgroundMap = { ...data.backgroundMap };
     if (backgroundMap.imgData && !backgroundMap.img) {
@@ -125,6 +132,7 @@ function applyCombatData(data) {
     backgroundMap = null;
   }
   if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
+  if (typeof saveCustomUnitStatuses === 'function') saveCustomUnitStatuses();
   if (data.customTerrains || data.terrainOverrides) {
     customTerrains = data.customTerrains || {};
     terrainOverrides = data.terrainOverrides || {};

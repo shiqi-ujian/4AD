@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>通用战斗地图生成器 v0.6</title>
+<title>通用战斗地图生成器 v0.7</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -182,6 +182,9 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
     <div style="display:flex;gap:4px;">
       <button id="btn-initiative" style="flex:1;padding:6px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="管理行动顺序/先攻条">🧭 行动顺序</button>
     </div>
+    <div style="display:flex;gap:4px;margin-top:2px;">
+      <button id="btn-group" style="flex:1;padding:6px;background:#5a4a8a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="管理编组：拖动任一成员整组移动">🧩 编组</button>
+    </div>
     <label style="margin-top:4px;font-size:11px;">
       <input type="checkbox" id="chk-grid" checked> 显示网格
     </label>
@@ -189,7 +192,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
       <input type="checkbox" id="chk-coords" checked> 显示坐标
     </label>
     <div style="margin-top:auto;font-size:10px;color:#555;text-align:center;padding-top:6px;">
-      通用跑团 · 战斗地图 v0.6<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>区域/线段/图片 · 单位/HP/状态 · DM层/战雾 · 行动顺序
+      通用跑团 · 战斗地图 v0.7<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>Shift 多选 / Ctrl+D 复制 / 编组 · 单位/HP/临时HP/AC/状态 · DM层/战雾 · 行动顺序
     </div>
   </div>
 
@@ -364,9 +367,9 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
   </div>
 </div>
 
-<!-- Token/Unit Modal -->
+<!-- Unit Token Modal -->
 <div class="modal-overlay" id="unit-modal">
-  <div class="modal-box">
+  <div class="modal-box" style="width:520px;">
     <h3>🧝 单位 Token <span id="unit-modal-title" style="font-size:12px;color:#aaa;font-weight:normal;">新建</span></h3>
     <label>名称</label>
     <input type="text" id="unit-name" placeholder="例：加拉汉">
@@ -385,6 +388,20 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
       <div style="flex:1;">
         <label>底色</label>
         <input type="color" id="unit-color" value="#3a7abd" style="width:60px;height:30px;padding:0;border:none;background:none;cursor:pointer;display:block;">
+      </div>
+      <div style="flex:1;">
+        <label>临时 HP</label>
+        <input type="number" id="unit-temphp" value="0" min="0">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <div style="flex:1;">
+        <label>AC（可空，显示在右下角）</label>
+        <input type="text" id="unit-ac" placeholder="如 16">
+      </div>
+      <div style="flex:1;">
+        <label>速度（可空）</label>
+        <input type="text" id="unit-speed" placeholder="如 30尺 / 6格">
       </div>
     </div>
     <div style="display:flex;gap:8px;">
@@ -405,8 +422,20 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
         <input type="number" id="unit-h" value="1" min="1" max="6">
       </div>
     </div>
+    <label style="margin-top:4px;">头像图片（可选，圆形裁剪）</label>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;">
+      <img id="unit-img-preview" alt="预览" style="width:40px;height:40px;border-radius:50%;object-fit:cover;background:#1a1a2e;border:1px solid #0f3460;display:none;">
+      <input type="file" id="unit-img-file" accept="image/*" style="flex:1;font-size:11px;color:#ccc;">
+    </div>
     <label style="margin-top:4px;">状态标记</label>
     <div id="unit-status-checkboxes" style="display:flex;flex-wrap:wrap;gap:4px;font-size:11px;margin-bottom:4px;"></div>
+    <div style="display:flex;gap:6px;align-items:center;background:#1a1a2e;border:1px solid #0f3460;border-radius:4px;padding:6px;margin-bottom:6px;font-size:11px;">
+      <input type="text" id="unit-status-custom-name" placeholder="新状态名" style="flex:1;margin:0;background:#16213e;">
+      <input type="text" id="unit-status-custom-icon" placeholder="图标" value="⚠️" style="width:50px;margin:0;background:#16213e;">
+      <button id="unit-status-add" style="padding:4px 8px;background:#3a7abd;color:#fff;border:none;border-radius:3px;cursor:pointer;">➕ 添加</button>
+    </div>
+    <label>备注（本机/DM 查看，不显示在地图上）</label>
+    <textarea id="unit-notes" rows="2" placeholder="特攻、弱点、战术记录…" style="width:100%;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:12px;padding:5px 8px;font-family:inherit;"></textarea>
     <div class="btn-row">
       <button id="unit-delete" style="background:#a33;color:#fff;margin-right:auto;display:none;">🗑️ 删除</button>
       <button id="unit-cancel" style="background:#3a3a5e;color:#ccc;">取消</button>
@@ -513,8 +542,28 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
       <button id="initiative-prev" style="flex:1;padding:6px;background:#3a3a5e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;">⏮</button>
       <button id="initiative-next" style="flex:1;padding:6px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:14px;">⏭</button>
     </div>
+    <div style="font-size:11px;color:#888;margin-bottom:10px;line-height:1.5;">
+      💡 单位与先攻条目已双向联动：右键扣血/治疗会自动同步到这里；在此改 HP 也会回写地图上的单位。
+    </div>
     <div class="btn-row">
       <button id="initiative-close" style="background:#3a3a5e;color:#ccc;">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- Group Modal -->
+<div class="modal-overlay" id="group-modal">
+  <div class="modal-box" style="width:440px;">
+    <h3>🧩 编组管理 <span style="font-size:11px;color:#888;font-weight:normal;">同组单位拖动时一起移动</span></h3>
+    <div id="group-list" style="max-height:260px;overflow-y:auto;margin-bottom:8px;"></div>
+    <div style="display:flex;gap:6px;margin-bottom:10px;">
+      <button id="group-create-selected" style="flex:1;padding:6px;background:#5a4a8a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;" title="先 Shift 点选多个单位">🧩 创建当前选中为编组</button>
+    </div>
+    <div style="font-size:11px;color:#888;line-height:1.5;">
+      💡 先用「选择」工具 Shift/Ctrl 点选 2 个以上单位，再点「创建当前选中为编组」；之后拖动组内任一成员，整组一起移动。
+    </div>
+    <div class="btn-row">
+      <button id="group-close" style="background:#3a3a5e;color:#ccc;">关闭</button>
     </div>
   </div>
 </div>
