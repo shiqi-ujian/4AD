@@ -1,6 +1,15 @@
 //  Tool Switching
 // ============================================================
 function setTool(tool) {
+  // 玩家视图下禁止使用 DM 专属工具
+  if ((tool === 'dm' || tool === 'fog') && viewRoleIsPlayer()) {
+    showToast('👁️ 玩家视图下不可使用 DM 工具');
+    return;
+  }
+  // 切换工具时清理未放置的拾取状态，避免"摆放过一次就卡在放置模式"
+  if (tool !== 'unit') { _unitPending = null; _hoverUnit = null; }
+  if (tool !== 'token') { _tokenPending = null; _hoverToken = null; }
+
   selectedTool = tool;
   document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === tool));
   document.getElementById('erase-options').style.display = tool === 'erase' ? 'block' : 'none';
@@ -47,12 +56,12 @@ function setTool(tool) {
       cnt.style.cursor = 'crosshair';
       break;
     case 'token':
-      hint.innerHTML = _tokenPending ? '🖼️ 点击地图放置图片，右键/Esc 取消' : '🖼️ 点击按钮后选择图片文件，然后点击地图放置';
+      hint.innerHTML = _tokenPending ? '🖼️ 点击地图放置图片，按住 Shift 可连放，Esc 取消' : '🖼️ 点击按钮后选择图片文件，然后点击地图放置';
       coord.textContent = '🖼️ 图片模式';
       cnt.style.cursor = _tokenPending ? 'crosshair' : 'pointer';
       break;
     case 'unit':
-      hint.innerHTML = _unitPending ? `🧝 点击地图放置 <b>${_unitPending.name || '单位'}</b>，Esc 取消` : '🧝 点击「放置单位」配置后点击地图放置，右键改属性';
+      hint.innerHTML = _unitPending ? `🧝 点击地图放置 <b>${_unitPending.name || '单位'}</b>，按住 Shift 连放，Esc 取消` : '🧝 从「单位库」选择预设拿起后放置，或点「➕ 新建预设」';
       coord.textContent = '🧝 单位模式';
       cnt.style.cursor = _unitPending ? 'crosshair' : 'pointer';
       break;
@@ -102,9 +111,16 @@ function rebuildTerrainPalette() {
       if (selectedTool !== 'paint') setTool('paint');
       const ti = getTerrain(id);
       document.getElementById('coord-indicator').textContent = `🖌️ ${ti.icon} ${ti.name}`;
+      const badge = document.getElementById('terrain-selected');
+      if (badge) { badge.textContent = `${ti.icon} ${ti.name}`; badge.title = ti.desc || ''; }
     });
     palette.appendChild(btn);
   });
+  const badge = document.getElementById('terrain-selected');
+  if (badge) {
+    const ti = getTerrain(selectedTerrain);
+    if (ti) { badge.textContent = `${ti.icon} ${ti.name}`; badge.title = ti.desc || ''; }
+  }
 }
 
 // ============================================================
@@ -300,8 +316,11 @@ function clearAll() {
   endBatch();
   selectedCell = null;
   selectedShape = null; selectedLine = null; selectedToken = null;
+  _unitPending = null; _hoverUnit = null;
+  _tokenPending = null; _hoverToken = null;
   render(); updateInfo();
   if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
+  updateEmptyState();
   showToast('🗑️ 已清空');
 }
 
@@ -380,7 +399,19 @@ document.addEventListener('keydown', (e) => {
     render(); updateInfo();
     return;
   }
-  const km = { 'v':'select', 'b':'paint', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 'r':'rect', 't':'token', 'g':'line', 'u':'unit', 'y':'dm', 'f':'fog' };
+  // U：打开单位库（token 管理）
+  if (e.key === 'u' || e.key === 'U') {
+    e.preventDefault();
+    if (_unitPending) {
+      _unitPending = null; _hoverUnit = null;
+      setTool('select');
+      showToast('✕ 已取消单位放置');
+    } else {
+      openTokenLibrarySection();
+    }
+    return;
+  }
+  const km = { 'v':'select', 'b':'paint', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 'r':'rect', 't':'token', 'g':'line', 'y':'dm', 'f':'fog' };
   if (km[e.key?.toLowerCase()]) { e.preventDefault(); setTool(km[e.key.toLowerCase()]); }
   // 分享弹窗：Esc 关闭
   if (e.key === 'Escape') {
@@ -404,14 +435,14 @@ document.addEventListener('keydown', (e) => {
 
 // ============================================================
 
-//  Button Bindings
+//  Button Bindings（用懒包装调用 export.js 里的函数，保证 dev 多文件模式也可用）
 // ============================================================
-document.getElementById('btn-export-excel').addEventListener('click', exportToExcel);
-document.getElementById('btn-export-img').addEventListener('click', exportPNG);
-document.getElementById('btn-export-legend').addEventListener('click', exportLegendPNG);
-document.getElementById('btn-export-owlbear').addEventListener('click', exportOwlbearScene);
-document.getElementById('btn-save').addEventListener('click', saveJSON);
-document.getElementById('btn-load').addEventListener('click', loadJSON);
+document.getElementById('btn-export-excel').addEventListener('click', () => exportToExcel());
+document.getElementById('btn-export-img').addEventListener('click', () => exportPNG());
+document.getElementById('btn-export-legend').addEventListener('click', () => exportLegendPNG());
+document.getElementById('btn-export-owlbear').addEventListener('click', () => exportOwlbearScene());
+document.getElementById('btn-save').addEventListener('click', () => saveJSON());
+document.getElementById('btn-load').addEventListener('click', () => loadJSON());
 document.getElementById('btn-clear').addEventListener('click', clearAll);
 document.getElementById('btn-undo').addEventListener('click', undo);
 document.getElementById('btn-redo').addEventListener('click', redo);
@@ -453,17 +484,29 @@ function pickTokenImage() {
   input.click();
 }
 
-// 图片工具按钮：点击选择文件
+// 图片工具按钮：点击选择文件；已有待放置图片时点击=取消
 document.querySelectorAll('.tool-btn[data-tool="token"]').forEach(btn => {
   btn.addEventListener('click', () => {
-    if (!_tokenPending) pickTokenImage();
+    if (_tokenPending) {
+      _tokenPending = null; _hoverToken = null;
+      setTool('select');
+      showToast('✕ 已取消图片放置');
+      return;
+    }
+    pickTokenImage();
   });
 });
 
-// 单位工具按钮：打开单位创建/编辑弹窗
+// 单位工具按钮：打开单位库选择预设（管理 token 的地方）；已拿起时点击=取消
 document.querySelectorAll('.tool-btn[data-tool="unit"]').forEach(btn => {
   btn.addEventListener('click', () => {
-    if (!_unitPending) openUnitModal();
+    if (_unitPending) {
+      _unitPending = null; _hoverUnit = null;
+      setTool('select');
+      showToast('✕ 已取消单位放置');
+      return;
+    }
+    openTokenLibrarySection();
   });
 });
 
@@ -486,10 +529,13 @@ function saveCustomUnitStatuses() {
 }
 loadCustomUnitStatuses();
 
-function openUnitModal(token) {
+function openUnitModal(token, mode) {
+  mode = mode || '';
   const modal = document.getElementById('unit-modal');
   const isEdit = !!token;
-  document.getElementById('unit-modal-title').textContent = isEdit ? '编辑' : '新建';
+  const isLib = mode === 'lib';
+  document.getElementById('unit-modal-mode').value = mode;
+  document.getElementById('unit-modal-title').textContent = isLib ? (isEdit ? '编辑预设' : '新建预设') : (isEdit ? '编辑' : '新建');
   document.getElementById('unit-id').value = token?.id || '';
   document.getElementById('unit-name').value = token?.name || '';
   document.getElementById('unit-kind').value = token?.kind || 'player';
@@ -506,7 +552,9 @@ function openUnitModal(token) {
   const imgPreview = document.getElementById('unit-img-preview');
   if (imgPreview && token?.imgData) { imgPreview.src = token.imgData; imgPreview.style.display = 'block'; }
   if (imgPreview && !token?.imgData) { imgPreview.removeAttribute('src'); imgPreview.style.display = 'none'; }
-  document.getElementById('unit-delete').style.display = isEdit ? 'block' : 'none';
+  const delBtn = document.getElementById('unit-delete');
+  delBtn.style.display = isEdit ? 'block' : 'none';
+  delBtn.textContent = isLib ? '🗑️ 删除预设' : '🗑️ 删除';
   // 状态复选框（预设 + 自定义）
   const ck = document.getElementById('unit-status-checkboxes');
   ck.innerHTML = '';
@@ -564,6 +612,24 @@ function saveUnitModal() {
 }
 
 function finishUnitSave(id, data) {
+  const mode = document.getElementById('unit-modal-mode').value;
+  // 单位库模式：保存/更新预设，不进入地图放置
+  if (mode === 'lib') {
+    const libData = { ...data };
+    delete libData.img;  // 预设只存 dataURL，不存 Image 对象
+    if (id) {
+      const p = tokenPresets.find(x => x.id === id);
+      if (p) Object.assign(p, libData);
+      else tokenPresets.push({ ...libData, id });
+    } else {
+      tokenPresets.push({ ...libData, id: nextPresetId() });
+    }
+    saveTokenLibrary();
+    renderTokenLibrary();
+    closeUnitModal();
+    showToast('✅ 单位库预设已保存');
+    return;
+  }
   if (id) {
     const t = tokens.find(x => x.id === id);
     if (t) {
@@ -581,11 +647,17 @@ function finishUnitSave(id, data) {
   _unitPending = { ...data, imgData: data.imgData || '', img: data.img || null };
   setTool('unit');
   closeUnitModal();
-  showToast('🧝 点击地图放置单位');
+  showToast('🧝 点击地图放置单位（按住 Shift 连放，Esc 取消）');
 }
 
 function deleteUnitConfirm() {
   const id = document.getElementById('unit-id').value;
+  const mode = document.getElementById('unit-modal-mode').value;
+  if (mode === 'lib') {
+    if (id) deleteTokenPreset(id);
+    closeUnitModal();
+    return;
+  }
   if (!id) return;
   pushUndoMeta();
   tokens = tokens.filter(x => x.id !== id);
@@ -612,16 +684,34 @@ function addCustomUnitStatus() {
     if (nameEl) nameEl.value = '';
   }
   const open = document.getElementById('unit-modal');
-  if (open && open.style.display === 'block') openUnitModal(tokens.find(t => t.id === document.getElementById('unit-id').value));
+  if (open && open.style.display === 'block') {
+    const mode = document.getElementById('unit-modal-mode').value;
+    let t = null;
+    if (mode === 'lib') {
+      const pid = document.getElementById('unit-id').value;
+      const p = tokenPresets.find(x => x.id === pid);
+      if (p) t = { id: p.id, ...p };
+    } else {
+      t = tokens.find(t => t.id === document.getElementById('unit-id').value);
+    }
+    openUnitModal(t || null, mode);
+  }
 }
 
 function refreshUnitStatusOptions() {
-  // 在弹窗打开时重建状态选项
+  // 在弹窗打开时重建状态选项（单位库模式编辑预设）
   const modal = document.getElementById('unit-modal');
   if (modal && modal.style.display === 'block') {
     const id = document.getElementById('unit-id').value;
-    const t = id ? tokens.find(x => x.id === id) : _unitPending;
-    openUnitModal(t || null);
+    const mode = document.getElementById('unit-modal-mode').value;
+    let t = null;
+    if (mode === 'lib') {
+      const p = tokenPresets.find(x => x.id === id);
+      if (p) t = { id: p.id, ...p };
+    } else {
+      t = id ? tokens.find(x => x.id === id) : _unitPending;
+    }
+    openUnitModal(t || null, mode);
   }
 }
 
@@ -1211,9 +1301,15 @@ function importBackgroundMapFromFile() {
           rows: defRows,
           opacity: 0.85
         };
+        // 导入后不强制进入设置/对齐模式：仅在提示条给出下一步引导
+        const hint = document.getElementById('tool-hint');
+        if (hint) hint.innerHTML = '🖼️ 已导入底图：若网格对不上，点 <b>「🎯 网格对齐」</b>（依次点图中格线交点）或「⚙️ 数值」微调';
+        const coord = document.getElementById('coord-indicator');
+        if (coord) coord.textContent = '🖼️ 底图已导入';
         render();
-        openMapSettingsModal();
-        showToast(`🖼️ 已导入底图 ${img.width}×${img.height}px，默认 ${defCols}×${defRows} 格`);
+        updateEmptyState();
+        refreshBgAlignButton();
+        showToast(`🖼️ 已导入底图 ${img.width}×${img.height}px，默认 ${defCols}×${defRows} 格（可对齐修正）`);
       };
       img.src = ev.target.result;
     };
@@ -1255,8 +1351,16 @@ function removeBackgroundMap() {
   if (!confirm('移除当前底图？此操作可撤销。')) return;
   pushUndoMeta();
   backgroundMap = null;
+  // 移除底图时同步退出对齐模式
+  _bgAlignRefs = null;
+  _bgDragMode = null;
+  isDragging = false;
+  const bar = document.getElementById('bg-align-bar');
+  if (bar) bar.style.display = 'none';
   document.getElementById('map-settings-modal').style.display = 'none';
   render();
+  updateEmptyState();
+  refreshBgAlignButton();
   showToast('🗑️ 底图已移除');
 }
 
@@ -1268,13 +1372,36 @@ function setBackgroundOpacityDisplay() {
 
 function startBgAlign() {
   if (!backgroundMap) { showToast('⚠️ 请先导入底图'); return; }
-  _bgAlignRefs = { pts: [], mode: 'click' };
+  const size = bgNaturalSize();
+  if (!size) { showToast('⚠️ 底图图片尚未加载完成，请稍后再试'); return; }
+  // 记录开始对齐时的底图映射快照：之后所有参考点都基于该快照换算图像像素，
+  // 因此「点间格数」调整 / 拖动微调后重新计算都是幂等的。
+  _bgAlignRefs = {
+    pts: [],
+    mode: 'click',
+    snap: { x: backgroundMap.x, y: backgroundMap.y, cols: backgroundMap.cols, rows: backgroundMap.rows }
+  };
   const modal = document.getElementById('map-settings-modal');
   if (modal) modal.style.display = 'none';
   const bar = document.getElementById('bg-align-bar');
   if (bar) bar.style.display = 'flex';
   updateBgAlignBar();
   render();
+}
+
+// 底图自然像素尺寸（未加载完成时返回 null）
+function bgNaturalSize() {
+  if (backgroundMap && backgroundMap.img && backgroundMap.img.naturalWidth > 0) {
+    return { w: backgroundMap.img.naturalWidth, h: backgroundMap.img.naturalHeight };
+  }
+  return null;
+}
+
+// 对齐条上的「点间格数」（第2/3点相对第1点跨越的格数）
+function bgAlignCells() {
+  const el = document.getElementById('bg-align-cells');
+  const n = el ? parseInt(el.value, 10) : 1;
+  return Math.max(1, isNaN(n) ? 1 : n);
 }
 
 function updateBgAlignStatus(text) {
@@ -1284,10 +1411,11 @@ function updateBgAlignStatus(text) {
 
 function updateBgAlignBar() {
   const n = (_bgAlignRefs && _bgAlignRefs.pts) ? _bgAlignRefs.pts.length : 0;
-  if (n === 0) updateBgAlignStatus('🎯 第 1 点：点击图中一个格线交点（基准点）');
-  else if (n === 1) updateBgAlignStatus('🎯 第 2 点：点击同一水平线上的格线交点');
-  else if (n === 2) updateBgAlignStatus('🎯 第 3 点：点击向下方向上的格线交点（可点「完成」用 2 点结束）');
-  else updateBgAlignStatus('✅ 已收集 3 个点，点「完成」应用对齐');
+  const cells = bgAlignCells();
+  if (n === 0) updateBgAlignStatus(`🎯 第 1 点：点击底图上一个格线交点（基准点）`);
+  else if (n === 1) updateBgAlignStatus(`🎯 第 2 点：点击同一水平格线上、向右 ${cells} 格的交点`);
+  else if (n === 2) updateBgAlignStatus(`🎯 第 3 点：点击向下 ${cells} 格的交点（可点「完成」用 2 点粗略对齐）`);
+  else updateBgAlignStatus(`✅ 已收集 3 个点，点「完成」应用对齐`);
 }
 
 function cancelBgAlign() {
@@ -1308,7 +1436,9 @@ function finishBgAlign() {
   }
   applyBgAlignFromRefs();
   finishBgAlignAfterApply();
-  showToast('✅ 底图对齐完成');
+  const size = bgNaturalSize();
+  const pxPerCell = size && backgroundMap && backgroundMap.cols > 0 ? Math.round(size.w / backgroundMap.cols) : 0;
+  showToast(pxPerCell > 0 ? `✅ 底图对齐完成（约 ${pxPerCell}px/格）` : '✅ 底图对齐完成');
 }
 
 // 已完成时从 applyBgAlignFromRefs 里也收起状态条
@@ -1327,42 +1457,46 @@ document.getElementById('map-settings-begin-align').addEventListener('click', st
 document.getElementById('bg-align-finish').addEventListener('click', finishBgAlign);
 document.getElementById('bg-align-cancel').addEventListener('click', cancelBgAlign);
 
-function applyBgAlignFromRefs() {
+function applyBgAlignFromRefs(recordUndo) {
   if (!_bgAlignRefs || !backgroundMap) return;
   const pts = _bgAlignRefs.pts;
-  if (pts.length < 3) {
-    // 不足 3 点时也允许用 2 点粗略对齐
-    if (pts.length >= 2) {
-      const p0 = pts[0], p1 = pts[1];
-      const worldLen = Math.hypot(p1.world.x - p0.world.x, p1.world.y - p0.world.y);
-      const gridLen = Math.hypot(p1.snappedGrid.q - p0.snappedGrid.q, p1.snappedGrid.r - p0.snappedGrid.r) * CELL_SIZE;
-      if (worldLen > 0.5 && gridLen > 0.5) {
-        const pxPerGrid = worldLen / gridLen;
-        const imgPxW = (backgroundMap.img && backgroundMap.img.naturalWidth) || Math.max(1, backgroundMap.cols * CELL_SIZE);
-        const imgPxH = (backgroundMap.img && backgroundMap.img.naturalHeight) || Math.max(1, backgroundMap.rows * CELL_SIZE);
-        backgroundMap.cols = imgPxW / pxPerGrid;
-        backgroundMap.rows = imgPxH / pxPerGrid;
-        backgroundMap.x = p0.snappedGrid.q - (p0.world.x - backgroundMap.x * CELL_SIZE) / pxPerGrid;
-        backgroundMap.y = p0.snappedGrid.r - (p0.world.y - backgroundMap.y * CELL_SIZE) / pxPerGrid;
-      }
-    }
-    return;
+  const snap = _bgAlignRefs.snap;
+  if (!snap || pts.length < 2) return;
+  const size = bgNaturalSize();
+  if (!size) { showToast('⚠️ 底图图片尚未加载完成，请稍后再试'); return; }
+  const imgW = size.w, imgH = size.h;
+  const CS = CELL_SIZE;
+
+  // 世界坐标（画布 px）→ 图像像素：基于开始对齐时的映射快照换算
+  const toImg = (wx, wy) => ({
+    x: ((wx / CS - snap.x) / snap.cols) * imgW,
+    y: ((wy / CS - snap.y) / snap.rows) * imgH
+  });
+
+  const p0 = pts[0];
+  const i0 = toImg(p0.world.x, p0.world.y);
+  const cells = bgAlignCells();
+
+  // 水平方向：第 2 点相对第 1 点跨越 cells 格 → 每格图像像素
+  const p1 = pts[1];
+  const i1 = toImg(p1.world.x, p1.world.y);
+  const hPx = Math.max(2, Math.abs(i1.x - i0.x) / cells);
+  // 垂直方向：有第 3 点则单独解算，否则假设正方形格子
+  let vPx = hPx;
+  if (pts.length >= 3) {
+    const p2 = pts[2];
+    const i2 = toImg(p2.world.x, p2.world.y);
+    vPx = Math.max(2, Math.abs(i2.y - i0.y) / cells);
   }
-  // 3 点完整解算
-  const p0 = pts[0], p1 = pts[1], p2 = pts[2];
-  const g0 = p0.snappedGrid;
-  const dWx = p1.world.x - p0.world.x, dWy = p1.world.y - p0.world.y;
-  const dGx = p1.snappedGrid.q - g0.q, dGy = p1.snappedGrid.r - g0.r;
-  const lenW = Math.hypot(dWx, dWy);
-  const lenG = Math.hypot(dGx, dGy);
-  if (lenW < 0.5 || lenG < 0.5) { return; }
-  const pxPerGrid = lenW / lenG;
-  const imgPxW = (backgroundMap.img && backgroundMap.img.naturalWidth) || Math.max(1, backgroundMap.cols * CELL_SIZE);
-  const imgPxH = (backgroundMap.img && backgroundMap.img.naturalHeight) || Math.max(1, backgroundMap.rows * CELL_SIZE);
-  backgroundMap.cols = imgPxW / pxPerGrid;
-  backgroundMap.rows = imgPxH / pxPerGrid;
-  backgroundMap.x = g0.q - (p0.world.x - backgroundMap.x * CELL_SIZE) / pxPerGrid;
-  backgroundMap.y = g0.r - (p0.world.y - backgroundMap.y * CELL_SIZE) / pxPerGrid;
+
+  if (recordUndo !== false) pushUndoMeta();
+  backgroundMap.cols = imgW / hPx;
+  backgroundMap.rows = imgH / vPx;
+  // 基准点 I0 落到离点击处最近的工具网格线交点（格线交点 = 4 格共角，坐标为整数格）
+  const t0x = Math.round(p0.world.x / CS);
+  const t0y = Math.round(p0.world.y / CS);
+  backgroundMap.x = t0x - i0.x / hPx;
+  backgroundMap.y = t0y - i0.y / vPx;
 }
 
 // Esc/右键离开对齐模式在交互层统一处理
@@ -1396,5 +1530,93 @@ document.getElementById('map-settings-confirm').addEventListener('click', applyM
 document.getElementById('map-settings-remove').addEventListener('click', removeBackgroundMap);
 document.getElementById('map-settings-close').addEventListener('click', () => { document.getElementById('map-settings-modal').style.display = 'none'; });
 document.getElementById('map-settings-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) this.style.display = 'none'; });
+
+// 对齐条「点间格数」实时重算（幂等：基于开始对齐时的映射快照；不产生撤销记录）
+document.getElementById('bg-align-cells').addEventListener('input', function() {
+  const label = document.getElementById('bg-align-cells-val');
+  if (label) label.textContent = (this.value || '1') + ' 格';
+  if (!_bgAlignRefs) return;
+  updateBgAlignBar();
+  applyBgAlignFromRefs(false);
+  render();
+});
+
+// ============================================================
+//  DM / 玩家视图切换
+// ============================================================
+function setViewRole(role) {
+  viewRole = role;
+  const dmBtn = document.getElementById('role-dm');
+  const plBtn = document.getElementById('role-player');
+  const banner = document.getElementById('player-banner');
+  if (dmBtn) dmBtn.classList.toggle('active', role === 'dm');
+  if (plBtn) plBtn.classList.toggle('active', role === 'player');
+  if (banner) banner.style.display = role === 'player' ? 'block' : 'none';
+  document.body.classList.toggle('player-view', role === 'player');
+  applyRoleViewUI();
+}
+
+function applyRoleViewUI() {
+  const isPlayer = viewRoleIsPlayer();
+  // DM 专属工具按钮：禁用 + 置灰
+  document.querySelectorAll('.tool-btn.dm-tool').forEach(b => {
+    b.disabled = isPlayer;
+    b.classList.toggle('dm-locked', isPlayer);
+    b.title = isPlayer ? '👁️ 玩家视图下不可用（DM 专属）' : (b.dataset.tool === 'dm' ? '画 DM 隐藏层：标记/信息只在 DM 本地显示 (Y)' : '涂战雾：遮住/揭示格子，跑团时逐步揭开 (F)');
+  });
+  // 地图区（导入底图/数值/网格对齐）为 DM 专属
+  ['btn-import-map', 'btn-map-settings', 'btn-bg-align'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.disabled = isPlayer; el.classList.toggle('dm-locked', isPlayer); }
+  });
+  // 行动顺序（DM 专属）
+  const initBtn = document.getElementById('btn-initiative');
+  if (initBtn) { initBtn.disabled = isPlayer; initBtn.classList.toggle('dm-locked', isPlayer); }
+  // DM 层显示：玩家视图强制关闭
+  const dmChk = document.getElementById('chk-dm');
+  if (dmChk) dmChk.disabled = isPlayer;
+  if (isPlayer) {
+    showDmLayer = false;
+    if (dmChk) dmChk.checked = false;
+    if (selectedTool === 'dm' || selectedTool === 'fog') setTool('select');
+  }
+  refreshBgAlignButton();
+  render();
+}
+
+document.getElementById('role-dm').addEventListener('click', () => setViewRole('dm'));
+document.getElementById('role-player').addEventListener('click', () => setViewRole('player'));
+
+// ============================================================
+//  空态引导 + 对齐按钮可用性
+// ============================================================
+const LS_EMPTY_DISMISS_KEY = 'combatmap_empty_dismissed_v1';
+function updateEmptyState() {
+  const el = document.getElementById('empty-hint');
+  if (!el) return;
+  let dismissed = false;
+  try { dismissed = localStorage.getItem(LS_EMPTY_DISMISS_KEY) === '1'; } catch (e) { /* ignore */ }
+  const hasContent = Object.keys(combatData).length > 0 || tokens.length > 0 || shapes.length > 0 || freeLines.length > 0 || !!backgroundMap;
+  el.style.display = (hasContent || dismissed) ? 'none' : 'flex';
+}
+function refreshBgAlignButton() {
+  const el = document.getElementById('btn-bg-align');
+  if (!el) return;
+  const noBg = !backgroundMap;
+  const locked = viewRoleIsPlayer();
+  el.disabled = noBg || locked;
+  el.title = noBg ? '请先「🖼️ 导入底图」再对齐网格' : (locked ? '👁️ 玩家视图下不可用' : '在地图上点 3 个格线交点让网格贴合底图');
+  el.style.opacity = (noBg || locked) ? '0.4' : '1';
+  el.style.cursor = (noBg || locked) ? 'not-allowed' : 'pointer';
+}
+
+document.getElementById('empty-import').addEventListener('click', () => {
+  document.getElementById('empty-hint').style.display = 'none';
+  importBackgroundMapFromFile();
+});
+document.getElementById('empty-dismiss').addEventListener('click', () => {
+  try { localStorage.setItem(LS_EMPTY_DISMISS_KEY, '1'); } catch (e) { /* ignore */ }
+  document.getElementById('empty-hint').style.display = 'none';
+});
 
 // ============================================================

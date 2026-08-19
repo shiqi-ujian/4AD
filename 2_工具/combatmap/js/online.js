@@ -38,21 +38,13 @@ function payloadForRole(payload, role) {
 
 function applyOnlineRoleUI() {
   const isPlayer = onlineIsPlayer && !!onlinePeer;
-  const dmBtn = document.querySelector('.tool-btn[data-tool="dm"]');
-  const fogBtn = document.querySelector('.tool-btn[data-tool="fog"]');
-  const dmChk = document.getElementById('chk-dm');
-  const fogChk = document.getElementById('chk-fog');
-  const initBtn = document.getElementById('btn-initiative');
-  if (dmBtn) dmBtn.disabled = isPlayer;
-  if (fogBtn) fogBtn.disabled = isPlayer;
-  if (dmChk) dmChk.disabled = isPlayer;
-  if (fogChk) fogChk.disabled = isPlayer;
-  if (initBtn) initBtn.disabled = isPlayer;
   if (isPlayer) {
     showDmLayer = false;
+    const dmChk = document.getElementById('chk-dm');
     if (dmChk) dmChk.checked = false;
     if (selectedTool === 'dm' || selectedTool === 'fog') setTool('select');
   }
+  if (typeof applyRoleViewUI === 'function') applyRoleViewUI();
 }
 
 function setOnlineStatus(msg) {
@@ -203,6 +195,7 @@ function onlineCreateRoom() {
   onlinePeer.on('open', () => {
     onlineSync = true;
     onlineIsPlayer = false;
+    viewRole = 'dm';
     applyOnlineRoleUI();
     setOnlineStatus('✅ 房间已创建：' + roomId + ' · 分享邀请链接给玩家');
     closeOnlineModal();
@@ -239,6 +232,7 @@ function onlineJoinRoom(roomRaw) {
   conn.on('open', () => {
     onlineRoom = roomId;
     onlineIsPlayer = true;
+    viewRole = 'player';
     applyOnlineRoleUI();
     // 先不发本地快照，等主机回传；声明自己为玩家，避免收到 DM 隐藏层
     setOnlineStatus('✅ 已加入 ' + roomId + '，正在接收主机地图…');
@@ -282,6 +276,7 @@ function onlineLeave() {
   onlineSync = false;
   onlineConnections = [];
   onlineIsPlayer = false;
+  viewRole = 'dm';
   applyOnlineRoleUI();
   setOnlineStatus('已离开房间');
   showToast('🚪 已离开在线房间');

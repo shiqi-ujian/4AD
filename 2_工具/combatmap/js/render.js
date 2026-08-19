@@ -296,15 +296,30 @@ function drawTokens() {
   for (const t of tokens) {
     const p = cellToPixel(t.x, t.y);
     const w = t.w * CELL_SIZE, h = t.h * CELL_SIZE;
-    const r = Math.min(8, w / 5);
+    const cx = p.x + w / 2, cy = p.y + h / 2;
 
-    // 圆形底座
+    // 阴影 + 圆形底座
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.45)';
+    ctx.shadowBlur = 6 / zoom;
+    ctx.shadowOffsetY = 2 / zoom;
     ctx.beginPath();
-    ctx.ellipse(p.x + w / 2, p.y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2);
+    ctx.ellipse(cx, cy, w / 2, h / 2, 0, 0, Math.PI * 2);
     ctx.fillStyle = t.color || '#3a7abd';
     ctx.fill();
-    ctx.lineWidth = 2 / zoom;
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.restore();
+
+    // 类型色环（玩家绿 / 敌人红 / NPC 蓝 / 盟友金）
+    const kindColor = TOKEN_KIND_COLORS[t.kind] || '#42a5f5';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, w / 2 + 2 / zoom, h / 2 + 2 / zoom, 0, 0, Math.PI * 2);
+    ctx.lineWidth = 3 / zoom;
+    ctx.strokeStyle = kindColor;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, w / 2, h / 2, 0, 0, Math.PI * 2);
+    ctx.lineWidth = 1.5 / zoom;
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
     ctx.stroke();
 
     // 图片或 emoji
@@ -317,7 +332,7 @@ function drawTokens() {
       if (t.img && t.img.complete) {
         ctx.save();
         ctx.beginPath();
-        ctx.ellipse(p.x + w / 2, p.y + h / 2, w / 2 - 3 / zoom, h / 2 - 3 / zoom, 0, 0, Math.PI * 2);
+        ctx.ellipse(cx, cy, w / 2 - 3 / zoom, h / 2 - 3 / zoom, 0, 0, Math.PI * 2);
         ctx.clip();
         ctx.drawImage(t.img, p.x + 3 / zoom, p.y + 3 / zoom, w - 6 / zoom, h - 6 / zoom);
         ctx.restore();
@@ -326,44 +341,49 @@ function drawTokens() {
       ctx.font = `${Math.min(w, h) * 0.55}px sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(t.icon, p.x + w / 2, p.y + h / 2 + 1 / zoom);
+      ctx.fillText(t.icon, cx, cy + 1 / zoom);
     }
 
-    // 顶部名称条
+    // 顶部名称条（圆角底牌 + 类型色描边）
     if (t.name) {
       ctx.font = `bold ${Math.max(9, 11 / zoom)}px sans-serif`;
-      const tw = ctx.measureText(t.name).width + 8 / zoom;
-      const by = Math.max(2 / zoom, p.y - 10 / zoom);
-      ctx.fillStyle = 'rgba(0,0,0,0.7)';
-      ctx.fillRect(p.x + w / 2 - tw / 2, by, tw, 14 / zoom);
+      const tw = ctx.measureText(t.name).width + 10 / zoom;
+      const nh = 15 / zoom;
+      const by = Math.max(2 / zoom, p.y - 13 / zoom);
+      ctx.fillStyle = 'rgba(0,0,0,0.74)';
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(cx - tw / 2, by, tw, nh, 4 / zoom);
+      else ctx.rect(cx - tw / 2, by, tw, nh);
+      ctx.fill();
+      ctx.strokeStyle = kindColor;
+      ctx.lineWidth = 1 / zoom;
+      ctx.stroke();
       ctx.fillStyle = '#fff';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(t.name, p.x + w / 2, by + 7 / zoom);
+      ctx.fillText(t.name, cx, by + nh / 2);
     }
 
-    // 血条
+    // 血条（边框 + 临时 HP 蓝条）
     if (typeof t.maxHp === 'number' && t.maxHp > 0) {
       const hp = Math.max(0, Math.min(t.maxHp, t.hp ?? t.maxHp));
-      const barW = Math.max(w * 0.8, 20 / zoom);
-      const barH = 4 / zoom;
-      const bx = p.x + w / 2 - barW / 2;
+      const barW = Math.max(w * 0.8, 22 / zoom);
+      const barH = 5 / zoom;
+      const bx = cx - barW / 2;
       const by = p.y + h - 2 / zoom;
-      // 临时 HP 蓝条（紧贴主血条上方）
       const temp = Math.max(0, t.tempHp || 0);
       if (temp > 0) {
-        const tempH = Math.max(2.5 / zoom, barH * 0.8);
-        const tempY = by - tempH - 1 / zoom;
-        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        const tempH = Math.max(3 / zoom, barH * 0.85);
+        const tempY = by - tempH - 2 / zoom;
+        ctx.fillStyle = 'rgba(0,0,0,0.75)';
         ctx.fillRect(bx - 1, tempY - 1, barW + 2, tempH + 2);
-        ctx.fillStyle = '#4af';
+        ctx.fillStyle = '#42a5f5';
         ctx.fillRect(bx, tempY, barW * Math.min(1, temp / Math.max(1, t.maxHp)), tempH);
       }
-      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillStyle = 'rgba(0,0,0,0.78)';
       ctx.fillRect(bx - 1, by - 1, barW + 2, barH + 2);
-      ctx.fillStyle = '#a33';
-      ctx.fillRect(bx, by, barW, barH);
-      ctx.fillStyle = hp / t.maxHp > 0.5 ? '#3c3' : (hp / t.maxHp > 0.25 ? '#cc3' : '#e33');
-      ctx.fillRect(bx, by, barW * hp / t.maxHp, barH);
+      const ratio = t.maxHp > 0 ? hp / t.maxHp : 0;
+      ctx.fillStyle = ratio > 0.5 ? '#4caf50' : (ratio > 0.25 ? '#ffb300' : '#e53935');
+      ctx.fillRect(bx, by, barW * ratio, barH);
     }
 
     // AC 角标（右下小徽标）
@@ -539,7 +559,8 @@ function drawBackgroundMap() {
   const wPx = bm.cols * CELL_SIZE;
   const hPx = bm.rows * CELL_SIZE;
   ctx.save();
-  ctx.globalAlpha = Math.max(0, Math.min(1, bm.opacity ?? 0.85));
+  // 对齐模式下以全不透明度显示，方便看清格线
+  ctx.globalAlpha = _bgAlignRefs ? 1 : Math.max(0, Math.min(1, bm.opacity ?? 0.85));
   if (bm.img && bm.img.complete) {
     ctx.drawImage(bm.img, bm.x * CELL_SIZE, bm.y * CELL_SIZE, wPx, hPx);
   } else {
@@ -554,7 +575,7 @@ function drawBackgroundMap() {
     ctx.lineWidth = 1;
     ctx.strokeRect(bm.x * CELL_SIZE, bm.y * CELL_SIZE, wPx, hPx);
   }
-  // 底图对齐模式：绘制底图外框 + 中心 + 可拖动参考线
+  // 底图对齐模式：绘制底图外框 + 手柄 + 参考点 + 对齐网格预览
   if (_bgAlignRefs) {
     ctx.globalAlpha = 1;
     ctx.strokeStyle = '#4af';
@@ -569,39 +590,37 @@ function drawBackgroundMap() {
      [bm.x * CELL_SIZE, (bm.y + bm.rows) * CELL_SIZE], [(bm.x + bm.cols) * CELL_SIZE, (bm.y + bm.rows) * CELL_SIZE]].forEach(([px, py]) => {
        ctx.fillRect(px - hs / 2, py - hs / 2, hs, hs);
      });
-    // 参考线
+    // 对齐后的网格实时预览（≥2 点时）
+    previewBgAlignGrid();
+    // 参考点十字线
     if (_bgAlignRefs.pts) {
       _bgAlignRefs.pts.forEach((pt, i) => {
-        const grid = pt.snappedGrid;
-        const gx = grid.q * CELL_SIZE, gy = grid.r * CELL_SIZE;
-        // 参考点在底图上对应的像素
-        const world = pt.world;
-        // 画一条贯穿参考点的十字线
-        ctx.strokeStyle = i === 0 ? '#f80' : (i === 1 ? '#ff0' : '#0ff');
+        const wx = pt.world.x, wy = pt.world.y;
+        const color = i === 0 ? '#f80' : (i === 1 ? '#ff0' : '#0ff');
+        ctx.strokeStyle = color;
         ctx.lineWidth = 2 / zoom;
         ctx.setLineDash([4 / zoom, 3 / zoom]);
         ctx.beginPath();
-        ctx.moveTo(world.x, gy - CELL_SIZE * 3);
-        ctx.lineTo(world.x, gy + CELL_SIZE * 3);
-        ctx.moveTo(gx - CELL_SIZE * 3, world.y);
-        ctx.lineTo(gx + CELL_SIZE * 3, world.y);
+        ctx.moveTo(wx - CELL_SIZE * 3, wy); ctx.lineTo(wx + CELL_SIZE * 3, wy);
+        ctx.moveTo(wx, wy - CELL_SIZE * 3); ctx.lineTo(wx, wy + CELL_SIZE * 3);
         ctx.stroke();
         ctx.setLineDash([]);
         ctx.beginPath();
-        ctx.arc(world.x, world.y, 5 / zoom, 0, Math.PI * 2);
-        ctx.fillStyle = i === 0 ? '#fade' : (i === 1 ? '#ff0' : '#4ff');
+        ctx.arc(wx, wy, 5 / zoom, 0, Math.PI * 2);
+        ctx.fillStyle = color;
         ctx.fill();
       });
     }
     // 提示对齐状态
     const valid = (_bgAlignRefs.pts || []).length >= 2;
+    const cells = (typeof bgAlignCells === 'function') ? bgAlignCells() : 1;
     ctx.restore();
     ctx.globalAlpha = 1;
     ctx.font = `bold 14px sans-serif`;
-    ctx.fillStyle = valid ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.7)';
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
     const tip = valid
-      ? '🎯 已采集 ' + _bgAlignRefs.pts.length + ' 个点：再点击“完成/应用”或回车确认'
-      : '🎯 对齐模式：依次点击图中两个格线交点，再点一下格线方向点（或直接回车）';
+      ? '🎯 已采集 ' + _bgAlignRefs.pts.length + ' 个点（每格 ' + cells + ' 格）：点「完成」应用或继续调整'
+      : '🎯 第 1 点：点底图上一个格线交点；第 2 点：同线向右 ' + cells + ' 格的交点；第 3 点：向下 ' + cells + ' 格的交点';
     const tw = ctx.measureText(tip).width + 20;
     ctx.fillRect(_bgAlignRefs.originX || 10, _bgAlignRefs.originY || 10, tw, 28);
     ctx.fillStyle = '#fff';
@@ -610,6 +629,53 @@ function drawBackgroundMap() {
     // 注：ctx.restore 两次保持外层状态安全
     return;
   }
+  ctx.restore();
+}
+
+// 对齐网格实时预览：基于已采集的参考点 + 映射快照算出预期网格并叠加显示
+function previewBgAlignGrid() {
+  if (!_bgAlignRefs || !backgroundMap) return;
+  const pts = _bgAlignRefs.pts || [];
+  const snap = _bgAlignRefs.snap;
+  if (pts.length < 2 || !snap) return;
+  const img = backgroundMap.img;
+  if (!img || !img.naturalWidth) return;
+  const CS = CELL_SIZE;
+  const toImg = (wx, wy) => ({
+    x: ((wx / CS - snap.x) / snap.cols) * img.naturalWidth,
+    y: ((wy / CS - snap.y) / snap.rows) * img.naturalHeight
+  });
+  const cells = (typeof bgAlignCells === 'function') ? bgAlignCells() : 1;
+  const i0 = toImg(pts[0].world.x, pts[0].world.y);
+  const i1 = toImg(pts[1].world.x, pts[1].world.y);
+  const hPx = Math.max(2, Math.abs(i1.x - i0.x) / cells);
+  let vPx = hPx;
+  if (pts.length >= 3) {
+    const i2 = toImg(pts[2].world.x, pts[2].world.y);
+    vPx = Math.max(2, Math.abs(i2.y - i0.y) / cells);
+  }
+  const cols = img.naturalWidth / hPx, rows = img.naturalHeight / vPx;
+  const t0x = Math.round(pts[0].world.x / CS), t0y = Math.round(pts[0].world.y / CS);
+  const bx = t0x - i0.x / hPx, by = t0y - i0.y / vPx;
+  ctx.save();
+  ctx.strokeStyle = 'rgba(0,160,255,0.32)';
+  ctx.lineWidth = 1 / zoom;
+  ctx.beginPath();
+  const maxLines = 400;
+  const xStep = cols > maxLines ? Math.ceil(cols / maxLines) : 1;
+  const yStep = rows > maxLines ? Math.ceil(rows / maxLines) : 1;
+  for (let i = 0; i <= cols; i += xStep) {
+    const x = (bx + i) * CS;
+    ctx.moveTo(x, by * CS); ctx.lineTo(x, (by + rows) * CS);
+  }
+  for (let j = 0; j <= rows; j += yStep) {
+    const y = (by + j) * CS;
+    ctx.moveTo(bx * CS, y); ctx.lineTo((bx + cols) * CS, y);
+  }
+  ctx.stroke();
+  // 基准交点高亮
+  ctx.fillStyle = 'rgba(0,200,255,0.75)';
+  ctx.fillRect(t0x * CS - 4 / zoom, t0y * CS - 4 / zoom, 8 / zoom, 8 / zoom);
   ctx.restore();
 }
 

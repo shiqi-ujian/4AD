@@ -84,6 +84,7 @@ function buildCombatPayload() {
     tokens: tokens.map(t => { const c = { ...t }; delete c.img; return c; }),
     groups,
     customUnitStatuses,
+    tokenPresets: (typeof tokenPresets !== 'undefined') ? tokenPresets : [],
     viewX, viewY, zoom,
     customTerrains,
     terrainOverrides
@@ -140,6 +141,12 @@ function applyCombatData(data) {
     refreshTerrains();
     rebuildTerrainPalette();
   }
+  // 单位库随数据同步（分享/在线）
+  if (Array.isArray(data.tokenPresets) && typeof tokenPresets !== 'undefined') {
+    tokenPresets = data.tokenPresets;
+    saveTokenLibrary();
+    if (typeof renderTokenLibrary === 'function') renderTokenLibrary();
+  }
   _shapeSeq = Math.max(_shapeSeq, ...shapes.map(s => parseInt(String(s.id).replace('sh','')) || 0)) + 1;
   _lineSeq = Math.max(_lineSeq, ...freeLines.map(l => parseInt(String(l.id).replace('ln','')) || 0)) + 1;
   _tokenSeq = Math.max(_tokenSeq, ...tokens.map(t => parseInt(String(t.id).replace('tk','')) || 0)) + 1;
@@ -148,6 +155,8 @@ function applyCombatData(data) {
   const zi = document.getElementById('zoom-indicator');
   if (zi) zi.textContent = '🔍 ' + Math.round(zoom * 100) + '%';
   render(); updateInfo();
+  if (typeof updateEmptyState === 'function') updateEmptyState();
+  if (typeof refreshBgAlignButton === 'function') refreshBgAlignButton();
   return Object.keys(combatData).length;
 }
 

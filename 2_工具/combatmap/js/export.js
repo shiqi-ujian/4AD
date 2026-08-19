@@ -965,6 +965,7 @@ function saveJSON() {
     tokens: tokens.map(t => { const c = { ...t }; delete c.img; return c; }),
     groups,
     customUnitStatuses,
+    tokenPresets: (typeof tokenPresets !== 'undefined') ? tokenPresets : [],
     viewX, viewY, zoom
   };
   const json = JSON.stringify(data);
