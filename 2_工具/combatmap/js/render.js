@@ -136,7 +136,7 @@ function drawSelectionOverlay() {
     ctx.strokeRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
     ctx.setLineDash([]);
   }
-  // 单位选择框（最高优先级）
+  // 单位选择框（主轴黄色 + 多选蓝色 + 编组环提示）
   if (selectedToken) {
     const t = tokens.find(x => x.id === selectedToken);
     if (t) {
@@ -152,6 +152,39 @@ function drawSelectionOverlay() {
       [[p.x, p.y], [p.x + w, p.y], [p.x, p.y + h], [p.x + w, p.y + h]].forEach(([hx, hy]) => {
         ctx.fillRect(hx - hs / 2, hy - hs / 2, hs, hs);
       });
+    }
+  }
+  // 其余多选单位：蓝色虚线框
+  if (selectedTokens && selectedTokens.size > 1) {
+    for (const id of selectedTokens) {
+      if (id === selectedToken) continue;
+      const tt = tokens.find(x => x.id === id);
+      if (!tt) continue;
+      const p2 = cellToPixel(tt.x, tt.y);
+      const w2 = tt.w * CELL_SIZE, h2 = tt.h * CELL_SIZE;
+      ctx.strokeStyle = '#7fb0ff';
+      ctx.lineWidth = 2 / zoom;
+      ctx.setLineDash([5 / zoom, 3 / zoom]);
+      ctx.strokeRect(p2.x - 2 / zoom, p2.y - 2 / zoom, w2 + 4 / zoom, h2 + 4 / zoom);
+      ctx.setLineDash([]);
+    }
+  }
+  // 编组环：主轴所属组其它成员（未被多选时）细色环
+  if (selectedToken) {
+    const g = getTokenGroup(selectedToken);
+    if (g) {
+      for (const id of g.tokenIds || []) {
+        if (id === selectedToken || (selectedTokens && selectedTokens.has(id))) continue;
+        const tt = tokens.find(x => x.id === id);
+        if (!tt) continue;
+        const p3 = cellToPixel(tt.x, tt.y);
+        const w3 = tt.w * CELL_SIZE, h3 = tt.h * CELL_SIZE;
+        ctx.strokeStyle = g.color || '#7fb0ff';
+        ctx.lineWidth = 1.5 / zoom;
+        ctx.setLineDash([3 / zoom, 2 / zoom]);
+        ctx.strokeRect(p3.x - 3 / zoom, p3.y - 3 / zoom, w3 + 6 / zoom, h3 + 6 / zoom);
+        ctx.setLineDash([]);
+      }
     }
   }
   if (selectedShape) {
@@ -315,6 +348,16 @@ function drawTokens() {
       const barH = 4 / zoom;
       const bx = p.x + w / 2 - barW / 2;
       const by = p.y + h - 2 / zoom;
+      // 临时 HP 蓝条（紧贴主血条上方）
+      const temp = Math.max(0, t.tempHp || 0);
+      if (temp > 0) {
+        const tempH = Math.max(2.5 / zoom, barH * 0.8);
+        const tempY = by - tempH - 1 / zoom;
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillRect(bx - 1, tempY - 1, barW + 2, tempH + 2);
+        ctx.fillStyle = '#4af';
+        ctx.fillRect(bx, tempY, barW * Math.min(1, temp / Math.max(1, t.maxHp)), tempH);
+      }
       ctx.fillStyle = 'rgba(0,0,0,0.7)';
       ctx.fillRect(bx - 1, by - 1, barW + 2, barH + 2);
       ctx.fillStyle = '#a33';
@@ -323,12 +366,39 @@ function drawTokens() {
       ctx.fillRect(bx, by, barW * hp / t.maxHp, barH);
     }
 
+    // AC 角标（右下小徽标）
+    if (t.ac !== undefined && t.ac !== null && String(t.ac).trim() !== '') {
+      const txt = 'AC ' + String(t.ac).trim();
+      ctx.font = "bold " + Math.max(8, 10 / zoom) + "px sans-serif";
+      const tw2 = ctx.measureText(txt).width + 8 / zoom;
+      const ah = 13 / zoom;
+      const ay = p.y + h - ah / 2 - 1 / zoom;
+      ctx.fillStyle = 'rgba(10,10,20,0.78)';
+      ctx.fillRect(p.x + w - tw2 - 2 / zoom, ay, tw2, ah);
+      ctx.fillStyle = '#ffd700';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(txt, p.x + w - tw2 / 2 - 2 / zoom, ay + ah / 2 + 0.5 / zoom);
+    }
+
+    // 速度角标（左下角）
+    if (t.speed !== undefined && t.speed !== null && String(t.speed).trim() !== '') {
+      const spTxt = String(t.speed).trim();
+      ctx.font = "bold " + Math.max(8, 10 / zoom) + "px sans-serif";
+      const twS = ctx.measureText(spTxt).width + 8 / zoom;
+      const ahS = 13 / zoom;
+      const ayS = p.y + h - ahS / 2 - 1 / zoom;
+      ctx.fillStyle = 'rgba(10,10,20,0.78)';
+      ctx.fillRect(p.x + 2 / zoom, ayS, twS, ahS);
+      ctx.fillStyle = '#8cf';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(spTxt, p.x + 2 / zoom + twS / 2, ayS + ahS / 2 + 0.5 / zoom);
+    }
+
     // 状态角标
     if (t.status && t.status.length) {
-      const icons = { '中毒': '☠️', '倒地': '🟥', '昏迷': '💫', '专注': '🎯', '减速': '🐢', '燃烧': '🔥', '冰冻': '🧊' };
       for (let i = 0; i < t.status.length; i++) {
-        const st = icons[t.status[i]] || '⚠️';
-        ctx.font = `${Math.max(9, 11 / zoom)}px sans-serif`;
+        const st = statusIcon(t.status[i]);
+        ctx.font = "bold " + Math.max(9, 11 / zoom) + "px sans-serif";
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(st, p.x + w - 6 / zoom + i * 12 / zoom, p.y + 6 / zoom);
       }

@@ -785,12 +785,42 @@ function renderMapCanvas(exact) {
       const barW = Math.max(w * 0.8, 20);
       const bx = p.x + w / 2 - barW / 2;
       const by = p.y + h - 2;
+      const temp = Math.max(0, t.tempHp || 0);
+      if (temp > 0) {
+        const tempH = 3;
+        expCtx.fillStyle = 'rgba(0,0,0,0.7)';
+        expCtx.fillRect(bx - 1, by - tempH - 1, barW + 2, tempH + 2);
+        expCtx.fillStyle = '#4af';
+        expCtx.fillRect(bx, by - tempH - 1, barW * Math.min(1, temp / Math.max(1, t.maxHp)), tempH);
+      }
       expCtx.fillStyle = 'rgba(0,0,0,0.7)';
       expCtx.fillRect(bx - 1, by - 1, barW + 2, 6);
       expCtx.fillStyle = '#a33';
       expCtx.fillRect(bx, by, barW, 4);
       expCtx.fillStyle = hp / t.maxHp > 0.5 ? '#3c3' : (hp / t.maxHp > 0.25 ? '#cc3' : '#e33');
       expCtx.fillRect(bx, by, barW * hp / t.maxHp, 4);
+    }
+    // AC 角标（导出与画布一致）
+    if (t.ac !== undefined && t.ac !== null && String(t.ac).trim() !== '') {
+      expCtx.font = "bold 10px sans-serif";
+      const txt = 'AC ' + String(t.ac).trim();
+      const tw3 = expCtx.measureText(txt).width + 8;
+      expCtx.fillStyle = 'rgba(10,10,20,0.78)';
+      expCtx.fillRect(p.x + w - tw3 - 2, p.y + h - 15, tw3, 13);
+      expCtx.fillStyle = '#ffd700';
+      expCtx.textAlign = 'center'; expCtx.textBaseline = 'middle';
+      expCtx.fillText(txt, p.x + w - tw3 / 2 - 2, p.y + h - 8.5);
+    }
+    // 速度角标（导出与画布一致）
+    if (t.speed !== undefined && t.speed !== null && String(t.speed).trim() !== '') {
+      const spTxt = String(t.speed).trim();
+      expCtx.font = "bold 10px sans-serif";
+      const twS = expCtx.measureText(spTxt).width + 8;
+      expCtx.fillStyle = 'rgba(10,10,20,0.78)';
+      expCtx.fillRect(p.x + 2, p.y + h - 15, twS, 13);
+      expCtx.fillStyle = '#8cf';
+      expCtx.textAlign = 'center'; expCtx.textBaseline = 'middle';
+      expCtx.fillText(spTxt, p.x + 2 + twS / 2, p.y + h - 8.5);
     }
   }
 
@@ -933,6 +963,8 @@ function saveJSON() {
     shapes: shapes.map(s => { const c = { ...s }; delete c.img; return c; }),
     freeLines,
     tokens: tokens.map(t => { const c = { ...t }; delete c.img; return c; }),
+    groups,
+    customUnitStatuses,
     viewX, viewY, zoom
   };
   const json = JSON.stringify(data);
@@ -951,39 +983,12 @@ function loadJSON() {
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
-        combatData = data.combatData || {};
-        shapes = (data.shapes || []).map(sh => {
-          // 恢复 img 对象（dataURL → Image）
-          if (sh.type === 'image' && sh.imgData && !sh.img) {
-            const img = new Image();
-            img.src = sh.imgData;
-            img.onload = () => render();
-            sh.img = img;
-          }
-          return sh;
-        });
-        freeLines = data.freeLines || [];
-        restoreTokens(data.tokens || []);
-        dmData = data.dmData || {};
-        fog = data.fog || {};
-        backgroundMap = data.backgroundMap ? { ...data.backgroundMap } : null;
-        if (backgroundMap && backgroundMap.imgData && !backgroundMap.img) {
-          const img = new Image();
-          img.src = backgroundMap.imgData;
-          img.onload = () => render();
-          backgroundMap.img = img;
+        if (data && data.combatData !== undefined && data.tokens !== undefined) {
+          const n = applyCombatData(data);
+          showToast(`📂 已加载 — ${n} 格 / ${shapes.length} 图形 / ${freeLines.length} 线段 / ${tokens.length} 单位`);
+          return;
         }
-        initiativeOrder = data.initiativeOrder || [];
-        initiativeIndex = data.initiativeIndex || 0;
-        if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
-        _shapeSeq = Math.max(_shapeSeq, ...shapes.map(s => parseInt(String(s.id).replace('sh','')) || 0)) + 1;
-        _lineSeq = Math.max(_lineSeq, ...freeLines.map(l => parseInt(String(l.id).replace('ln','')) || 0)) + 1;
-        _tokenSeq = Math.max(_tokenSeq, ...tokens.map(t => parseInt(String(t.id).replace('tk','')) || 0)) + 1;
-        undoStack = []; redoStack = []; updateUndoButtons();
-        viewX = data.viewX || 0; viewY = data.viewY || 0; zoom = data.zoom || 1;
-        document.getElementById('zoom-indicator').textContent = `🔍 ${Math.round(zoom * 100)}%`;
-        render(); updateInfo();
-        showToast(`📂 已加载 — ${Object.keys(combatData).length} 格 / ${shapes.length} 图形 / ${freeLines.length} 线段 / ${tokens.length} 单位`);
+        showToast('⚠️ 加载失败，文件格式不完整');
       } catch(err) { showToast('⚠️ 加载失败，文件格式错误'); }
     };
     reader.readAsText(file);

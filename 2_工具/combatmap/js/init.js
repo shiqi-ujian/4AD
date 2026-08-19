@@ -27,7 +27,7 @@ function init() {
   }
   console.log(`⚔️ 通用战斗地图生成器 ${COMBATMAP_VERSION} 已就绪`);
   console.log('快捷键: V=选择 B=笔刷 W=墙壁 D=门 L=标签 E=擦除 R=区域 T=图片 G=线段 U=单位 Y=DM层 F=战雾 Delete=删除选中');
-  console.log('新增: 单位 Token/HP/状态 · DM 层 · 战雾 · 行动顺序 · PeerJS 实时在线房间 · 区域/图片/线段图层 · xlsx 颜色');
+  console.log('新增: 单位 AC/速度/临时HP/头像/自定义状态 · 右键扣血治疗 · 先攻双向联动 · Shift多选/Ctrl+D复制/编组 · DM层/战雾/行动顺序');
   if (typeof initCombatShareUI === 'function') initCombatShareUI();
 }
 

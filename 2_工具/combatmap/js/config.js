@@ -1,6 +1,6 @@
 //  Configuration
 // ============================================================
-const COMBATMAP_VERSION = 'v0.6';
+const COMBATMAP_VERSION = 'v0.7';
 
 const COMBAT_TERRAIN = {
   floor:        { name: '普通地面', color: '#d4c5a9', icon: '⬜', desc: '正常移动' },
