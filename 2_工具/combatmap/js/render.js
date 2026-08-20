@@ -169,7 +169,8 @@ function render() {
   }
 
   // Pass 2: 底图（放在格子与地形之上，但保持半透明可调；贴合导入地图做网格对齐）
-  drawBackgroundMap();
+  // [DISABLED v0.83] 导入底图功能临时禁用：不再绘制底图（含旧存档底图）
+  // drawBackgroundMap();
 
   // Pass 3: Wall boundaries (edges between cells)
   for (let q = qMin; q <= qMax; q++) {

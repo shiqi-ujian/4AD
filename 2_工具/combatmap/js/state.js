@@ -135,17 +135,19 @@ function restoreMeta(before) {
   selectedTokens = new Set((before.selectedTokens || Array.from(selectedTokens)).filter(id => tokens.some(t => t.id === id)));
   if (selectedToken && !tokens.some(t => t.id === selectedToken)) selectedToken = null;
   if (selectedToken && !selectedTokens.has(selectedToken)) selectedTokens.add(selectedToken);
-  if (before.backgroundMap) {
-    backgroundMap = before.backgroundMap;
-    if (backgroundMap.imgData && !backgroundMap.img) {
-      const img = new Image();
-      img.src = backgroundMap.imgData;
-      img.onload = () => render();
-      backgroundMap.img = img;
-    }
-  } else {
-    backgroundMap = null;
-  }
+  // [DISABLED v0.83] 导入底图功能临时禁用：撤销恢复不再恢复底图
+  // if (before.backgroundMap) {
+  //   backgroundMap = before.backgroundMap;
+  //   if (backgroundMap.imgData && !backgroundMap.img) {
+  //     const img = new Image();
+  //     img.src = backgroundMap.imgData;
+  //     img.onload = () => render();
+  //     backgroundMap.img = img;
+  //   }
+  // } else {
+  //   backgroundMap = null;
+  // }
+  backgroundMap = null;
   if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
 }
 

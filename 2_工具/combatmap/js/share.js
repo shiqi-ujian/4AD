@@ -76,7 +76,8 @@ function buildCombatPayload() {
     combatData,
     dmData,
     fog,
-    backgroundMap: backgroundMap ? { ...backgroundMap, img: undefined } : null,
+  // [DISABLED v0.83] 导入底图功能临时禁用：分享数据不含底图
+  // backgroundMap: backgroundMap ? { ...backgroundMap, img: undefined } : null,
     initiativeOrder,
     initiativeIndex,
     shapes: shapes.map(s => { const c = { ...s }; delete c.img; return c; }),
@@ -107,13 +108,15 @@ function applyCombatData(data) {
   restoreTokens(data.tokens || []);
   dmData = data.dmData || {};
   fog = data.fog || {};
-  backgroundMap = data.backgroundMap ? { ...data.backgroundMap } : null;
-  if (backgroundMap && backgroundMap.imgData && !backgroundMap.img) {
-    const img = new Image();
-    img.src = backgroundMap.imgData;
-    img.onload = () => render();
-    backgroundMap.img = img;
-  }
+  // [DISABLED v0.83] 导入底图功能临时禁用：加载存档不再恢复底图
+  // backgroundMap = data.backgroundMap ? { ...data.backgroundMap } : null;
+  // if (backgroundMap && backgroundMap.imgData && !backgroundMap.img) {
+  //   const img = new Image();
+  //   img.src = backgroundMap.imgData;
+  //   img.onload = () => render();
+  //   backgroundMap.img = img;
+  // }
+  backgroundMap = null;
   initiativeOrder = data.initiativeOrder || [];
   initiativeIndex = data.initiativeIndex || 0;
   groups = data.groups || [];
@@ -121,17 +124,18 @@ function applyCombatData(data) {
   pruneGroups();
   selectedTokens = new Set();
   selectedToken = null;
-  if (data.backgroundMap) {
-    backgroundMap = { ...data.backgroundMap };
-    if (backgroundMap.imgData && !backgroundMap.img) {
-      const img = new Image();
-      img.src = backgroundMap.imgData;
-      img.onload = () => render();
-      backgroundMap.img = img;
-    }
-  } else {
-    backgroundMap = null;
-  }
+  // [DISABLED v0.83] 导入底图功能临时禁用（第二处恢复逻辑一并禁用）
+  // if (data.backgroundMap) {
+  //   backgroundMap = { ...data.backgroundMap };
+  //   if (backgroundMap.imgData && !backgroundMap.img) {
+  //     const img = new Image();
+  //     img.src = backgroundMap.imgData;
+  //     img.onload = () => render();
+  //     backgroundMap.img = img;
+  //   }
+  // } else {
+  //   backgroundMap = null;
+  // }
   if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
   if (typeof saveCustomUnitStatuses === 'function') saveCustomUnitStatuses();
   if (data.customTerrains || data.terrainOverrides) {

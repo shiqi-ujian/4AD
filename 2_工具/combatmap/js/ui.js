@@ -1452,11 +1452,11 @@ function finishBgAlignAfterApply() {
   render();
 }
 
-// 事件绑定：对齐模式 UI
-document.getElementById('btn-bg-align').addEventListener('click', startBgAlign);
-document.getElementById('map-settings-begin-align').addEventListener('click', startBgAlign);
-document.getElementById('bg-align-finish').addEventListener('click', finishBgAlign);
-document.getElementById('bg-align-cancel').addEventListener('click', cancelBgAlign);
+// 事件绑定：对齐模式 UI  [DISABLED v0.83] 随导入底图功能禁用
+// document.getElementById('btn-bg-align').addEventListener('click', startBgAlign);
+// document.getElementById('map-settings-begin-align').addEventListener('click', startBgAlign);
+// document.getElementById('bg-align-finish').addEventListener('click', finishBgAlign);
+// document.getElementById('bg-align-cancel').addEventListener('click', cancelBgAlign);
 
 function applyBgAlignFromRefs(recordUndo) {
   if (!_bgAlignRefs || !backgroundMap) return;
@@ -1501,46 +1501,46 @@ function applyBgAlignFromRefs(recordUndo) {
 }
 
 // Esc/右键离开对齐模式在交互层统一处理
-// 实时预览：修改设置后立即应用到画布，方便网格对齐
-['bg-settings-x','bg-settings-y'].forEach(id => {
-  document.getElementById(id).addEventListener('input', function() {
-    if (!backgroundMap) return;
-    backgroundMap.x = parseFloat(document.getElementById('bg-settings-x').value) || 0;
-    backgroundMap.y = parseFloat(document.getElementById('bg-settings-y').value) || 0;
-    render();
-  });
-});
-['bg-settings-cols','bg-settings-rows'].forEach(id => {
-  document.getElementById(id).addEventListener('input', function() {
-    if (!backgroundMap) return;
-    backgroundMap.cols = Math.max(1, parseFloat(document.getElementById('bg-settings-cols').value) || 8);
-    backgroundMap.rows = Math.max(1, parseFloat(document.getElementById('bg-settings-rows').value) || 8);
-    render();
-  });
-});
-document.getElementById('bg-settings-opacity').addEventListener('input', function() {
-  setBackgroundOpacityDisplay();
-  if (!backgroundMap) return;
-  backgroundMap.opacity = Math.max(0, Math.min(1, (parseInt(this.value) || 85) / 100));
-  render();
-});
+// 实时预览：修改设置后立即应用到画布，方便网格对齐  [DISABLED v0.83] 随导入底图功能禁用
+// ['bg-settings-x','bg-settings-y'].forEach(id => {
+//   document.getElementById(id).addEventListener('input', function() {
+//     if (!backgroundMap) return;
+//     backgroundMap.x = parseFloat(document.getElementById('bg-settings-x').value) || 0;
+//     backgroundMap.y = parseFloat(document.getElementById('bg-settings-y').value) || 0;
+//     render();
+//   });
+// });
+// ['bg-settings-cols','bg-settings-rows'].forEach(id => {
+//   document.getElementById(id).addEventListener('input', function() {
+//     if (!backgroundMap) return;
+//     backgroundMap.cols = Math.max(1, parseFloat(document.getElementById('bg-settings-cols').value) || 8);
+//     backgroundMap.rows = Math.max(1, parseFloat(document.getElementById('bg-settings-rows').value) || 8);
+//     render();
+//   });
+// });
+// document.getElementById('bg-settings-opacity').addEventListener('input', function() {
+//   setBackgroundOpacityDisplay();
+//   if (!backgroundMap) return;
+//   backgroundMap.opacity = Math.max(0, Math.min(1, (parseInt(this.value) || 85) / 100));
+//   render();
+// });
 
-document.getElementById('btn-import-map').addEventListener('click', importBackgroundMapFromFile);
-document.getElementById('btn-map-settings').addEventListener('click', openMapSettingsModal);
-document.getElementById('map-settings-confirm').addEventListener('click', applyMapSettings);
-document.getElementById('map-settings-remove').addEventListener('click', removeBackgroundMap);
-document.getElementById('map-settings-close').addEventListener('click', () => { document.getElementById('map-settings-modal').style.display = 'none'; });
-document.getElementById('map-settings-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) this.style.display = 'none'; });
+// document.getElementById('btn-import-map').addEventListener('click', importBackgroundMapFromFile);
+// document.getElementById('btn-map-settings').addEventListener('click', openMapSettingsModal);
+// document.getElementById('map-settings-confirm').addEventListener('click', applyMapSettings);
+// document.getElementById('map-settings-remove').addEventListener('click', removeBackgroundMap);
+// document.getElementById('map-settings-close').addEventListener('click', () => { document.getElementById('map-settings-modal').style.display = 'none'; });
+// document.getElementById('map-settings-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) this.style.display = 'none'; });
 
-// 对齐条「点间格数」实时重算（幂等：基于开始对齐时的映射快照；不产生撤销记录）
-document.getElementById('bg-align-cells').addEventListener('input', function() {
-  const label = document.getElementById('bg-align-cells-val');
-  if (label) label.textContent = (this.value || '1') + ' 格';
-  if (!_bgAlignRefs) return;
-  updateBgAlignBar();
-  applyBgAlignFromRefs(false);
-  render();
-});
+// 对齐条「点间格数」实时重算（幂等：基于开始对齐时的映射快照；不产生撤销记录） [DISABLED v0.83]
+// document.getElementById('bg-align-cells').addEventListener('input', function() {
+//   const label = document.getElementById('bg-align-cells-val');
+//   if (label) label.textContent = (this.value || '1') + ' 格';
+//   if (!_bgAlignRefs) return;
+//   updateBgAlignBar();
+//   applyBgAlignFromRefs(false);
+//   render();
+// });
 
 // ============================================================
 //  DM / 玩家视图切换
@@ -1565,11 +1565,11 @@ function applyRoleViewUI() {
     b.classList.toggle('dm-locked', isPlayer);
     b.title = isPlayer ? '👁️ 玩家视图下不可用（DM 专属）' : (b.dataset.tool === 'dm' ? '画 DM 隐藏层：标记/信息只在 DM 本地显示 (Y)' : '涂战雾：遮住/揭示格子，跑团时逐步揭开 (F)');
   });
-  // 地图区（导入底图/数值/网格对齐）为 DM 专属
-  ['btn-import-map', 'btn-map-settings', 'btn-bg-align'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) { el.disabled = isPlayer; el.classList.toggle('dm-locked', isPlayer); }
-  });
+  // 地图区（导入底图/数值/网格对齐）为 DM 专属  [DISABLED v0.83] 按钮已移除
+  // ['btn-import-map', 'btn-map-settings', 'btn-bg-align'].forEach(id => {
+  //   const el = document.getElementById(id);
+  //   if (el) { el.disabled = isPlayer; el.classList.toggle('dm-locked', isPlayer); }
+  // });
   // 行动顺序（DM 专属）
   const initBtn = document.getElementById('btn-initiative');
   if (initBtn) { initBtn.disabled = isPlayer; initBtn.classList.toggle('dm-locked', isPlayer); }
@@ -1624,10 +1624,11 @@ function refreshBgAlignButton() {
   el.style.cursor = (noBg || locked) ? 'not-allowed' : 'pointer';
 }
 
-document.getElementById('empty-import').addEventListener('click', () => {
-  document.getElementById('empty-hint').style.display = 'none';
-  importBackgroundMapFromFile();
-});
+// [DISABLED v0.83] empty-import 按钮已随导入底图功能移除
+// document.getElementById('empty-import').addEventListener('click', () => {
+//   document.getElementById('empty-hint').style.display = 'none';
+//   importBackgroundMapFromFile();
+// });
 document.getElementById('empty-dismiss').addEventListener('click', () => {
   try { localStorage.setItem(LS_EMPTY_DISMISS_KEY, '1'); } catch (e) { /* ignore */ }
   document.getElementById('empty-hint').style.display = 'none';
