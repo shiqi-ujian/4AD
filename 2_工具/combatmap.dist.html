@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>通用战斗地图生成器 v0.81</title>
+<title>通用战斗地图生成器 v0.82</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -146,12 +146,23 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
 }
 .modal-box .btn-row { display: flex; gap: 6px; justify-content: flex-end; margin-top: 10px; padding-top: 10px; border-top: 1px solid #0f3460; }
 .modal-box .btn-row button { padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
+
+/* Hand-drawn art theme */
+body.art-handdrawn { background: #232018; color: #ece2d0; }
+body.art-handdrawn #toolbar { background: #2c261d; border-right-color: #4a3a24; }
+body.art-handdrawn #toolbar h2 { color: #e8b46a; border-bottom-color: #4a3a24; }
+body.art-handdrawn #toolbar h3, body.art-handdrawn .page-title { color: #c9ad82; }
+body.art-handdrawn #canvas-container { background: #1b1f1b; }
+body.art-handdrawn .tool-btn[data-tool], body.art-handdrawn .panel-tab, body.art-handdrawn .role-btn, body.art-handdrawn button { background: #332c22; color: #f0e6d3; border-color: #4d3d28; }
+body.art-handdrawn #info-panel, body.art-handdrawn #zoom-indicator, body.art-handdrawn #coord-indicator, body.art-handdrawn .modal-box, body.art-handdrawn #empty-hint { background: rgba(36,30,22,0.94); border-color: #57452d; }
+body.art-handdrawn .modal-box h3 { color: #e8b46a; }
+body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handdrawn input[type="number"], body.art-handdrawn textarea { background: #1d1812; color: #f0e6d3; border-color: #57452d; }
 </style>
 </head>
 <body>
 <div id="app">
   <div id="toolbar">
-    <h2>⚔️ 战斗地图 <span class="ver">v0.81</span></h2>
+    <h2>⚔️ 战斗地图 <span class="ver">v0.82</span></h2>
 
     <div id="role-switch">
       <button id="role-dm" class="role-btn dm-role active" title="DM 视图：显示全部工具（含 DM 层/战雾/先攻条等隐藏信息）">🎲 DM 视图</button>
@@ -282,12 +293,15 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
         <label style="font-size:12px;display:block;margin:4px 0;padding:5px 8px;background:#1a1a2e;border:1px solid #0f3460;border-radius:6px;cursor:pointer;">
           <input type="checkbox" id="chk-fog" checked style="width:auto;"> 🌫️ 显示战雾
         </label>
+        <label style="font-size:12px;display:block;margin:4px 0;padding:5px 8px;background:#1a1a2e;border:1px solid #0f3460;border-radius:6px;cursor:pointer;">
+          <input type="checkbox" id="chk-art-style" checked style="width:auto;"> ✏️ 手绘质感
+        </label>
       </div>
 
     </div>
 
     <div style="margin-top:auto;font-size:10px;color:#555;text-align:center;padding-top:6px;">
-      通用跑团 · 战斗地图 v0.81<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>单位库 · Shift 连放 · DM/玩家视图 · 网格对齐
+      通用跑团 · 战斗地图 v0.82<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>单位库 · Shift 连放 · DM/玩家视图 · 网格对齐
     </div>
   </div>
 
@@ -781,7 +795,7 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
 <script>
 //  Configuration
 // ============================================================
-const COMBATMAP_VERSION = 'v0.81';
+const COMBATMAP_VERSION = 'v0.82';
 
 // 单位类型 → 环颜色（画布 token 渲染 / 单位库角标统一使用）
 const TOKEN_KIND_COLORS = {
@@ -901,6 +915,7 @@ let viewX = 0, viewY = 0;
 let zoom = 1;
 let isDragging = false, dragStartX, dragStartY, viewStartX, viewStartY;
 let showGrid = true, showCoords = true;
+let artStyle = 'handdrawn';  // 美术风格：'handdrawn'（手绘质感）| 'classic'（原纯色块）
 let showDmLayer = false;   // 是否显示 DM 层（标记/说明）
 let showFogLayer = true;   // 是否显示战雾遮罩
 let initiativeOrder = [];  // 行动顺序条目: { id, tokenId?, name, icon, kind, hp, maxHp }
@@ -1483,10 +1498,155 @@ function resizeCanvas() {
 
 //  Rendering
 // ============================================================
+// Hand-drawn helpers -------------------------------------------------
+function hexToRGBA(hex, alpha) {
+  let h = hex.replace('#', '');
+  if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function cellRng(seed) {
+  let x = seed | 0;
+  x = Math.imul(x ^ (x >>> 15), 2246822519);
+  x = Math.imul(x ^ (x >>> 13), 3266489917);
+  x = x ^ (x >>> 16);
+  return (x >>> 0) / 4294967295;
+}
+
+function shadeColor(hex, amt) {
+  let h = hex.replace('#', '');
+  if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  const r = Math.max(0, Math.min(255, parseInt(h.slice(0,2),16) + amt));
+  const g = Math.max(0, Math.min(255, parseInt(h.slice(2,4),16) + amt));
+  const b = Math.max(0, Math.min(255, parseInt(h.slice(4,6),16) + amt));
+  return `rgb(${r},${g},${b})`;
+}
+
+function drawCombatTexture(g, q, r, terrainId, color) {
+  const half = CELL_SIZE / 2;
+  const cx = q * CELL_SIZE, cy = r * CELL_SIZE;
+  const dark = shadeColor(color, -34);
+  const light = shadeColor(color, 26);
+  const rnd = (salt) => cellRng((q * 41 + r * 73 + salt * 151) | 0);
+  g.save();
+  g.beginPath();
+  g.rect(cx - half, cy - half, CELL_SIZE, CELL_SIZE);
+  g.clip();
+  for (let i = 0; i < 6; i++) {
+    const px = cx - half + rnd(101 + i) * CELL_SIZE;
+    const py = cy - half + rnd(201 + i) * CELL_SIZE;
+    g.fillStyle = i % 2 === 0 ? hexToRGBA(light, 0.30) : hexToRGBA('#000', 0.07);
+    g.beginPath();
+    g.arc(px, py, 0.6 + rnd(301 + i), 0, Math.PI * 2);
+    g.fill();
+  }
+  if (terrainId === 'water' || terrainId === 'hazard_acid' || terrainId === 'ice') {
+    g.strokeStyle = hexToRGBA(dark, 0.4);
+    g.lineWidth = 1;
+    g.lineCap = 'round';
+    for (let i = 0; i < 3; i++) {
+      const y = cy - half * 0.5 + i * CELL_SIZE * 0.28;
+      g.beginPath();
+      for (let x = cx - half * 0.8; x <= cx + half * 0.8; x += 3) {
+        const yy = y + Math.sin(x * 0.4 + rnd(9 + i) * 6) * 1.2;
+        if (x === cx - half * 0.8) g.moveTo(x, yy); else g.lineTo(x, yy);
+      }
+      g.stroke();
+    }
+  } else if (terrainId === 'wall_cell' || terrainId === 'cover_full' || terrainId === 'pit' || terrainId === 'darkness') {
+    for (let i = 0; i < 12; i++) {
+      const x = cx - half + rnd(500 + i) * CELL_SIZE;
+      const y = cy - half + rnd(600 + i) * CELL_SIZE;
+      g.fillStyle = hexToRGBA(dark, 0.2);
+      g.beginPath();
+      g.arc(x, y, 0.7, 0, Math.PI * 2);
+      g.fill();
+    }
+  } else if (terrainId === 'floor' || terrainId === 'grass' || terrainId === 'crop' || terrainId === 'snow') {
+    g.strokeStyle = hexToRGBA(dark, 0.28);
+    g.lineWidth = 0.9;
+    for (let i = 0; i < 8; i++) {
+      const x = cx - half + rnd(700 + i) * CELL_SIZE;
+      const y = cy - half + rnd(800 + i) * CELL_SIZE;
+      const a = rnd(900 + i) * Math.PI * 2;
+      g.beginPath();
+      g.moveTo(x - Math.cos(a) * 3, y - Math.sin(a) * 3);
+      g.lineTo(x + Math.cos(a) * 3, y + Math.sin(a) * 3);
+      g.stroke();
+    }
+  } else {
+    for (let i = 0; i < 8; i++) {
+      const x = cx - half + rnd(1100 + i) * CELL_SIZE;
+      const y = cy - half + rnd(1200 + i) * CELL_SIZE;
+      g.fillStyle = hexToRGBA(i % 2 ? light : dark, 0.25);
+      g.beginPath();
+      g.arc(x, y, 0.5 + rnd(1300 + i), 0, Math.PI * 2);
+      g.fill();
+    }
+  }
+  g.restore();
+}
+
+function applyArtStyleClass() {
+  document.body.classList.toggle('art-handdrawn', artStyle === 'handdrawn');
+}
+
+function setArtStyle(style) {
+  if (style !== 'handdrawn' && style !== 'classic') return;
+  artStyle = style;
+  try { localStorage.setItem('combatmap_artStyle', artStyle); } catch(e) {}
+  const chk = document.getElementById('chk-art-style');
+  if (chk) chk.checked = (style === 'handdrawn');
+  applyArtStyleClass();
+  render();
+}
+
+function drawCombatCellBase(g, q, r, hCell) {
+  const p = cellToPixel(q, r);
+  if (!hCell) hCell = getCell(q, r);
+  const half = CELL_SIZE / 2;
+  let fillColor = '#3a3a52';
+  if (hCell.terrain && getTerrain(hCell.terrain)) fillColor = getTerrain(hCell.terrain).color;
+  g.beginPath();
+  g.rect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
+  g.fillStyle = fillColor;
+  g.fill();
+  if (artStyle === 'handdrawn' && hCell.terrain && getTerrain(hCell.terrain)) {
+    drawCombatTexture(g, q, r, hCell.terrain, getTerrain(hCell.terrain).color);
+  }
+  if (showGrid) {
+    if (artStyle === 'handdrawn') {
+      g.strokeStyle = 'rgba(40,28,18,0.40)';
+      g.lineWidth = 1;
+      g.beginPath();
+      const r2 = (salt) => cellRng(salt);
+      for (let i = -1; i <= 1; i += 2) {
+        const x = i > 0 ? p.x + half : p.x - half;
+        const y0 = p.y - half + (r2((q * 3 + r * 7 + i * 11) | 0) - 0.5) * 0.8;
+        const y1 = p.y + half + (r2((q * 5 + r * 9 + i * 13) | 0) - 0.5) * 0.8;
+        g.moveTo(x, y0);
+        g.lineTo(x, y1);
+      }
+      for (let i = -1; i <= 1; i += 2) {
+        const y = i > 0 ? p.y + half : p.y - half;
+        const x0 = p.x - half + (r2((q * 17 + r * 19 + i * 23) | 0) - 0.5) * 0.8;
+        const x1 = p.x + half + (r2((q * 29 + r * 31 + i * 37) | 0) - 0.5) * 0.8;
+        g.moveTo(x0, y);
+        g.lineTo(x1, y);
+      }
+      g.stroke();
+    } else {
+      g.strokeStyle = 'rgba(255,255,255,0.10)';
+      g.lineWidth = 0.5;
+      g.strokeRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
+    }
+  }
+}
 function render() {
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = '#2d2d44';
+  ctx.fillStyle = artStyle === 'handdrawn' ? '#1d2117' : '#2d2d44';
   ctx.fillRect(0, 0, W, H);
 
   ctx.save();
@@ -1522,6 +1682,9 @@ function render() {
       drawCellOverlay(q, r);
     }
   }
+
+  // Pass 4.5: Hand-drawn floor shadows / warm accents
+  if (artStyle === 'handdrawn') drawCombatAccents();
 
   // Pass 5: Free lines (任意角度线段)
   drawFreeLines();
@@ -1910,22 +2073,7 @@ function drawTokens() {
 }
 
 function drawCellBase(q, r) {
-  const p = cellToPixel(q, r);
-  const h = getCell(q, r);
-  const half = CELL_SIZE / 2;
-
-  let fillColor = '#3a3a52';
-  if (h.terrain && getTerrain(h.terrain)) {
-    fillColor = getTerrain(h.terrain).color;
-  }
-  ctx.fillStyle = fillColor;
-  ctx.fillRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
-
-  if (showGrid) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.10)';
-    ctx.lineWidth = 0.5;
-    ctx.strokeRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
-  }
+  drawCombatCellBase(ctx, q, r, getCell(q, r));
 }
 
 function drawWallEdges(q, r) {
@@ -2036,6 +2184,30 @@ function drawCellOverlay(q, r) {
 // ============================================================
 //  DM Layer / Fog / BackgroundMap Rendering
 // ============================================================
+function drawCombatAccents() {
+  const W = canvas.width, H = canvas.height;
+  const margin = CELL_SIZE * 2;
+  const topLeft = pixelToCell((-viewX - margin) / zoom, (-viewY - margin) / zoom);
+  const botRight = pixelToCell((W - viewX + margin) / zoom, (H - viewY + margin) / zoom);
+  const qMin = Math.floor(topLeft.q) - 1, qMax = Math.ceil(botRight.q) + 1;
+  const rMin = Math.floor(topLeft.r) - 1, rMax = Math.ceil(botRight.r) + 1;
+  for (let q = qMin; q <= qMax; q++) {
+    for (let r = rMin; r <= rMax; r++) {
+      const h = getCell(q, r);
+      if (!h) continue;
+      const p = cellToPixel(q, r);
+      const half = CELL_SIZE / 2;
+      if (h.terrain === 'wall_cell' || h.terrain === 'cover_full' || h.terrain === 'pit' || h.terrain === 'hazard_fire' || h.terrain === 'hazard_acid') {
+        ctx.save();
+        ctx.globalAlpha = 0.14;
+        ctx.fillStyle = '#000';
+        ctx.fillRect(p.x - half + 2, p.y - half + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+        ctx.restore();
+      }
+    }
+  }
+}
+
 function drawBackgroundMap() {
   if (!backgroundMap || !backgroundMap.imgData) return;
   const bm = backgroundMap;
@@ -3775,6 +3947,7 @@ document.getElementById('chk-grid').addEventListener('change', (e) => { showGrid
 document.getElementById('chk-coords').addEventListener('change', (e) => { showCoords = e.target.checked; render(); });
 document.getElementById('chk-dm').addEventListener('change', (e) => { showDmLayer = e.target.checked; render(); });
 document.getElementById('chk-fog').addEventListener('change', (e) => { showFogLayer = e.target.checked; render(); });
+document.getElementById('chk-art-style').addEventListener('change', (e) => { setArtStyle(e.target.checked ? 'handdrawn' : 'classic'); });
 
 // ============================================================
 
@@ -6587,7 +6760,7 @@ function renderMapCanvas(exact) {
     expCanvas.height = Math.max(h, 300);
   }
   const expCtx = expCanvas.getContext('2d');
-  expCtx.fillStyle = '#2d2d44';
+  expCtx.fillStyle = artStyle === 'handdrawn' ? '#1d2117' : '#2d2d44';
   expCtx.fillRect(0, 0, expCanvas.width, expCanvas.height);
 
   let offsetX, offsetY;
@@ -6604,15 +6777,7 @@ function renderMapCanvas(exact) {
   // Pass 1: fills + grid
   for (const key of keys) {
     const [q, r] = key.split(',').map(Number);
-    const hCell = combatData[key];
-    const p = cellToPixel(q, r);
-    let fillColor = '#3a3a52';
-    if (hCell.terrain && getTerrain(hCell.terrain)) fillColor = getTerrain(hCell.terrain).color;
-    expCtx.fillStyle = fillColor;
-    expCtx.fillRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
-    expCtx.strokeStyle = 'rgba(255,255,255,0.10)';
-    expCtx.lineWidth = 0.5;
-    expCtx.strokeRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
+    drawCombatCellBase(expCtx, q, r, combatData[key]);
   }
 
   // Pass 1.5: 底图（导出包含背景，DM/玩家图均一致）
@@ -6993,6 +7158,13 @@ function loadJSON() {
 function init() {
   resizeCanvas();
   refreshTerrains();
+  try {
+    const savedArt = localStorage.getItem('combatmap_artStyle');
+    if (savedArt === 'handdrawn' || savedArt === 'classic') artStyle = savedArt;
+  } catch(e) {}
+  const artChk = document.getElementById('chk-art-style');
+  if (artChk) artChk.checked = (artStyle === 'handdrawn');
+  applyArtStyleClass();
   rebuildTerrainPalette();
   setTool('select');
   const dmCheck = document.getElementById('chk-dm');

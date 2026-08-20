@@ -45,8 +45,7 @@ function computeMapStats() {
     }
     if (h.rivers) {
       for (const rv of h.rivers) {
-        const a = q + ',' + r, b = rv.q + ',' + rv.r;
-        const rk = a < b ? a + '-' + b : b + '-' + a;
+        const rk = edgeKey(q, r, rv.q, rv.r);
         if (!seenRivers.has(rk)) {
           seenRivers.add(rk);
           if ((rv.width || 1) >= 2) riverWide++; else riverStream++;

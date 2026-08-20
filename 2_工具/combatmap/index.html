@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>通用战斗地图生成器 v0.81</title>
+<title>通用战斗地图生成器 v0.82</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -146,12 +146,23 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
 }
 .modal-box .btn-row { display: flex; gap: 6px; justify-content: flex-end; margin-top: 10px; padding-top: 10px; border-top: 1px solid #0f3460; }
 .modal-box .btn-row button { padding: 6px 14px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
+
+/* Hand-drawn art theme */
+body.art-handdrawn { background: #232018; color: #ece2d0; }
+body.art-handdrawn #toolbar { background: #2c261d; border-right-color: #4a3a24; }
+body.art-handdrawn #toolbar h2 { color: #e8b46a; border-bottom-color: #4a3a24; }
+body.art-handdrawn #toolbar h3, body.art-handdrawn .page-title { color: #c9ad82; }
+body.art-handdrawn #canvas-container { background: #1b1f1b; }
+body.art-handdrawn .tool-btn[data-tool], body.art-handdrawn .panel-tab, body.art-handdrawn .role-btn, body.art-handdrawn button { background: #332c22; color: #f0e6d3; border-color: #4d3d28; }
+body.art-handdrawn #info-panel, body.art-handdrawn #zoom-indicator, body.art-handdrawn #coord-indicator, body.art-handdrawn .modal-box, body.art-handdrawn #empty-hint { background: rgba(36,30,22,0.94); border-color: #57452d; }
+body.art-handdrawn .modal-box h3 { color: #e8b46a; }
+body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handdrawn input[type="number"], body.art-handdrawn textarea { background: #1d1812; color: #f0e6d3; border-color: #57452d; }
 </style>
 </head>
 <body>
 <div id="app">
   <div id="toolbar">
-    <h2>⚔️ 战斗地图 <span class="ver">v0.81</span></h2>
+    <h2>⚔️ 战斗地图 <span class="ver">v0.82</span></h2>
 
     <div id="role-switch">
       <button id="role-dm" class="role-btn dm-role active" title="DM 视图：显示全部工具（含 DM 层/战雾/先攻条等隐藏信息）">🎲 DM 视图</button>
@@ -282,12 +293,15 @@ select { padding: 3px 6px; background: #1a1a2e; color: #fff; border: 1px solid #
         <label style="font-size:12px;display:block;margin:4px 0;padding:5px 8px;background:#1a1a2e;border:1px solid #0f3460;border-radius:6px;cursor:pointer;">
           <input type="checkbox" id="chk-fog" checked style="width:auto;"> 🌫️ 显示战雾
         </label>
+        <label style="font-size:12px;display:block;margin:4px 0;padding:5px 8px;background:#1a1a2e;border:1px solid #0f3460;border-radius:6px;cursor:pointer;">
+          <input type="checkbox" id="chk-art-style" checked style="width:auto;"> ✏️ 手绘质感
+        </label>
       </div>
 
     </div>
 
     <div style="margin-top:auto;font-size:10px;color:#555;text-align:center;padding-top:6px;">
-      通用跑团 · 战斗地图 v0.81<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>单位库 · Shift 连放 · DM/玩家视图 · 网格对齐
+      通用跑团 · 战斗地图 v0.82<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>单位库 · Shift 连放 · DM/玩家视图 · 网格对齐
     </div>
   </div>
 

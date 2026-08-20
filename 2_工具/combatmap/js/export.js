@@ -598,7 +598,7 @@ function renderMapCanvas(exact) {
     expCanvas.height = Math.max(h, 300);
   }
   const expCtx = expCanvas.getContext('2d');
-  expCtx.fillStyle = '#2d2d44';
+  expCtx.fillStyle = artStyle === 'handdrawn' ? '#1d2117' : '#2d2d44';
   expCtx.fillRect(0, 0, expCanvas.width, expCanvas.height);
 
   let offsetX, offsetY;
@@ -615,15 +615,7 @@ function renderMapCanvas(exact) {
   // Pass 1: fills + grid
   for (const key of keys) {
     const [q, r] = key.split(',').map(Number);
-    const hCell = combatData[key];
-    const p = cellToPixel(q, r);
-    let fillColor = '#3a3a52';
-    if (hCell.terrain && getTerrain(hCell.terrain)) fillColor = getTerrain(hCell.terrain).color;
-    expCtx.fillStyle = fillColor;
-    expCtx.fillRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
-    expCtx.strokeStyle = 'rgba(255,255,255,0.10)';
-    expCtx.lineWidth = 0.5;
-    expCtx.strokeRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
+    drawCombatCellBase(expCtx, q, r, combatData[key]);
   }
 
   // Pass 1.5: 底图（导出包含背景，DM/玩家图均一致）
