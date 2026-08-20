@@ -450,6 +450,7 @@ document.getElementById('chk-grid').addEventListener('change', (e) => { showGrid
 document.getElementById('chk-coords').addEventListener('change', (e) => { showCoords = e.target.checked; render(); });
 document.getElementById('chk-dm').addEventListener('change', (e) => { showDmLayer = e.target.checked; render(); });
 document.getElementById('chk-fog').addEventListener('change', (e) => { showFogLayer = e.target.checked; render(); });
+document.getElementById('chk-art-style').addEventListener('change', (e) => { setArtStyle(e.target.checked ? 'handdrawn' : 'classic'); });
 
 // ============================================================
 

@@ -39,7 +39,7 @@ function exportCurrentViewPng() {
   // Pass 2.5: 河流
   drawRivers(g, qMin, qMax, rMin, rMax);
   // Pass 2.7: 道路
-  g.strokeStyle = '#8B4513'; g.lineWidth = 3;
+  if (artStyle !== 'handdrawn') { g.strokeStyle = '#8B4513'; g.lineWidth = 3; }
   for (let q = qMin; q <= qMax; q++) {
     for (let r = rMin; r <= rMax; r++) {
       const h = getHex(q, r);
@@ -48,7 +48,9 @@ function exportCurrentViewPng() {
         for (const rd of h.roads) {
           if (rd.q > q || (rd.q === q && rd.r > r)) {
             const p2 = hexToPixel(rd.q, rd.r);
-            g.beginPath(); g.moveTo(p1.x, p1.y); g.lineTo(p2.x, p2.y); g.stroke();
+            const crossesRiver = hasRiver(q, r, rd.q, rd.r);
+            if (artStyle === 'handdrawn') drawRoadSegment(g, p1, p2, crossesRiver);
+            else { g.beginPath(); g.moveTo(p1.x, p1.y); g.lineTo(p2.x, p2.y); g.stroke(); }
           }
         }
       }
@@ -149,6 +151,7 @@ function applyMapData(data) {
   hexData = resolved.resultHex;
   customTerrains = resolved.resultCT;
   rebuildSettlementIndex();
+  normalizeAllRivers();
   undoStack = []; redoStack = []; updateUndoButtons();
   if (data.deletedTerrains) deletedTerrains = data.deletedTerrains;
   if (data.terrainOrder) terrainOrder = data.terrainOrder;

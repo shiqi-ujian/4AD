@@ -158,9 +158,70 @@ function hexCorners(cx, cy, size) {
 
 function hexKey(q, r) { return `${q},${r}`; }
 
+// Canonical key for an undirected edge (dedupes rivers/roads).
+function edgeKey(q1, r1, q2, r2) {
+  const a = hexKey(q1, r1), b = hexKey(q2, r2);
+  return a < b ? a + '|' + b : b + '|' + a;
+}
+
+// Normalize one hex's rivers list: keep only adjacent pairs, dedupe with max
+// width, mirror reverse entries (idempotently).
+function normalizeRivers(hexObj) {
+  if (!hexObj.rivers) hexObj.rivers = [];
+  if (typeof hexObj.q !== 'number') hexObj.q = 0;
+  if (typeof hexObj.r !== 'number') hexObj.r = 0;
+  const seen = new Map();
+  for (const r of hexObj.rivers) {
+    if (!r || typeof r.q !== 'number' || typeof r.r !== 'number') continue;
+    const key = edgeKey(hexObj.q, hexObj.r, r.q, r.r);
+    if (!key) continue;
+    seen.set(key, Math.max(seen.get(key) || 0, r.width || 1));
+  }
+  const out = [];
+  for (const [key, w] of seen) {
+    const parts = key.split('|');
+    const c1 = parts[0].split(',');
+    const c2 = parts[1].split(',');
+    const a = { q: +c1[0], r: +c1[1] };
+    const b = { q: +c2[0], r: +c2[1] };
+    const other = (a.q === hexObj.q && a.r === hexObj.r) ? b : a;
+    out.push({ q: other.q, r: other.r, width: w });
+  }
+  hexObj.rivers = out;
+  return out;
+}
+
 function getHex(q, r) {
   const k = hexKey(q, r);
   return hexData[k] || { terrain: null, label: '', settlement: null, roads: [], region: null, annotations: [], rivers: [] };
+}
+
+// Collect all unique river edges (canonical key -> {q1,r1,q2,r2,width}).
+function getAllRiverEdges() {
+  const edges = new Map();
+  for (const [key, h] of Object.entries(hexData)) {
+    if (!h.rivers) continue;
+    const [q, r] = key.split(',').map(Number);
+    for (const rd of h.rivers) {
+      if (!rd || typeof rd.q !== 'number' || typeof rd.r !== 'number') continue;
+      const ek = edgeKey(q, r, rd.q, rd.r);
+      if (edges.has(ek)) {
+        edges.get(ek).width = Math.max(edges.get(ek).width, rd.width || 1);
+      } else {
+        edges.set(ek, { q1: q, r1: r, q2: rd.q, r2: rd.r, width: rd.width || 1 });
+      }
+    }
+  }
+  return [...edges.values()];
+}
+
+// Idempotently normalize rivers on loaded data (called once at load/render start).
+function normalizeAllRivers() {
+  for (const [key, h] of Object.entries(hexData)) {
+    const [q, r] = key.split(',').map(Number);
+    h.q = q; h.r = r;
+    normalizeRivers(h);
+  }
 }
 
 let settlementIndex = []; // [{q, r}] — fast lookup for rankSettlementLocation

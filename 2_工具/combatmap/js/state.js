@@ -25,6 +25,7 @@ let viewX = 0, viewY = 0;
 let zoom = 1;
 let isDragging = false, dragStartX, dragStartY, viewStartX, viewStartY;
 let showGrid = true, showCoords = true;
+let artStyle = 'handdrawn';  // 美术风格：'handdrawn'（手绘质感）| 'classic'（原纯色块）
 let showDmLayer = false;   // 是否显示 DM 层（标记/说明）
 let showFogLayer = true;   // 是否显示战雾遮罩
 let initiativeOrder = [];  // 行动顺序条目: { id, tokenId?, name, icon, kind, hp, maxHp }

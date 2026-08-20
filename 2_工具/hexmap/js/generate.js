@@ -483,19 +483,21 @@ function generateRivers(seed, centerQ, centerR, width, height) {
     }
   }
 
-  // PASS 1: flow field — each hex drains to its lowest strictly-lower neighbor
+  // PASS 1: flow field — each hex drains to its lowest neighbor; ties break by
+  // smaller elevation first, then lexicographic key (deterministic, acyclic).
   for (const [, me] of nodes) {
-    let best = null, bestKey = null;
+    let best = null, bestKey = null, bestElev = Infinity;
     const nbrs = neighbors(me.q, me.r);
     for (const nb of nbrs) {
       const nk = hexKey(nb.q, nb.r);
       const dn = nodes.get(nk);
       if (!dn) continue;
-      if (dn.elev < me.elev && (best === null || dn.elev < best || (dn.elev === best && nk < bestKey))) {
-        best = dn.elev; bestKey = nk; best = dn.elev;
+      if (dn.elev < bestElev || (dn.elev === bestElev && nk < bestKey)) {
+        bestElev = dn.elev; bestKey = nk; best = dn;
       }
     }
-    me.flowTo = bestKey;
+    if (best) me.flowTo = bestKey;
+    else me.flowTo = null;
   }
 
   // PASS 2: accumulation — process from highest to lowest (downstream is strictly
@@ -511,16 +513,40 @@ function generateRivers(seed, centerQ, centerR, width, height) {
     }
   }
 
-  // PASS 3: emit edges — one river edge per flow edge, width by downstream area.
+  // PASS 3: emit edges — one river edge per flow edge, width by upstream acc
+  // (each hex's own accumulated area, so sources start thin and grow downstream).
   const streamThreshold = generationRules.streamThreshold != null ? generationRules.streamThreshold : 25;
   const riverThreshold = generationRules.riverThreshold != null ? generationRules.riverThreshold : 140;
   for (const n of sorted) {
     if (!n.flowTo) continue;
     const dn = nodes.get(n.flowTo);
     if (!dn) continue;
-    if (dn.acc < streamThreshold) continue;
-    const width = dn.acc >= riverThreshold ? 2 : 1;
+    if (n.acc < streamThreshold) continue;
+    const width = n.acc >= riverThreshold ? 2 : 1;
     addRiver(n.q, n.r, dn.q, dn.r, width);
+  }
+  // Boundary-outlet fix: nodes with no lower neighbor and sitting on the region
+  // edge drain outward along that edge (toward the map boundary), so rivers don't
+  // truncate at the edge of the generated region. Only the nearest edge neighbor
+  // is used; width comes from the drained node's own accumulation (capped).
+  const bound = (q, r) => q <= centerQ - halfW || q >= centerQ + halfW || r <= centerR - halfH || r >= centerR + halfH;
+  for (const n of nodes.values()) {
+    if (n.flowTo || !bound(n.q, n.r)) continue;
+    const nbrs = neighbors(n.q, n.r);
+    let bestOut = null, bestOutElev = Infinity, bestOutKey = null;
+    for (const nb of nbrs) {
+      if (!bound(nb.q, nb.r)) continue; // stay on the rim
+      const nk = hexKey(nb.q, nb.r);
+      const dn = nodes.get(nk);
+      if (!dn || (!dn.flowTo && dn.elev >= n.elev)) continue;
+      if (dn.elev < bestOutElev || (dn.elev === bestOutElev && nk < bestOutKey)) {
+        bestOutElev = dn.elev; bestOutKey = nk; bestOut = dn;
+      }
+    }
+    if (bestOut) {
+      const wOut = n.acc >= riverThreshold ? 2 : 1;
+      addRiver(n.q, n.r, bestOut.q, bestOut.r, wOut);
+    }
   }
 }
 
@@ -543,30 +569,13 @@ function pathTravelCost(path) {
 }
 
 // Draw river edges on an arbitrary canvas context (used by PNG export).
-// keys = array of "q,r" strings. Rivers drawn between the shared edge of hex
-// pairs, each once (same ordering as roads).
+// Uses the same bezier centerline renderer as the live canvas.
 function drawRiverEdgesOnContext(exportCtx, keys) {
-  exportCtx.lineCap = 'round';
-  exportCtx.lineJoin = 'round';
-  for (const key of keys) {
-    const h = hexData[key];
-    if (!h.rivers || !h.rivers.length) continue;
-    const [q1, r1] = key.split(',').map(Number);
-    const p1 = hexToPixel(q1, r1);
-    for (const rd of h.rivers) {
-      if (rd.q > q1 || (rd.q === q1 && rd.r > r1)) {
-        const p2 = hexToPixel(rd.q, rd.r);
-        const seg = riverEdgeSegment(p1, null, p2);
-        if (seg.length < 2) continue;
-        const width = rd.width || 1;
-        exportCtx.beginPath();
-        exportCtx.strokeStyle = width >= 2 ? '#1f4fa0' : '#2f6fd0';
-        exportCtx.lineWidth = width >= 2 ? 6 : 3;
-        exportCtx.moveTo(seg[0].x, seg[0].y);
-        exportCtx.lineTo(seg[1].x, seg[1].y);
-        exportCtx.stroke();
-      }
-    }
+  const allEdges = getAllRiverEdges();
+  const keySet = new Set(keys);
+  for (const e of allEdges) {
+    const k1 = hexKey(e.q1, e.r1), k2 = hexKey(e.q2, e.r2);
+    if (keySet.has(k1) || keySet.has(k2)) drawRiverPath(exportCtx, e);
   }
 }
 
@@ -1010,8 +1019,7 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
   // Rivers (Pass 2.5, under roads)
   drawRiverEdgesOnContext(exportCtx, keys);
   // Draw roads (Pass 2)
-  exportCtx.strokeStyle = '#8B4513';
-  exportCtx.lineWidth = 3;
+  if (artStyle !== 'handdrawn') { exportCtx.strokeStyle = '#8B4513'; exportCtx.lineWidth = 3; }
   for (const key of keys) {
     const h = hexData[key];
     if (h.roads && h.roads.length) {
@@ -1020,10 +1028,9 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
       for (const rd of h.roads) {
         if (rd.q > q1 || (rd.q === q1 && rd.r > r1)) {
           const p2 = hexToPixel(rd.q, rd.r);
-          exportCtx.beginPath();
-          exportCtx.moveTo(p1.x, p1.y);
-          exportCtx.lineTo(p2.x, p2.y);
-          exportCtx.stroke();
+          const crossesRiver = hasRiver(q1, r1, rd.q, rd.r);
+          if (artStyle === 'handdrawn') drawRoadSegment(exportCtx, p1, p2, crossesRiver);
+          else { exportCtx.beginPath(); exportCtx.moveTo(p1.x, p1.y); exportCtx.lineTo(p2.x, p2.y); exportCtx.stroke(); }
         }
       }
     }
@@ -1076,6 +1083,15 @@ document.getElementById('chk-icon-style').addEventListener('change', (e) => {
   rebuildTerrainPalette();
   const statsModal = document.getElementById('stats-modal');
   if (statsModal && statsModal.style.display !== 'none') openStatsModal();
+});
+
+// Art style toggle
+const artStyleChk = document.getElementById('chk-art-style');
+if (artStyleChk) artStyleChk.addEventListener('change', (e) => {
+  artStyle = e.target.checked ? 'handdrawn' : 'classic';
+  try { localStorage.setItem('hexmap_artStyle', artStyle); } catch(err) {}
+  applyArtStyleClass();
+  render();
 });
 
 // Manage regions button

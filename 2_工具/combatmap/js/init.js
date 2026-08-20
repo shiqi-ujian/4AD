@@ -3,6 +3,13 @@
 function init() {
   resizeCanvas();
   refreshTerrains();
+  try {
+    const savedArt = localStorage.getItem('combatmap_artStyle');
+    if (savedArt === 'handdrawn' || savedArt === 'classic') artStyle = savedArt;
+  } catch(e) {}
+  const artChk = document.getElementById('chk-art-style');
+  if (artChk) artChk.checked = (artStyle === 'handdrawn');
+  applyArtStyleClass();
   rebuildTerrainPalette();
   setTool('select');
   const dmCheck = document.getElementById('chk-dm');

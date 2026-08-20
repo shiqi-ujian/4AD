@@ -41,6 +41,14 @@ function showContextMenu(cx, cy, mx, my) {
     action: () => { selectedHex = hex; roadStart = hex; }
   });
   items.push({ text: '—' });
+  const riverNbrs = hex.rivers || [];
+  if (riverNbrs && riverNbrs.length) {
+    items.push({
+      text: '🌊 河流宽度（此格）：' + (riverNbrs[0].width >= 2 ? '河 2' : '溪 1'),
+      action: () => { for (const rd of riverNbrs) { addRiver(hex.q, hex.r, rd.q, rd.r, rd.width >= 2 ? 1 : 2); } render(); updateInfo(); }
+    });
+  }
+  items.push({ text: '—' });
   items.push({
     text: '🧹 清除',
     action: () => { setHex(hex.q, hex.r, { terrain: null, label: '', settlement: null, roads: [], annotations: [] }); render(); updateInfo(); }

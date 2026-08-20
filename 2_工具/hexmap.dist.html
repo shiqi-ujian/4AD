@@ -97,6 +97,24 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   cursor: pointer; z-index: 15;
   image-rendering: auto;
 }
+
+/* Hand-drawn art theme: warm paper-ish shell so the parchment map sits in context */
+body.art-handdrawn { background: #232018; color: #ece2d0; }
+body.art-handdrawn #toolbar { background: #2c261d; border-right-color: #4a3a24; }
+body.art-handdrawn #toolbar h2 { color: #e8b46a; border-bottom-color: #4a3a24; }
+body.art-handdrawn #toolbar h3 { color: #c9ad82; }
+body.art-handdrawn #toolbar label { color: #d6c7a8; }
+body.art-handdrawn #canvas-container { background: #1b1f1b; }
+body.art-handdrawn .tool-btn[data-tool],
+body.art-handdrawn #toolbar button { background: #332c22; color: #f0e6d3; border-color: #4d3d28; }
+body.art-handdrawn .tool-btn[data-terrain] { text-shadow: 0 1px 2px rgba(0,0,0,0.7); }
+body.art-handdrawn #info-panel,
+body.art-handdrawn #zoom-indicator,
+body.art-handdrawn #coord-indicator,
+body.art-handdrawn #minimap-canvas,
+body.art-handdrawn #ai-floating-bar { background: rgba(36,30,22,0.9); border-color: #57452d; }
+body.art-handdrawn #info-panel .label { color: #a9977c; }
+body.art-handdrawn #info-panel .val { color: #f0e6d3; }
 </style>
 </head>
 <body>
@@ -226,6 +244,9 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     <label style="font-size:12px;">
       <input type="checkbox" id="chk-icon-style" checked> 🎨 矢量图标
     </label>
+    <label style="font-size:12px;">
+      <input type="checkbox" id="chk-art-style" checked> ✏️ 手绘质感
+    </label>
     <label style="font-size:12px;margin-left:12px;">
       <input type="checkbox" id="chk-region-names" checked> 📛 显示王国名称
     </label>
@@ -241,7 +262,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
     </div>
     <div style="font-size:10px;color:#666;margin-top:2px;">用「探索」工具(F)点击揭示周边，可逐步展开地图。</div>
     <div style="margin-top:auto;font-size:11px;color:#666;text-align:center;padding-top:8px;">
-      通用六角格地图工具 v1.0<br>
+      通用六角格沙盒地图 v1.x<br>
       滚轮缩放 · 拖拽平移 · 右键菜单 · <a href="CHANGELOG.md" target="_blank" style="color:#3a7abd;text-decoration:none;" title="查看更新日志">📜 更新日志</a>
     </div>
   </div>
@@ -1208,6 +1229,7 @@ let regionBorderOpacity = 0.85; // 王国边境不透明度 (0~1)
 let showRegionNames = true;     // 是否显示王国名称（领土中心浮动标签）
 let showElevationLayer = false; // 海拔图层可见性开关（默认关，旧图观感不变）
 let iconStyle = 'vector';       // 图标风格：'vector'（手绘矢量）| 'emoji'（原始系统 emoji）
+let artStyle = 'handdrawn';     // 美术风格：'handdrawn'（手绘质感）| 'classic'（原来的纯色块）
 
 // 王国边境配置 (一个六角格 = 一天路程)
 const DEFAULT_REGIONS = {
@@ -1522,9 +1544,70 @@ function hexCorners(cx, cy, size) {
 
 function hexKey(q, r) { return `${q},${r}`; }
 
+// Canonical key for an undirected edge (dedupes rivers/roads).
+function edgeKey(q1, r1, q2, r2) {
+  const a = hexKey(q1, r1), b = hexKey(q2, r2);
+  return a < b ? a + '|' + b : b + '|' + a;
+}
+
+// Normalize one hex's rivers list: keep only adjacent pairs, dedupe with max
+// width, mirror reverse entries (idempotently).
+function normalizeRivers(hexObj) {
+  if (!hexObj.rivers) hexObj.rivers = [];
+  if (typeof hexObj.q !== 'number') hexObj.q = 0;
+  if (typeof hexObj.r !== 'number') hexObj.r = 0;
+  const seen = new Map();
+  for (const r of hexObj.rivers) {
+    if (!r || typeof r.q !== 'number' || typeof r.r !== 'number') continue;
+    const key = edgeKey(hexObj.q, hexObj.r, r.q, r.r);
+    if (!key) continue;
+    seen.set(key, Math.max(seen.get(key) || 0, r.width || 1));
+  }
+  const out = [];
+  for (const [key, w] of seen) {
+    const parts = key.split('|');
+    const c1 = parts[0].split(',');
+    const c2 = parts[1].split(',');
+    const a = { q: +c1[0], r: +c1[1] };
+    const b = { q: +c2[0], r: +c2[1] };
+    const other = (a.q === hexObj.q && a.r === hexObj.r) ? b : a;
+    out.push({ q: other.q, r: other.r, width: w });
+  }
+  hexObj.rivers = out;
+  return out;
+}
+
 function getHex(q, r) {
   const k = hexKey(q, r);
   return hexData[k] || { terrain: null, label: '', settlement: null, roads: [], region: null, annotations: [], rivers: [] };
+}
+
+// Collect all unique river edges (canonical key -> {q1,r1,q2,r2,width}).
+function getAllRiverEdges() {
+  const edges = new Map();
+  for (const [key, h] of Object.entries(hexData)) {
+    if (!h.rivers) continue;
+    const [q, r] = key.split(',').map(Number);
+    for (const rd of h.rivers) {
+      if (!rd || typeof rd.q !== 'number' || typeof rd.r !== 'number') continue;
+      const ek = edgeKey(q, r, rd.q, rd.r);
+      if (edges.has(ek)) {
+        edges.get(ek).width = Math.max(edges.get(ek).width, rd.width || 1);
+      } else {
+        edges.set(ek, { q1: q, r1: r, q2: rd.q, r2: rd.r, width: rd.width || 1 });
+      }
+    }
+  }
+  return [...edges.values()];
+}
+
+// Idempotently normalize rivers on loaded data (called once at load/render start).
+function normalizeAllRivers() {
+  for (const [key, h] of Object.entries(hexData)) {
+    const [q, r] = key.split(',').map(Number);
+    h.q = q; h.r = r;
+    normalizeRivers(h);
+  }
 }
 
 let settlementIndex = []; // [{q, r}] — fast lookup for rankSettlementLocation
@@ -1933,6 +2016,183 @@ function drawRegionNames(ctx) {
 }
 
 // ======== Rendering ========
+// Hand-drawn art helpers -------------------------------------------------
+function shadeHex(hex, amt) {
+  let h = hex.replace('#', '');
+  if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  const r = Math.max(0, Math.min(255, parseInt(h.slice(0,2),16) + amt));
+  const g = Math.max(0, Math.min(255, parseInt(h.slice(2,4),16) + amt));
+  const b = Math.max(0, Math.min(255, parseInt(h.slice(4,6),16) + amt));
+  return `rgb(${r},${g},${b})`;
+}
+
+function rng(seed) {
+  let x = seed | 0;
+  x = Math.imul(x ^ (x >>> 15), 2246822519);
+  x = Math.imul(x ^ (x >>> 13), 3266489917);
+  x = x ^ (x >>> 16);
+  return (x >>> 0) / 4294967295;
+}
+
+// Draw subtle hand-inked texture inside a hex. `g` must already have the hex
+// path clipped or be called inside drawHexBase after fill.
+function drawHandTexture(g, q, r, terrainId, color, corners) {
+  const center = hexToPixel(q, r);
+  const dark = shadeHex(color, -30);
+  const light = shadeHex(color, 22);
+  const random = (salt) => rng((q * 31 + r * 57 + salt * 131) | 0);
+
+  g.save();
+  g.beginPath();
+  corners.forEach((c, i) => i === 0 ? g.moveTo(c.x, c.y) : g.lineTo(c.x, c.y));
+  g.closePath();
+  g.clip();
+
+  // Confetti stipple: every hand-drawn terrain gets a few paper specks.
+  for (let i = 0; i < 5; i++) {
+    const ang = random(101 + i) * Math.PI * 2;
+    const rad = Math.sqrt(random(201 + i)) * HEX_SIZE * 0.72;
+    const px = center.x + Math.cos(ang) * rad;
+    const py = center.y + Math.sin(ang) * rad;
+    const rr = 0.5 + random(301 + i) * 1.3;
+    g.fillStyle = i % 2 === 0 ? hexToRGBA(light, 0.35) : hexToRGBA('#000', 0.08);
+    g.beginPath();
+    g.arc(px, py, rr, 0, Math.PI * 2);
+    g.fill();
+  }
+
+  if (terrainId === 'water' || terrainId === 'swamp') {
+    g.strokeStyle = hexToRGBA(dark, 0.4);
+    g.lineWidth = 1;
+    g.lineCap = 'round';
+    for (let i = 0; i < 4; i++) {
+      const y = center.y - HEX_SIZE * 0.45 + i * HEX_SIZE * 0.26;
+      g.beginPath();
+      for (let x = center.x - HEX_SIZE * 0.55; x <= center.x + HEX_SIZE * 0.55; x += 6) {
+        const yy = y + Math.sin((x * 0.25) + random(10 + i) * 6) * 1.4;
+        if (x === center.x - HEX_SIZE * 0.55) g.moveTo(x, yy);
+        else g.lineTo(x, yy);
+      }
+      g.stroke();
+    }
+  } else if (terrainId === 'plain' || terrainId === 'necromantic' || terrainId === 'snow') {
+    g.strokeStyle = hexToRGBA(dark, 0.32);
+    g.lineWidth = 1;
+    for (let i = 0; i < 8; i++) {
+      const ang = random(50 + i) * Math.PI * 2;
+      const rad = Math.sqrt(random(60 + i)) * HEX_SIZE * 0.62;
+      const px = center.x + Math.cos(ang) * rad;
+      const py = center.y + Math.sin(ang) * rad;
+      const dx = Math.cos(ang + 1.2) * 3.4;
+      const dy = Math.sin(ang + 1.2) * 3.4;
+      g.beginPath();
+      g.moveTo(px - dx, py - dy);
+      g.lineTo(px + dx, py + dy);
+      g.stroke();
+    }
+  } else if (terrainId === 'mountain' || terrainId === 'hill' || terrainId === 'desert') {
+    g.strokeStyle = hexToRGBA(dark, 0.30);
+    g.lineWidth = 0.9;
+    for (let i = -2; i <= 2; i++) {
+      const y = center.y + i * HEX_SIZE * 0.22;
+      g.beginPath();
+      g.moveTo(center.x - HEX_SIZE * 0.66, y);
+      g.lineTo(center.x + HEX_SIZE * 0.66, y - HEX_SIZE * 0.22);
+      g.stroke();
+    }
+  } else if (terrainId === 'abyss' || terrainId === 'ruins' || terrainId === 'temple') {
+    for (let i = 0; i < 12; i++) {
+      const ang = random(500 + i) * Math.PI * 2;
+      const rad = Math.sqrt(random(600 + i)) * HEX_SIZE * 0.6;
+      g.fillStyle = hexToRGBA(dark, 0.22);
+      g.beginPath();
+      g.arc(center.x + Math.cos(ang) * rad, center.y + Math.sin(ang) * rad, 0.8, 0, Math.PI * 2);
+      g.fill();
+    }
+  } else {
+    for (let i = 0; i < 8; i++) {
+      const ang = random(700 + i) * Math.PI * 2;
+      const rad = Math.sqrt(random(800 + i)) * HEX_SIZE * 0.62;
+      const px = center.x + Math.cos(ang) * rad;
+      const py = center.y + Math.sin(ang) * rad;
+      g.fillStyle = i % 2 === 0 ? hexToRGBA(dark, 0.28) : hexToRGBA(light, 0.35);
+      g.beginPath();
+      g.arc(px, py, 0.7 + random(900 + i) * 1.2, 0, Math.PI * 2);
+      g.fill();
+    }
+  }
+
+  g.restore();
+}
+
+function applyArtStyleClass() {
+  document.body.classList.toggle('art-handdrawn', artStyle === 'handdrawn');
+}
+
+// (bridge helpers injected below)
+
+// Draw a road segment, optionally breaking across a river with a bridge.
+function drawRoadSegment(g, p1, p2, isBridge) {
+  const w = (p2.x - p1.x), h = (p2.y - p1.y);
+  const mx = p1.x + w/2, my = p1.y + h/2;
+  const gap = 6;
+  const s1 = { x: p1.x + (w/2) * (0.5 - gap/100), y: p1.y + (h/2) * (0.5 - gap/100) };
+  const s2 = { x: p2.x - (w/2) * (0.5 - gap/100), y: p2.y - (h/2) * (0.5 - gap/100) };
+  g.save();
+  g.lineCap = 'round';
+  g.lineJoin = 'round';
+  if (isBridge) {
+    // dark bridge slab across the river
+    g.beginPath();
+    g.moveTo(p1.x, p1.y); g.lineTo(p2.x, p2.y);
+    g.strokeStyle = 'rgba(70,42,18,0.95)';
+    g.lineWidth = 7;
+    g.stroke();
+    g.beginPath();
+    g.moveTo(mx - 4, my); g.lineTo(mx + 4, my);
+    g.strokeStyle = '#8a5a2a';
+    g.lineWidth = 2.4;
+    g.stroke();
+  } else {
+    // two-tone road
+    g.beginPath();
+    g.moveTo(s1.x, s1.y); g.lineTo(s2.x, s2.y);
+    g.strokeStyle = 'rgba(70,42,18,0.9)';
+    g.lineWidth = 5.5;
+    g.stroke();
+    g.beginPath();
+    g.moveTo(s1.x, s1.y); g.lineTo(s2.x, s2.y);
+    g.strokeStyle = '#c48a52';
+    g.lineWidth = 2.6;
+    g.stroke();
+  }
+  g.restore();
+}
+
+// Draw a road as a two-tone hand-inked path between two hex centers.
+function drawHandRoad(g, x1, y1, x2, y2) {
+  g.lineCap = 'round';
+  g.lineJoin = 'round';
+  g.beginPath();
+  g.moveTo(x1, y1);
+  g.lineTo(x2, y2);
+  g.strokeStyle = 'rgba(70,42,18,0.9)';
+  g.lineWidth = 5.5;
+  g.stroke();
+  g.beginPath();
+  g.moveTo(x1, y1);
+  g.lineTo(x2, y2);
+  g.strokeStyle = '#c48a52';
+  g.lineWidth = 2.6;
+  g.stroke();
+}
+
+// River edges are now drawn by drawRiverPath (bezier centerline). This helper is kept
+// only as a stump so old exports/calls don't throw; it routes to the new path.
+function drawHandRiver(g, x1, y1, x2, y2, width) {
+  drawRiverPath(g, { q1: 0, r1: 0, q2: 0, r2: 0, width: width || 1 });
+}
+
 function hexToRGBA(hex, alpha) {
   let h = hex.replace('#', '');
   if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
@@ -2025,8 +2285,10 @@ function render() {
   drawRivers(ctx, qMin, qMax, rMin, rMax);
 
   // Pass 3: Draw roads (between hexes)
-  ctx.strokeStyle = '#8B4513';
-  ctx.lineWidth = 3;
+  if (artStyle !== 'handdrawn') {
+    ctx.strokeStyle = '#8B4513';
+    ctx.lineWidth = 3;
+  }
   for (let q = qMin; q <= qMax; q++) {
     for (let r = rMin; r <= rMax; r++) {
       const h = getHex(q, r);
@@ -2036,10 +2298,15 @@ function render() {
           // Draw each road once (only if q,r < rd in some ordering)
           if (rd.q > q || (rd.q === q && rd.r > r)) {
             const p2 = hexToPixel(rd.q, rd.r);
-            ctx.beginPath();
-            ctx.moveTo(p1.x, p1.y);
-            ctx.lineTo(p2.x, p2.y);
-            ctx.stroke();
+            const crossesRiver = hasRiver(q, r, rd.q, rd.r);
+            if (artStyle === 'handdrawn') {
+              drawRoadSegment(ctx, p1, p2, crossesRiver);
+            } else {
+              ctx.beginPath();
+              ctx.moveTo(p1.x, p1.y);
+              ctx.lineTo(p2.x, p2.y);
+              ctx.stroke();
+            }
           }
         }
       }
@@ -2201,59 +2468,165 @@ function drawHexBase(g, q, r, h, allTerrains) {
   const activeCount = (terrainActive ? 1 : 0) + (elevActive ? 1 : 0) + (regionActive ? 1 : 0);
 
   if (activeCount >= 2) {
+    g.beginPath();
+    corners.forEach((c, i) => i === 0 ? g.moveTo(c.x, c.y) : g.lineTo(c.x, c.y));
+    g.closePath();
     g.fillStyle = hTerrainInfo ? hTerrainInfo.color : '#3a3a52';
     g.fill();
+    if (artStyle === 'handdrawn' && hTerrainInfo) drawHandTexture(g, q, r, h.terrain, hTerrainInfo.color, corners);
     if (elevActive) { g.fillStyle = hexToRGBA(elevationColor(h.elev), 0.55); g.fill(); }
     if (regionActive) { g.fillStyle = hexToRGBA(regions[h.region].color, 0.2); g.fill(); }
   } else if (activeCount === 1) {
     const solo = terrainActive ? hTerrainInfo.color
       : (elevActive ? elevationColor(h.elev) : regions[h.region].color);
+    g.beginPath();
+    corners.forEach((c, i) => i === 0 ? g.moveTo(c.x, c.y) : g.lineTo(c.x, c.y));
+    g.closePath();
     g.fillStyle = solo; g.fill();
+    if (terrainActive && artStyle === 'handdrawn' && hTerrainInfo) drawHandTexture(g, q, r, h.terrain, hTerrainInfo.color, corners);
   } else {
+    g.beginPath();
+    corners.forEach((c, i) => i === 0 ? g.moveTo(c.x, c.y) : g.lineTo(c.x, c.y));
+    g.closePath();
     g.fillStyle = '#3a3a52'; g.fill();
   }
 
   // Grid stroke
   if (showGrid) {
-    g.strokeStyle = 'rgba(255,255,255,0.12)';
-    g.lineWidth = 1;
-    g.stroke();
+    if (artStyle === 'handdrawn') {
+      g.strokeStyle = 'rgba(60,42,26,0.28)';
+      g.lineWidth = 1.1;
+      g.beginPath();
+      g.moveTo(corners[0].x, corners[0].y);
+      for (let i = 0; i < corners.length; i++) {
+        const c = corners[i];
+        const cn = corners[(i + 1) % corners.length];
+        const mx = (c.x + cn.x) / 2;
+        const my = (c.y + cn.y) / 2;
+        const off = 0.7;
+        const wx = mx + (rng((q * 11 + r * 13 + i * 29) | 0) - 0.5) * off * 2;
+        const wy = my + (rng((q * 17 + r * 19 + i * 31) | 0) - 0.5) * off * 2;
+        g.lineTo(wx, wy);
+        g.lineTo(cn.x, cn.y);
+      }
+      g.closePath();
+      g.stroke();
+    } else {
+      g.strokeStyle = 'rgba(255,255,255,0.12)';
+      g.lineWidth = 1;
+      g.stroke();
+    }
   }
 }
 
-// Draw all river edges in the visible range. Rivers are drawn along the shared
-// edge between adjacent hexes (like roads but inset to the edge line).
-function drawRivers(ctx, qMin, qMax, rMin, rMax) {
-  for (let q = qMin; q <= qMax; q++) {
-    for (let r = rMin; r <= rMax; r++) {
-      const h = getHex(q, r);
-      if (!h.rivers || !h.rivers.length) continue;
-      const p1 = hexToPixel(q, r);
-      for (const rd of h.rivers) {
-        // Draw each river edge once (only when q,r < rd in some ordering)
-        if (rd.q > q || (rd.q === q && rd.r > r)) {
-          const p2 = hexToPixel(rd.q, rd.r);
-          const seg = riverEdgeSegment(p1, null, p2);
-          if (seg.length < 2) continue;
-          const width = rd.width || 1;
-          ctx.beginPath();
-          ctx.lineCap = 'round';
-          ctx.lineJoin = 'round';
-          ctx.strokeStyle = width >= 2 ? '#1f4fa0' : '#2f6fd0';
-          ctx.lineWidth = width >= 2 ? 6 : 3;
-          ctx.moveTo(seg[0].x, seg[0].y);
-          ctx.lineTo(seg[1].x, seg[1].y);
-          ctx.stroke();
-        }
+// Draw one river edge as a smooth centerline brush (quadratic bezier through
+// the shared edge midpoint). Shared by live canvas + PNG export.
+function drawRiverPath(g, e) {
+  const { q1, r1, q2, r2, width } = e;
+  const line = riverCenterline(q1, r1, q2, r2, HEX_SIZE);
+  const w = (width || 1) >= 2 ? 5 : 3.2;
+  const c1 = width && width >= 2 ? '#1f4fa0' : '#2f6fd0';
+  const c2 = width && width >= 2 ? '#4a9bd8' : '#6fb3e0';
+  g.save();
+  g.lineCap = 'round';
+  g.lineJoin = 'round';
+  g.beginPath();
+  g.moveTo(line.p1.x, line.p1.y);
+  g.quadraticCurveTo(line.ctrl.x, line.ctrl.y, line.p2.x, line.p2.y);
+  g.strokeStyle = 'rgba(10,30,80,0.85)';
+  g.lineWidth = w + 0.8;
+  g.stroke();
+  g.beginPath();
+  g.moveTo(line.p1.x, line.p1.y);
+  g.quadraticCurveTo(line.ctrl.x, line.ctrl.y, line.p2.x, line.p2.y);
+  g.strokeStyle = c1;
+  g.lineWidth = w;
+  g.stroke();
+  g.beginPath();
+  g.moveTo(line.p1.x, line.p1.y);
+  g.quadraticCurveTo(line.ctrl.x, line.ctrl.y, line.p2.x, line.p2.y);
+  g.strokeStyle = c2;
+  g.lineWidth = Math.max(1, w * 0.45);
+  g.stroke();
+  g.restore();
+}
+
+// Smooth river centerline: hexA center → shared edge midpoint → hexB center.
+function riverCenterline(q1, r1, q2, r2, size) {
+  size = size || HEX_SIZE;
+  const p1 = hexToPixel(q1, r1), p2 = hexToPixel(q2, r2);
+  let mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+  const cornersA = hexCorners(p1.x, p1.y, size);
+  const cornersB = hexCorners(p2.x, p2.y, size);
+  for (const ca of cornersA) {
+    for (const cb of cornersB) {
+      if (Math.abs(ca.x - cb.x) < 0.01 && Math.abs(ca.y - cb.y) < 0.01) {
+        mid = { x: (ca.x + cb.x) / 2, y: (ca.y + cb.y) / 2 };
+        break;
       }
     }
   }
+  const dx = p2.x - p1.x, dy = p2.y - p1.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len, ny = dx / len;
+  const bend = size * 0.18;
+  const ctrl = { x: mid.x + nx * bend, y: mid.y + ny * bend };
+  return { p1, ctrl, p2 };
+}
+
+// Draw small rounded node at hex centers where ≥2 river edges meet (junction).
+function drawRiverJunction(ctx, qMin, qMax, rMin, rMax) {
+  const edgesMap = new Map(); // hexKey -> max width among incident edges
+  for (const [key, h] of Object.entries(hexData)) {
+    if (!h.rivers || h.rivers.length < 2) continue;
+    const [q, r] = key.split(',').map(Number);
+    const maxW = Math.max.apply(Math, h.rivers.map(x => x.width || 1));
+    edgesMap.set(key, maxW);
+  }
+  for (const [key, maxW] of edgesMap) {
+    const [q, r] = key.split(',').map(Number);
+    if (q < qMin || q > qMax || r < rMin || r > rMax) continue;
+    const p = hexToPixel(q, r);
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, (maxW >= 2 ? 3.6 : 2.4), 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(20,50,110,0.85)';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, (maxW >= 2 ? 2.0 : 1.2), 0, Math.PI * 2);
+    ctx.fillStyle = '#7fc0e8';
+    ctx.fill();
+  }
+}
+
+// Draw all river edges in the visible range (dedupe via canonical edge key).
+function drawRivers(ctx, qMin, qMax, rMin, rMax) {
+  const edges = getAllRiverEdges();
+  const vis = edges.filter(e =>
+    (e.q1 >= qMin && e.q1 <= qMax && e.r1 >= rMin && e.r1 <= rMax) ||
+    (e.q2 >= qMin && e.q2 <= qMax && e.r2 >= rMin && e.r2 <= rMax)
+  );
+  for (const e of vis) drawRiverPath(ctx, e);
+  drawRiverJunction(ctx, qMin, qMax, rMin, rMax);
 }
 
 function drawHexOverlay(g, q, r, h) {
   const p = hexToPixel(q, r);
   const allTerrains = getAllTerrains();
   if (!h) h = getHex(q, r);
+
+  // Hand-drawn shadow / highlight under overlays — skip hexes that carry a
+  // river so the waterline is not smeared by the paper shadow.
+  if (artStyle === 'handdrawn' && !(h.rivers && h.rivers.length)) {
+    g.save();
+    g.globalAlpha = 0.10;
+    g.fillStyle = '#000';
+    g.beginPath();
+    const sc = hexCorners(p.x + 1, p.y + 1, HEX_SIZE);
+    sc.forEach((c, i) => i === 0 ? g.moveTo(c.x, c.y) : g.lineTo(c.x, c.y));
+    g.closePath();
+    g.fill();
+    g.restore();
+  }
 
   // Coordinates
   if (showCoords) {
@@ -2859,6 +3232,14 @@ function showContextMenu(cx, cy, mx, my) {
     text: '🛤️ 切换道路',
     action: () => { selectedHex = hex; roadStart = hex; }
   });
+  items.push({ text: '—' });
+  const riverNbrs = hex.rivers || [];
+  if (riverNbrs && riverNbrs.length) {
+    items.push({
+      text: '🌊 河流宽度（此格）：' + (riverNbrs[0].width >= 2 ? '河 2' : '溪 1'),
+      action: () => { for (const rd of riverNbrs) { addRiver(hex.q, hex.r, rd.q, rd.r, rd.width >= 2 ? 1 : 2); } render(); updateInfo(); }
+    });
+  }
   items.push({ text: '—' });
   items.push({
     text: '🧹 清除',
@@ -4570,19 +4951,21 @@ function generateRivers(seed, centerQ, centerR, width, height) {
     }
   }
 
-  // PASS 1: flow field — each hex drains to its lowest strictly-lower neighbor
+  // PASS 1: flow field — each hex drains to its lowest neighbor; ties break by
+  // smaller elevation first, then lexicographic key (deterministic, acyclic).
   for (const [, me] of nodes) {
-    let best = null, bestKey = null;
+    let best = null, bestKey = null, bestElev = Infinity;
     const nbrs = neighbors(me.q, me.r);
     for (const nb of nbrs) {
       const nk = hexKey(nb.q, nb.r);
       const dn = nodes.get(nk);
       if (!dn) continue;
-      if (dn.elev < me.elev && (best === null || dn.elev < best || (dn.elev === best && nk < bestKey))) {
-        best = dn.elev; bestKey = nk; best = dn.elev;
+      if (dn.elev < bestElev || (dn.elev === bestElev && nk < bestKey)) {
+        bestElev = dn.elev; bestKey = nk; best = dn;
       }
     }
-    me.flowTo = bestKey;
+    if (best) me.flowTo = bestKey;
+    else me.flowTo = null;
   }
 
   // PASS 2: accumulation — process from highest to lowest (downstream is strictly
@@ -4598,16 +4981,40 @@ function generateRivers(seed, centerQ, centerR, width, height) {
     }
   }
 
-  // PASS 3: emit edges — one river edge per flow edge, width by downstream area.
+  // PASS 3: emit edges — one river edge per flow edge, width by upstream acc
+  // (each hex's own accumulated area, so sources start thin and grow downstream).
   const streamThreshold = generationRules.streamThreshold != null ? generationRules.streamThreshold : 25;
   const riverThreshold = generationRules.riverThreshold != null ? generationRules.riverThreshold : 140;
   for (const n of sorted) {
     if (!n.flowTo) continue;
     const dn = nodes.get(n.flowTo);
     if (!dn) continue;
-    if (dn.acc < streamThreshold) continue;
-    const width = dn.acc >= riverThreshold ? 2 : 1;
+    if (n.acc < streamThreshold) continue;
+    const width = n.acc >= riverThreshold ? 2 : 1;
     addRiver(n.q, n.r, dn.q, dn.r, width);
+  }
+  // Boundary-outlet fix: nodes with no lower neighbor and sitting on the region
+  // edge drain outward along that edge (toward the map boundary), so rivers don't
+  // truncate at the edge of the generated region. Only the nearest edge neighbor
+  // is used; width comes from the drained node's own accumulation (capped).
+  const bound = (q, r) => q <= centerQ - halfW || q >= centerQ + halfW || r <= centerR - halfH || r >= centerR + halfH;
+  for (const n of nodes.values()) {
+    if (n.flowTo || !bound(n.q, n.r)) continue;
+    const nbrs = neighbors(n.q, n.r);
+    let bestOut = null, bestOutElev = Infinity, bestOutKey = null;
+    for (const nb of nbrs) {
+      if (!bound(nb.q, nb.r)) continue; // stay on the rim
+      const nk = hexKey(nb.q, nb.r);
+      const dn = nodes.get(nk);
+      if (!dn || (!dn.flowTo && dn.elev >= n.elev)) continue;
+      if (dn.elev < bestOutElev || (dn.elev === bestOutElev && nk < bestOutKey)) {
+        bestOutElev = dn.elev; bestOutKey = nk; bestOut = dn;
+      }
+    }
+    if (bestOut) {
+      const wOut = n.acc >= riverThreshold ? 2 : 1;
+      addRiver(n.q, n.r, bestOut.q, bestOut.r, wOut);
+    }
   }
 }
 
@@ -4630,30 +5037,13 @@ function pathTravelCost(path) {
 }
 
 // Draw river edges on an arbitrary canvas context (used by PNG export).
-// keys = array of "q,r" strings. Rivers drawn between the shared edge of hex
-// pairs, each once (same ordering as roads).
+// Uses the same bezier centerline renderer as the live canvas.
 function drawRiverEdgesOnContext(exportCtx, keys) {
-  exportCtx.lineCap = 'round';
-  exportCtx.lineJoin = 'round';
-  for (const key of keys) {
-    const h = hexData[key];
-    if (!h.rivers || !h.rivers.length) continue;
-    const [q1, r1] = key.split(',').map(Number);
-    const p1 = hexToPixel(q1, r1);
-    for (const rd of h.rivers) {
-      if (rd.q > q1 || (rd.q === q1 && rd.r > r1)) {
-        const p2 = hexToPixel(rd.q, rd.r);
-        const seg = riverEdgeSegment(p1, null, p2);
-        if (seg.length < 2) continue;
-        const width = rd.width || 1;
-        exportCtx.beginPath();
-        exportCtx.strokeStyle = width >= 2 ? '#1f4fa0' : '#2f6fd0';
-        exportCtx.lineWidth = width >= 2 ? 6 : 3;
-        exportCtx.moveTo(seg[0].x, seg[0].y);
-        exportCtx.lineTo(seg[1].x, seg[1].y);
-        exportCtx.stroke();
-      }
-    }
+  const allEdges = getAllRiverEdges();
+  const keySet = new Set(keys);
+  for (const e of allEdges) {
+    const k1 = hexKey(e.q1, e.r1), k2 = hexKey(e.q2, e.r2);
+    if (keySet.has(k1) || keySet.has(k2)) drawRiverPath(exportCtx, e);
   }
 }
 
@@ -5097,8 +5487,7 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
   // Rivers (Pass 2.5, under roads)
   drawRiverEdgesOnContext(exportCtx, keys);
   // Draw roads (Pass 2)
-  exportCtx.strokeStyle = '#8B4513';
-  exportCtx.lineWidth = 3;
+  if (artStyle !== 'handdrawn') { exportCtx.strokeStyle = '#8B4513'; exportCtx.lineWidth = 3; }
   for (const key of keys) {
     const h = hexData[key];
     if (h.roads && h.roads.length) {
@@ -5107,10 +5496,9 @@ document.getElementById('btn-export-img').addEventListener('click', () => {
       for (const rd of h.roads) {
         if (rd.q > q1 || (rd.q === q1 && rd.r > r1)) {
           const p2 = hexToPixel(rd.q, rd.r);
-          exportCtx.beginPath();
-          exportCtx.moveTo(p1.x, p1.y);
-          exportCtx.lineTo(p2.x, p2.y);
-          exportCtx.stroke();
+          const crossesRiver = hasRiver(q1, r1, rd.q, rd.r);
+          if (artStyle === 'handdrawn') drawRoadSegment(exportCtx, p1, p2, crossesRiver);
+          else { exportCtx.beginPath(); exportCtx.moveTo(p1.x, p1.y); exportCtx.lineTo(p2.x, p2.y); exportCtx.stroke(); }
         }
       }
     }
@@ -5163,6 +5551,15 @@ document.getElementById('chk-icon-style').addEventListener('change', (e) => {
   rebuildTerrainPalette();
   const statsModal = document.getElementById('stats-modal');
   if (statsModal && statsModal.style.display !== 'none') openStatsModal();
+});
+
+// Art style toggle
+const artStyleChk = document.getElementById('chk-art-style');
+if (artStyleChk) artStyleChk.addEventListener('change', (e) => {
+  artStyle = e.target.checked ? 'handdrawn' : 'classic';
+  try { localStorage.setItem('hexmap_artStyle', artStyle); } catch(err) {}
+  applyArtStyleClass();
+  render();
 });
 
 // Manage regions button
@@ -5251,8 +5648,7 @@ function computeMapStats() {
     }
     if (h.rivers) {
       for (const rv of h.rivers) {
-        const a = q + ',' + r, b = rv.q + ',' + rv.r;
-        const rk = a < b ? a + '-' + b : b + '-' + a;
+        const rk = edgeKey(q, r, rv.q, rv.r);
         if (!seenRivers.has(rk)) {
           seenRivers.add(rk);
           if ((rv.width || 1) >= 2) riverWide++; else riverStream++;
@@ -5375,6 +5771,18 @@ try {
 } catch(err) {}
 const iconChk = document.getElementById('chk-icon-style');
 if (iconChk) iconChk.checked = (iconStyle === 'vector');
+
+// Load art style preference and sync the toggle
+try {
+  const savedArt = localStorage.getItem('hexmap_artStyle');
+  if (savedArt === 'handdrawn' || savedArt === 'classic') artStyle = savedArt;
+} catch(err) {}
+const artChk = document.getElementById('chk-art-style');
+if (artChk) artChk.checked = (artStyle === 'handdrawn');
+applyArtStyleClass();
+
+// Normalize any legacy/one-sided river data before first render.
+normalizeAllRivers();
 
 // Build region palette
 rebuildRegionPalette();
@@ -5647,7 +6055,7 @@ function exportCurrentViewPng() {
   // Pass 2.5: 河流
   drawRivers(g, qMin, qMax, rMin, rMax);
   // Pass 2.7: 道路
-  g.strokeStyle = '#8B4513'; g.lineWidth = 3;
+  if (artStyle !== 'handdrawn') { g.strokeStyle = '#8B4513'; g.lineWidth = 3; }
   for (let q = qMin; q <= qMax; q++) {
     for (let r = rMin; r <= rMax; r++) {
       const h = getHex(q, r);
@@ -5656,7 +6064,9 @@ function exportCurrentViewPng() {
         for (const rd of h.roads) {
           if (rd.q > q || (rd.q === q && rd.r > r)) {
             const p2 = hexToPixel(rd.q, rd.r);
-            g.beginPath(); g.moveTo(p1.x, p1.y); g.lineTo(p2.x, p2.y); g.stroke();
+            const crossesRiver = hasRiver(q, r, rd.q, rd.r);
+            if (artStyle === 'handdrawn') drawRoadSegment(g, p1, p2, crossesRiver);
+            else { g.beginPath(); g.moveTo(p1.x, p1.y); g.lineTo(p2.x, p2.y); g.stroke(); }
           }
         }
       }
@@ -5757,6 +6167,7 @@ function applyMapData(data) {
   hexData = resolved.resultHex;
   customTerrains = resolved.resultCT;
   rebuildSettlementIndex();
+  normalizeAllRivers();
   undoStack = []; redoStack = []; updateUndoButtons();
   if (data.deletedTerrains) deletedTerrains = data.deletedTerrains;
   if (data.terrainOrder) terrainOrder = data.terrainOrder;

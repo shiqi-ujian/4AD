@@ -21,6 +21,18 @@ try {
 const iconChk = document.getElementById('chk-icon-style');
 if (iconChk) iconChk.checked = (iconStyle === 'vector');
 
+// Load art style preference and sync the toggle
+try {
+  const savedArt = localStorage.getItem('hexmap_artStyle');
+  if (savedArt === 'handdrawn' || savedArt === 'classic') artStyle = savedArt;
+} catch(err) {}
+const artChk = document.getElementById('chk-art-style');
+if (artChk) artChk.checked = (artStyle === 'handdrawn');
+applyArtStyleClass();
+
+// Normalize any legacy/one-sided river data before first render.
+normalizeAllRivers();
+
 // Build region palette
 rebuildRegionPalette();
 

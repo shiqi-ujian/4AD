@@ -1,9 +1,154 @@
 //  Rendering
 // ============================================================
+// Hand-drawn helpers -------------------------------------------------
+function hexToRGBA(hex, alpha) {
+  let h = hex.replace('#', '');
+  if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function cellRng(seed) {
+  let x = seed | 0;
+  x = Math.imul(x ^ (x >>> 15), 2246822519);
+  x = Math.imul(x ^ (x >>> 13), 3266489917);
+  x = x ^ (x >>> 16);
+  return (x >>> 0) / 4294967295;
+}
+
+function shadeColor(hex, amt) {
+  let h = hex.replace('#', '');
+  if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+  const r = Math.max(0, Math.min(255, parseInt(h.slice(0,2),16) + amt));
+  const g = Math.max(0, Math.min(255, parseInt(h.slice(2,4),16) + amt));
+  const b = Math.max(0, Math.min(255, parseInt(h.slice(4,6),16) + amt));
+  return `rgb(${r},${g},${b})`;
+}
+
+function drawCombatTexture(g, q, r, terrainId, color) {
+  const half = CELL_SIZE / 2;
+  const cx = q * CELL_SIZE, cy = r * CELL_SIZE;
+  const dark = shadeColor(color, -34);
+  const light = shadeColor(color, 26);
+  const rnd = (salt) => cellRng((q * 41 + r * 73 + salt * 151) | 0);
+  g.save();
+  g.beginPath();
+  g.rect(cx - half, cy - half, CELL_SIZE, CELL_SIZE);
+  g.clip();
+  for (let i = 0; i < 6; i++) {
+    const px = cx - half + rnd(101 + i) * CELL_SIZE;
+    const py = cy - half + rnd(201 + i) * CELL_SIZE;
+    g.fillStyle = i % 2 === 0 ? hexToRGBA(light, 0.30) : hexToRGBA('#000', 0.07);
+    g.beginPath();
+    g.arc(px, py, 0.6 + rnd(301 + i), 0, Math.PI * 2);
+    g.fill();
+  }
+  if (terrainId === 'water' || terrainId === 'hazard_acid' || terrainId === 'ice') {
+    g.strokeStyle = hexToRGBA(dark, 0.4);
+    g.lineWidth = 1;
+    g.lineCap = 'round';
+    for (let i = 0; i < 3; i++) {
+      const y = cy - half * 0.5 + i * CELL_SIZE * 0.28;
+      g.beginPath();
+      for (let x = cx - half * 0.8; x <= cx + half * 0.8; x += 3) {
+        const yy = y + Math.sin(x * 0.4 + rnd(9 + i) * 6) * 1.2;
+        if (x === cx - half * 0.8) g.moveTo(x, yy); else g.lineTo(x, yy);
+      }
+      g.stroke();
+    }
+  } else if (terrainId === 'wall_cell' || terrainId === 'cover_full' || terrainId === 'pit' || terrainId === 'darkness') {
+    for (let i = 0; i < 12; i++) {
+      const x = cx - half + rnd(500 + i) * CELL_SIZE;
+      const y = cy - half + rnd(600 + i) * CELL_SIZE;
+      g.fillStyle = hexToRGBA(dark, 0.2);
+      g.beginPath();
+      g.arc(x, y, 0.7, 0, Math.PI * 2);
+      g.fill();
+    }
+  } else if (terrainId === 'floor' || terrainId === 'grass' || terrainId === 'crop' || terrainId === 'snow') {
+    g.strokeStyle = hexToRGBA(dark, 0.28);
+    g.lineWidth = 0.9;
+    for (let i = 0; i < 8; i++) {
+      const x = cx - half + rnd(700 + i) * CELL_SIZE;
+      const y = cy - half + rnd(800 + i) * CELL_SIZE;
+      const a = rnd(900 + i) * Math.PI * 2;
+      g.beginPath();
+      g.moveTo(x - Math.cos(a) * 3, y - Math.sin(a) * 3);
+      g.lineTo(x + Math.cos(a) * 3, y + Math.sin(a) * 3);
+      g.stroke();
+    }
+  } else {
+    for (let i = 0; i < 8; i++) {
+      const x = cx - half + rnd(1100 + i) * CELL_SIZE;
+      const y = cy - half + rnd(1200 + i) * CELL_SIZE;
+      g.fillStyle = hexToRGBA(i % 2 ? light : dark, 0.25);
+      g.beginPath();
+      g.arc(x, y, 0.5 + rnd(1300 + i), 0, Math.PI * 2);
+      g.fill();
+    }
+  }
+  g.restore();
+}
+
+function applyArtStyleClass() {
+  document.body.classList.toggle('art-handdrawn', artStyle === 'handdrawn');
+}
+
+function setArtStyle(style) {
+  if (style !== 'handdrawn' && style !== 'classic') return;
+  artStyle = style;
+  try { localStorage.setItem('combatmap_artStyle', artStyle); } catch(e) {}
+  const chk = document.getElementById('chk-art-style');
+  if (chk) chk.checked = (style === 'handdrawn');
+  applyArtStyleClass();
+  render();
+}
+
+function drawCombatCellBase(g, q, r, hCell) {
+  const p = cellToPixel(q, r);
+  if (!hCell) hCell = getCell(q, r);
+  const half = CELL_SIZE / 2;
+  let fillColor = '#3a3a52';
+  if (hCell.terrain && getTerrain(hCell.terrain)) fillColor = getTerrain(hCell.terrain).color;
+  g.beginPath();
+  g.rect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
+  g.fillStyle = fillColor;
+  g.fill();
+  if (artStyle === 'handdrawn' && hCell.terrain && getTerrain(hCell.terrain)) {
+    drawCombatTexture(g, q, r, hCell.terrain, getTerrain(hCell.terrain).color);
+  }
+  if (showGrid) {
+    if (artStyle === 'handdrawn') {
+      g.strokeStyle = 'rgba(40,28,18,0.40)';
+      g.lineWidth = 1;
+      g.beginPath();
+      const r2 = (salt) => cellRng(salt);
+      for (let i = -1; i <= 1; i += 2) {
+        const x = i > 0 ? p.x + half : p.x - half;
+        const y0 = p.y - half + (r2((q * 3 + r * 7 + i * 11) | 0) - 0.5) * 0.8;
+        const y1 = p.y + half + (r2((q * 5 + r * 9 + i * 13) | 0) - 0.5) * 0.8;
+        g.moveTo(x, y0);
+        g.lineTo(x, y1);
+      }
+      for (let i = -1; i <= 1; i += 2) {
+        const y = i > 0 ? p.y + half : p.y - half;
+        const x0 = p.x - half + (r2((q * 17 + r * 19 + i * 23) | 0) - 0.5) * 0.8;
+        const x1 = p.x + half + (r2((q * 29 + r * 31 + i * 37) | 0) - 0.5) * 0.8;
+        g.moveTo(x0, y);
+        g.lineTo(x1, y);
+      }
+      g.stroke();
+    } else {
+      g.strokeStyle = 'rgba(255,255,255,0.10)';
+      g.lineWidth = 0.5;
+      g.strokeRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
+    }
+  }
+}
 function render() {
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = '#2d2d44';
+  ctx.fillStyle = artStyle === 'handdrawn' ? '#1d2117' : '#2d2d44';
   ctx.fillRect(0, 0, W, H);
 
   ctx.save();
@@ -39,6 +184,9 @@ function render() {
       drawCellOverlay(q, r);
     }
   }
+
+  // Pass 4.5: Hand-drawn floor shadows / warm accents
+  if (artStyle === 'handdrawn') drawCombatAccents();
 
   // Pass 5: Free lines (任意角度线段)
   drawFreeLines();
@@ -427,22 +575,7 @@ function drawTokens() {
 }
 
 function drawCellBase(q, r) {
-  const p = cellToPixel(q, r);
-  const h = getCell(q, r);
-  const half = CELL_SIZE / 2;
-
-  let fillColor = '#3a3a52';
-  if (h.terrain && getTerrain(h.terrain)) {
-    fillColor = getTerrain(h.terrain).color;
-  }
-  ctx.fillStyle = fillColor;
-  ctx.fillRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
-
-  if (showGrid) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.10)';
-    ctx.lineWidth = 0.5;
-    ctx.strokeRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
-  }
+  drawCombatCellBase(ctx, q, r, getCell(q, r));
 }
 
 function drawWallEdges(q, r) {
@@ -553,6 +686,30 @@ function drawCellOverlay(q, r) {
 // ============================================================
 //  DM Layer / Fog / BackgroundMap Rendering
 // ============================================================
+function drawCombatAccents() {
+  const W = canvas.width, H = canvas.height;
+  const margin = CELL_SIZE * 2;
+  const topLeft = pixelToCell((-viewX - margin) / zoom, (-viewY - margin) / zoom);
+  const botRight = pixelToCell((W - viewX + margin) / zoom, (H - viewY + margin) / zoom);
+  const qMin = Math.floor(topLeft.q) - 1, qMax = Math.ceil(botRight.q) + 1;
+  const rMin = Math.floor(topLeft.r) - 1, rMax = Math.ceil(botRight.r) + 1;
+  for (let q = qMin; q <= qMax; q++) {
+    for (let r = rMin; r <= rMax; r++) {
+      const h = getCell(q, r);
+      if (!h) continue;
+      const p = cellToPixel(q, r);
+      const half = CELL_SIZE / 2;
+      if (h.terrain === 'wall_cell' || h.terrain === 'cover_full' || h.terrain === 'pit' || h.terrain === 'hazard_fire' || h.terrain === 'hazard_acid') {
+        ctx.save();
+        ctx.globalAlpha = 0.14;
+        ctx.fillStyle = '#000';
+        ctx.fillRect(p.x - half + 2, p.y - half + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+        ctx.restore();
+      }
+    }
+  }
+}
+
 function drawBackgroundMap() {
   if (!backgroundMap || !backgroundMap.imgData) return;
   const bm = backgroundMap;
