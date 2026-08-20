@@ -13,46 +13,47 @@ canvas.addEventListener('mousedown', (e) => {
   if (e.button === 0) {
     const wx = (mx - viewX) / zoom, wy = (my - viewY) / zoom;
 
+    // [DISABLED v0.83] 导入底图功能临时禁用：底图对齐模式交互
     // --- 底图对齐模式：点击采集参考点 / 拖拽底图 / 缩放手柄 ---
-    if (_bgAlignRefs) {
-      if (!backgroundMap) { _bgAlignRefs = null; render(); }
-      else {
-        const bm = backgroundMap;
-        const x0 = bm.x * CELL_SIZE, y0 = bm.y * CELL_SIZE;
-        const x1 = (bm.x + bm.cols) * CELL_SIZE, y1 = (bm.y + bm.rows) * CELL_SIZE;
-        const hs = 10 / zoom;
-        if (Math.abs(wx - x1) <= hs && Math.abs(wy - y1) <= hs) {
-          _bgDragMode = 'bg-resize-corner'; dragStartX = wx; dragStartY = wy; isDragging = true;
-          return;
-        }
-        if (Math.abs(wx - x0) <= hs && Math.abs(wy - y0) <= hs) {
-          _bgDragMode = 'bg-move'; _dragOffX = wx - x0; _dragOffY = wy - y0; isDragging = true;
-          return;
-        }
-        if (Math.abs(wx - x1) <= hs && Math.abs(wy - y0) <= hs) {
-          _bgDragMode = 'bg-resize-e'; dragStartX = wx; dragStartY = wy; isDragging = true;
-          return;
-        }
-        if (Math.abs(wx - x0) <= hs && Math.abs(wy - y1) <= hs) {
-          _bgDragMode = 'bg-resize-s'; dragStartX = wx; dragStartY = wy; isDragging = true;
-          return;
-        }
-        // 点击采集参考点
-        _bgAlignRefs.pts = _bgAlignRefs.pts || [];
-        if (_bgAlignRefs.pts.length < 3) {
-          _bgAlignRefs.pts.push({
-            world: { x: wx, y: wy },
-            snappedGrid: pixelToCell(wx, wy),
-            originX: e.clientX - rect.left,
-            originY: e.clientY - rect.top
-          });
-          render();
-          if (typeof updateBgAlignBar === 'function') updateBgAlignBar();
-          // 不再自动完成，等用户点“完成”
-        }
-        return;
-      }
-    }
+    // if (_bgAlignRefs) {
+    //   if (!backgroundMap) { _bgAlignRefs = null; render(); }
+    //   else {
+    //     const bm = backgroundMap;
+    //     const x0 = bm.x * CELL_SIZE, y0 = bm.y * CELL_SIZE;
+    //     const x1 = (bm.x + bm.cols) * CELL_SIZE, y1 = (bm.y + bm.rows) * CELL_SIZE;
+    //     const hs = 10 / zoom;
+    //     if (Math.abs(wx - x1) <= hs && Math.abs(wy - y1) <= hs) {
+    //       _bgDragMode = 'bg-resize-corner'; dragStartX = wx; dragStartY = wy; isDragging = true;
+    //       return;
+    //     }
+    //     if (Math.abs(wx - x0) <= hs && Math.abs(wy - y0) <= hs) {
+    //       _bgDragMode = 'bg-move'; _dragOffX = wx - x0; _dragOffY = wy - y0; isDragging = true;
+    //       return;
+    //     }
+    //     if (Math.abs(wx - x1) <= hs && Math.abs(wy - y0) <= hs) {
+    //       _bgDragMode = 'bg-resize-e'; dragStartX = wx; dragStartY = wy; isDragging = true;
+    //       return;
+    //     }
+    //     if (Math.abs(wx - x0) <= hs && Math.abs(wy - y1) <= hs) {
+    //       _bgDragMode = 'bg-resize-s'; dragStartX = wx; dragStartY = wy; isDragging = true;
+    //       return;
+    //     }
+    //     // 点击采集参考点
+    //     _bgAlignRefs.pts = _bgAlignRefs.pts || [];
+    //     if (_bgAlignRefs.pts.length < 3) {
+    //       _bgAlignRefs.pts.push({
+    //         world: { x: wx, y: wy },
+    //         snappedGrid: pixelToCell(wx, wy),
+    //         originX: e.clientX - rect.left,
+    //         originY: e.clientY - rect.top
+    //       });
+    //       render();
+    //       if (typeof updateBgAlignBar === 'function') updateBgAlignBar();
+    //       // 不再自动完成，等用户点“完成”
+    //     }
+    //     return;
+    //   }
+    // }
 
     // --- 选择工具：单位/图形/线段优先 ---
     if (selectedTool === 'select') {
@@ -477,35 +478,37 @@ canvas.addEventListener('mousemove', (e) => {
     viewX = viewStartX + (mx - dragStartX);
     viewY = viewStartY + (my - dragStartY);
     render();
-  } else if (_dragMode === 'bg-move') {
-    if (backgroundMap && _bgAlignRefs) {
-      backgroundMap.x = (wx - _dragOffX) / CELL_SIZE;
-      backgroundMap.y = (wy - _dragOffY) / CELL_SIZE;
-      render();
-    }
-  } else if (_dragMode === 'bg-resize-corner') {
-    if (backgroundMap && _bgAlignRefs) {
-      const bm = backgroundMap;
-      const x0 = bm.x * CELL_SIZE, y0 = bm.y * CELL_SIZE;
-      bm.cols = Math.max(0.5, (wx - x0) / CELL_SIZE);
-      bm.rows = Math.max(0.5, (wy - y0) / CELL_SIZE);
-      render();
-    }
-  } else if (_dragMode === 'bg-resize-e') {
-    if (backgroundMap && _bgAlignRefs) {
-      const bm = backgroundMap;
-      const x0 = bm.x * CELL_SIZE;
-      bm.cols = Math.max(0.5, (wx - x0) / CELL_SIZE);
-      render();
-    }
-  } else if (_dragMode === 'bg-resize-s') {
-    if (backgroundMap && _bgAlignRefs) {
-      const bm = backgroundMap;
-      const y0 = bm.y * CELL_SIZE;
-      bm.rows = Math.max(0.5, (wy - y0) / CELL_SIZE);
-      render();
-    }
   }
+  // [DISABLED v0.83] 导入底图功能临时禁用：底图拖拽/缩放手柄
+  // } else if (_dragMode === 'bg-move') {
+  //   if (backgroundMap && _bgAlignRefs) {
+  //     backgroundMap.x = (wx - _dragOffX) / CELL_SIZE;
+  //     backgroundMap.y = (wy - _dragOffY) / CELL_SIZE;
+  //     render();
+  //   }
+  // } else if (_dragMode === 'bg-resize-corner') {
+  //   if (backgroundMap && _bgAlignRefs) {
+  //     const bm = backgroundMap;
+  //     const x0 = bm.x * CELL_SIZE, y0 = bm.y * CELL_SIZE;
+  //     bm.cols = Math.max(0.5, (wx - x0) / CELL_SIZE);
+  //     bm.rows = Math.max(0.5, (wy - y0) / CELL_SIZE);
+  //     render();
+  //   }
+  // } else if (_dragMode === 'bg-resize-e') {
+  //   if (backgroundMap && _bgAlignRefs) {
+  //     const bm = backgroundMap;
+  //     const x0 = bm.x * CELL_SIZE;
+  //     bm.cols = Math.max(0.5, (wx - x0) / CELL_SIZE);
+  //     render();
+  //   }
+  // } else if (_dragMode === 'bg-resize-s') {
+  //   if (backgroundMap && _bgAlignRefs) {
+  //     const bm = backgroundMap;
+  //     const y0 = bm.y * CELL_SIZE;
+  //     bm.rows = Math.max(0.5, (wy - y0) / CELL_SIZE);
+  //     render();
+  //   }
+  // }
 });
 
 canvas.addEventListener('mouseup', () => {

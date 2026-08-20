@@ -568,11 +568,11 @@ function renderMapCanvas(exact) {
   });
   if (!isFinite(minQ)) { minQ = -2; maxQ = 2; minR = -2; maxR = 2; }
 
-  // 导出范围包含底图区域
-  if (backgroundMap) {
-    feed(Math.floor(backgroundMap.x), Math.floor(backgroundMap.y));
-    feed(Math.ceil(backgroundMap.x + backgroundMap.cols), Math.ceil(backgroundMap.y + backgroundMap.rows));
-  }
+  // 导出范围包含底图区域  [DISABLED v0.83] 导入底图功能临时禁用
+  // if (backgroundMap) {
+  //   feed(Math.floor(backgroundMap.x), Math.floor(backgroundMap.y));
+  //   feed(Math.ceil(backgroundMap.x + backgroundMap.cols), Math.ceil(backgroundMap.y + backgroundMap.rows));
+  // }
 
   const half = CELL_SIZE / 2;
   const padding = CELL_SIZE * 2;
@@ -618,16 +618,16 @@ function renderMapCanvas(exact) {
     drawCombatCellBase(expCtx, q, r, combatData[key]);
   }
 
-  // Pass 1.5: 底图（导出包含背景，DM/玩家图均一致）
-  if (backgroundMap && backgroundMap.imgData) {
-    const bm = backgroundMap;
-    expCtx.save();
-    expCtx.globalAlpha = Math.max(0, Math.min(1, bm.opacity ?? 0.85));
-    if (bm.img && bm.img.complete) {
-      expCtx.drawImage(bm.img, bm.x * CELL_SIZE, bm.y * CELL_SIZE, bm.cols * CELL_SIZE, bm.rows * CELL_SIZE);
-    }
-    expCtx.restore();
-  }
+  // Pass 1.5: 底图（导出包含背景，DM/玩家图均一致） [DISABLED v0.83] 导入底图功能临时禁用
+  // if (backgroundMap && backgroundMap.imgData) {
+  //   const bm = backgroundMap;
+  //   expCtx.save();
+  //   expCtx.globalAlpha = Math.max(0, Math.min(1, bm.opacity ?? 0.85));
+  //   if (bm.img && bm.img.complete) {
+  //     expCtx.drawImage(bm.img, bm.x * CELL_SIZE, bm.y * CELL_SIZE, bm.cols * CELL_SIZE, bm.rows * CELL_SIZE);
+  //   }
+  //   expCtx.restore();
+  // }
 
   // Pass 2: walls
   for (const key of keys) {
@@ -949,7 +949,8 @@ function saveJSON() {
     combatData,
     dmData,
     fog,
-    backgroundMap: backgroundMap ? { ...backgroundMap, img: undefined } : null,
+    // [DISABLED v0.83] 导入底图功能临时禁用：保存 JSON 不含底图
+    // backgroundMap: backgroundMap ? { ...backgroundMap, img: undefined } : null,
     initiativeOrder,
     initiativeIndex,
     shapes: shapes.map(s => { const c = { ...s }; delete c.img; return c; }),
