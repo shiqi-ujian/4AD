@@ -151,6 +151,10 @@ function exportStyledHTML(minQ, maxQ, minR, maxR) {
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+// 字体样式键（含字号）：bold + size + color 三者唯一确定一个 OOXML font
+function fontStyleKey(f) {
+  return ((f && f.bold) ? 'b' : 'n') + ':' + ((f && f.size) || 11) + ':' + ((f && f.color) || '');
+}
 
 function exportMultiSheetXLSX(minQ, maxQ, minR, maxR) {
   const cols = maxQ - minQ + 1;
@@ -174,7 +178,7 @@ function exportMultiSheetXLSX(minQ, maxQ, minR, maxR) {
       const q = minQ + ci;
       const h = getCell(q, r);
       const ti = h.terrain ? getTerrain(h.terrain) : null;
-      let val = ti ? ti.icon + ' ' + ti.name : '';
+      let val = ti ? ti.icon : '';
       if (h.label) val += (val ? '\n' : '') + '[' + h.label + ']';
       const w = h.walls || [0,0,0,0];
       const tags = [];
@@ -194,9 +198,10 @@ function exportMultiSheetXLSX(minQ, maxQ, minR, maxR) {
   const wsMap = XLSX.utils.aoa_to_sheet(mapData);
 
   // 样式键矩阵（与 sheet 单元格对应，含 header 行列）
-  //   fill: 'FFxxxxxx'；borders: {t,r,b,l} 0=网格细线 1=墙 2=门；font: {bold,color} | null
+  //   fill: 'FFxxxxxx'；borders: {t,r,b,l} 0=网格细线 1=墙 2=门；font: {bold,color,size} | null；align: 水平/垂直居中
+  const CONTENT_SIZE = 16; // 单元格 emoji/标签字号（默认 11 太小，适度放大便于辨识，已由图例说明地形）
   const styleKeys = [];
-  const hdrKey = { fill: 'FF1A1A2E', borders: null, font: { bold: true, color: 'FFAAAAAA' } };
+  const hdrKey = { fill: 'FF1A1A2E', borders: null, font: { bold: true, color: 'FFAAAAAA', size: 11 }, align: true };
   styleKeys.push(new Array(cols + 1).fill(hdrKey));
   for (let ri = 0; ri < rows; ri++) {
     const rowKeys = [hdrKey];
@@ -210,8 +215,10 @@ function exportMultiSheetXLSX(minQ, maxQ, minR, maxR) {
         l: w[3] === 1 ? 1 : (w[3] === 2 ? 2 : 0)
       };
       const hasDoor = w.some(x => x === 2);
-      const font = info.label ? { bold: true, color: 'FFFFD700' } : (hasDoor ? { bold: true, color: 'FF5A3A15' } : null);
-      rowKeys.push({ fill: info.bg, borders, font });
+      const font = info.label ? { bold: true, color: 'FFFFD700', size: CONTENT_SIZE }
+        : (hasDoor ? { bold: true, color: 'FF5A3A15', size: CONTENT_SIZE }
+        : { bold: false, size: CONTENT_SIZE });
+      rowKeys.push({ fill: info.bg, borders, font, align: true });
     }
     styleKeys.push(rowKeys);
   }
@@ -284,11 +291,11 @@ function buildStyleSheet(styleKeys) {
     }
     return borderMap.get(key);
   };
-  const getFont = (bold, color) => {
-    const key = (bold ? 'b' : 'n') + (color || '');
+  const getFont = (bold, color, size) => {
+    const key = fontStyleKey({ bold, color, size });
     if (!fontMap.has(key)) {
       fontMap.set(key, fonts.length);
-      let xml = '<font><sz val="11"/>';
+      let xml = `<font><sz val="${size || 11}"/>`;
       if (color) xml += `<color rgb="${color}"/>`;
       if (bold) xml += '<b/>';
       xml += '<name val="Calibri"/><family val="2"/></font>';
@@ -301,11 +308,20 @@ function buildStyleSheet(styleKeys) {
     for (const k of row) {
       const f = getFill(k.fill || 'FFFFFFFF');
       const b = k.borders ? getBorder(`${k.borders.t}${k.borders.r}${k.borders.b}${k.borders.l}`, [k.borders.l, k.borders.r, k.borders.t, k.borders.b]) : 0;
-      const ft = k.font ? getFont(k.font.bold, k.font.color) : 0;
-      const key = `${f}|${b}|${ft}`;
+      const ft = k.font ? getFont(k.font.bold, k.font.color, k.font.size) : 0;
+      const align = k.align ? 1 : 0;
+      const key = `${f}|${b}|${ft}|${align}`;
       if (cellXfsIndex[key] === undefined) {
         cellXfsIndex[key] = cellXfs.length;
-        cellXfs.push(`<xf numFmtId="0" fontId="${ft}" fillId="${f}" borderId="${b}" xfId="0"${ft ? ' applyFont="1"' : ''}${f ? ' applyFill="1"' : ''}${b ? ' applyBorder="1"' : ''}/>`);
+        let xf = `<xf numFmtId="0" fontId="${ft}" fillId="${f}" borderId="${b}" xfId="0"`;
+        if (ft) xf += ' applyFont="1"';
+        if (f) xf += ' applyFill="1"';
+        if (b) xf += ' applyBorder="1"';
+        if (align) xf += ' applyAlignment="1"';
+        xf += '>';
+        if (align) xf += '<alignment horizontal="center" vertical="center"/>';
+        xf += '</xf>';
+        cellXfs.push(xf);
       }
     }
   }
@@ -336,8 +352,9 @@ function injectCellStyles(sheetXml, styleKeys, styleInfo) {
       const k = styleKeys[rI][cI];
       const f = fillMap.get(k.fill || 'FFFFFFFF');
       const b = k.borders ? borderMap.get(`${k.borders.t}${k.borders.r}${k.borders.b}${k.borders.l}`) : 0;
-      const ft = k.font ? fontMap.get((k.font.bold ? 'b' : 'n') + (k.font.color || '')) : 0;
-      const idx = cellXfsIndex[`${f}|${b}|${ft}`];
+      const ft = k.font ? fontMap.get(fontStyleKey(k.font)) : 0;
+      const align = k.align ? 1 : 0;
+      const idx = cellXfsIndex[`${f}|${b}|${ft}|${align}`];
       if (idx !== undefined) return `<c r="${col}${row}" s="${idx}"${rest}>`;
     }
     return m;

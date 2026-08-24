@@ -1,6 +1,6 @@
 //  Configuration
 // ============================================================
-const COMBATMAP_VERSION = 'v0.83';
+const COMBATMAP_VERSION = 'v0.84';
 
 // 单位类型 → 环颜色（画布 token 渲染 / 单位库角标统一使用）
 const TOKEN_KIND_COLORS = {
@@ -17,9 +17,9 @@ const COMBAT_TERRAIN = {
   water:        { name: '水域', color: '#4a90d9', icon: '🌊', desc: '游泳检定' },
   elevated:     { name: '高台/高地', color: '#c9a84c', icon: '📶', desc: '远程优势' },
   cover_half:   { name: '半身掩体', color: '#7a9a5a', icon: '🛡️', desc: 'AC+2' },
-  cover_full:   { name: '全身掩体', color: '#5a7a3a', icon: '🛡️', desc: 'AC+5' },
+  cover_full:   { name: '四分之三掩护', color: '#5a7a3a', icon: '🛡️', desc: 'AC+5' },
   hazard_fire:  { name: '火焰', color: '#d94a4a', icon: '🔥', desc: '火焰伤害' },
-  hazard_acid:  { name: '酸液', color: '#4ad94a', icon: '🧪', desc: '酸液伤害' },
+  hazard_acid:  { name: '酸液', color: '#4ad94a', icon: '🧪', desc: '强酸伤害' },
   hazard_spike: { name: '尖刺', color: '#a0a0a0', icon: '📌', desc: '穿刺伤害' },
   door_cell:    { name: '门(填充)', color: '#8b5a2b', icon: '🚪', desc: '可开关' },
   stairs:       { name: '楼梯', color: '#a09080', icon: '🪜', desc: '层级连接' },
@@ -38,7 +38,7 @@ const EXTRA_TERRAIN = {
   grass:        { name: '草丛', color: '#5a9a3a', icon: '🌿', desc: '潜行掩体' },
   rubble:       { name: '碎石', color: '#8a8a8a', icon: '🪨', desc: '困难地形' },
   web:          { name: '蛛网', color: '#c0c0d0', icon: '🕸️', desc: '被困检定' },
-  poison:       { name: '毒雾', color: '#4ad95a', icon: '☠️', desc: '中毒伤害' },
+  poison:       { name: '毒雾', color: '#4ad95a', icon: '☠️', desc: '毒素伤害' },
   shrine:       { name: '神殿', color: '#d4c56a', icon: '⛪', desc: '祝福' },
   throne:       { name: '王座', color: '#9e6a3a', icon: '👑', desc: '首领区域' },
   teleport:     { name: '传送点', color: '#3a9ed9', icon: '🔮', desc: '传送' },

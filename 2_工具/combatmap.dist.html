@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>通用战斗地图生成器 v0.83</title>
+<title>通用战斗地图生成器 v0.84</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -162,7 +162,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 <body>
 <div id="app">
   <div id="toolbar">
-    <h2>⚔️ 战斗地图 <span class="ver">v0.83</span></h2>
+    <h2>⚔️ 战斗地图 <span class="ver">v0.84</span></h2>
 
     <div id="role-switch">
       <button id="role-dm" class="role-btn dm-role active" title="DM 视图：显示全部工具（含 DM 层/战雾/先攻条等隐藏信息）">🎲 DM 视图</button>
@@ -304,7 +304,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
     </div>
 
     <div style="margin-top:auto;font-size:10px;color:#555;text-align:center;padding-top:6px;">
-      通用跑团 · 战斗地图 v0.83<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>单位库 · Shift 连放 · DM/玩家视图
+      通用跑团 · 战斗地图 v0.84<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>单位库 · Shift 连放 · DM/玩家视图
     </div>
   </div>
 
@@ -801,7 +801,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 <script>
 //  Configuration
 // ============================================================
-const COMBATMAP_VERSION = 'v0.83';
+const COMBATMAP_VERSION = 'v0.84';
 
 // 单位类型 → 环颜色（画布 token 渲染 / 单位库角标统一使用）
 const TOKEN_KIND_COLORS = {
@@ -818,9 +818,9 @@ const COMBAT_TERRAIN = {
   water:        { name: '水域', color: '#4a90d9', icon: '🌊', desc: '游泳检定' },
   elevated:     { name: '高台/高地', color: '#c9a84c', icon: '📶', desc: '远程优势' },
   cover_half:   { name: '半身掩体', color: '#7a9a5a', icon: '🛡️', desc: 'AC+2' },
-  cover_full:   { name: '全身掩体', color: '#5a7a3a', icon: '🛡️', desc: 'AC+5' },
+  cover_full:   { name: '四分之三掩护', color: '#5a7a3a', icon: '🛡️', desc: 'AC+5' },
   hazard_fire:  { name: '火焰', color: '#d94a4a', icon: '🔥', desc: '火焰伤害' },
-  hazard_acid:  { name: '酸液', color: '#4ad94a', icon: '🧪', desc: '酸液伤害' },
+  hazard_acid:  { name: '酸液', color: '#4ad94a', icon: '🧪', desc: '强酸伤害' },
   hazard_spike: { name: '尖刺', color: '#a0a0a0', icon: '📌', desc: '穿刺伤害' },
   door_cell:    { name: '门(填充)', color: '#8b5a2b', icon: '🚪', desc: '可开关' },
   stairs:       { name: '楼梯', color: '#a09080', icon: '🪜', desc: '层级连接' },
@@ -839,7 +839,7 @@ const EXTRA_TERRAIN = {
   grass:        { name: '草丛', color: '#5a9a3a', icon: '🌿', desc: '潜行掩体' },
   rubble:       { name: '碎石', color: '#8a8a8a', icon: '🪨', desc: '困难地形' },
   web:          { name: '蛛网', color: '#c0c0d0', icon: '🕸️', desc: '被困检定' },
-  poison:       { name: '毒雾', color: '#4ad95a', icon: '☠️', desc: '中毒伤害' },
+  poison:       { name: '毒雾', color: '#4ad95a', icon: '☠️', desc: '毒素伤害' },
   shrine:       { name: '神殿', color: '#d4c56a', icon: '⛪', desc: '祝福' },
   throne:       { name: '王座', color: '#9e6a3a', icon: '👑', desc: '首领区域' },
   teleport:     { name: '传送点', color: '#3a9ed9', icon: '🔮', desc: '传送' },
@@ -922,7 +922,8 @@ let zoom = 1;
 let isDragging = false, dragStartX, dragStartY, viewStartX, viewStartY;
 let showGrid = true, showCoords = true;
 let artStyle = 'handdrawn';  // 美术风格：'handdrawn'（手绘质感）| 'classic'（原纯色块）
-let showDmLayer = false;   // 是否显示 DM 层（标记/说明）
+let showDmLayer = false;   // 是否显示 DM 层（标记/说明）——当前有效显示状态（玩家视图下会被强制隐藏）
+let dmLayerPref = false;   // 用户期望的 DM 层开关（切到玩家视图时保留，切回 DM 视图时恢复）
 let showFogLayer = true;   // 是否显示战雾遮罩
 let initiativeOrder = [];  // 行动顺序条目: { id, tokenId?, name, icon, kind, hp, maxHp }
 let initiativeIndex = 0;
@@ -3957,7 +3958,7 @@ document.getElementById('btn-undo').addEventListener('click', undo);
 document.getElementById('btn-redo').addEventListener('click', redo);
 document.getElementById('chk-grid').addEventListener('change', (e) => { showGrid = e.target.checked; render(); });
 document.getElementById('chk-coords').addEventListener('change', (e) => { showCoords = e.target.checked; render(); });
-document.getElementById('chk-dm').addEventListener('change', (e) => { showDmLayer = e.target.checked; render(); });
+document.getElementById('chk-dm').addEventListener('change', (e) => { showDmLayer = e.target.checked; dmLayerPref = e.target.checked; render(); });
 document.getElementById('chk-fog').addEventListener('change', (e) => { showFogLayer = e.target.checked; render(); });
 document.getElementById('chk-art-style').addEventListener('change', (e) => { setArtStyle(e.target.checked ? 'handdrawn' : 'classic'); });
 
@@ -4591,6 +4592,7 @@ function saveDmModal() {
   const label = document.getElementById('dm-modal-label').value.trim();
   setDmCell(q, r, { mark, label });
   showDmLayer = true;
+  dmLayerPref = true;
   const dmCheck = document.getElementById('chk-dm');
   if (dmCheck && !dmCheck.checked) dmCheck.checked = true;
   closeDmModal();
@@ -5082,13 +5084,16 @@ function applyRoleViewUI() {
   // 行动顺序（DM 专属）
   const initBtn = document.getElementById('btn-initiative');
   if (initBtn) { initBtn.disabled = isPlayer; initBtn.classList.toggle('dm-locked', isPlayer); }
-  // DM 层显示：玩家视图强制关闭
+  // DM 层显示：玩家视图强制关闭；切回 DM 视图时按用户之前的偏好恢复
   const dmChk = document.getElementById('chk-dm');
   if (dmChk) dmChk.disabled = isPlayer;
   if (isPlayer) {
     showDmLayer = false;
     if (dmChk) dmChk.checked = false;
     if (selectedTool === 'dm' || selectedTool === 'fog') setTool('select');
+  } else {
+    showDmLayer = dmLayerPref;
+    if (dmChk) dmChk.checked = dmLayerPref;
   }
   refreshBgAlignButton();
   render();
@@ -6330,6 +6335,10 @@ function exportStyledHTML(minQ, maxQ, minR, maxR) {
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+// 字体样式键（含字号）：bold + size + color 三者唯一确定一个 OOXML font
+function fontStyleKey(f) {
+  return ((f && f.bold) ? 'b' : 'n') + ':' + ((f && f.size) || 11) + ':' + ((f && f.color) || '');
+}
 
 function exportMultiSheetXLSX(minQ, maxQ, minR, maxR) {
   const cols = maxQ - minQ + 1;
@@ -6353,7 +6362,7 @@ function exportMultiSheetXLSX(minQ, maxQ, minR, maxR) {
       const q = minQ + ci;
       const h = getCell(q, r);
       const ti = h.terrain ? getTerrain(h.terrain) : null;
-      let val = ti ? ti.icon + ' ' + ti.name : '';
+      let val = ti ? ti.icon : '';
       if (h.label) val += (val ? '\n' : '') + '[' + h.label + ']';
       const w = h.walls || [0,0,0,0];
       const tags = [];
@@ -6373,9 +6382,10 @@ function exportMultiSheetXLSX(minQ, maxQ, minR, maxR) {
   const wsMap = XLSX.utils.aoa_to_sheet(mapData);
 
   // 样式键矩阵（与 sheet 单元格对应，含 header 行列）
-  //   fill: 'FFxxxxxx'；borders: {t,r,b,l} 0=网格细线 1=墙 2=门；font: {bold,color} | null
+  //   fill: 'FFxxxxxx'；borders: {t,r,b,l} 0=网格细线 1=墙 2=门；font: {bold,color,size} | null；align: 水平/垂直居中
+  const CONTENT_SIZE = 16; // 单元格 emoji/标签字号（默认 11 太小，适度放大便于辨识，已由图例说明地形）
   const styleKeys = [];
-  const hdrKey = { fill: 'FF1A1A2E', borders: null, font: { bold: true, color: 'FFAAAAAA' } };
+  const hdrKey = { fill: 'FF1A1A2E', borders: null, font: { bold: true, color: 'FFAAAAAA', size: 11 }, align: true };
   styleKeys.push(new Array(cols + 1).fill(hdrKey));
   for (let ri = 0; ri < rows; ri++) {
     const rowKeys = [hdrKey];
@@ -6389,8 +6399,10 @@ function exportMultiSheetXLSX(minQ, maxQ, minR, maxR) {
         l: w[3] === 1 ? 1 : (w[3] === 2 ? 2 : 0)
       };
       const hasDoor = w.some(x => x === 2);
-      const font = info.label ? { bold: true, color: 'FFFFD700' } : (hasDoor ? { bold: true, color: 'FF5A3A15' } : null);
-      rowKeys.push({ fill: info.bg, borders, font });
+      const font = info.label ? { bold: true, color: 'FFFFD700', size: CONTENT_SIZE }
+        : (hasDoor ? { bold: true, color: 'FF5A3A15', size: CONTENT_SIZE }
+        : { bold: false, size: CONTENT_SIZE });
+      rowKeys.push({ fill: info.bg, borders, font, align: true });
     }
     styleKeys.push(rowKeys);
   }
@@ -6463,11 +6475,11 @@ function buildStyleSheet(styleKeys) {
     }
     return borderMap.get(key);
   };
-  const getFont = (bold, color) => {
-    const key = (bold ? 'b' : 'n') + (color || '');
+  const getFont = (bold, color, size) => {
+    const key = fontStyleKey({ bold, color, size });
     if (!fontMap.has(key)) {
       fontMap.set(key, fonts.length);
-      let xml = '<font><sz val="11"/>';
+      let xml = `<font><sz val="${size || 11}"/>`;
       if (color) xml += `<color rgb="${color}"/>`;
       if (bold) xml += '<b/>';
       xml += '<name val="Calibri"/><family val="2"/></font>';
@@ -6480,11 +6492,20 @@ function buildStyleSheet(styleKeys) {
     for (const k of row) {
       const f = getFill(k.fill || 'FFFFFFFF');
       const b = k.borders ? getBorder(`${k.borders.t}${k.borders.r}${k.borders.b}${k.borders.l}`, [k.borders.l, k.borders.r, k.borders.t, k.borders.b]) : 0;
-      const ft = k.font ? getFont(k.font.bold, k.font.color) : 0;
-      const key = `${f}|${b}|${ft}`;
+      const ft = k.font ? getFont(k.font.bold, k.font.color, k.font.size) : 0;
+      const align = k.align ? 1 : 0;
+      const key = `${f}|${b}|${ft}|${align}`;
       if (cellXfsIndex[key] === undefined) {
         cellXfsIndex[key] = cellXfs.length;
-        cellXfs.push(`<xf numFmtId="0" fontId="${ft}" fillId="${f}" borderId="${b}" xfId="0"${ft ? ' applyFont="1"' : ''}${f ? ' applyFill="1"' : ''}${b ? ' applyBorder="1"' : ''}/>`);
+        let xf = `<xf numFmtId="0" fontId="${ft}" fillId="${f}" borderId="${b}" xfId="0"`;
+        if (ft) xf += ' applyFont="1"';
+        if (f) xf += ' applyFill="1"';
+        if (b) xf += ' applyBorder="1"';
+        if (align) xf += ' applyAlignment="1"';
+        xf += '>';
+        if (align) xf += '<alignment horizontal="center" vertical="center"/>';
+        xf += '</xf>';
+        cellXfs.push(xf);
       }
     }
   }
@@ -6515,8 +6536,9 @@ function injectCellStyles(sheetXml, styleKeys, styleInfo) {
       const k = styleKeys[rI][cI];
       const f = fillMap.get(k.fill || 'FFFFFFFF');
       const b = k.borders ? borderMap.get(`${k.borders.t}${k.borders.r}${k.borders.b}${k.borders.l}`) : 0;
-      const ft = k.font ? fontMap.get((k.font.bold ? 'b' : 'n') + (k.font.color || '')) : 0;
-      const idx = cellXfsIndex[`${f}|${b}|${ft}`];
+      const ft = k.font ? fontMap.get(fontStyleKey(k.font)) : 0;
+      const align = k.align ? 1 : 0;
+      const idx = cellXfsIndex[`${f}|${b}|${ft}|${align}`];
       if (idx !== undefined) return `<c r="${col}${row}" s="${idx}"${rest}>`;
     }
     return m;
