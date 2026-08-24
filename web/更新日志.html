@@ -31,6 +31,18 @@
     
     
   </section>
+  <section>
+    <h2>2026-08-24 · vv0.84</h2>
+    <p class="release">战斗地图生成器反馈修复（问题来源：收集表 #20260824-015400-43c8）。</p>
+    <h3>✅ 已修复</h3><ul>
+      <li><strong>Excel 导出单元格仅保留图标 + 居中 + 放大字号</strong>（combatmap 导出）<br><span class="d">单元格内容由「图标+名称」（如 🔥 火焰）改为仅保留图标（地形类型已由格子底色+图例表传达），水平/垂直居中，内容字号由 11pt 放大到 16pt。</span><span class="id">#20260824-015400-43c8-a</span></li>
+      <li><strong>DM 层开关切回后恢复</strong>（combatmap DM/玩家视图）<br><span class="d">之前切到玩家视图会强制关闭「显示 DM 层」，切回 DM 视图不再自动恢复。新增用户偏好记忆，切回 DM 视图时按之前的勾选状态恢复（在线加入/离开房间路径同步生效）。</span><span class="id">#20260824-015400-43c8-b</span></li>
+      <li><strong>地形描述按 DND 5e 术语校正</strong>（combatmap 地形说明）<br><span class="d">「酸液/酸液伤害」→「酸液/强酸伤害」；「毒雾/中毒伤害」→「毒雾/毒素伤害」；「全身掩体 AC+5」→「四分之三掩护 AC+5」。</span><span class="id">#20260824-015400-43c8-c</span></li>
+    </ul>
+    <h3>⏳ 待确认</h3><ul>
+      <li><strong>Excel 导出暂未包含棋子（单位）/战雾/DM 层标记</strong> — 待确认：当前导出仅覆盖地形格子 + 区域/线段/图片图形；单位图片嵌入为可拖动对象、战雾/DM 标记叠加属较大改动，留待专门一轮实现。<span class="id">#20260824-015400-43c8-d</span></li>
+    </ul>
+  </section>
 </main>
 </body>
 </html>

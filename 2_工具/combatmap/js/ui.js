@@ -448,7 +448,7 @@ document.getElementById('btn-undo').addEventListener('click', undo);
 document.getElementById('btn-redo').addEventListener('click', redo);
 document.getElementById('chk-grid').addEventListener('change', (e) => { showGrid = e.target.checked; render(); });
 document.getElementById('chk-coords').addEventListener('change', (e) => { showCoords = e.target.checked; render(); });
-document.getElementById('chk-dm').addEventListener('change', (e) => { showDmLayer = e.target.checked; render(); });
+document.getElementById('chk-dm').addEventListener('change', (e) => { showDmLayer = e.target.checked; dmLayerPref = e.target.checked; render(); });
 document.getElementById('chk-fog').addEventListener('change', (e) => { showFogLayer = e.target.checked; render(); });
 document.getElementById('chk-art-style').addEventListener('change', (e) => { setArtStyle(e.target.checked ? 'handdrawn' : 'classic'); });
 
@@ -1082,6 +1082,7 @@ function saveDmModal() {
   const label = document.getElementById('dm-modal-label').value.trim();
   setDmCell(q, r, { mark, label });
   showDmLayer = true;
+  dmLayerPref = true;
   const dmCheck = document.getElementById('chk-dm');
   if (dmCheck && !dmCheck.checked) dmCheck.checked = true;
   closeDmModal();
@@ -1573,13 +1574,16 @@ function applyRoleViewUI() {
   // 行动顺序（DM 专属）
   const initBtn = document.getElementById('btn-initiative');
   if (initBtn) { initBtn.disabled = isPlayer; initBtn.classList.toggle('dm-locked', isPlayer); }
-  // DM 层显示：玩家视图强制关闭
+  // DM 层显示：玩家视图强制关闭；切回 DM 视图时按用户之前的偏好恢复
   const dmChk = document.getElementById('chk-dm');
   if (dmChk) dmChk.disabled = isPlayer;
   if (isPlayer) {
     showDmLayer = false;
     if (dmChk) dmChk.checked = false;
     if (selectedTool === 'dm' || selectedTool === 'fog') setTool('select');
+  } else {
+    showDmLayer = dmLayerPref;
+    if (dmChk) dmChk.checked = dmLayerPref;
   }
   refreshBgAlignButton();
   render();

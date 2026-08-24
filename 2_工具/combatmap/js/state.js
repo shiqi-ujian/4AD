@@ -26,7 +26,8 @@ let zoom = 1;
 let isDragging = false, dragStartX, dragStartY, viewStartX, viewStartY;
 let showGrid = true, showCoords = true;
 let artStyle = 'handdrawn';  // 美术风格：'handdrawn'（手绘质感）| 'classic'（原纯色块）
-let showDmLayer = false;   // 是否显示 DM 层（标记/说明）
+let showDmLayer = false;   // 是否显示 DM 层（标记/说明）——当前有效显示状态（玩家视图下会被强制隐藏）
+let dmLayerPref = false;   // 用户期望的 DM 层开关（切到玩家视图时保留，切回 DM 视图时恢复）
 let showFogLayer = true;   // 是否显示战雾遮罩
 let initiativeOrder = [];  // 行动顺序条目: { id, tokenId?, name, icon, kind, hp, maxHp }
 let initiativeIndex = 0;
