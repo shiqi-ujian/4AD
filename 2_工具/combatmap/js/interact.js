@@ -1,5 +1,10 @@
 //  Input Handling
 // ============================================================
+// 平移：按住空格 + 左键拖拽，或中键拖拽（任意工具）
+let panKey = false;
+window.addEventListener('keydown', (e) => { if (e.code === 'Space' && !e.repeat) panKey = true; });
+window.addEventListener('keyup', (e) => { if (e.code === 'Space') panKey = false; });
+
 canvas.addEventListener('mousedown', (e) => {
   const rect = canvas.getBoundingClientRect();
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
@@ -7,6 +12,16 @@ canvas.addEventListener('mousedown', (e) => {
   if (e.button === 2) {
     e.preventDefault();
     showContextMenu(e.clientX, e.clientY, mx, my);
+    return;
+  }
+
+  // 中键 或 按住空格+左键 = 平移（不干扰选择/绘制）
+  if (e.button === 1 || (e.button === 0 && panKey)) {
+    e.preventDefault();
+    _dragMode = 'pan';
+    dragStartX = mx; dragStartY = my;
+    viewStartX = viewX; viewStartY = viewY;
+    isDragging = true;
     return;
   }
 
@@ -54,7 +69,7 @@ canvas.addEventListener('mousedown', (e) => {
       }
     }
 
-    // --- 选择工具：单位/图形/线段优先 ---
+    // --- 选择工具：单位/图形/线段/底图/框选优先 ---
     if (selectedTool === 'select') {
       // 单位缩放手柄
       const th = tokenHandleAt(wx, wy);
@@ -76,11 +91,11 @@ canvas.addEventListener('mousedown', (e) => {
             selectedToken = tk.id;
             selectedTokens.add(tk.id);
           }
-          selectedShape = null; selectedLine = null; selectedCell = null;
+          selectedShape = null; selectedLine = null; selectedCell = null; selectedBackground = false;
           render(); updateInfo();
           return;
         }
-        selectedToken = tk.id; selectedShape = null; selectedLine = null; selectedCell = null;
+        selectedToken = tk.id; selectedShape = null; selectedLine = null; selectedCell = null; selectedBackground = false;
         selectedTokens.add(tk.id);
         const dragIds = tokenDragIds(tk.id);
         _selDragOff = new Map();
@@ -115,6 +130,7 @@ canvas.addEventListener('mousedown', (e) => {
       const sh = hitTestShape(wx, wy);
       if (sh) {
         selectedShape = sh.id; selectedLine = null; selectedCell = null;
+        selectedToken = null; selectedTokens = new Set(); selectedBackground = false;
         _dragMode = 'shape-move'; _dragShapeId = sh.id;
         _dragOffX = wx - sh.x * CELL_SIZE; _dragOffY = wy - sh.y * CELL_SIZE;
         isDragging = true; dragStartX = wx; dragStartY = wy;
@@ -126,6 +142,7 @@ canvas.addEventListener('mousedown', (e) => {
       const ln = hitTestLine(wx, wy);
       if (ln) {
         selectedLine = ln.id; selectedShape = null; selectedCell = null;
+        selectedToken = null; selectedTokens = new Set(); selectedBackground = false;
         _dragMode = 'line-move'; _dragLineId = ln.id;
         _lineInit = { x1: ln.x1, y1: ln.y1, x2: ln.x2, y2: ln.y2 };
         isDragging = true; dragStartX = wx; dragStartY = wy;
@@ -133,27 +150,28 @@ canvas.addEventListener('mousedown', (e) => {
         render(); updateInfo();
         return;
       }
-      // 底图：普通选择工具下，点在底图范围内的空白格上可直接拖动移动（无需进入对齐模式）
-      if (backgroundMap && !_bgAlignRefs) {
-        const bm = backgroundMap;
-        const bx0 = bm.x * CELL_SIZE, by0 = bm.y * CELL_SIZE;
-        const bx1 = (bm.x + bm.cols) * CELL_SIZE, by1 = (bm.y + bm.rows) * CELL_SIZE;
-        if (wx >= bx0 && wx <= bx1 && wy >= by0 && wy <= by1) {
-          const c2p = pixelToCell(wx, wy);
-          if (!getCell(c2p.q, c2p.r).terrain) {  // 空白格（底图穿透可见）才当作底图，避免抢走格子工具
-            selectedCell = null;
-            _bgDragMode = 'bg-move';
-            _dragOffX = wx - bx0; _dragOffY = wy - by0;
-            _dragMode = 'bg-move';
-            dragStartX = wx; dragStartY = wy;
-            isDragging = true;
-            pushUndoMeta();
-            render();
-            return;
-          }
-        }
+      // 底图：已选中底图且未锁定 → 拖动移动底图（防止误拖：需先点选底图）
+      const overBg = backgroundMap && !_bgAlignRefs && hitTestBackground(wx, wy);
+      if (overBg && selectedBackground && !bgLocked()) {
+        _bgDragMode = 'bg-move';
+        _dragOffX = wx - backgroundMap.x * CELL_SIZE;
+        _dragOffY = wy - backgroundMap.y * CELL_SIZE;
+        _dragMode = 'bg-move';
+        dragStartX = wx; dragStartY = wy;
+        isDragging = true;
+        pushUndoMeta();
+        render(); updateInfo();
+        return;
       }
-      selectedShape = null; selectedLine = null;
+      // 其余：框选（marquee）。若最终是「点击」判定为：点到底图→选中底图；否则取消选中 + 显示格子信息
+      clearSelection();
+      selectedBackground = false;
+      _marqueeStart = { wx, wy, shift: !!(e.shiftKey || e.ctrlKey || e.metaKey), overBg };
+      _dragMode = 'marquee';
+      isDragging = true; dragStartX = wx; dragStartY = wy;
+      const cell = cellAtPixel(mx, my);
+      if (cell) handleCellClick(cell.q, cell.r, e);
+      return;
     }
 
     // --- 墙/门：点击 toggle + 拖拽连续绘制 ---
@@ -175,21 +193,27 @@ canvas.addEventListener('mousedown', (e) => {
       return;
     }
 
-    // --- 区域矩形：拖拽绘制 ---
-    if (selectedTool === 'rect') {
-      const c = pixelToCell(wx, wy);
-      _drawStart = { x: wx / CELL_SIZE, y: wy / CELL_SIZE };
-      _dragMode = 'rect-draw';
-      isDragging = true;
-      return;
-    }
-
-    // --- 自由线段：拖拽绘制 ---
-    if (selectedTool === 'line') {
-      _drawStart = { x: wx / CELL_SIZE, y: wy / CELL_SIZE };
-      _dragMode = 'line-draw';
-      isDragging = true;
-      return;
+    // --- 画笔（v0.97 合并区域/线段）：按子模式绘制 矩形/圆形/锥形/线段 ---
+    if (selectedTool === 'brush') {
+      const sx = wx / CELL_SIZE, sy = wy / CELL_SIZE;
+      if (brush.shape === 'line') {
+        _drawStart = { x: sx, y: sy };
+        _dragMode = 'line-draw';
+        isDragging = true;
+        return;
+      }
+      if (brush.shape === 'rect' || brush.shape === 'circle') {
+        _drawStart = { x: sx, y: sy };
+        _dragMode = 'rect-draw';   // 矩形/圆形共用矩形拖拽（按 brush.shape 决定绘制形状）
+        isDragging = true;
+        return;
+      }
+      if (brush.shape === 'cone') {
+        _coneStart = { wx, wy };
+        _dragMode = 'cone-draw';
+        isDragging = true;
+        return;
+      }
     }
 
     // --- 测量：拖拽画出测距线（持续显示距离/困难地形） ---
@@ -218,6 +242,7 @@ canvas.addEventListener('mousedown', (e) => {
           status: _unitPending.status || [],
           imgData: _unitPending.imgData || '', img: _unitPending.img || null,
           sightRadius: _unitPending.sightRadius, visionSource: _unitPending.visionSource,
+          layer: _unitPending.layer || 'creature',
           ownerId: ''
         };
         normalizeToken(t);
@@ -246,7 +271,7 @@ canvas.addEventListener('mousedown', (e) => {
           x: c.q - _tokenPending.w / 2, y: c.r - _tokenPending.h / 2,
           w: _tokenPending.w, h: _tokenPending.h,
           imgData: _tokenPending.imgData, img: _tokenPending.img,
-          stroke: '#fff', strokeWidth: 2, dash: false, name: ''
+          stroke: '#fff', strokeWidth: 2, dash: false, name: '', layer: 'painting'
         };
         pushUndoMeta();
         shapes.push(sh);
@@ -505,6 +530,18 @@ canvas.addEventListener('mousemove', (e) => {
       x2: wx / CELL_SIZE, y2: wy / CELL_SIZE
     };
     render();
+  } else if (_dragMode === 'marquee') {
+    const sx = _marqueeStart.wx / CELL_SIZE, sy = _marqueeStart.wy / CELL_SIZE;
+    const cx = wx / CELL_SIZE, cy = wy / CELL_SIZE;
+    _marquee = { x: Math.min(sx, cx), y: Math.min(sy, cy), w: Math.abs(cx - sx), h: Math.abs(cy - sy), shift: _marqueeStart.shift };
+    render();
+  } else if (_dragMode === 'cone-draw') {
+    const ox = _coneStart.wx, oy = _coneStart.wy;
+    const dx = wx - ox, dy = wy - oy;
+    const len = Math.max(0.5, Math.hypot(dx, dy) / CELL_SIZE);
+    const angle = Math.atan2(dy, dx);
+    _conePreview = { x: ox / CELL_SIZE, y: oy / CELL_SIZE, angle, length: len, spread: brush.spread };
+    render();
   } else if (_dragMode === 'measure-draw') {
     _measure.x2 = wx / CELL_SIZE;
     _measure.y2 = wy / CELL_SIZE;
@@ -548,21 +585,42 @@ canvas.addEventListener('mouseup', () => {
   if (_dragMode === 'wall-drag' || _dragMode === 'fog') endBatch();
   _bgDragMode = null;
 
+  // 画笔：矩形/圆形提交（采用画笔样式，归绘画层）
   if (_dragMode === 'rect-draw' && _rectPreview && (_rectPreview.w > 0.15 || _rectPreview.h > 0.15)) {
+    const type = (brush.shape === 'circle') ? 'circle' : 'rect';
     const sh = {
-      id: 'sh' + (_shapeSeq++), type: 'rect',
+      id: 'sh' + (_shapeSeq++), type,
       x: _rectPreview.x, y: _rectPreview.y,
       w: Math.max(_rectPreview.w, 0.2), h: Math.max(_rectPreview.h, 0.2),
-      fill: '#e94560', fillAlpha: 0.4,
-      stroke: '#ffffff', strokeWidth: 2, dash: false, name: ''
+      fill: brush.fill, fillAlpha: brush.fillAlpha,
+      stroke: brush.stroke, strokeWidth: brush.strokeWidth, dash: brush.dash, name: '',
+      layer: 'painting'
     };
     pushUndoMeta();
     shapes.push(sh);
-    selectedShape = sh.id; selectedLine = null; selectedCell = null;
-    showToast('▭ 已创建区域，可在"选择"工具下拖动/缩放，右键或双击改属性');
+    selectedShape = sh.id; selectedLine = null; selectedCell = null; selectedToken = null;
+    showToast(type === 'circle' ? '⭕ 已创建圆形区域，可在"选择"工具下拖动/缩放，右键或双击改属性' : '▭ 已创建区域，可在"选择"工具下拖动/缩放，右键或双击改属性');
   }
   _rectPreview = null;
 
+  // 画笔：锥形提交
+  if (_dragMode === 'cone-draw' && _conePreview) {
+    const sh = {
+      id: 'sh' + (_shapeSeq++), type: 'cone',
+      x: _conePreview.x, y: _conePreview.y,
+      length: Math.max(0.5, _conePreview.length), spread: Math.max(0.1, _conePreview.spread || brush.spread), angle: _conePreview.angle || 0,
+      fill: brush.fill, fillAlpha: brush.fillAlpha,
+      stroke: brush.stroke, strokeWidth: brush.strokeWidth, dash: brush.dash, name: '',
+      layer: 'painting'
+    };
+    pushUndoMeta();
+    shapes.push(sh);
+    selectedShape = sh.id; selectedLine = null; selectedCell = null; selectedToken = null;
+    showToast('📐 已创建攻击锥，可在"选择"工具下点选，右键改角度/长度/颜色');
+  }
+  _conePreview = null;
+
+  // 画笔：线段提交（归线段层）
   if (_dragMode === 'line-draw' && _linePreview) {
     const dx = _linePreview.x2 - _linePreview.x1, dy = _linePreview.y2 - _linePreview.y1;
     if (Math.hypot(dx, dy) > 0.1) {
@@ -570,15 +628,40 @@ canvas.addEventListener('mouseup', () => {
         id: 'ln' + (_lineSeq++),
         x1: _linePreview.x1, y1: _linePreview.y1,
         x2: _linePreview.x2, y2: _linePreview.y2,
-        color: '#000000', width: 3, dash: false, name: ''
+        color: brush.lineColor, width: brush.lineWidth, dash: brush.dash, name: '',
+        layer: 'line'
       };
       pushUndoMeta();
       freeLines.push(ln);
-      selectedLine = ln.id; selectedShape = null; selectedCell = null;
+      selectedLine = ln.id; selectedShape = null; selectedCell = null; selectedToken = null;
       showToast('📏 已创建线段，右键改颜色/线宽/虚线');
     }
   }
   _linePreview = null;
+
+  // 框选结算：拖动=框选；点击=选中底图或取消选中
+  if (_dragMode === 'marquee') {
+    const moved = _marquee && (_marquee.w > 0.15 || _marquee.h > 0.15);
+    if (!moved) {
+      if (!_marqueeStart.shift) {
+        if (_marqueeStart.overBg) { selectedBackground = true; selectedToken = null; }
+        else clearSelection();
+      }
+    } else {
+      const ids = tokens.filter(t => tokenRectOverlap(t, _marquee)).map(t => t.id);
+      if (_marqueeStart.shift) {
+        ids.forEach(id => selectedTokens.add(id));
+        if (ids.length) selectedToken = ids[ids.length - 1];
+        selectedBackground = false;
+      } else {
+        clearSelection();
+        selectedTokens = new Set(ids);
+        selectedToken = ids.length ? ids[ids.length - 1] : null;
+        if (selectedToken) selectedTokens.add(selectedToken);
+      }
+    }
+    _marquee = null; _marqueeStart = null;
+  }
 
   isDragging = false;
   _dragMode = null;
@@ -586,6 +669,7 @@ canvas.addEventListener('mouseup', () => {
   _selDragOff = new Map();
   _wallDragLast = null;
   _eraseDragLast = new Set();
+  _coneStart = null;
   render();
   updateInfo();
 });
@@ -597,6 +681,8 @@ canvas.addEventListener('mouseleave', () => {
   _selDragOff = new Map();
   _rectPreview = null;
   _linePreview = null;
+  _conePreview = null; _coneStart = null;
+  _marquee = null; _marqueeStart = null;
   _wallDragLast = null;
   _eraseDragLast = new Set();
   render();
@@ -640,6 +726,7 @@ canvas.addEventListener('touchstart', (e) => {
         status: _unitPending.status || [],
         imgData: _unitPending.imgData || '', img: _unitPending.img || null,
         sightRadius: _unitPending.sightRadius, visionSource: _unitPending.visionSource,
+        layer: _unitPending.layer || 'creature',
         ownerId: ''
       };
       normalizeToken(t);
@@ -661,7 +748,7 @@ canvas.addEventListener('touchstart', (e) => {
         x: c.q - _tokenPending.w / 2, y: c.r - _tokenPending.h / 2,
         w: _tokenPending.w, h: _tokenPending.h,
         imgData: _tokenPending.imgData, img: _tokenPending.img,
-        stroke: '#fff', strokeWidth: 2, dash: false, name: ''
+        stroke: '#fff', strokeWidth: 2, dash: false, name: '', layer: 'painting'
       };
       pushUndoMeta();
       shapes.push(sh);

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>通用战斗地图生成器 v0.96</title>
+<title>通用战斗地图生成器 v0.97</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -228,7 +228,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 <div id="app">
   <div id="toolbar">
     <button id="toolbar-toggle" class="toolbar-toggle" title="折叠左栏（最大化地图）/ 展开工具栏" aria-label="折叠展开工具栏">≪</button>
-    <h2>⚔️ 战斗地图 <span class="ver">v0.96</span></h2>
+    <h2>⚔️ 战斗地图 <span class="ver">v0.97</span></h2>
 
     <div id="role-switch">
       <button id="role-dm" class="role-btn dm-role active" title="DM 视图：显示全部工具（含 DM 层/战雾/先攻条等隐藏信息）">🎲 DM 视图</button>
@@ -264,9 +264,31 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
           <button class="tool-btn" data-tool="door" title="放门 (D) 可拖拽"><span class="icon">🚪</span><span class="label">门(D)</span></button>
           <button class="tool-btn" data-tool="label" title="标文字 (L)"><span class="icon">🏷️</span><span class="label">标签(L)</span></button>
           <button class="tool-btn" data-tool="erase" title="擦除 (E)"><span class="icon">🧹</span><span class="label">擦除(E)</span></button>
-          <button class="tool-btn" data-tool="rect" title="画矩形区域/灵气 (R) 拖拽绘制，半透明"><span class="icon">▭</span><span class="label">区域(R)</span></button>
-          <button class="tool-btn" data-tool="line" title="画自由线段 (G) 任意角度墙/视线阻挡"><span class="icon">📏</span><span class="label">线段(G)</span></button>
+          <button class="tool-btn" data-tool="brush" title="画笔：区域/线段/圆形/锥形 (R=矩形 G=线段 O=圆形 C=锥形)"><span class="icon">🖌️</span><span class="label">画笔</span></button>
           <button class="tool-btn" data-tool="token" title="插入图片 token (T)"><span class="icon">🖼️</span><span class="label">图片(T)</span></button>
+        </div>
+        <div id="brush-options" style="display:none;margin:4px 0 0 2px;font-size:11px;">
+          <div style="display:flex;gap:4px;margin-bottom:4px;">
+            <button class="brush-shape-btn" data-shape="rect" style="flex:1;background:#3a3a5e;color:#fff;border:1px solid #0f3460;border-radius:4px;padding:3px 0;cursor:pointer;">▭ 矩形</button>
+            <button class="brush-shape-btn" data-shape="circle" style="flex:1;background:#3a3a5e;color:#fff;border:1px solid #0f3460;border-radius:4px;padding:3px 0;cursor:pointer;">⭕ 圆形</button>
+            <button class="brush-shape-btn" data-shape="cone" style="flex:1;background:#3a3a5e;color:#fff;border:1px solid #0f3460;border-radius:4px;padding:3px 0;cursor:pointer;">📐 锥形</button>
+            <button class="brush-shape-btn" data-shape="line" style="flex:1;background:#3a3a5e;color:#fff;border:1px solid #0f3460;border-radius:4px;padding:3px 0;cursor:pointer;">📏 线段</button>
+          </div>
+          <div class="brush-style-group" id="brush-fill-group" style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;">
+            <span>🖍️ 填充</span><input type="color" id="brush-fill" value="#e94560" style="width:30px;height:22px;padding:0;border:none;background:none;cursor:pointer;">
+            <span>透明度 <span id="brush-alpha-val">40%</span></span><input type="range" id="brush-alpha" min="0" max="100" value="40" style="width:60px;">
+            <span>描边</span><input type="color" id="brush-stroke" value="#ffffff" style="width:30px;height:22px;padding:0;border:none;background:none;cursor:pointer;">
+            <span>线宽 <span id="brush-sw-val">2px</span></span><input type="range" id="brush-sw" min="0" max="12" value="2" style="width:60px;">
+            <label style="display:inline-flex;align-items:center;gap:2px;"><input type="checkbox" id="brush-dash" checked style="width:auto;">虚线</label>
+          </div>
+          <div class="brush-style-group" id="brush-line-group" style="display:none;gap:4px;flex-wrap:wrap;align-items:center;margin-top:2px;">
+            <span>📏 线段</span><span>颜色</span><input type="color" id="brush-line-color" value="#000000" style="width:30px;height:22px;padding:0;border:none;background:none;cursor:pointer;">
+            <span>线宽 <span id="brush-lw-val">3px</span></span><input type="range" id="brush-lw" min="1" max="12" value="3" style="width:60px;">
+            <label style="display:inline-flex;align-items:center;gap:2px;"><input type="checkbox" id="brush-dash-line" checked style="width:auto;">虚线</label>
+          </div>
+          <div class="brush-style-group" id="brush-cone-group" style="display:none;gap:4px;flex-wrap:wrap;align-items:center;margin-top:2px;">
+            <span>📐 锥形角 <span id="brush-spread-val">29°</span></span><input type="range" id="brush-spread" min="5" max="90" value="29" style="width:80px;">
+          </div>
         </div>
         <div class="tool-group-title dm">🎲 DM 专属</div>
         <div class="tool-group">
@@ -316,6 +338,10 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
         <div style="display:flex;gap:4px;margin-top:2px;">
           <button id="btn-bg-align" style="flex:1;padding:8px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;" title="在地图上点 3 个格线交点让网格贴合底图（需先导入底图）">🎯 网格对齐</button>
         </div>
+        <div style="display:flex;gap:4px;margin-top:2px;">
+          <button id="btn-bg-lock" style="flex:1;padding:8px;background:#4a5a3a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;" title="锁定底图防止误拖（解锁后选择底图可拖动移动）">🔒 底图锁定</button>
+        </div>
+        <div class="page-hint">⚠️ 底图默认锁定防误拖：点「🔒 底图锁定」解锁后，才能在「选择」工具下点选并拖动底图。</div>
         <div class="page-hint">网格对不上？先「导入底图」，再点「网格对齐」：依次点图中 3 个格线交点（第 2/3 点可调「点间格数」）。</div>
         <div class="page-title" style="margin-top:8px;">📐 模板：一键生成</div>
         <div style="display:flex;gap:4px;flex-wrap:wrap;">
@@ -393,6 +419,8 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
         <label style="font-size:12px;display:block;margin:4px 0;padding:5px 8px;background:#1a1a2e;border:1px solid #0f3460;border-radius:6px;cursor:pointer;">
           <input type="checkbox" id="chk-art-style" checked style="width:auto;"> ✏️ 手绘质感
         </label>
+        <div class="page-title" style="margin-top:10px;">🗂️ 图层 <span style="font-weight:normal;font-size:10px;color:#888;">逐层显隐 / 锁定（锁=禁止误拖）</span></div>
+        <div id="layer-list"></div>
       </div>
 
     </div>
@@ -400,7 +428,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
     <div id="toolbar-footer">
       <button id="toolbar-menu-btn" title="☰ 菜单：保存/加载/导出/分享/云端等">☰ 菜单</button>
       <div class="toolbar-footer-text" style="font-size:10px;color:#555;text-align:center;padding-top:6px;">
-        通用跑团 · 战斗地图 v0.96<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>云端地图 · 多场景 · DM/玩家视图
+        通用跑团 · 战斗地图 v0.97<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>云端地图 · 多场景 · DM/玩家视图
       </div>
     </div>
   </div>
@@ -568,9 +596,9 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 <!-- Shape Properties Modal -->
 <div class="modal-overlay" id="shape-modal">
   <div class="modal-box">
-    <h3>▭ 区域/图片属性</h3>
+    <h3>▭ 画笔图形属性</h3>
     <label>名称（可选）</label>
-    <input type="text" id="shape-name" placeholder="例：黑暗灵气、火墙区域">
+    <input type="text" id="shape-name" placeholder="例：黑暗灵气、火墙区域、攻击锥">
     <div id="shape-rect-fields">
       <label>填充颜色</label>
       <input type="color" id="shape-fill" value="#e94560" style="width:60px;height:30px;padding:0;border:none;background:none;cursor:pointer;">
@@ -582,11 +610,20 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
       <input type="range" id="shape-sw" min="0" max="10" value="2">
       <label style="margin-top:4px;"><input type="checkbox" id="shape-dash" style="width:auto;"> 虚线边框</label>
     </div>
-    <label style="margin-top:6px;">尺寸 (格)</label>
-    <div style="display:flex;gap:6px;">
-      <input type="number" id="shape-w" min="0.2" step="0.1" style="flex:1;">
-      <span style="line-height:28px;color:#888;">×</span>
-      <input type="number" id="shape-h" min="0.2" step="0.1" style="flex:1;">
+    <div id="shape-cone-fields" style="display:none;">
+      <div style="display:flex;gap:6px;">
+        <div style="flex:1;"><label>方向角度(°) <span id="shape-angle-val">0°</span></label><input type="range" id="shape-angle" min="0" max="360" value="0"></div>
+        <div style="flex:1;"><label>长度(格)</label><input type="number" id="shape-length" min="0.5" step="0.5" value="3"></div>
+        <div style="flex:1;"><label>张开角(°) <span id="shape-spread-val">29°</span></label><input type="range" id="shape-spread" min="5" max="90" value="29"></div>
+      </div>
+    </div>
+    <div id="shape-wh-fields">
+      <label style="margin-top:6px;">尺寸 (格)</label>
+      <div style="display:flex;gap:6px;">
+        <input type="number" id="shape-w" min="0.2" step="0.1" style="flex:1;">
+        <span style="line-height:28px;color:#888;">×</span>
+        <input type="number" id="shape-h" min="0.2" step="0.1" style="flex:1;">
+      </div>
     </div>
     <div class="btn-row">
       <button id="shape-delete" style="background:#a33;color:#fff;margin-right:auto;">🗑️ 删除</button>
@@ -682,6 +719,12 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
         <label for="unit-vision" style="margin:0;">作为玩家视野源</label>
       </div>
     </div>
+    <label style="margin-top:4px;">图层</label>
+    <select id="unit-layer" style="width:100%;padding:4px 6px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:12px;margin-bottom:4px;">
+      <option value="creature">🧝 生物层</option>
+      <option value="mount">🐎 骑乘层（垫在生物下方）</option>
+      <option value="item">🎒 道具层</option>
+    </select>
     <label style="margin-top:4px;">头像图片（可选，圆形裁剪）</label>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;">
       <img id="unit-img-preview" alt="预览" style="width:40px;height:40px;border-radius:50%;object-fit:cover;background:#1a1a2e;border:1px solid #0f3460;display:none;">
