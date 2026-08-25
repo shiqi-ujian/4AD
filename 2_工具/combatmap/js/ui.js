@@ -504,6 +504,7 @@ function renderSceneList() {
     name.textContent = s.name || '未命名';
     name.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + (s.id === activeSceneId ? '#fff' : '#ccc') + ';';
     name.title = (s.data && Object.keys(s.data.combatData || {}).length ? Object.keys(s.data.combatData).length : 0) + ' 格';
+    row.appendChild(name);
     row.addEventListener('click', () => switchScene(s.id));
     const bits = [
       ['✏️', () => { const n = prompt('重命名场景', s.name); if (n) renameScene(s.id, n); }],

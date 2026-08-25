@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>通用战斗地图生成器 v0.92</title>
+<title>通用战斗地图生成器 v0.93</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -164,7 +164,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 <body>
 <div id="app">
   <div id="toolbar">
-    <h2>⚔️ 战斗地图 <span class="ver">v0.92</span></h2>
+    <h2>⚔️ 战斗地图 <span class="ver">v0.93</span></h2>
 
     <div id="role-switch">
       <button id="role-dm" class="role-btn dm-role active" title="DM 视图：显示全部工具（含 DM 层/战雾/先攻条等隐藏信息）">🎲 DM 视图</button>
@@ -324,7 +324,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
     </div>
 
     <div style="margin-top:auto;font-size:10px;color:#555;text-align:center;padding-top:6px;">
-      通用跑团 · 战斗地图 v0.92<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>云端地图 · 多场景 · DM/玩家视图
+      通用跑团 · 战斗地图 v0.93<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>云端地图 · 多场景 · DM/玩家视图
     </div>
   </div>
 
@@ -829,7 +829,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 <script>
 //  Configuration
 // ============================================================
-const COMBATMAP_VERSION = 'v0.92';
+const COMBATMAP_VERSION = 'v0.93';
 
 // 云端持久化后端（combatmap 会 fetch 这里的 /api/map/<id> 保存/加载整张地图）。
 // 默认走 chmweb 主站后端；可通过 URL `?apibase=` 覆盖（本地调试）。
@@ -4279,6 +4279,7 @@ function renderSceneList() {
     name.textContent = s.name || '未命名';
     name.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + (s.id === activeSceneId ? '#fff' : '#ccc') + ';';
     name.title = (s.data && Object.keys(s.data.combatData || {}).length ? Object.keys(s.data.combatData).length : 0) + ' 格';
+    row.appendChild(name);
     row.addEventListener('click', () => switchScene(s.id));
     const bits = [
       ['✏️', () => { const n = prompt('重命名场景', s.name); if (n) renameScene(s.id, n); }],
