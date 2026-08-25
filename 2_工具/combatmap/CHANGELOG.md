@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## [v0.92] — 开发中 (Unreleased)
+
+### 新增（☁️ 云端地图持久化，像枭熊 Owlbear：回访自动恢复）
+- **云端保存/加载**：每张地图有唯一 `?mapid=` 放进 URL；**回访同一 URL 自动从服务端加载**整张地图。
+  - 新打开无 mapid → 自动生成并写进 URL。
+  - **改动后防抖(2.5s)自动保存**到服务器 + 「☁️ 保存到云端」按钮兜底。
+  - 「🆕 新建云端地图」→ 生成新 id + 清空地图（旧地图仍在服务器）。
+  - 数据面板显示云端状态（未启用/载入中/新地图/已保存 xx:xx/保存失败）。
+- **后端**(chmweb 主站 chm-web,新增 `src/server.js`):
+  - `GET /api/map/<id>`、`POST /api/map/<id>`（每图一个 JSON 文件存于 `data/maps/`）。
+  - CORS 允许 `map.chmweb.cn` 跨子域；POST 免除 CSRF（能力式随机 id，无账号）。
+
+### 其他
+- 版本号 v0.92：COMBATMAP_VERSION / 标题 / 页脚 / 日志同步更新。
+
 ## [v0.91] — 开发中 (Unreleased)
 
 ### 修复 / 体验（用户反馈）

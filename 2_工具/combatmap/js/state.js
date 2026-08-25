@@ -81,6 +81,7 @@ function updateUndoButtons() {
 }
 
 function pushUndo(key) {
+  if (typeof markMapDirty === 'function') markMapDirty();
   const entry = { key, before: snapshotCell(key) };
   if (undoBatch !== null) {
     undoBatch.push(entry);
@@ -160,6 +161,7 @@ function restoreMeta(before) {
 }
 
 function pushUndoMeta() {
+  if (typeof markMapDirty === 'function') markMapDirty();
   const entry = { key: '__meta__', before: snapshotMeta() };
   if (undoBatch !== null) {
     undoBatch.push(entry);

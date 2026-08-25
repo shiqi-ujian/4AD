@@ -44,6 +44,7 @@ function init() {
   if (typeof initCombatShareUI === 'function') initCombatShareUI();
   if (typeof ensureScenes === 'function') ensureScenes();
   if (typeof renderSceneList === 'function') renderSceneList();
+  if (typeof cloudInit === 'function') cloudInit();  // 云端持久化：URL mapid → 加载已保存地图，改动自动保存
 }
 
 window.addEventListener('resize', resizeCanvas);
