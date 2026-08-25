@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>通用战斗地图生成器 v0.91</title>
+<title>通用战斗地图生成器 v0.92</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -164,7 +164,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 <body>
 <div id="app">
   <div id="toolbar">
-    <h2>⚔️ 战斗地图 <span class="ver">v0.91</span></h2>
+    <h2>⚔️ 战斗地图 <span class="ver">v0.92</span></h2>
 
     <div id="role-switch">
       <button id="role-dm" class="role-btn dm-role active" title="DM 视图：显示全部工具（含 DM 层/战雾/先攻条等隐藏信息）">🎲 DM 视图</button>
@@ -259,6 +259,12 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
           <button id="btn-scene-new" style="flex:1;padding:5px;background:#7a4a9e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="新建一张空白地图">➕ 新建场景</button>
         </div>
         <div id="scene-list" style="max-height:180px;overflow-y:auto;margin-bottom:6px;"></div>
+        <div class="page-title">☁️ 云端地图 <span style="font-weight:normal;font-size:10px;color:#888;">URL 回访自动恢复</span></div>
+        <div id="cloud-status" style="font-size:11px;color:#aaa;margin-bottom:2px;">☁️ 未启用</div>
+        <div style="display:flex;gap:4px;margin-bottom:4px;">
+          <button id="btn-cloud-save" style="flex:1;padding:5px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="把整张地图保存到服务器，回访本 URL 自动恢复">☁️ 保存到云端</button>
+          <button id="btn-cloud-new" style="flex:1;padding:5px;background:#6b4f8f;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;" title="新建一张云端地图（生成新 id + URL），旧地图仍在服务器">🆕 新建云端地图</button>
+        </div>
         <div class="page-title">💾 保存 / 分享</div>
         <div style="display:flex;gap:4px;">
           <button id="btn-save" style="flex:1;padding:4px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;">💾 保存</button>
@@ -318,7 +324,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
     </div>
 
     <div style="margin-top:auto;font-size:10px;color:#555;text-align:center;padding-top:6px;">
-      通用跑团 · 战斗地图 v0.91<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>单位库 · Shift 连放 · DM/玩家视图
+      通用跑团 · 战斗地图 v0.92<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>云端地图 · 多场景 · DM/玩家视图
     </div>
   </div>
 
@@ -819,10 +825,15 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 
 
 
+
 <script>
 //  Configuration
 // ============================================================
-const COMBATMAP_VERSION = 'v0.91';
+const COMBATMAP_VERSION = 'v0.92';
+
+// 云端持久化后端（combatmap 会 fetch 这里的 /api/map/<id> 保存/加载整张地图）。
+// 默认走 chmweb 主站后端；可通过 URL `?apibase=` 覆盖（本地调试）。
+const MAP_API_BASE = 'https://chmweb.cn';
 
 // 单位类型 → 环颜色（画布 token 渲染 / 单位库角标统一使用）
 const TOKEN_KIND_COLORS = {
@@ -998,6 +1009,7 @@ function updateUndoButtons() {
 }
 
 function pushUndo(key) {
+  if (typeof markMapDirty === 'function') markMapDirty();
   const entry = { key, before: snapshotCell(key) };
   if (undoBatch !== null) {
     undoBatch.push(entry);
@@ -1077,6 +1089,7 @@ function restoreMeta(before) {
 }
 
 function pushUndoMeta() {
+  if (typeof markMapDirty === 'function') markMapDirty();
   const entry = { key: '__meta__', before: snapshotMeta() };
   if (undoBatch !== null) {
     undoBatch.push(entry);
@@ -4245,6 +4258,8 @@ document.getElementById('btn-export-legend').addEventListener('click', () => exp
 document.getElementById('btn-export-owlbear').addEventListener('click', () => exportOwlbearScene());
 document.getElementById('btn-save').addEventListener('click', () => saveJSON());
 document.getElementById('btn-load').addEventListener('click', () => loadJSON());
+document.getElementById('btn-cloud-save').addEventListener('click', () => { if (typeof manualCloudSave === 'function') manualCloudSave(); });
+document.getElementById('btn-cloud-new').addEventListener('click', () => { if (typeof newCloudMap === 'function') newCloudMap(); });
 document.getElementById('btn-clear').addEventListener('click', clearAll);
 document.getElementById('btn-undo').addEventListener('click', undo);
 document.getElementById('btn-redo').addEventListener('click', redo);
@@ -7705,6 +7720,106 @@ function loadJSON() {
 
 // ============================================================
 
+// ============================================================
+//  Cloud persistence (☁️ 云端地图，像枭熊 Owlbear)
+//  机制：地图唯一 id 放进 URL `?mapid=<id>`；回访同一 URL 自动从服务端加载；
+//        改动后防抖自动保存到服务端 + 手动「☁️ 保存」按钮兜底。
+//  后端：chmweb 主站 /api/map/<id>（GET 读 / POST 写，能力式随机 id，无登录）。
+// ============================================================
+const Cloud = { mapId: null, dirty: false, timer: null, loadedOnce: false };
+
+function cloudApiBase() {
+  // 允许 ?apibase= 覆盖（本地调试 / 自定义后端）；默认 chmweb 主站
+  const m = (window.location.search || '').match(/[?&]apibase=([^&]+)/);
+  if (m) return decodeURIComponent(m[1]);
+  return typeof MAP_API_BASE !== 'undefined' ? MAP_API_BASE : '';
+}
+function cloudActive() {
+  return !!cloudApiBase() && /^https?:/i.test(window.location.protocol || '');
+}
+function cloudMakeId() {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let s = ''; for (let i = 0; i < 12; i++) s += chars[Math.floor(Math.random() * chars.length)];
+  return 'm' + s;
+}
+function cloudStatus(text, color) {
+  const el = document.getElementById('cloud-status');
+  if (el) { el.textContent = text || ''; el.style.color = color || '#aaa'; }
+}
+function cloudSetUrlMapId(id) {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set('mapid', id);
+    window.history.replaceState({}, '', url.toString());
+  } catch (e) { /* file:// 等场景忽略 */ }
+}
+
+function cloudSaveNow() {
+  if (!cloudActive() || !Cloud.mapId) return Promise.resolve(true);
+  Cloud.dirty = false;
+  cloudStatus('☁️ 保存中…', '#aaa');
+  const payload = buildCombatPayload();
+  return fetch(cloudApiBase() + '/api/map/' + encodeURIComponent(Cloud.mapId), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).then(r => r.json().then(j => ({ ok: r.ok && !!(j && j.ok) })).catch(() => ({ ok: false })))
+    .then(({ ok }) => {
+      if (ok) cloudStatus('☁️ 已保存 ' + new Date().toLocaleTimeString(), '#4caf50');
+      else { cloudStatus('☁️ 保存失败', '#e94560'); Cloud.dirty = true; }
+      return ok;
+    })
+    .catch(() => { cloudStatus('☁️ 保存失败（离线?）', '#e94560'); Cloud.dirty = true; return false; });
+}
+function cloudScheduleSave() {
+  if (!cloudActive() || !Cloud.mapId) return;
+  clearTimeout(Cloud.timer);
+  Cloud.timer = setTimeout(() => { if (Cloud.dirty) cloudSaveNow(); }, 2500);
+}
+function markMapDirty() {
+  if (!cloudActive() || !Cloud.mapId) return;
+  Cloud.dirty = true;
+  cloudScheduleSave();
+}
+function cloudInit() {
+  if (!cloudActive()) return;
+  const m = (window.location.search || '').match(/[?&]mapid=([^&]+)/);
+  let id = m ? decodeURIComponent(m[1]) : null;
+  if (!id) { id = cloudMakeId(); cloudSetUrlMapId(id); }
+  Cloud.mapId = id;
+  cloudStatus('☁️ 载入中…', '#aaa');
+  fetch(cloudApiBase() + '/api/map/' + encodeURIComponent(id))
+    .then(r => ({ status: r.status, j: r.status === 200 ? r.json() : Promise.resolve(null) }))
+    .then(async (r) => {
+      const j = r.status === 200 ? await r.j : null;
+      if (j && j.ok && j.data) { applyCombatData(j.data); showToast('☁️ 已从云端载入地图'); cloudStatus('☁️ 已就绪（改动自动保存）', '#4caf50'); }
+      else if (r.status === 404) { cloudStatus('☁️ 新地图（改动自动保存）', '#4caf50'); }  // 服务端还没有这张图
+      else { cloudStatus('☁️ 载入失败', '#e94560'); }
+      Cloud.loadedOnce = true;
+    })
+    .catch(() => { cloudStatus('☁️ 载入失败（离线?）', '#e94560'); Cloud.loadedOnce = true; });
+}
+function manualCloudSave() {
+  if (!cloudActive() || !Cloud.mapId) { showToast('☁️ 云端未启用'); return; }
+  Cloud.dirty = true;
+  cloudSaveNow().then(ok => showToast(ok ? '✅ 已保存到云端' : '⚠️ 保存失败，请检查网络'));
+}
+function newCloudMap() {
+  if (!cloudActive()) { showToast('☁️ 云端未启用'); return; }
+  const id = cloudMakeId();
+  Cloud.mapId = id; Cloud.dirty = false; clearTimeout(Cloud.timer);
+  cloudSetUrlMapId(id);
+  applyCombatData({
+    combatData: {}, dmData: {}, fog: {},
+    initiativeOrder: [], initiativeIndex: 0,
+    shapes: [], freeLines: [], tokens: [], groups: [],
+    backgroundMap: null, viewX: 0, viewY: 0, zoom: 1, visionMode: 'auto'
+  });
+  if (typeof renderSceneList === 'function') renderSceneList();
+  cloudStatus('☁️ 新建 ' + id, '#aaa');
+  showToast('🆕 已新建云端地图 ' + id);
+}
+
 //  Init
 // ============================================================
 function init() {
@@ -7751,6 +7866,7 @@ function init() {
   if (typeof initCombatShareUI === 'function') initCombatShareUI();
   if (typeof ensureScenes === 'function') ensureScenes();
   if (typeof renderSceneList === 'function') renderSceneList();
+  if (typeof cloudInit === 'function') cloudInit();  // 云端持久化：URL mapid → 加载已保存地图，改动自动保存
 }
 
 window.addEventListener('resize', resizeCanvas);

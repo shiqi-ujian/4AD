@@ -1,6 +1,10 @@
 //  Configuration
 // ============================================================
-const COMBATMAP_VERSION = 'v0.91';
+const COMBATMAP_VERSION = 'v0.92';
+
+// 云端持久化后端（combatmap 会 fetch 这里的 /api/map/<id> 保存/加载整张地图）。
+// 默认走 chmweb 主站后端；可通过 URL `?apibase=` 覆盖（本地调试）。
+const MAP_API_BASE = 'https://chmweb.cn';
 
 // 单位类型 → 环颜色（画布 token 渲染 / 单位库角标统一使用）
 const TOKEN_KIND_COLORS = {

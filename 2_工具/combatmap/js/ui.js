@@ -483,6 +483,8 @@ document.getElementById('btn-export-legend').addEventListener('click', () => exp
 document.getElementById('btn-export-owlbear').addEventListener('click', () => exportOwlbearScene());
 document.getElementById('btn-save').addEventListener('click', () => saveJSON());
 document.getElementById('btn-load').addEventListener('click', () => loadJSON());
+document.getElementById('btn-cloud-save').addEventListener('click', () => { if (typeof manualCloudSave === 'function') manualCloudSave(); });
+document.getElementById('btn-cloud-new').addEventListener('click', () => { if (typeof newCloudMap === 'function') newCloudMap(); });
 document.getElementById('btn-clear').addEventListener('click', clearAll);
 document.getElementById('btn-undo').addEventListener('click', undo);
 document.getElementById('btn-redo').addEventListener('click', redo);

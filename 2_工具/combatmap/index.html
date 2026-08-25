@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>通用战斗地图生成器 v0.91</title>
+<title>通用战斗地图生成器 v0.92</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -164,7 +164,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 <body>
 <div id="app">
   <div id="toolbar">
-    <h2>⚔️ 战斗地图 <span class="ver">v0.91</span></h2>
+    <h2>⚔️ 战斗地图 <span class="ver">v0.92</span></h2>
 
     <div id="role-switch">
       <button id="role-dm" class="role-btn dm-role active" title="DM 视图：显示全部工具（含 DM 层/战雾/先攻条等隐藏信息）">🎲 DM 视图</button>
@@ -259,6 +259,12 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
           <button id="btn-scene-new" style="flex:1;padding:5px;background:#7a4a9e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="新建一张空白地图">➕ 新建场景</button>
         </div>
         <div id="scene-list" style="max-height:180px;overflow-y:auto;margin-bottom:6px;"></div>
+        <div class="page-title">☁️ 云端地图 <span style="font-weight:normal;font-size:10px;color:#888;">URL 回访自动恢复</span></div>
+        <div id="cloud-status" style="font-size:11px;color:#aaa;margin-bottom:2px;">☁️ 未启用</div>
+        <div style="display:flex;gap:4px;margin-bottom:4px;">
+          <button id="btn-cloud-save" style="flex:1;padding:5px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="把整张地图保存到服务器，回访本 URL 自动恢复">☁️ 保存到云端</button>
+          <button id="btn-cloud-new" style="flex:1;padding:5px;background:#6b4f8f;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;" title="新建一张云端地图（生成新 id + URL），旧地图仍在服务器">🆕 新建云端地图</button>
+        </div>
         <div class="page-title">💾 保存 / 分享</div>
         <div style="display:flex;gap:4px;">
           <button id="btn-save" style="flex:1;padding:4px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;">💾 保存</button>
@@ -318,7 +324,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
     </div>
 
     <div style="margin-top:auto;font-size:10px;color:#555;text-align:center;padding-top:6px;">
-      通用跑团 · 战斗地图 v0.91<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>单位库 · Shift 连放 · DM/玩家视图
+      通用跑团 · 战斗地图 v0.92<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>云端地图 · 多场景 · DM/玩家视图
     </div>
   </div>
 
@@ -818,6 +824,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 <script src="js/share.js"></script>
 <script src="js/online.js"></script>
 <script src="js/export.js"></script>
+<script src="js/cloud.js"></script>
 <script src="js/init.js"></script>
 </body>
 </html>
