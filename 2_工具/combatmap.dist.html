@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>通用战斗地图生成器 v0.90</title>
+<title>通用战斗地图生成器 v0.91</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -164,7 +164,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 <body>
 <div id="app">
   <div id="toolbar">
-    <h2>⚔️ 战斗地图 <span class="ver">v0.90</span></h2>
+    <h2>⚔️ 战斗地图 <span class="ver">v0.91</span></h2>
 
     <div id="role-switch">
       <button id="role-dm" class="role-btn dm-role active" title="DM 视图：显示全部工具（含 DM 层/战雾/先攻条等隐藏信息）">🎲 DM 视图</button>
@@ -318,7 +318,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
     </div>
 
     <div style="margin-top:auto;font-size:10px;color:#555;text-align:center;padding-top:6px;">
-      通用跑团 · 战斗地图 v0.90<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>单位库 · Shift 连放 · DM/玩家视图
+      通用跑团 · 战斗地图 v0.91<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>单位库 · Shift 连放 · DM/玩家视图
     </div>
   </div>
 
@@ -822,7 +822,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 <script>
 //  Configuration
 // ============================================================
-const COMBATMAP_VERSION = 'v0.90';
+const COMBATMAP_VERSION = 'v0.91';
 
 // 单位类型 → 环颜色（画布 token 渲染 / 单位库角标统一使用）
 const TOKEN_KIND_COLORS = {
@@ -1748,34 +1748,66 @@ function drawCombatCellBase(g, q, r, hCell) {
   if (artStyle === 'handdrawn' && hCell.terrain && getTerrain(hCell.terrain)) {
     drawCombatTexture(g, q, r, hCell.terrain, getTerrain(hCell.terrain).color);
   }
-  if (showGrid) {
-    if (artStyle === 'handdrawn') {
-      g.strokeStyle = 'rgba(40,28,18,0.40)';
-      g.lineWidth = 1;
-      g.beginPath();
-      const r2 = (salt) => cellRng(salt);
-      for (let i = -1; i <= 1; i += 2) {
-        const x = i > 0 ? p.x + half : p.x - half;
-        const y0 = p.y - half + (r2((q * 3 + r * 7 + i * 11) | 0) - 0.5) * 0.8;
-        const y1 = p.y + half + (r2((q * 5 + r * 9 + i * 13) | 0) - 0.5) * 0.8;
-        g.moveTo(x, y0);
-        g.lineTo(x, y1);
-      }
-      for (let i = -1; i <= 1; i += 2) {
-        const y = i > 0 ? p.y + half : p.y - half;
-        const x0 = p.x - half + (r2((q * 17 + r * 19 + i * 23) | 0) - 0.5) * 0.8;
-        const x1 = p.x + half + (r2((q * 29 + r * 31 + i * 37) | 0) - 0.5) * 0.8;
-        g.moveTo(x0, y);
-        g.lineTo(x1, y);
-      }
-      g.stroke();
-    } else {
-      g.strokeStyle = 'rgba(255,255,255,0.10)';
-      g.lineWidth = 0.5;
-      g.strokeRect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
-    }
-  }
+  // 格线改为单独叠加层 drawGridOverlay()（盖在底图之上），此处不再逐格画
 }
+
+// 格线叠加层：盖在地形/底图之上，清晰可见（不透明度比原来高很多）
+function drawGridOverlay() {
+  if (!showGrid) return;
+  const W = canvas.width, H = canvas.height;
+  const margin = CELL_SIZE * 2;
+  const topLeft = pixelToCell((-viewX - margin) / zoom, (-viewY - margin) / zoom);
+  const botRight = pixelToCell((W - viewX + margin) / zoom, (H - viewY + margin) / zoom);
+  const qMin = Math.floor(topLeft.q) - 1, qMax = Math.ceil(botRight.q) + 1;
+  const rMin = Math.floor(topLeft.r) - 1, rMax = Math.ceil(botRight.r) + 1;
+  const half = CELL_SIZE / 2;
+  ctx.save();
+  if (artStyle === 'handdrawn') {
+    // 手绘：保留每格有机线条，明显加强清晰度
+    ctx.strokeStyle = 'rgba(46,32,16,0.82)';
+    ctx.lineWidth = 1.4 / zoom;
+    ctx.beginPath();
+    for (let q = qMin; q <= qMax; q++) {
+      for (let r = rMin; r <= rMax; r++) {
+        const p = cellToPixel(q, r);
+        const r2 = (salt) => cellRng(salt);
+        for (let i = -1; i <= 1; i += 2) {
+          const x = i > 0 ? p.x + half : p.x - half;
+          const y0 = p.y - half + (r2((q * 3 + r * 7 + i * 11) | 0) - 0.5) * 0.8;
+          const y1 = p.y + half + (r2((q * 5 + r * 9 + i * 13) | 0) - 0.5) * 0.8;
+          ctx.moveTo(x, y0); ctx.lineTo(x, y1);
+        }
+        for (let i = -1; i <= 1; i += 2) {
+          const y = i > 0 ? p.y + half : p.y - half;
+          const x0 = p.x - half + (r2((q * 17 + r * 19 + i * 23) | 0) - 0.5) * 0.8;
+          const x1 = p.x + half + (r2((q * 29 + r * 31 + i * 37) | 0) - 0.5) * 0.8;
+          ctx.moveTo(x0, y); ctx.lineTo(x1, y);
+        }
+      }
+    }
+    ctx.stroke();
+  } else {
+    // 经典：连续格线（cell 边界在 (q+0.5)*48），深色底 + 白色亮线，任何底色都清晰
+    const x0 = qMin * CELL_SIZE - half, x1 = qMax * CELL_SIZE + half;
+    const y0 = rMin * CELL_SIZE - half, y1 = rMax * CELL_SIZE + half;
+    // 深色底
+    ctx.strokeStyle = 'rgba(28,22,18,0.85)';
+    ctx.lineWidth = 1.6 / zoom;
+    ctx.beginPath();
+    for (let x = x0; x <= x1; x += CELL_SIZE) { ctx.moveTo(x, y0); ctx.lineTo(x, y1); }
+    for (let y = y0; y <= y1; y += CELL_SIZE) { ctx.moveTo(x0, y); ctx.lineTo(x1, y); }
+    ctx.stroke();
+    // 白色亮线
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.lineWidth = 0.9 / zoom;
+    ctx.beginPath();
+    for (let x = x0; x <= x1; x += CELL_SIZE) { ctx.moveTo(x, y0); ctx.lineTo(x, y1); }
+    for (let y = y0; y <= y1; y += CELL_SIZE) { ctx.moveTo(x0, y); ctx.lineTo(x1, y); }
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function render() {
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0, 0, W, H);
@@ -1801,6 +1833,9 @@ function render() {
 
   // Pass 2: 底图（放在格子与地形之上，但保持半透明可调；贴合导入地图做网格对齐）
   drawBackgroundMap();
+
+  // Pass 2.5: 格线叠加层（盖在底图/地形之上，清晰可见）
+  drawGridOverlay();
 
   // Pass 3: Wall boundaries (edges between cells)
   for (let q = qMin; q <= qMax; q++) {
@@ -2401,6 +2436,16 @@ function drawBackgroundMap() {
     ctx.lineWidth = 1;
     ctx.strokeRect(bm.x * CELL_SIZE, bm.y * CELL_SIZE, wPx, hPx);
   }
+  // 非对齐模式下：淡淡的虚线外框，提示底图可在选择工具下直接拖动移动
+  if (!_bgAlignRefs) {
+    ctx.globalAlpha = 0.4;
+    ctx.strokeStyle = '#9ad';
+    ctx.lineWidth = 1 / zoom;
+    ctx.setLineDash([5 / zoom, 4 / zoom]);
+    ctx.strokeRect(bm.x * CELL_SIZE, bm.y * CELL_SIZE, wPx, hPx);
+    ctx.setLineDash([]);
+    ctx.globalAlpha = Math.max(0, Math.min(1, bm.opacity ?? 0.85));
+  }
   // 底图对齐模式：绘制底图外框 + 手柄 + 参考点 + 对齐网格预览
   if (_bgAlignRefs) {
     ctx.globalAlpha = 1;
@@ -2859,6 +2904,26 @@ canvas.addEventListener('mousedown', (e) => {
         render(); updateInfo();
         return;
       }
+      // 底图：普通选择工具下，点在底图范围内的空白格上可直接拖动移动（无需进入对齐模式）
+      if (backgroundMap && !_bgAlignRefs) {
+        const bm = backgroundMap;
+        const bx0 = bm.x * CELL_SIZE, by0 = bm.y * CELL_SIZE;
+        const bx1 = (bm.x + bm.cols) * CELL_SIZE, by1 = (bm.y + bm.rows) * CELL_SIZE;
+        if (wx >= bx0 && wx <= bx1 && wy >= by0 && wy <= by1) {
+          const c2p = pixelToCell(wx, wy);
+          if (!getCell(c2p.q, c2p.r).terrain) {  // 空白格（底图穿透可见）才当作底图，避免抢走格子工具
+            selectedCell = null;
+            _bgDragMode = 'bg-move';
+            _dragOffX = wx - bx0; _dragOffY = wy - by0;
+            _dragMode = 'bg-move';
+            dragStartX = wx; dragStartY = wy;
+            isDragging = true;
+            pushUndoMeta();
+            render();
+            return;
+          }
+        }
+      }
       selectedShape = null; selectedLine = null;
     }
 
@@ -3220,7 +3285,7 @@ canvas.addEventListener('mousemove', (e) => {
     viewY = viewStartY + (my - dragStartY);
     render();
   } else if (_dragMode === 'bg-move') {
-    if (backgroundMap && _bgAlignRefs) {
+    if (backgroundMap) {
       backgroundMap.x = (wx - _dragOffX) / CELL_SIZE;
       backgroundMap.y = (wy - _dragOffY) / CELL_SIZE;
       render();
@@ -7227,6 +7292,27 @@ function renderMapCanvas(exact) {
     if (bm.img && bm.img.complete) {
       expCtx.drawImage(bm.img, bm.x * CELL_SIZE, bm.y * CELL_SIZE, bm.cols * CELL_SIZE, bm.rows * CELL_SIZE);
     }
+    expCtx.restore();
+  }
+
+  // Pass 1.8: 格线叠加层（盖在地形/底图之上，清晰可见；与画布 drawGridOverlay 一致）
+  if (showGrid) {
+    const half = CELL_SIZE / 2;
+    const gx0 = minQ * CELL_SIZE - half, gx1 = maxQ * CELL_SIZE + half;
+    const gy0 = minR * CELL_SIZE - half, gy1 = maxR * CELL_SIZE + half;
+    expCtx.save();
+    expCtx.strokeStyle = 'rgba(20,20,30,0.55)';
+    expCtx.lineWidth = 2;
+    expCtx.beginPath();
+    for (let x = gx0; x <= gx1; x += CELL_SIZE) { expCtx.moveTo(x, gy0); expCtx.lineTo(x, gy1); }
+    for (let y = gy0; y <= gy1; y += CELL_SIZE) { expCtx.moveTo(gx0, y); expCtx.lineTo(gx1, y); }
+    expCtx.stroke();
+    expCtx.strokeStyle = 'rgba(255,255,255,0.5)';
+    expCtx.lineWidth = 1;
+    expCtx.beginPath();
+    for (let x = gx0; x <= gx1; x += CELL_SIZE) { expCtx.moveTo(x, gy0); expCtx.lineTo(x, gy1); }
+    for (let y = gy0; y <= gy1; y += CELL_SIZE) { expCtx.moveTo(gx0, y); expCtx.lineTo(gx1, y); }
+    expCtx.stroke();
     expCtx.restore();
   }
 
