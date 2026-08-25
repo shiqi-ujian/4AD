@@ -16,6 +16,8 @@ function init() {
   if (dmCheck) dmCheck.checked = showDmLayer;
   const fogCheck = document.getElementById('chk-fog');
   if (fogCheck) fogCheck.checked = showFogLayer;
+  const coordCheck = document.getElementById('chk-coords');
+  if (coordCheck) coordCheck.checked = showCoords;
   const visionCheck = document.getElementById('chk-vision');
   if (visionCheck) visionCheck.checked = (visionMode === 'auto');
   viewX = canvas.width / 2;

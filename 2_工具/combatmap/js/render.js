@@ -570,7 +570,7 @@ function drawTokens() {
       ctx.font = `bold ${Math.max(9, 11 / zoom)}px sans-serif`;
       const tw = ctx.measureText(t.name).width + 10 / zoom;
       const nh = 15 / zoom;
-      const by = Math.max(2 / zoom, p.y - 13 / zoom);
+      const by = p.y - 13 / zoom;
       ctx.fillStyle = 'rgba(0,0,0,0.74)';
       ctx.beginPath();
       if (ctx.roundRect) ctx.roundRect(cx - tw / 2, by, tw, nh, 4 / zoom);
@@ -723,7 +723,7 @@ function drawCellOverlay(q, r) {
 
   // Coordinates
   if (showCoords) {
-    ctx.fillStyle = 'rgba(255,255,255,0.30)';
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
     ctx.font = `${Math.max(8, CELL_SIZE * 0.18)}px monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';

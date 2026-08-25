@@ -24,7 +24,7 @@ function viewRoleIsPlayer() {
 let viewX = 0, viewY = 0;
 let zoom = 1;
 let isDragging = false, dragStartX, dragStartY, viewStartX, viewStartY;
-let showGrid = true, showCoords = true;
+let showGrid = true, showCoords = false;
 let artStyle = 'handdrawn';  // 美术风格：'handdrawn'（手绘质感）| 'classic'（原纯色块）
 let showDmLayer = false;   // 是否显示 DM 层（标记/说明）——当前有效显示状态（玩家视图下会被强制隐藏）
 let dmLayerPref = false;   // 用户期望的 DM 层开关（切到玩家视图时保留，切回 DM 视图时恢复）

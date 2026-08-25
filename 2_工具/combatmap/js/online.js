@@ -24,6 +24,9 @@ let onlineMseq = 0;
 let onlineApplyRemote = false;
 let onlineTimer = null;
 let onlineIsPlayer = false;   // true = 加入房间的玩家；false = 创建房间的 DM
+const LS_ONLINE_NAME_KEY = 'combatmap_online_name';
+let onlineUserName = '';      // 参与者在房间内显示的昵称
+let onlineRoster = [];        // 玩家端缓存的主机广播成员列表 [{id,name,role}]
 
 function payloadForRole(payload, role) {
   if (role !== 'player') return payload;
@@ -58,12 +61,25 @@ function setOnlineStatus(msg) {
     st.style.background = onlineSync ? (onlineIsPlayer ? '#3a7abd' : '#2d6a2e') : '#3a3a5e';
     st.style.color = onlinePeer ? '#fff' : '#aaa';
   }
+  if (typeof renderRoster === 'function') renderRoster();
 }
 
 function sanitizeRoom(s) {
   s = (s || '').trim().toLowerCase();
   s = s.replace(/[^a-z0-9-]/g, '');
   return s.slice(0, 48);
+}
+function onlineGetName() {
+  let n = (document.getElementById('online-name')?.value || '').trim();
+  if (!n) { try { n = localStorage.getItem(LS_ONLINE_NAME_KEY) || ''; } catch (e) { /* ignore */ } }
+  if (!n) n = onlineIsPlayer ? '玩家' : 'DM';
+  return n.slice(0, 16);
+}
+function onlineSetName() {
+  const n = onlineGetName();
+  onlineUserName = n;
+  try { localStorage.setItem(LS_ONLINE_NAME_KEY, n); } catch (e) { /* ignore */ }
+  return n;
 }
 
 function openOnlineModal() {
@@ -75,6 +91,10 @@ function openOnlineModal() {
   }
   const inp = document.getElementById('online-room');
   if (!inp.value) inp.value = 'dm-' + Date.now().toString(36).slice(-6);
+  const nameInp = document.getElementById('online-name');
+  if (nameInp && !nameInp.value) {
+    try { nameInp.value = localStorage.getItem(LS_ONLINE_NAME_KEY) || ''; } catch (e) { /* ignore */ }
+  }
   modal.style.display = 'block';
   setOnlineStatus(onlinePeer
     ? `已连接房间 ${onlineRoom}，${onlineConnections.length + 1} 人在线`
@@ -153,14 +173,22 @@ function handleOnlineData(conn, raw) {
     // 主机收到客户端快照后应用，并转播给其他连接
     if (onlineRoom && onlineConnections.length > 0) broadcastSnapshot(conn);
   } else if (msg.type === 'hello') {
-    // 新客户端请求首次快照；先按该连接声明的角色发送
+    // 新客户端请求首次快照；先按该连接声明的角色发送，并记录其昵称
     conn._combatRole = msg.role === 'dm' ? 'dm' : 'player';
+    conn._combatName = (msg.name || '').slice(0, 16) || (conn._combatRole === 'dm' ? 'DM' : '玩家');
     onlineSendSnapshotTo(conn);
-    setOnlineStatus(`🎭 ${msg.role === 'dm' ? 'DM' : '玩家'} 已连接，当前在线 ${onlineConnections.length + 1}`);
+    setOnlineStatus(`🎭 ${conn._combatName} 已连接，当前在线 ${onlineConnections.length + 1}`);
+    if (!onlineIsPlayer) broadcastRoster();
   } else if (msg.type === 'role') {
     conn._combatRole = msg.role === 'dm' ? 'dm' : 'player';
+    conn._combatName = (msg.name || '').slice(0, 16) || (conn._combatRole === 'dm' ? 'DM' : '玩家');
     onlineSendSnapshotTo(conn);
-    setOnlineStatus(`🎭 ${msg.role === 'dm' ? 'DM' : '玩家'} 已连接，当前在线 ${onlineConnections.length + 1}`);
+    setOnlineStatus(`🎭 ${conn._combatName} 已连接，当前在线 ${onlineConnections.length + 1}`);
+    if (!onlineIsPlayer) broadcastRoster();
+  } else if (msg.type === 'roster') {
+    // 玩家端接收主机广播的成员列表
+    onlineRoster = msg.members || [];
+    renderRoster();
   } else if (msg.type === 'ping') {
     sendTo(conn, { type: 'pong', ts: Date.now() });
   }
@@ -170,12 +198,15 @@ function onlineAddConn(conn) {
   if (onlineConnections.some(c => c === conn)) return;
   onlineConnections.push(conn);
   conn._combatRole = 'player'; // 默认玩家，先不给 DM 层；收到 hello/role 后更新
+  conn._combatName = '';
   conn.on('data', (raw) => handleOnlineData(conn, raw));
   conn.on('close', () => {
     onlineConnections = onlineConnections.filter(c => c !== conn);
     setOnlineStatus(`↗️ 有成员离开，当前在线 ${onlineConnections.length + 1}`);
+    if (!onlineIsPlayer) broadcastRoster();
   });
   setOnlineStatus(`🎉 新成员加入，当前在线 ${onlineConnections.length + 1}`);
+  if (!onlineIsPlayer) broadcastRoster();
   render();
 }
 
@@ -184,6 +215,8 @@ function onlineCreateRoom() {
   if (typeof Peer === 'undefined') { setOnlineStatus('⚠️ PeerJS 未加载'); return; }
   const roomId = sanitizeRoom(document.getElementById('online-room')?.value || '');
   if (!roomId) { setOnlineStatus('⚠️ 请输入房间名'); return; }
+  onlineSetName();
+  onlineRoster = [];
   onlineRoom = roomId;
   onlineSync = false;
   try {
@@ -197,15 +230,16 @@ function onlineCreateRoom() {
     onlineIsPlayer = false;
     viewRole = 'dm';
     applyOnlineRoleUI();
+    broadcastRoster();
     setOnlineStatus('✅ 房间已创建：' + roomId + ' · 分享邀请链接给玩家');
     closeOnlineModal();
-    showToast('🌐 房间已创建：' + roomId + '（DM）');
+    showToast('🌐 房间已创建：' + roomId + '（DM ' + onlineUserName + '）');
   });
   onlinePeer.on('connection', (conn) => {
     conn.on('open', () => {
       onlineAddConn(conn);
-      // 新连接默认按玩家视角给首次快照；如果对方声明自己是 DM，会在 hello 里更新
       onlineSendSnapshotTo(conn);
+      broadcastRoster();
     });
   });
   onlinePeer.on('error', (err) => {
@@ -232,13 +266,15 @@ function onlineJoinRoom(roomRaw) {
   conn.on('open', () => {
     onlineRoom = roomId;
     onlineIsPlayer = true;
+    onlineSetName();
+    onlineRoster = [];
     viewRole = 'player';
     applyOnlineRoleUI();
     // 先不发本地快照，等主机回传；声明自己为玩家，避免收到 DM 隐藏层
     setOnlineStatus('✅ 已加入 ' + roomId + '，正在接收主机地图…');
     closeOnlineModal();
-    showToast('🌐 已加入房间 ' + roomId + '（玩家视角）');
-    sendTo(conn, { type: 'hello', ts: Date.now(), role: 'player' });
+    showToast('🌐 已加入房间 ' + roomId + '（玩家 ' + onlineUserName + '）');
+    sendTo(conn, { type: 'hello', ts: Date.now(), role: 'player', name: onlineUserName });
   });
   conn.on('data', (raw) => handleOnlineData(conn, raw));
   conn.on('close', () => {
@@ -276,6 +312,7 @@ function onlineLeave() {
   onlineSync = false;
   onlineConnections = [];
   onlineIsPlayer = false;
+  onlineRoster = [];
   viewRole = 'dm';
   applyOnlineRoleUI();
   setOnlineStatus('已离开房间');
@@ -313,3 +350,100 @@ function initOnline() {
   }
 }
 initOnline();
+
+// ============================================================
+//  v0.96: 常驻可折叠玩家名册 + 帮助/快捷键速查入口
+// ============================================================
+function buildRosterPayload() {
+  const members = [{ id: 'me', name: onlineUserName || (onlineIsPlayer ? '玩家' : 'DM'), role: onlineIsPlayer ? 'player' : 'dm' }];
+  onlineConnections.forEach((c) => {
+    members.push({ id: c.peer, name: c._combatName || (c._combatRole === 'dm' ? 'DM' : '玩家'), role: c._combatRole || 'player' });
+  });
+  return members;
+}
+function broadcastRoster() {
+  if (!onlinePeer) return;
+  const members = buildRosterPayload();
+  onlineConnections.forEach((c) => sendTo(c, { type: 'roster', members }));
+  if (!onlineIsPlayer) onlineRoster = members; // 主机本地视角
+  renderRoster();
+}
+function rosterMembers() {
+  if (!onlinePeer || !onlineRoom) return [];
+  if (onlineIsPlayer) {
+    // 玩家：用主机广播的成员列表，标记自己
+    const selfId = onlinePeer && onlinePeer.id;
+    return (onlineRoster || []).map((m) => ({ ...m, me: m.id === selfId }));
+  }
+  // 主机：本地产物
+  return buildRosterPayload().map((m) => ({ ...m, me: m.id === 'me' }));
+}
+
+function renderRoster() {
+  const panel = document.getElementById('roster-panel');
+  if (!panel) return;
+  const body = document.getElementById('roster-body');
+  const count = document.getElementById('roster-count');
+  const members = rosterMembers();
+  if (count) count.textContent = members.length ? `(${members.length})` : '离线';
+  if (!body) return;
+  body.innerHTML = '';
+  if (members.length === 0) {
+    body.innerHTML = '<div style="padding:4px 6px;font-size:11px;color:#888;">🌐 未连接房间</div>';
+  } else {
+    members.forEach((m) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:3px 4px;margin:1px 0;border-radius:4px;background:rgba(255,255,255,0.04);';
+      const roleChip = document.createElement('span');
+      roleChip.textContent = m.role === 'dm' ? '🎲 DM' : '👤 玩家';
+      roleChip.style.cssText = 'font-size:10px;padding:1px 5px;border-radius:4px;color:#fff;flex-shrink:0;background:' + (m.role === 'dm' ? '#2d6a2e' : '#3a7abd') + ';';
+      const name = document.createElement('span');
+      name.textContent = m.name + (m.me ? ' (你)' : '');
+      name.style.cssText = 'flex:1;font-size:11px;color:#ddd;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+      row.appendChild(roleChip); row.appendChild(name);
+      body.appendChild(row);
+    });
+  }
+}
+
+function toggleRoster() {
+  const body = document.getElementById('roster-body');
+  if (!body) return;
+  const show = body.style.display !== 'block';
+  body.style.display = show ? 'block' : 'none';
+  const hdr = document.getElementById('roster-header');
+  if (hdr) hdr.classList.toggle('expanded', show);
+  renderRoster();
+}
+
+function openHelp() {
+  const m = document.getElementById('help-modal');
+  if (m) m.style.display = 'block';
+}
+function closeHelp() {
+  const m = document.getElementById('help-modal');
+  if (m) m.style.display = 'none';
+}
+
+const rosterHdr = document.getElementById('roster-header');
+if (rosterHdr) rosterHdr.addEventListener('click', toggleRoster);
+const helpBtn = document.getElementById('help-btn');
+if (helpBtn) helpBtn.addEventListener('click', openHelp);
+const helpCloseBtn = document.getElementById('help-close');
+if (helpCloseBtn) helpCloseBtn.addEventListener('click', closeHelp);
+const helpModal = document.getElementById('help-modal');
+if (helpModal) {
+  const sc = document.getElementById('help-shortcuts');
+  if (sc) {
+    sc.innerHTML = [
+      ['🎯 基础工具', 'V 选择 · B 笔刷 · W 墙壁 · D 门 · L 标签 · E 擦除 · R 区域 · G 线段 · T 图片 · M 测量'],
+      ['🧝 单位', 'U 打开单位库 · 点预设拿起 → 地图放置 · Shift 连放 · Esc 取消'],
+      ['🎲 DM / 战雾', 'Y DM层 · F 战雾 · Shift 点选多选单位'],
+      ['⬅️ 撤销 / 编辑', 'Ctrl+Z 撤销 · Ctrl+Y 重做 · Ctrl+D 复制选中 · Delete 删除'],
+      ['🔍 视角', '滚轮缩放 · 拖拽(空白)平移 · 右键菜单'],
+      ['🌐 在线', '「房间」页签创建/加入房间，玩家可看到在线成员名册'],
+    ].map(([k, v]) => `<div style="margin-bottom:7px;"><b style="color:#e8b46a;">${k}</b><br><span style="color:#ddd;">${v}</span></div>`).join('');
+  }
+  helpModal.addEventListener('click', (e) => { if (e.target === helpModal) closeHelp(); });
+}
+renderRoster();
