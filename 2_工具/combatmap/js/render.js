@@ -169,8 +169,7 @@ function render() {
   }
 
   // Pass 2: 底图（放在格子与地形之上，但保持半透明可调；贴合导入地图做网格对齐）
-  // [DISABLED v0.83] 导入底图功能临时禁用：不再绘制底图（含旧存档底图）
-  // drawBackgroundMap();
+  drawBackgroundMap();
 
   // Pass 3: Wall boundaries (edges between cells)
   for (let q = qMin; q <= qMax; q++) {
@@ -271,6 +270,44 @@ function render() {
     }
   }
 
+  // 测量叠加层（测距工具）
+  drawMeasure();
+
+  ctx.restore();
+}
+
+function drawMeasure() {
+  if (!_measure) return;
+  const p1 = cellToPixel(_measure.x1, _measure.y1);
+  const p2 = cellToPixel(_measure.x2, _measure.y2);
+  ctx.save();
+  // 测距线
+  ctx.strokeStyle = 'rgba(74, 170, 255, 0.95)';
+  ctx.lineWidth = 2.5 / zoom;
+  ctx.setLineDash([8 / zoom, 6 / zoom]);
+  ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+  ctx.setLineDash([]);
+  // 端点圆点
+  ctx.fillStyle = '#4af';
+  [[p1.x, p1.y], [p2.x, p2.y]].forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 5 / zoom, 0, Math.PI * 2); ctx.fill(); });
+  // 标签：距离 + 困难地形等效移动
+  const info = measureInfo(_measure.x1, _measure.y1, _measure.x2, _measure.y2);
+  let txt = `📏 ${info.dist.toFixed(1)} 格 (${info.ft.toFixed(0)} ft)`;
+  if (info.slow > 0) txt += ` · 慢速地形[${info.slow}格]→ 移动 ${info.effCells.toFixed(1)} 格 (${info.effFt.toFixed(0)} ft)`;
+  ctx.font = `bold ${13 / zoom}px sans-serif`;
+  const tw = ctx.measureText(txt).width + 16 / zoom;
+  const lh = 22 / zoom;
+  const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2;
+  const lx = mx - tw / 2, ly = my - lh - 8 / zoom;
+  ctx.fillStyle = 'rgba(10, 20, 40, 0.92)';
+  ctx.strokeStyle = 'rgba(74, 170, 255, 0.8)';
+  ctx.lineWidth = 1 / zoom;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(lx, ly, tw, lh, 5 / zoom); else ctx.rect(lx, ly, tw, lh);
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(txt, mx, ly + lh / 2);
   ctx.restore();
 }
 
@@ -885,9 +922,18 @@ function drawFogOverlay() {
   const qMin = Math.floor(topLeft.q) - 1, qMax = Math.ceil(botRight.q) + 1;
   const rMin = Math.floor(topLeft.r) - 1, rMax = Math.ceil(botRight.r) + 1;
 
+  // P0 动态视野：玩家视图下按单位视野自动揭示；否则（DM 视图 / 手动模式）用手动战雾
+  const hasVision = tokens.some(t => t.visionSource && (t.sightRadius || 0) > 0);
+  const autoMask = visionMode === 'auto' && viewRoleIsPlayer() && hasVision;
+  const vis = autoMask ? computeVisibleCells() : null;
+
   for (let q = qMin; q <= qMax; q++) {
     for (let r = rMin; r <= rMax; r++) {
-      if (!isFogCell(q, r)) continue;
+      if (autoMask) {
+        if (vis.has(cellKey(q, r))) continue; // 玩家可见，不遮
+      } else {
+        if (!isFogCell(q, r)) continue;
+      }
       ctx.fillStyle = 'rgba(12, 12, 20, 0.82)';
       ctx.fillRect(q * CELL_SIZE - CELL_SIZE / 2, r * CELL_SIZE - CELL_SIZE / 2, CELL_SIZE, CELL_SIZE);
       ctx.strokeStyle = 'rgba(255,255,255,0.08)';

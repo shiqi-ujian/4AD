@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>通用战斗地图生成器 v0.84</title>
+<title>通用战斗地图生成器 v0.90</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -37,6 +37,8 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; colo
 .tool-btn[data-tool] .label { font-size: 11px; white-space: nowrap; }
 .tool-btn[data-tool].dm-tool { border-color: rgba(122,74,158,0.55); }
 .tool-btn[data-tool].dm-tool.active { border-color: #e0b0ff; }
+.fog-mode-btn { border-radius: 4px; }
+.fog-mode-btn.active { border-color: #fff !important; color: #fff !important; background: rgba(122,74,158,0.4) !important; font-weight: bold; box-shadow: 0 0 8px rgba(255,255,255,0.35); }
 .tool-btn[data-terrain] {
   width: 34px; height: 30px; padding: 0; min-width: 34px; font-size: 14px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.5);
 }
@@ -162,7 +164,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 <body>
 <div id="app">
   <div id="toolbar">
-    <h2>⚔️ 战斗地图 <span class="ver">v0.84</span></h2>
+    <h2>⚔️ 战斗地图 <span class="ver">v0.90</span></h2>
 
     <div id="role-switch">
       <button id="role-dm" class="role-btn dm-role active" title="DM 视图：显示全部工具（含 DM 层/战雾/先攻条等隐藏信息）">🎲 DM 视图</button>
@@ -192,10 +194,17 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
           <button class="tool-btn" data-tool="erase" title="擦除 (E)"><span class="icon">🧹</span><span class="label">擦除(E)</span></button>
           <button class="tool-btn" data-tool="rect" title="画矩形区域/灵气 (R) 拖拽绘制，半透明"><span class="icon">▭</span><span class="label">区域(R)</span></button>
           <button class="tool-btn" data-tool="line" title="画自由线段 (G) 任意角度墙/视线阻挡"><span class="icon">📏</span><span class="label">线段(G)</span></button>
+          <button class="tool-btn" data-tool="measure" title="测量距离 (M)：拖拽显示格/英尺与慢速地形等效移动"><span class="icon">📐</span><span class="label">测量(M)</span></button>
           <button class="tool-btn" data-tool="token" title="插入图片 token (T)"><span class="icon">🖼️</span><span class="label">图片(T)</span></button>
           <button class="tool-btn" data-tool="unit" title="放置单位 token：打开单位库选择预设，或新建 (U)"><span class="icon">🧝</span><span class="label">单位(U)</span></button>
           <button class="tool-btn dm-tool" data-tool="dm" title="画 DM 隐藏层：标记/信息只在 DM 本地显示 (Y)"><span class="icon">🕵️</span><span class="label">DM层(Y)</span></button>
           <button class="tool-btn dm-tool" data-tool="fog" title="涂战雾：遮住/揭示格子，跑团时逐步揭开 (F)"><span class="icon">🌫️</span><span class="label">战雾(F)</span></button>
+        </div>
+        <div id="fog-options" style="display:none;margin:4px 0 0 2px;font-size:11px;">
+          <div style="display:flex;gap:4px;">
+            <button id="fog-mode-cover" class="fog-mode-btn active" style="flex:1;background:#3a3a5e;color:#fff;border:1px solid #0f3460;border-radius:4px;padding:3px 0;cursor:pointer;" title="涂战雾：把格子遮住（拖拽连续遮）">🌫️ 遮住</button>
+            <button id="fog-mode-reveal" class="fog-mode-btn" style="flex:1;background:#3a3a5e;color:#888;border:1px solid #0f3460;border-radius:4px;padding:3px 0;cursor:pointer;" title="揭示战雾：把已遮格子揭开（拖拽连续揭）">✨ 揭示</button>
+          </div>
         </div>
         <div id="erase-options" style="display:none;margin:4px 0 0 2px;font-size:11px;">
           <select id="erase-mode" style="width:100%;padding:3px 6px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:11px;">
@@ -226,7 +235,6 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 
       <div class="panel-page" id="page-map">
         <div class="page-title">🗺️ 底图 <span class="tab-badge">DM</span></div>
-        <!-- [DISABLED v0.83] 导入底图/网格对齐 因网格对齐 bug 过大临时禁用，修复后恢复以下按钮
         <div style="display:flex;gap:4px;">
           <button id="btn-import-map" style="flex:1;padding:8px;background:#5a4a8a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;" title="导入地图图片作为底图，然后调整网格对齐">🖼️ 导入底图</button>
           <button id="btn-map-settings" style="flex:1;padding:8px;background:#4a5a7a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;" title="调整底图数值/透明度/移除">⚙️ 数值</button>
@@ -235,8 +243,6 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
           <button id="btn-bg-align" style="flex:1;padding:8px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;" title="在地图上点 3 个格线交点让网格贴合底图（需先导入底图）">🎯 网格对齐</button>
         </div>
         <div class="page-hint">网格对不上？先「导入底图」，再点「网格对齐」：依次点图中 3 个格线交点（第 2/3 点可调「点间格数」）。</div>
-        -->
-        <div class="page-hint" style="color:#e94560;">🛠️ 底图导入 / 网格对齐 功能维护中，本版本暂不可用。</div>
         <div class="page-title" style="margin-top:8px;">📐 模板：一键生成</div>
         <div style="display:flex;gap:4px;flex-wrap:wrap;">
           <button id="btn-template-room" style="flex:1;min-width:60px;padding:5px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;">🏠 房间</button>
@@ -248,6 +254,11 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
       </div>
 
       <div class="panel-page" id="page-data">
+        <div class="page-title">🎬 场景 <span style="font-weight:normal;font-size:10px;color:#888;">多张地图切换</span></div>
+        <div style="display:flex;gap:4px;margin-bottom:4px;">
+          <button id="btn-scene-new" style="flex:1;padding:5px;background:#7a4a9e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="新建一张空白地图">➕ 新建场景</button>
+        </div>
+        <div id="scene-list" style="max-height:180px;overflow-y:auto;margin-bottom:6px;"></div>
         <div class="page-title">💾 保存 / 分享</div>
         <div style="display:flex;gap:4px;">
           <button id="btn-save" style="flex:1;padding:4px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;">💾 保存</button>
@@ -296,6 +307,9 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
         <label style="font-size:12px;display:block;margin:4px 0;padding:5px 8px;background:#1a1a2e;border:1px solid #0f3460;border-radius:6px;cursor:pointer;">
           <input type="checkbox" id="chk-fog" checked style="width:auto;"> 🌫️ 显示战雾
         </label>
+        <label style="font-size:12px;display:block;margin:4px 0;padding:5px 8px;background:#1a1a2e;border:1px solid #0f3460;border-radius:6px;cursor:pointer;" title="玩家可见地图由单位视野源自动揭示（圆形视野 + 墙体遮挡）；关闭则用手动战雾">
+          <input type="checkbox" id="chk-vision" checked style="width:auto;"> 🌐 动态视野
+        </label>
         <label style="font-size:12px;display:block;margin:4px 0;padding:5px 8px;background:#1a1a2e;border:1px solid #0f3460;border-radius:6px;cursor:pointer;">
           <input type="checkbox" id="chk-art-style" checked style="width:auto;"> ✏️ 手绘质感
         </label>
@@ -304,7 +318,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
     </div>
 
     <div style="margin-top:auto;font-size:10px;color:#555;text-align:center;padding-top:6px;">
-      通用跑团 · 战斗地图 v0.84<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>单位库 · Shift 连放 · DM/玩家视图
+      通用跑团 · 战斗地图 v0.90<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>单位库 · Shift 连放 · DM/玩家视图
     </div>
   </div>
 
@@ -317,11 +331,10 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
       <div style="font-size:15px;font-weight:bold;color:#fff;">开始一张新战斗地图</div>
       <div style="font-size:12px;color:#aaa;line-height:1.7;">三种方式任选：<br><!-- [DISABLED v0.83] 导入底图入口随功能一并禁用 <br>🖼️ <b>导入底图</b> — 用现成地图图片（之后可对齐网格） -->🖌️ <b>直接用笔刷</b> — 在格子上画地形<br>🏠 <b>模板生成</b> — 一键生成房间 / 洞窟 / 野外</div>
       <div style="display:flex;gap:8px;">
-        <!-- [DISABLED v0.83] <button id="empty-import" style="padding:6px 14px;background:#5a4a8a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:bold;">🖼️ 导入底图</button> -->
+        <button id="empty-import" style="padding:6px 14px;background:#5a4a8a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:bold;">🖼️ 导入底图</button>
         <button id="empty-dismiss" style="padding:6px 14px;background:#3a3a5e;color:#ccc;border:1px solid #0f3460;border-radius:6px;cursor:pointer;font-size:13px;">知道了</button>
       </div>
     </div>
-    <!-- [DISABLED v0.83] 底图对齐状态条（随导入底图功能禁用）
     <div id="bg-align-bar" style="display:none;position:absolute;top:44px;left:50%;transform:translateX(-50%);z-index:20;background:rgba(22,33,62,0.95);border:1px solid #3a7abd;border-radius:8px;padding:6px 10px;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(0,0,0,0.4);font-size:12px;">
       <span id="bg-align-status">🎯 对齐模式：点击图中格线交点</span>
       <label style="display:flex;align-items:center;gap:3px;white-space:nowrap;font-size:11px;color:#ccc;" title="第 2/3 点相对第 1 点跨越的格数（图像上每格算 1 格）">点间
@@ -331,7 +344,6 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
       <button id="bg-align-finish" style="padding:4px 12px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">✓ 完成</button>
       <button id="bg-align-cancel" style="padding:4px 10px;background:#3a3a5e;color:#ccc;border:1px solid #0f3460;border-radius:4px;cursor:pointer;">✕ 取消</button>
     </div>
-    -->
     <div id="info-panel"><div class="row"><span class="label">💡 选择工具 → 操作格子 → 导出 Excel</span></div></div>
   </div>
 </div>
@@ -549,6 +561,16 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
         <input type="number" id="unit-h" value="1" min="1" max="6">
       </div>
     </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <div style="flex:1;">
+        <label>👁️ 视野半径(格，0=无)</label>
+        <input type="number" id="unit-sight" value="6" min="0" max="60" step="0.5">
+      </div>
+      <div style="flex:1;display:flex;align-items:center;gap:4px;font-size:12px;">
+        <input type="checkbox" id="unit-vision" checked style="width:auto;">
+        <label for="unit-vision" style="margin:0;">作为玩家视野源</label>
+      </div>
+    </div>
     <label style="margin-top:4px;">头像图片（可选，圆形裁剪）</label>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;">
       <img id="unit-img-preview" alt="预览" style="width:40px;height:40px;border-radius:50%;object-fit:cover;background:#1a1a2e;border:1px solid #0f3460;display:none;">
@@ -696,7 +718,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
   </div>
 </div>
 
-<!-- Map Settings Modal [DISABLED v0.83] 随导入底图功能禁用
+<!-- Map Settings Modal -->
 <div class="modal-overlay" id="map-settings-modal">
   <div class="modal-box" style="width:520px;">
     <h3>🖼️ 底图设置 <span style="font-size:11px;color:#888;font-weight:normal;">调整格子数量与偏移，让网格对齐图片</span></h3>
@@ -734,7 +756,6 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
     </div>
   </div>
 </div>
--->
 
 <!-- Share/Import Modal -->
 <div id="share-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
@@ -801,7 +822,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 <script>
 //  Configuration
 // ============================================================
-const COMBATMAP_VERSION = 'v0.84';
+const COMBATMAP_VERSION = 'v0.90';
 
 // 单位类型 → 环颜色（画布 token 渲染 / 单位库角标统一使用）
 const TOKEN_KIND_COLORS = {
@@ -925,6 +946,13 @@ let artStyle = 'handdrawn';  // 美术风格：'handdrawn'（手绘质感）| 'c
 let showDmLayer = false;   // 是否显示 DM 层（标记/说明）——当前有效显示状态（玩家视图下会被强制隐藏）
 let dmLayerPref = false;   // 用户期望的 DM 层开关（切到玩家视图时保留，切回 DM 视图时恢复）
 let showFogLayer = true;   // 是否显示战雾遮罩
+let fogMode = 'cover';     // 战雾工具当前模式: 'cover'(遮住) | 'reveal'(揭示)
+let visionMode = 'auto';   // 玩家可见性: 'auto'(单位视野自动揭示) | 'manual'(手动战雾)
+let viewSourceTokenId = null; // 玩家视角源 token id；null=全部视野源（DM 指定某单位单独查看）
+
+// 多场景：每个场景 = 一份完整地图快照 {id,name,data}；data 为地图状态对象（不含全局单位库/自定义地形）
+let scenes = [];           // [{ id, name, data }]
+let activeSceneId = null;  // 当前激活场景 id
 let initiativeOrder = [];  // 行动顺序条目: { id, tokenId?, name, icon, kind, hp, maxHp }
 let initiativeIndex = 0;
 let _eraseDragLast = new Set();
@@ -939,6 +967,7 @@ let _wallDragLast = null;  // 墙/门拖拽去重: "q,r,edge"
 let _drawStart = null;     // rect/line 绘制的起点(格坐标)
 let _rectPreview = null;   // 矩形绘制预览
 let _linePreview = null;   // 线段绘制预览
+let _measure = null;       // 测量: { x1,y1,x2,y2 }（格单位坐标）— 测距工具叠加层
 let _lineInit = null;      // 线段移动初始位置
 let _tokenPending = null;  // 待放置的图片 token { imgData, w, h, img }
 let _hoverToken = null;    // 放置预览位置（图片）
@@ -999,7 +1028,7 @@ function snapshotMeta() {
 }
 
 function restoreTokens(list) {
-  tokens = (list || []).map(t => {
+  tokens = normalizeTokens((list || []).map(t => {
     if (t.imgData && !t.img) {
       const img = new Image();
       img.src = t.imgData;
@@ -1007,7 +1036,7 @@ function restoreTokens(list) {
       t.img = img;
     }
     return t;
-  });
+  }));
 }
 
 function restoreMeta(before) {
@@ -1032,19 +1061,18 @@ function restoreMeta(before) {
   selectedTokens = new Set((before.selectedTokens || Array.from(selectedTokens)).filter(id => tokens.some(t => t.id === id)));
   if (selectedToken && !tokens.some(t => t.id === selectedToken)) selectedToken = null;
   if (selectedToken && !selectedTokens.has(selectedToken)) selectedTokens.add(selectedToken);
-  // [DISABLED v0.83] 导入底图功能临时禁用：撤销恢复不再恢复底图
-  // if (before.backgroundMap) {
-  //   backgroundMap = before.backgroundMap;
-  //   if (backgroundMap.imgData && !backgroundMap.img) {
-  //     const img = new Image();
-  //     img.src = backgroundMap.imgData;
-  //     img.onload = () => render();
-  //     backgroundMap.img = img;
-  //   }
-  // } else {
-  //   backgroundMap = null;
-  // }
-  backgroundMap = null;
+  // 撤销恢复底图（含 img 重建）
+  if (before.backgroundMap) {
+    backgroundMap = before.backgroundMap;
+    if (backgroundMap.imgData && !backgroundMap.img) {
+      const img = new Image();
+      img.src = backgroundMap.imgData;
+      img.onload = () => render();
+      backgroundMap.img = img;
+    }
+  } else {
+    backgroundMap = null;
+  }
   if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
 }
 
@@ -1150,6 +1178,15 @@ function clearAllFog(recordUndo = true) {
   if (recordUndo) pushUndoMeta();
   fog = {};
 }
+
+// 默认视野：sightRadius(格) 默认 6；visionSource(是否作为玩家视野源) 默认 player/ally
+function normalizeToken(t) {
+  if (!t) return t;
+  if (t.sightRadius === undefined || t.sightRadius === null) t.sightRadius = 6;
+  if (t.visionSource === undefined || t.visionSource === null) t.visionSource = (t.kind === 'player' || t.kind === 'ally');
+  return t;
+}
+function normalizeTokens(list) { return (list || []).map(normalizeToken); }
 
 function initiativeSnapshot() {
   return JSON.parse(JSON.stringify({ initiativeOrder, initiativeIndex }));
@@ -1333,6 +1370,7 @@ function duplicateTokens(ids) {
     copy.img = src.imgData ? (() => { const im = new Image(); im.src = src.imgData; return im; })() : null;
     copy.x = (src.x || 0) + 0.5;
     copy.y = (src.y || 0) + 0.5;
+    normalizeToken(copy);
     tokens.push(copy);
     created.push(copy);
   }
@@ -1473,6 +1511,92 @@ function cleanData() {
       delete combatData[key];
     }
   }
+}
+
+// ============================================================
+//  Vision / Line of Sight（P0 单位视野驱动自动战雾）
+//  可见性 = 距视野源 ⩽ sightRadius 且 未被墙体遮挡
+//  遮挡物：复用现有地形 wall_cell / cover_full，不新造墙类型
+// ============================================================
+function isVisionBlocker(q, r) {
+  const d = getCell(q, r);
+  return d.terrain === 'wall_cell' || d.terrain === 'cover_full';
+}
+
+// x/y 均为“格单位”坐标（格子中心 = (q,r)，格子跨 [q-0.5, q+0.5]）
+// 判定从 (x0,y0) 到 (x1,y1) 的视线是否被墙体中途遮挡。
+// 目标格 (tq,tr) 本身可见（即使它是墙）；只有“起点与目标之间”的格会阻挡。
+function losClear(x0, y0, x1, y1, tq, tr) {
+  const dq = x1 - x0, dr = y1 - y0;
+  const len = Math.hypot(dq, dr);
+  if (len < 0.01) return true;
+  const numPts = Math.max(1, Math.ceil(len / 0.15));
+  for (let i = 1; i < numPts; i++) {
+    const t = i / numPts;
+    const q = Math.round(x0 + dq * t), r = Math.round(y0 + dr * t);
+    if (q === tq && r === tr) continue; // 目标格本身，不判为遮挡
+    if (isVisionBlocker(q, r)) return false;
+  }
+  return true;
+}
+
+// 当前视角的视野源 token 列表：若指定了单视角源则只用它，否则用全部视野源
+function visionSourceTokens() {
+  if (viewSourceTokenId) {
+    const t = tokens.find(x => x.id === viewSourceTokenId);
+    return t ? [t] : [];
+  }
+  return tokens.filter(t => t.visionSource && (t.sightRadius || 0) > 0);
+}
+
+// 返回“玩家可见”格子集合（视图由 visionSourceTokens() 决定）
+function computeVisibleCells() {
+  const vis = new Set();
+  for (const t of visionSourceTokens()) {
+    if (!t.visionSource) continue;
+    const sr = (typeof t.sightRadius === 'number' && isFinite(t.sightRadius)) ? t.sightRadius : 0;
+    if (sr <= 0) continue;
+    const x0 = t.x + t.w / 2, y0 = t.y + t.h / 2;
+    const R = sr + 0.5; // 微扩，保证边界格包含
+    const qMin = Math.floor(x0 - R), qMax = Math.ceil(x0 + R);
+    const rMin = Math.floor(y0 - R), rMax = Math.ceil(y0 + R);
+    for (let q = qMin; q <= qMax; q++) {
+      for (let r = rMin; r <= rMax; r++) {
+        if (Math.hypot(q - x0, r - y0) > R) continue;
+        if (losClear(x0, y0, q, r, q, r)) vis.add(cellKey(q, r));
+      }
+    }
+  }
+  return vis;
+}
+
+// ============================================================
+//  Measurement（🎯 测量工具）
+// ============================================================
+// 两点（格单位坐标）的直线距离 + 英尺 + 沿路径的困难地形等效移动
+function measureInfo(x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const dist = Math.hypot(dx, dy);
+  const FT_PER_CELL = 5;
+  // 沿直线采样，统计被穿过的“慢速地形”格数（不含端点）
+  let slow = 0;
+  if (dist > 0.01) {
+    const numPts = Math.max(1, Math.ceil(dist / 0.25));
+    const seen = new Set();
+    for (let i = 1; i < numPts; i++) {
+      const t = i / numPts;
+      const q = Math.round(x1 + dx * t), r = Math.round(y1 + dy * t);
+      const k = cellKey(q, r);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      const terr = getCell(q, r).terrain;
+      if (terr === 'difficult' || terr === 'water' || terr === 'rubble' || terr === 'web' || terr === 'grass' || terr === 'ice') slow++;
+    }
+  }
+  const ft = dist * FT_PER_CELL;
+  const effCells = dist + slow;      // 每格慢速地形额外 +1（移动×2）
+  const effFt = effCells * FT_PER_CELL;
+  return { dist, ft, slow, effCells, effFt };
 }
 
 // ============================================================
@@ -1676,8 +1800,7 @@ function render() {
   }
 
   // Pass 2: 底图（放在格子与地形之上，但保持半透明可调；贴合导入地图做网格对齐）
-  // [DISABLED v0.83] 导入底图功能临时禁用：不再绘制底图（含旧存档底图）
-  // drawBackgroundMap();
+  drawBackgroundMap();
 
   // Pass 3: Wall boundaries (edges between cells)
   for (let q = qMin; q <= qMax; q++) {
@@ -1778,6 +1901,44 @@ function render() {
     }
   }
 
+  // 测量叠加层（测距工具）
+  drawMeasure();
+
+  ctx.restore();
+}
+
+function drawMeasure() {
+  if (!_measure) return;
+  const p1 = cellToPixel(_measure.x1, _measure.y1);
+  const p2 = cellToPixel(_measure.x2, _measure.y2);
+  ctx.save();
+  // 测距线
+  ctx.strokeStyle = 'rgba(74, 170, 255, 0.95)';
+  ctx.lineWidth = 2.5 / zoom;
+  ctx.setLineDash([8 / zoom, 6 / zoom]);
+  ctx.beginPath(); ctx.moveTo(p1.x, p1.y); ctx.lineTo(p2.x, p2.y); ctx.stroke();
+  ctx.setLineDash([]);
+  // 端点圆点
+  ctx.fillStyle = '#4af';
+  [[p1.x, p1.y], [p2.x, p2.y]].forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, 5 / zoom, 0, Math.PI * 2); ctx.fill(); });
+  // 标签：距离 + 困难地形等效移动
+  const info = measureInfo(_measure.x1, _measure.y1, _measure.x2, _measure.y2);
+  let txt = `📏 ${info.dist.toFixed(1)} 格 (${info.ft.toFixed(0)} ft)`;
+  if (info.slow > 0) txt += ` · 慢速地形[${info.slow}格]→ 移动 ${info.effCells.toFixed(1)} 格 (${info.effFt.toFixed(0)} ft)`;
+  ctx.font = `bold ${13 / zoom}px sans-serif`;
+  const tw = ctx.measureText(txt).width + 16 / zoom;
+  const lh = 22 / zoom;
+  const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2;
+  const lx = mx - tw / 2, ly = my - lh - 8 / zoom;
+  ctx.fillStyle = 'rgba(10, 20, 40, 0.92)';
+  ctx.strokeStyle = 'rgba(74, 170, 255, 0.8)';
+  ctx.lineWidth = 1 / zoom;
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(lx, ly, tw, lh, 5 / zoom); else ctx.rect(lx, ly, tw, lh);
+  ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(txt, mx, ly + lh / 2);
   ctx.restore();
 }
 
@@ -2392,9 +2553,18 @@ function drawFogOverlay() {
   const qMin = Math.floor(topLeft.q) - 1, qMax = Math.ceil(botRight.q) + 1;
   const rMin = Math.floor(topLeft.r) - 1, rMax = Math.ceil(botRight.r) + 1;
 
+  // P0 动态视野：玩家视图下按单位视野自动揭示；否则（DM 视图 / 手动模式）用手动战雾
+  const hasVision = tokens.some(t => t.visionSource && (t.sightRadius || 0) > 0);
+  const autoMask = visionMode === 'auto' && viewRoleIsPlayer() && hasVision;
+  const vis = autoMask ? computeVisibleCells() : null;
+
   for (let q = qMin; q <= qMax; q++) {
     for (let r = rMin; r <= rMax; r++) {
-      if (!isFogCell(q, r)) continue;
+      if (autoMask) {
+        if (vis.has(cellKey(q, r))) continue; // 玩家可见，不遮
+      } else {
+        if (!isFogCell(q, r)) continue;
+      }
       ctx.fillStyle = 'rgba(12, 12, 20, 0.82)';
       ctx.fillRect(q * CELL_SIZE - CELL_SIZE / 2, r * CELL_SIZE - CELL_SIZE / 2, CELL_SIZE, CELL_SIZE);
       ctx.strokeStyle = 'rgba(255,255,255,0.08)';
@@ -2569,47 +2739,46 @@ canvas.addEventListener('mousedown', (e) => {
   if (e.button === 0) {
     const wx = (mx - viewX) / zoom, wy = (my - viewY) / zoom;
 
-    // [DISABLED v0.83] 导入底图功能临时禁用：底图对齐模式交互
     // --- 底图对齐模式：点击采集参考点 / 拖拽底图 / 缩放手柄 ---
-    // if (_bgAlignRefs) {
-    //   if (!backgroundMap) { _bgAlignRefs = null; render(); }
-    //   else {
-    //     const bm = backgroundMap;
-    //     const x0 = bm.x * CELL_SIZE, y0 = bm.y * CELL_SIZE;
-    //     const x1 = (bm.x + bm.cols) * CELL_SIZE, y1 = (bm.y + bm.rows) * CELL_SIZE;
-    //     const hs = 10 / zoom;
-    //     if (Math.abs(wx - x1) <= hs && Math.abs(wy - y1) <= hs) {
-    //       _bgDragMode = 'bg-resize-corner'; dragStartX = wx; dragStartY = wy; isDragging = true;
-    //       return;
-    //     }
-    //     if (Math.abs(wx - x0) <= hs && Math.abs(wy - y0) <= hs) {
-    //       _bgDragMode = 'bg-move'; _dragOffX = wx - x0; _dragOffY = wy - y0; isDragging = true;
-    //       return;
-    //     }
-    //     if (Math.abs(wx - x1) <= hs && Math.abs(wy - y0) <= hs) {
-    //       _bgDragMode = 'bg-resize-e'; dragStartX = wx; dragStartY = wy; isDragging = true;
-    //       return;
-    //     }
-    //     if (Math.abs(wx - x0) <= hs && Math.abs(wy - y1) <= hs) {
-    //       _bgDragMode = 'bg-resize-s'; dragStartX = wx; dragStartY = wy; isDragging = true;
-    //       return;
-    //     }
-    //     // 点击采集参考点
-    //     _bgAlignRefs.pts = _bgAlignRefs.pts || [];
-    //     if (_bgAlignRefs.pts.length < 3) {
-    //       _bgAlignRefs.pts.push({
-    //         world: { x: wx, y: wy },
-    //         snappedGrid: pixelToCell(wx, wy),
-    //         originX: e.clientX - rect.left,
-    //         originY: e.clientY - rect.top
-    //       });
-    //       render();
-    //       if (typeof updateBgAlignBar === 'function') updateBgAlignBar();
-    //       // 不再自动完成，等用户点“完成”
-    //     }
-    //     return;
-    //   }
-    // }
+    if (_bgAlignRefs) {
+      if (!backgroundMap) { _bgAlignRefs = null; render(); }
+      else {
+        const bm = backgroundMap;
+        const x0 = bm.x * CELL_SIZE, y0 = bm.y * CELL_SIZE;
+        const x1 = (bm.x + bm.cols) * CELL_SIZE, y1 = (bm.y + bm.rows) * CELL_SIZE;
+        const hs = 10 / zoom;
+        if (Math.abs(wx - x1) <= hs && Math.abs(wy - y1) <= hs) {
+          _bgDragMode = 'bg-resize-corner'; dragStartX = wx; dragStartY = wy; isDragging = true;
+          return;
+        }
+        if (Math.abs(wx - x0) <= hs && Math.abs(wy - y0) <= hs) {
+          _bgDragMode = 'bg-move'; _dragOffX = wx - x0; _dragOffY = wy - y0; isDragging = true;
+          return;
+        }
+        if (Math.abs(wx - x1) <= hs && Math.abs(wy - y0) <= hs) {
+          _bgDragMode = 'bg-resize-e'; dragStartX = wx; dragStartY = wy; isDragging = true;
+          return;
+        }
+        if (Math.abs(wx - x0) <= hs && Math.abs(wy - y1) <= hs) {
+          _bgDragMode = 'bg-resize-s'; dragStartX = wx; dragStartY = wy; isDragging = true;
+          return;
+        }
+        // 点击采集参考点
+        _bgAlignRefs.pts = _bgAlignRefs.pts || [];
+        if (_bgAlignRefs.pts.length < 3) {
+          _bgAlignRefs.pts.push({
+            world: { x: wx, y: wy },
+            snappedGrid: pixelToCell(wx, wy),
+            originX: e.clientX - rect.left,
+            originY: e.clientY - rect.top
+          });
+          render();
+          if (typeof updateBgAlignBar === 'function') updateBgAlignBar();
+          // 不再自动完成，等用户点“完成”
+        }
+        return;
+      }
+    }
 
     // --- 选择工具：单位/图形/线段优先 ---
     if (selectedTool === 'select') {
@@ -2729,6 +2898,14 @@ canvas.addEventListener('mousedown', (e) => {
       return;
     }
 
+    // --- 测量：拖拽画出测距线（持续显示距离/困难地形） ---
+    if (selectedTool === 'measure') {
+      _measure = { x1: wx / CELL_SIZE, y1: wy / CELL_SIZE, x2: wx / CELL_SIZE, y2: wy / CELL_SIZE };
+      _dragMode = 'measure-draw';
+      isDragging = true;
+      return;
+    }
+
     // --- 单位 token：点击放置 ---
     if (selectedTool === 'unit') {
       if (_unitPending) {
@@ -2746,8 +2923,10 @@ canvas.addEventListener('mousedown', (e) => {
           ac: _unitPending.ac || '', speed: _unitPending.speed || '', notes: _unitPending.notes || '',
           status: _unitPending.status || [],
           imgData: _unitPending.imgData || '', img: _unitPending.img || null,
+          sightRadius: _unitPending.sightRadius, visionSource: _unitPending.visionSource,
           ownerId: ''
         };
+        normalizeToken(t);
         pushUndoMeta();
         tokens.push(t);
         selectedToken = t.id; selectedShape = null; selectedLine = null; selectedCell = null;
@@ -2803,7 +2982,9 @@ canvas.addEventListener('mousedown', (e) => {
       const cell = cellAtPixel(mx, my);
       if (cell) {
         beginBatch();
-        _fogPaintTarget = !e.altKey ? !isFogCell(cell.q, cell.r) : isFogCell(cell.q, cell.r);
+        // 战雾：点击切换遮住/揭示，拖拽连续涂/擦
+        //  目标值 true=遮住 false=揭示；Alt 按住或处于「揭示」模式 → 强制揭示，与界面提示一致
+        _fogPaintTarget = !(e.altKey || fogMode === 'reveal');
         setFogCell(cell.q, cell.r, _fogPaintTarget);
         _dragMode = 'fog';
         _eraseDragLast = new Set([cellKey(cell.q, cell.r)]);
@@ -3030,41 +3211,43 @@ canvas.addEventListener('mousemove', (e) => {
       x2: wx / CELL_SIZE, y2: wy / CELL_SIZE
     };
     render();
+  } else if (_dragMode === 'measure-draw') {
+    _measure.x2 = wx / CELL_SIZE;
+    _measure.y2 = wy / CELL_SIZE;
+    render();
   } else if (_dragMode === 'pan') {
     viewX = viewStartX + (mx - dragStartX);
     viewY = viewStartY + (my - dragStartY);
     render();
+  } else if (_dragMode === 'bg-move') {
+    if (backgroundMap && _bgAlignRefs) {
+      backgroundMap.x = (wx - _dragOffX) / CELL_SIZE;
+      backgroundMap.y = (wy - _dragOffY) / CELL_SIZE;
+      render();
+    }
+  } else if (_dragMode === 'bg-resize-corner') {
+    if (backgroundMap && _bgAlignRefs) {
+      const bm = backgroundMap;
+      const x0 = bm.x * CELL_SIZE, y0 = bm.y * CELL_SIZE;
+      bm.cols = Math.max(0.5, (wx - x0) / CELL_SIZE);
+      bm.rows = Math.max(0.5, (wy - y0) / CELL_SIZE);
+      render();
+    }
+  } else if (_dragMode === 'bg-resize-e') {
+    if (backgroundMap && _bgAlignRefs) {
+      const bm = backgroundMap;
+      const x0 = bm.x * CELL_SIZE;
+      bm.cols = Math.max(0.5, (wx - x0) / CELL_SIZE);
+      render();
+    }
+  } else if (_dragMode === 'bg-resize-s') {
+    if (backgroundMap && _bgAlignRefs) {
+      const bm = backgroundMap;
+      const y0 = bm.y * CELL_SIZE;
+      bm.rows = Math.max(0.5, (wy - y0) / CELL_SIZE);
+      render();
+    }
   }
-  // [DISABLED v0.83] 导入底图功能临时禁用：底图拖拽/缩放手柄
-  // } else if (_dragMode === 'bg-move') {
-  //   if (backgroundMap && _bgAlignRefs) {
-  //     backgroundMap.x = (wx - _dragOffX) / CELL_SIZE;
-  //     backgroundMap.y = (wy - _dragOffY) / CELL_SIZE;
-  //     render();
-  //   }
-  // } else if (_dragMode === 'bg-resize-corner') {
-  //   if (backgroundMap && _bgAlignRefs) {
-  //     const bm = backgroundMap;
-  //     const x0 = bm.x * CELL_SIZE, y0 = bm.y * CELL_SIZE;
-  //     bm.cols = Math.max(0.5, (wx - x0) / CELL_SIZE);
-  //     bm.rows = Math.max(0.5, (wy - y0) / CELL_SIZE);
-  //     render();
-  //   }
-  // } else if (_dragMode === 'bg-resize-e') {
-  //   if (backgroundMap && _bgAlignRefs) {
-  //     const bm = backgroundMap;
-  //     const x0 = bm.x * CELL_SIZE;
-  //     bm.cols = Math.max(0.5, (wx - x0) / CELL_SIZE);
-  //     render();
-  //   }
-  // } else if (_dragMode === 'bg-resize-s') {
-  //   if (backgroundMap && _bgAlignRefs) {
-  //     const bm = backgroundMap;
-  //     const y0 = bm.y * CELL_SIZE;
-  //     bm.rows = Math.max(0.5, (wy - y0) / CELL_SIZE);
-  //     render();
-  //   }
-  // }
 });
 
 canvas.addEventListener('mouseup', () => {
@@ -3162,8 +3345,10 @@ canvas.addEventListener('touchstart', (e) => {
         ac: _unitPending.ac || '', speed: _unitPending.speed || '', notes: _unitPending.notes || '',
         status: _unitPending.status || [],
         imgData: _unitPending.imgData || '', img: _unitPending.img || null,
+        sightRadius: _unitPending.sightRadius, visionSource: _unitPending.visionSource,
         ownerId: ''
       };
+      normalizeToken(t);
       pushUndoMeta();
       tokens.push(t);
       selectedToken = t.id; selectedShape = null; selectedLine = null; selectedCell = null;
@@ -3199,11 +3384,11 @@ canvas.addEventListener('touchstart', (e) => {
       if (c) showDmModal(c.q, c.r);
       return;
     }
-    // 战雾（触摸，点击切换）
+    // 战雾（触摸：按当前模式 遮住/揭示）
     if (selectedTool === 'fog') {
       const c = cellAtPixel(mx, my);
       if (c) {
-        setFogCell(c.q, c.r, !isFogCell(c.q, c.r));
+        setFogCell(c.q, c.r, fogMode === 'reveal' ? false : true);
         render(); updateInfo();
         return;
       }
@@ -3388,6 +3573,8 @@ function showContextMenu(cx, cy, mx, my) {
     const main = tokens.find(x => x.id === selectedToken) || tkHit;
     addItem('🧝 编辑单位属性（主轴）', () => { openUnitModal(main); });
     addItem('📥 存入单位库（可复用预设）', () => { saveTokenToLibrary(main, false); });
+    addItem('👁️ 以该单位视角查看（玩家视图）', () => setViewSourceToken(main.id));
+    if (viewSourceTokenId) addItem('👁️ 恢复全部视野源', () => resetViewSourceToken());
     addItem('💥 受伤 -1', () => { changeTokenHp(main.id, -1); });
     addItem('💥 受伤 -5', () => { changeTokenHp(main.id, -5); });
     addItem('💥 受伤（自定义）…', () => {
@@ -3519,10 +3706,13 @@ function setTool(tool) {
   // 切换工具时清理未放置的拾取状态，避免"摆放过一次就卡在放置模式"
   if (tool !== 'unit') { _unitPending = null; _hoverUnit = null; }
   if (tool !== 'token') { _tokenPending = null; _hoverToken = null; }
+  if (tool !== 'measure') { _measure = null; }  // 离开测量工具清除测距叠加层
 
   selectedTool = tool;
   document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === tool));
   document.getElementById('erase-options').style.display = tool === 'erase' ? 'block' : 'none';
+  const fogOpts = document.getElementById('fog-options');
+  if (fogOpts) fogOpts.style.display = tool === 'fog' ? 'block' : 'none';
 
   const hint = document.getElementById('tool-hint');
   const coord = document.getElementById('coord-indicator');
@@ -3586,8 +3776,15 @@ function setTool(tool) {
       cnt.style.cursor = 'crosshair';
       break;
     case 'fog':
-      hint.innerHTML = '🌫️ 点击/拖拽 <b>遮住</b>格子，按住 <b>Alt</b> 或点击已遮格可以<b>揭示</b>；用「擦除→仅战雾」可批量清除';
-      coord.textContent = '🌫️ 战雾模式';
+      hint.innerHTML = fogMode === 'reveal'
+        ? '✨ 点击/拖拽 <b>揭示</b>已遮格子；切回「🌫️ 遮住」涂雾，按住 <b>Alt</b> 可临时揭示'
+        : '🌫️ 点击/拖拽 <b>遮住</b>格子；切到 <b>✨ 揭示</b> 揭开已遮格，按住 <b>Alt</b> 临时揭示；「擦除→仅战雾」可批量清除';
+      coord.textContent = fogMode === 'reveal' ? '✨ 揭示模式' : '🌫️ 遮住模式';
+      cnt.style.cursor = 'crosshair';
+      break;
+    case 'measure':
+      hint.innerHTML = '📏 在画布上<b>按住并拖拽</b>测距：显示距离(格/英尺)与沿线的慢速地形等效移动';
+      coord.textContent = '📏 测量模式';
       cnt.style.cursor = 'crosshair';
       break;
   }
@@ -3597,6 +3794,23 @@ function setTool(tool) {
 document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
   btn.addEventListener('click', () => setTool(btn.dataset.tool));
 });
+
+// ============================================================
+//  Fog Mode Switcher (🌫️ 遮住 / ✨ 揭示) — 明确替代隐蔽的 Alt 快捷键
+// ============================================================
+function setFogMode(mode) {
+  fogMode = (mode === 'reveal') ? 'reveal' : 'cover';
+  const cover = document.getElementById('fog-mode-cover');
+  const reveal = document.getElementById('fog-mode-reveal');
+  if (cover) cover.classList.toggle('active', fogMode === 'cover');
+  if (reveal) reveal.classList.toggle('active', fogMode === 'reveal');
+  if (selectedTool === 'fog') setTool('fog');  // 刷新提示/状态
+  else render();
+}
+const fogModeCover = document.getElementById('fog-mode-cover');
+if (fogModeCover) fogModeCover.addEventListener('click', () => setFogMode('cover'));
+const fogModeReveal = document.getElementById('fog-mode-reveal');
+if (fogModeReveal) fogModeReveal.addEventListener('click', () => setFogMode('reveal'));
 
 // ============================================================
 //  Terrain Palette
@@ -3867,6 +4081,7 @@ document.addEventListener('keydown', (e) => {
     }
     if (selectedToken) {
       pushUndoMeta();
+      if (viewSourceTokenId === selectedToken) viewSourceTokenId = null;
       tokens = tokens.filter(x => x.id !== selectedToken);
       clearInitiativeTokenRefs(selectedToken);
       selectedToken = null;
@@ -3909,6 +4124,18 @@ document.addEventListener('keydown', (e) => {
     render(); updateInfo();
     return;
   }
+  // Esc: 清除测距叠加层 / 恢复全部视角源
+  if (e.key === 'Escape' && _measure) {
+    _measure = null;
+    render();
+    return;
+  }
+  if (e.key === 'Escape' && viewSourceTokenId) {
+    viewSourceTokenId = null;
+    render();
+    showToast('👁️ 已恢复全部视野源');
+    return;
+  }
   // U：打开单位库（token 管理）
   if (e.key === 'u' || e.key === 'U') {
     e.preventDefault();
@@ -3921,7 +4148,7 @@ document.addEventListener('keydown', (e) => {
     }
     return;
   }
-  const km = { 'v':'select', 'b':'paint', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 'r':'rect', 't':'token', 'g':'line', 'y':'dm', 'f':'fog' };
+  const km = { 'v':'select', 'b':'paint', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 'r':'rect', 't':'token', 'g':'line', 'y':'dm', 'f':'fog', 'm':'measure' };
   if (km[e.key?.toLowerCase()]) { e.preventDefault(); setTool(km[e.key.toLowerCase()]); }
   // 分享弹窗：Esc 关闭
   if (e.key === 'Escape') {
@@ -3956,10 +4183,48 @@ document.getElementById('btn-load').addEventListener('click', () => loadJSON());
 document.getElementById('btn-clear').addEventListener('click', clearAll);
 document.getElementById('btn-undo').addEventListener('click', undo);
 document.getElementById('btn-redo').addEventListener('click', redo);
+
+// ============================================================
+//  Scenes UI (🎬 多场景切换)
+// ============================================================
+function renderSceneList() {
+  const list = document.getElementById('scene-list');
+  if (!list) return;
+  ensureScenes();
+  list.innerHTML = '';
+  scenes.forEach(s => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:3px;padding:4px 6px;margin:2px 0;border-radius:5px;cursor:pointer;font-size:12px;background:' + (s.id === activeSceneId ? 'rgba(122,74,158,0.35)' : '#1a1a2e') + ';border:1px solid ' + (s.id === activeSceneId ? '#b98ae0' : '#0f3460') + ';';
+    const name = document.createElement('span');
+    name.textContent = s.name || '未命名';
+    name.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + (s.id === activeSceneId ? '#fff' : '#ccc') + ';';
+    name.title = (s.data && Object.keys(s.data.combatData || {}).length ? Object.keys(s.data.combatData).length : 0) + ' 格';
+    row.addEventListener('click', () => switchScene(s.id));
+    const bits = [
+      ['✏️', () => { const n = prompt('重命名场景', s.name); if (n) renameScene(s.id, n); }],
+      ['🧬', () => duplicateScene(s.id)],
+      ['🗑️', () => { if (confirm('删除场景「' + (s.name || '') + '」？')) deleteScene(s.id); }]
+    ];
+    bits.forEach(([icon, fn]) => {
+      const b = document.createElement('button');
+      b.textContent = icon;
+      b.style.cssText = 'background:transparent;border:none;color:#aaa;cursor:pointer;font-size:11px;padding:0 3px;';
+      b.title = icon === '✏️' ? '重命名' : icon === '🧬' ? '复制' : '删除';
+      b.addEventListener('click', (e) => { e.stopPropagation(); fn(); });
+      row.appendChild(b);
+    });
+    list.appendChild(row);
+  });
+}
+
+document.getElementById('btn-scene-new').addEventListener('click', () => newScene());
+if (typeof ensureScenes === 'function') ensureScenes();
+if (typeof renderSceneList === 'function') renderSceneList();
 document.getElementById('chk-grid').addEventListener('change', (e) => { showGrid = e.target.checked; render(); });
 document.getElementById('chk-coords').addEventListener('change', (e) => { showCoords = e.target.checked; render(); });
 document.getElementById('chk-dm').addEventListener('change', (e) => { showDmLayer = e.target.checked; dmLayerPref = e.target.checked; render(); });
 document.getElementById('chk-fog').addEventListener('change', (e) => { showFogLayer = e.target.checked; render(); });
+document.getElementById('chk-vision').addEventListener('change', (e) => { visionMode = e.target.checked ? 'auto' : 'manual'; render(); });
 document.getElementById('chk-art-style').addEventListener('change', (e) => { setArtStyle(e.target.checked ? 'handdrawn' : 'classic'); });
 
 // ============================================================
@@ -4060,6 +4325,8 @@ function openUnitModal(token, mode) {
   document.getElementById('unit-notes').value = token?.notes ?? '';
   document.getElementById('unit-w').value = token?.w ?? 1;
   document.getElementById('unit-h').value = token?.h ?? 1;
+  document.getElementById('unit-sight').value = (typeof token?.sightRadius === 'number') ? token.sightRadius : 6;
+  document.getElementById('unit-vision').checked = token?.visionSource ?? (token?.kind === 'player' || token?.kind === 'ally');
   const imgPreview = document.getElementById('unit-img-preview');
   if (imgPreview && token?.imgData) { imgPreview.src = token.imgData; imgPreview.style.display = 'block'; }
   if (imgPreview && !token?.imgData) { imgPreview.removeAttribute('src'); imgPreview.style.display = 'none'; }
@@ -4104,7 +4371,9 @@ function saveUnitModal() {
     notes: document.getElementById('unit-notes').value.trim(),
     w: Math.max(0.2, parseInt(document.getElementById('unit-w').value) || 1),
     h: Math.max(0.2, parseInt(document.getElementById('unit-h').value) || 1),
-    status
+    status,
+    sightRadius: (() => { const v = parseFloat(document.getElementById('unit-sight').value); return isNaN(v) ? 6 : Math.max(0, v); })(),
+    visionSource: document.getElementById('unit-vision').checked
   };
   const imgInput = document.getElementById('unit-img-file');
   if (imgInput && imgInput.files && imgInput.files[0]) {
@@ -4171,6 +4440,7 @@ function deleteUnitConfirm() {
   }
   if (!id) return;
   pushUndoMeta();
+  if (viewSourceTokenId === id) viewSourceTokenId = null;
   tokens = tokens.filter(x => x.id !== id);
   clearInitiativeTokenRefs(id);
   if (selectedToken === id) selectedToken = null;
@@ -4963,11 +5233,21 @@ function finishBgAlignAfterApply() {
   render();
 }
 
-// 事件绑定：对齐模式 UI  [DISABLED v0.83] 随导入底图功能禁用
-// document.getElementById('btn-bg-align').addEventListener('click', startBgAlign);
-// document.getElementById('map-settings-begin-align').addEventListener('click', startBgAlign);
-// document.getElementById('bg-align-finish').addEventListener('click', finishBgAlign);
-// document.getElementById('bg-align-cancel').addEventListener('click', cancelBgAlign);
+// 事件绑定：对齐模式 UI
+document.getElementById('btn-bg-align').addEventListener('click', startBgAlign);
+document.getElementById('map-settings-begin-align').addEventListener('click', startBgAlign);
+document.getElementById('bg-align-finish').addEventListener('click', finishBgAlign);
+document.getElementById('bg-align-cancel').addEventListener('click', cancelBgAlign);
+document.getElementById('empty-import').addEventListener('click', importBackgroundMapFromFile);
+// 「点间格数」输入实时刷新标签 + 重渲染（预览按新值重算；不触碰参考点）
+{
+  const el = document.getElementById('bg-align-cells');
+  if (el) el.addEventListener('input', function() {
+    const v = document.getElementById('bg-align-cells-val');
+    if (v) v.textContent = this.value + ' 格';
+    render();
+  });
+}
 
 function applyBgAlignFromRefs(recordUndo) {
   if (!_bgAlignRefs || !backgroundMap) return;
@@ -5004,44 +5284,45 @@ function applyBgAlignFromRefs(recordUndo) {
   if (recordUndo !== false) pushUndoMeta();
   backgroundMap.cols = imgW / hPx;
   backgroundMap.rows = imgH / vPx;
-  // 基准点 I0 落到离点击处最近的工具网格线交点（格线交点 = 4 格共角，坐标为整数格）
-  const t0x = Math.round(p0.world.x / CS);
-  const t0y = Math.round(p0.world.y / CS);
+  // 基准点 I0 落到最近的工具格线交点。注意：工具格线在 (q+0.5)*48（半整数），
+  // 因此要吸附到半整数（round(x/CS - 0.5) + 0.5），不能直接 round(整数)否则偏半格导致“对不上”。
+  const t0x = Math.round(p0.world.x / CS - 0.5) + 0.5;
+  const t0y = Math.round(p0.world.y / CS - 0.5) + 0.5;
   backgroundMap.x = t0x - i0.x / hPx;
   backgroundMap.y = t0y - i0.y / vPx;
 }
 
 // Esc/右键离开对齐模式在交互层统一处理
-// 实时预览：修改设置后立即应用到画布，方便网格对齐  [DISABLED v0.83] 随导入底图功能禁用
-// ['bg-settings-x','bg-settings-y'].forEach(id => {
-//   document.getElementById(id).addEventListener('input', function() {
-//     if (!backgroundMap) return;
-//     backgroundMap.x = parseFloat(document.getElementById('bg-settings-x').value) || 0;
-//     backgroundMap.y = parseFloat(document.getElementById('bg-settings-y').value) || 0;
-//     render();
-//   });
-// });
-// ['bg-settings-cols','bg-settings-rows'].forEach(id => {
-//   document.getElementById(id).addEventListener('input', function() {
-//     if (!backgroundMap) return;
-//     backgroundMap.cols = Math.max(1, parseFloat(document.getElementById('bg-settings-cols').value) || 8);
-//     backgroundMap.rows = Math.max(1, parseFloat(document.getElementById('bg-settings-rows').value) || 8);
-//     render();
-//   });
-// });
-// document.getElementById('bg-settings-opacity').addEventListener('input', function() {
-//   setBackgroundOpacityDisplay();
-//   if (!backgroundMap) return;
-//   backgroundMap.opacity = Math.max(0, Math.min(1, (parseInt(this.value) || 85) / 100));
-//   render();
-// });
+// 实时预览：修改设置后立即应用到画布，方便网格对齐
+['bg-settings-x','bg-settings-y'].forEach(id => {
+  document.getElementById(id).addEventListener('input', function() {
+    if (!backgroundMap) return;
+    backgroundMap.x = parseFloat(document.getElementById('bg-settings-x').value) || 0;
+    backgroundMap.y = parseFloat(document.getElementById('bg-settings-y').value) || 0;
+    render();
+  });
+});
+['bg-settings-cols','bg-settings-rows'].forEach(id => {
+  document.getElementById(id).addEventListener('input', function() {
+    if (!backgroundMap) return;
+    backgroundMap.cols = Math.max(1, parseFloat(document.getElementById('bg-settings-cols').value) || 8);
+    backgroundMap.rows = Math.max(1, parseFloat(document.getElementById('bg-settings-rows').value) || 8);
+    render();
+  });
+});
+document.getElementById('bg-settings-opacity').addEventListener('input', function() {
+  setBackgroundOpacityDisplay();
+  if (!backgroundMap) return;
+  backgroundMap.opacity = Math.max(0, Math.min(1, (parseInt(this.value) || 85) / 100));
+  render();
+});
 
-// document.getElementById('btn-import-map').addEventListener('click', importBackgroundMapFromFile);
-// document.getElementById('btn-map-settings').addEventListener('click', openMapSettingsModal);
-// document.getElementById('map-settings-confirm').addEventListener('click', applyMapSettings);
-// document.getElementById('map-settings-remove').addEventListener('click', removeBackgroundMap);
-// document.getElementById('map-settings-close').addEventListener('click', () => { document.getElementById('map-settings-modal').style.display = 'none'; });
-// document.getElementById('map-settings-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) this.style.display = 'none'; });
+document.getElementById('btn-import-map').addEventListener('click', importBackgroundMapFromFile);
+document.getElementById('btn-map-settings').addEventListener('click', openMapSettingsModal);
+document.getElementById('map-settings-confirm').addEventListener('click', applyMapSettings);
+document.getElementById('map-settings-remove').addEventListener('click', removeBackgroundMap);
+document.getElementById('map-settings-close').addEventListener('click', () => { document.getElementById('map-settings-modal').style.display = 'none'; });
+document.getElementById('map-settings-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) this.style.display = 'none'; });
 
 // 对齐条「点间格数」实时重算（幂等：基于开始对齐时的映射快照；不产生撤销记录） [DISABLED v0.83]
 // document.getElementById('bg-align-cells').addEventListener('input', function() {
@@ -5066,6 +5347,23 @@ function setViewRole(role) {
   if (banner) banner.style.display = role === 'player' ? 'block' : 'none';
   document.body.classList.toggle('player-view', role === 'player');
   applyRoleViewUI();
+}
+
+// 以某单位作为玩家视角源（独立视角预览：玩家视图只看这个单位看得见的地方）
+function setViewSourceToken(id) {
+  const t = tokens.find(x => x.id === id);
+  if (!t) return;
+  viewSourceTokenId = id;
+  setViewRole('player');
+  const hint = document.getElementById('tool-hint');
+  if (hint) hint.innerHTML = '👁️ 当前视角源：<b>' + (t.name || '单位') + '</b> — 玩家视图只显示此单位视野；右键单位→恢复全部 / Esc 取消';
+  showToast('👁️ 已设为视角源：' + (t.name || '单位'));
+}
+function resetViewSourceToken() {
+  viewSourceTokenId = null;
+  render();
+  if (typeof updateEmptyState === 'function') updateEmptyState();
+  showToast('👁️ 已恢复全部视野源');
 }
 
 function applyRoleViewUI() {
@@ -5208,7 +5506,9 @@ function pickTokenPreset(id) {
     status: p.status || [],
     w: p.w || 1, h: p.h || 1,
     imgData: p.imgData || '',
-    img: null
+    img: null,
+    sightRadius: p.sightRadius,
+    visionSource: p.visionSource
   };
   if (_unitPending.imgData) {
     const im = new Image();
@@ -5246,7 +5546,9 @@ function presetFromToken(t) {
     status: t.status || [],
     w: t.w || 1, h: t.h || 1,
     imgData: t.imgData || '',
-    notes: t.notes || ''
+    notes: t.notes || '',
+    sightRadius: t.sightRadius,
+    visionSource: t.visionSource
   };
 }
 
@@ -5636,8 +5938,7 @@ function buildCombatPayload() {
     combatData,
     dmData,
     fog,
-  // [DISABLED v0.83] 导入底图功能临时禁用：分享数据不含底图
-  // backgroundMap: backgroundMap ? { ...backgroundMap, img: undefined } : null,
+    backgroundMap: backgroundMap ? { ...backgroundMap, img: undefined } : null,
     initiativeOrder,
     initiativeIndex,
     shapes: shapes.map(s => { const c = { ...s }; delete c.img; return c; }),
@@ -5648,7 +5949,8 @@ function buildCombatPayload() {
     tokenPresets: (typeof tokenPresets !== 'undefined') ? tokenPresets : [],
     viewX, viewY, zoom,
     customTerrains,
-    terrainOverrides
+    terrainOverrides,
+    visionMode
   };
 }
 
@@ -5668,34 +5970,24 @@ function applyCombatData(data) {
   restoreTokens(data.tokens || []);
   dmData = data.dmData || {};
   fog = data.fog || {};
-  // [DISABLED v0.83] 导入底图功能临时禁用：加载存档不再恢复底图
-  // backgroundMap = data.backgroundMap ? { ...data.backgroundMap } : null;
-  // if (backgroundMap && backgroundMap.imgData && !backgroundMap.img) {
-  //   const img = new Image();
-  //   img.src = backgroundMap.imgData;
-  //   img.onload = () => render();
-  //   backgroundMap.img = img;
-  // }
-  backgroundMap = null;
+  // 恢复底图（含 img 重建）
+  backgroundMap = data.backgroundMap ? { ...data.backgroundMap } : null;
+  if (backgroundMap && backgroundMap.imgData && !backgroundMap.img) {
+    const img = new Image();
+    img.src = backgroundMap.imgData;
+    img.onload = () => render();
+    backgroundMap.img = img;
+  }
   initiativeOrder = data.initiativeOrder || [];
   initiativeIndex = data.initiativeIndex || 0;
   groups = data.groups || [];
   customUnitStatuses = data.customUnitStatuses || customUnitStatuses;
+  visionMode = data.visionMode === 'manual' ? 'manual' : 'auto';
+  const vCheck = document.getElementById('chk-vision');
+  if (vCheck) vCheck.checked = (visionMode === 'auto');
   pruneGroups();
   selectedTokens = new Set();
   selectedToken = null;
-  // [DISABLED v0.83] 导入底图功能临时禁用（第二处恢复逻辑一并禁用）
-  // if (data.backgroundMap) {
-  //   backgroundMap = { ...data.backgroundMap };
-  //   if (backgroundMap.imgData && !backgroundMap.img) {
-  //     const img = new Image();
-  //     img.src = backgroundMap.imgData;
-  //     img.onload = () => render();
-  //     backgroundMap.img = img;
-  //   }
-  // } else {
-  //   backgroundMap = null;
-  // }
   if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
   if (typeof saveCustomUnitStatuses === 'function') saveCustomUnitStatuses();
   if (data.customTerrains || data.terrainOverrides) {
@@ -5722,6 +6014,114 @@ function applyCombatData(data) {
   if (typeof updateEmptyState === 'function') updateEmptyState();
   if (typeof refreshBgAlignButton === 'function') refreshBgAlignButton();
   return Object.keys(combatData).length;
+}
+
+// ============================================================
+//  Scenes (🎬 多场景：一个战役多张地图，可切换)
+//  每个场景 = 完整地图状态快照；切换=快照当前→载入目标。
+//  单位库/自定义地形为全局(跨场景共享)，不进场景快照。
+// ============================================================
+function snapshotSceneData() {
+  cleanData();
+  return {
+    combatData, dmData, fog,
+    backgroundMap: backgroundMap ? { ...backgroundMap, img: undefined } : null,
+    initiativeOrder, initiativeIndex,
+    shapes: shapes.map(s => { const c = { ...s }; delete c.img; return c; }),
+    freeLines,
+    tokens: tokens.map(t => { const c = { ...t }; delete c.img; return c; }),
+    groups, viewX, viewY, zoom, visionMode
+  };
+}
+
+function emptySceneData() {
+  return {
+    combatData: {}, dmData: {}, fog: {},
+    backgroundMap: null, initiativeOrder: [], initiativeIndex: 0,
+    shapes: [], freeLines: [], tokens: [],
+    groups: [], viewX: 0, viewY: 0, zoom: 1, visionMode: 'auto'
+  };
+}
+
+function nextSceneId() { return 'sc_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); }
+function sceneById(id) { return (scenes || []).find(s => s.id === id) || null; }
+
+function ensureScenes() {
+  if (!Array.isArray(scenes)) scenes = [];
+  if (scenes.length === 0) {
+    scenes.push({ id: nextSceneId(), name: '场景 1', data: snapshotSceneData() });
+  }
+  if (!activeSceneId || !sceneById(activeSceneId)) activeSceneId = scenes[0].id;
+}
+
+// 复制一份场景快照（剥离 img）
+function cloneSceneData(data) {
+  return JSON.parse(JSON.stringify(data || emptySceneData()));
+}
+
+function newScene(name) {
+  ensureScenes();
+  const cur = sceneById(activeSceneId);
+  if (cur) cur.data = snapshotSceneData();   // 保存当前
+  const sc = { id: nextSceneId(), name: (name && name.trim()) || ('场景 ' + (scenes.length + 1)), data: emptySceneData() };
+  scenes.push(sc);
+  activeSceneId = sc.id;
+  applyCombatData(sc.data);
+  if (typeof renderSceneList === 'function') renderSceneList();
+  if (typeof updateEmptyState === 'function') updateEmptyState();
+  showToast('🎬 已新建场景「' + sc.name + '」');
+}
+
+function switchScene(id) {
+  ensureScenes();
+  if (id === activeSceneId) return;
+  const cur = sceneById(activeSceneId);
+  if (cur) cur.data = snapshotSceneData();   // 保存当前
+  const tgt = sceneById(id);
+  if (!tgt) return;
+  activeSceneId = id;
+  applyCombatData(tgt.data);
+  if (typeof renderSceneList === 'function') renderSceneList();
+  if (typeof updateEmptyState === 'function') updateEmptyState();
+  showToast('🎬 已切换场景「' + tgt.name + '」');
+}
+
+function renameScene(id, name) {
+  const s = sceneById(id);
+  if (!s) return;
+  s.name = (name && name.trim()) || s.name;
+  if (typeof renderSceneList === 'function') renderSceneList();
+}
+
+function duplicateScene(id) {
+  ensureScenes();
+  const src = sceneById(id);
+  if (!src) return;
+  const sc = { id: nextSceneId(), name: src.name + ' 副本', data: cloneSceneData(src.data) };
+  scenes.push(sc);
+  if (typeof renderSceneList === 'function') renderSceneList();
+  showToast('🧬 已「' + sc.name + '」复制场景');
+}
+
+function deleteScene(id) {
+  ensureScenes();
+  const idx = scenes.findIndex(s => s.id === id);
+  if (idx < 0) return;
+  const wasActive = activeSceneId === id;
+  scenes.splice(idx, 1);
+  if (wasActive) {
+    if (scenes.length) {
+      activeSceneId = scenes[0].id;
+      applyCombatData(scenes[0].data);
+    } else {
+      scenes.push({ id: nextSceneId(), name: '场景 1', data: emptySceneData() });
+      activeSceneId = scenes[0].id;
+      applyCombatData(scenes[0].data);
+    }
+    if (typeof updateEmptyState === 'function') updateEmptyState();
+  }
+  if (typeof renderSceneList === 'function') renderSceneList();
+  showToast('🗑️ 场景已删除');
 }
 
 // 从用户粘贴的文本里取出紧凑串：接受完整链接、纯串、带 #m=/compact: 前缀
@@ -6769,11 +7169,11 @@ function renderMapCanvas(exact) {
   });
   if (!isFinite(minQ)) { minQ = -2; maxQ = 2; minR = -2; maxR = 2; }
 
-  // 导出范围包含底图区域  [DISABLED v0.83] 导入底图功能临时禁用
-  // if (backgroundMap) {
-  //   feed(Math.floor(backgroundMap.x), Math.floor(backgroundMap.y));
-  //   feed(Math.ceil(backgroundMap.x + backgroundMap.cols), Math.ceil(backgroundMap.y + backgroundMap.rows));
-  // }
+  // 导出范围包含底图区域
+  if (backgroundMap) {
+    feed(Math.floor(backgroundMap.x), Math.floor(backgroundMap.y));
+    feed(Math.ceil(backgroundMap.x + backgroundMap.cols), Math.ceil(backgroundMap.y + backgroundMap.rows));
+  }
 
   const half = CELL_SIZE / 2;
   const padding = CELL_SIZE * 2;
@@ -6819,16 +7219,16 @@ function renderMapCanvas(exact) {
     drawCombatCellBase(expCtx, q, r, combatData[key]);
   }
 
-  // Pass 1.5: 底图（导出包含背景，DM/玩家图均一致） [DISABLED v0.83] 导入底图功能临时禁用
-  // if (backgroundMap && backgroundMap.imgData) {
-  //   const bm = backgroundMap;
-  //   expCtx.save();
-  //   expCtx.globalAlpha = Math.max(0, Math.min(1, bm.opacity ?? 0.85));
-  //   if (bm.img && bm.img.complete) {
-  //     expCtx.drawImage(bm.img, bm.x * CELL_SIZE, bm.y * CELL_SIZE, bm.cols * CELL_SIZE, bm.rows * CELL_SIZE);
-  //   }
-  //   expCtx.restore();
-  // }
+  // Pass 1.5: 底图（导出包含背景，DM/玩家图均一致）
+  if (backgroundMap && backgroundMap.imgData) {
+    const bm = backgroundMap;
+    expCtx.save();
+    expCtx.globalAlpha = Math.max(0, Math.min(1, bm.opacity ?? 0.85));
+    if (bm.img && bm.img.complete) {
+      expCtx.drawImage(bm.img, bm.x * CELL_SIZE, bm.y * CELL_SIZE, bm.cols * CELL_SIZE, bm.rows * CELL_SIZE);
+    }
+    expCtx.restore();
+  }
 
   // Pass 2: walls
   for (const key of keys) {
@@ -7019,10 +7419,17 @@ function renderMapCanvas(exact) {
 
   // Pass 7: 战雾遮罩（导出玩家可见图时保留；DM 层不导出）
   if (showFogLayer) {
+    const hasVision = tokens.some(t => t.visionSource && (t.sightRadius || 0) > 0);
+    const autoMask = visionMode === 'auto' && viewRoleIsPlayer() && hasVision;
+    const vis = autoMask ? computeVisibleCells() : null;
     // 输出范围内逐格绘制雾
     for (let q = minQ; q <= maxQ; q++) {
       for (let r = minR; r <= maxR; r++) {
-        if (!isFogCell(q, r)) continue;
+        if (autoMask) {
+          if (vis.has(cellKey(q, r))) continue; // 玩家可见，不遮
+        } else {
+          if (!isFogCell(q, r)) continue;
+        }
         expCtx.fillStyle = 'rgba(12, 12, 20, 0.82)';
         expCtx.fillRect(q * CELL_SIZE - CELL_SIZE / 2, r * CELL_SIZE - CELL_SIZE / 2, CELL_SIZE, CELL_SIZE);
       }
@@ -7150,8 +7557,7 @@ function saveJSON() {
     combatData,
     dmData,
     fog,
-    // [DISABLED v0.83] 导入底图功能临时禁用：保存 JSON 不含底图
-    // backgroundMap: backgroundMap ? { ...backgroundMap, img: undefined } : null,
+    backgroundMap: backgroundMap ? { ...backgroundMap, img: undefined } : null,
     initiativeOrder,
     initiativeIndex,
     shapes: shapes.map(s => { const c = { ...s }; delete c.img; return c; }),
@@ -7162,7 +7568,12 @@ function saveJSON() {
     tokenPresets: (typeof tokenPresets !== 'undefined') ? tokenPresets : [],
     viewX, viewY, zoom
   };
-  const json = JSON.stringify(data);
+  // 多场景：把整个战役（场景列表 + 当前激活）一并保存
+  const campaign = {
+    scenes: (typeof scenes !== 'undefined') ? scenes.map(s => ({ id: s.id, name: s.name, data: cloneSceneData(s.data) })) : undefined,
+    activeSceneId: (typeof activeSceneId !== 'undefined') ? activeSceneId : undefined
+  };
+  const json = JSON.stringify({ ...data, ...campaign });
   const blob = new Blob([json], { type: 'application/json' });
   downloadBlob(blob, `combatmap_${new Date().toISOString().slice(0,10)}.json`);
   showToast(`💾 已保存 — ${Object.keys(combatData).length} 格 / ${shapes.length} 图形 / ${freeLines.length} 线段 / ${tokens.length} 单位`);
@@ -7178,8 +7589,23 @@ function loadJSON() {
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
+        // 多场景战役文件：恢复场景列表 + 激活场景，再载入当前激活场景
+        if (data && Array.isArray(data.scenes) && data.scenes.length) {
+          if (typeof scenes !== 'undefined') {
+            scenes = data.scenes.map(s => ({ id: s.id || (typeof nextSceneId === 'function' ? nextSceneId() : 'sc'), name: s.name || '场景', data: s.data || {} }));
+            activeSceneId = data.activeSceneId || scenes[0].id;
+            if (!sceneById(activeSceneId)) activeSceneId = scenes[0].id;
+            applyCombatData(sceneById(activeSceneId).data);
+            if (typeof renderSceneList === 'function') renderSceneList();
+            showToast(`📂 已加载战役 — ${scenes.length} 个场景`);
+            return;
+          }
+        }
+        // 单场景（旧格式 / 直接分享导入）：载入当前地图并包成 1 个场景
         if (data && data.combatData !== undefined && data.tokens !== undefined) {
           const n = applyCombatData(data);
+          if (typeof ensureScenes === 'function') ensureScenes();
+          if (typeof renderSceneList === 'function') renderSceneList();
           showToast(`📂 已加载 — ${n} 格 / ${shapes.length} 图形 / ${freeLines.length} 线段 / ${tokens.length} 单位`);
           return;
         }
@@ -7211,6 +7637,8 @@ function init() {
   if (dmCheck) dmCheck.checked = showDmLayer;
   const fogCheck = document.getElementById('chk-fog');
   if (fogCheck) fogCheck.checked = showFogLayer;
+  const visionCheck = document.getElementById('chk-vision');
+  if (visionCheck) visionCheck.checked = (visionMode === 'auto');
   viewX = canvas.width / 2;
   viewY = canvas.height / 2;
   render();
@@ -7232,9 +7660,11 @@ function init() {
     }
   }
   console.log(`⚔️ 通用战斗地图生成器 ${COMBATMAP_VERSION} 已就绪`);
-  console.log('快捷键: V=选择 B=笔刷 W=墙壁 D=门 L=标签 E=擦除 R=区域 T=图片 G=线段 U=单位库 Y=DM层 F=战雾 Delete=删除选中');
+  console.log('快捷键: V=选择 B=笔刷 W=墙壁 D=门 L=标签 E=擦除 R=区域 T=图片 G=线段 M=测量 U=单位库 Y=DM层 F=战雾 Delete=删除选中');
   console.log('v0.81: 页签面板 · 网格对齐重做 · DM/玩家视图 · 单位库 · 摆放后自动回选择(Shift连放)');
   if (typeof initCombatShareUI === 'function') initCombatShareUI();
+  if (typeof ensureScenes === 'function') ensureScenes();
+  if (typeof renderSceneList === 'function') renderSceneList();
 }
 
 window.addEventListener('resize', resizeCanvas);

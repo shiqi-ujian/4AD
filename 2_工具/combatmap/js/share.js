@@ -76,8 +76,7 @@ function buildCombatPayload() {
     combatData,
     dmData,
     fog,
-  // [DISABLED v0.83] 导入底图功能临时禁用：分享数据不含底图
-  // backgroundMap: backgroundMap ? { ...backgroundMap, img: undefined } : null,
+    backgroundMap: backgroundMap ? { ...backgroundMap, img: undefined } : null,
     initiativeOrder,
     initiativeIndex,
     shapes: shapes.map(s => { const c = { ...s }; delete c.img; return c; }),
@@ -88,7 +87,8 @@ function buildCombatPayload() {
     tokenPresets: (typeof tokenPresets !== 'undefined') ? tokenPresets : [],
     viewX, viewY, zoom,
     customTerrains,
-    terrainOverrides
+    terrainOverrides,
+    visionMode
   };
 }
 
@@ -108,34 +108,24 @@ function applyCombatData(data) {
   restoreTokens(data.tokens || []);
   dmData = data.dmData || {};
   fog = data.fog || {};
-  // [DISABLED v0.83] 导入底图功能临时禁用：加载存档不再恢复底图
-  // backgroundMap = data.backgroundMap ? { ...data.backgroundMap } : null;
-  // if (backgroundMap && backgroundMap.imgData && !backgroundMap.img) {
-  //   const img = new Image();
-  //   img.src = backgroundMap.imgData;
-  //   img.onload = () => render();
-  //   backgroundMap.img = img;
-  // }
-  backgroundMap = null;
+  // 恢复底图（含 img 重建）
+  backgroundMap = data.backgroundMap ? { ...data.backgroundMap } : null;
+  if (backgroundMap && backgroundMap.imgData && !backgroundMap.img) {
+    const img = new Image();
+    img.src = backgroundMap.imgData;
+    img.onload = () => render();
+    backgroundMap.img = img;
+  }
   initiativeOrder = data.initiativeOrder || [];
   initiativeIndex = data.initiativeIndex || 0;
   groups = data.groups || [];
   customUnitStatuses = data.customUnitStatuses || customUnitStatuses;
+  visionMode = data.visionMode === 'manual' ? 'manual' : 'auto';
+  const vCheck = document.getElementById('chk-vision');
+  if (vCheck) vCheck.checked = (visionMode === 'auto');
   pruneGroups();
   selectedTokens = new Set();
   selectedToken = null;
-  // [DISABLED v0.83] 导入底图功能临时禁用（第二处恢复逻辑一并禁用）
-  // if (data.backgroundMap) {
-  //   backgroundMap = { ...data.backgroundMap };
-  //   if (backgroundMap.imgData && !backgroundMap.img) {
-  //     const img = new Image();
-  //     img.src = backgroundMap.imgData;
-  //     img.onload = () => render();
-  //     backgroundMap.img = img;
-  //   }
-  // } else {
-  //   backgroundMap = null;
-  // }
   if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
   if (typeof saveCustomUnitStatuses === 'function') saveCustomUnitStatuses();
   if (data.customTerrains || data.terrainOverrides) {
@@ -162,6 +152,114 @@ function applyCombatData(data) {
   if (typeof updateEmptyState === 'function') updateEmptyState();
   if (typeof refreshBgAlignButton === 'function') refreshBgAlignButton();
   return Object.keys(combatData).length;
+}
+
+// ============================================================
+//  Scenes (🎬 多场景：一个战役多张地图，可切换)
+//  每个场景 = 完整地图状态快照；切换=快照当前→载入目标。
+//  单位库/自定义地形为全局(跨场景共享)，不进场景快照。
+// ============================================================
+function snapshotSceneData() {
+  cleanData();
+  return {
+    combatData, dmData, fog,
+    backgroundMap: backgroundMap ? { ...backgroundMap, img: undefined } : null,
+    initiativeOrder, initiativeIndex,
+    shapes: shapes.map(s => { const c = { ...s }; delete c.img; return c; }),
+    freeLines,
+    tokens: tokens.map(t => { const c = { ...t }; delete c.img; return c; }),
+    groups, viewX, viewY, zoom, visionMode
+  };
+}
+
+function emptySceneData() {
+  return {
+    combatData: {}, dmData: {}, fog: {},
+    backgroundMap: null, initiativeOrder: [], initiativeIndex: 0,
+    shapes: [], freeLines: [], tokens: [],
+    groups: [], viewX: 0, viewY: 0, zoom: 1, visionMode: 'auto'
+  };
+}
+
+function nextSceneId() { return 'sc_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5); }
+function sceneById(id) { return (scenes || []).find(s => s.id === id) || null; }
+
+function ensureScenes() {
+  if (!Array.isArray(scenes)) scenes = [];
+  if (scenes.length === 0) {
+    scenes.push({ id: nextSceneId(), name: '场景 1', data: snapshotSceneData() });
+  }
+  if (!activeSceneId || !sceneById(activeSceneId)) activeSceneId = scenes[0].id;
+}
+
+// 复制一份场景快照（剥离 img）
+function cloneSceneData(data) {
+  return JSON.parse(JSON.stringify(data || emptySceneData()));
+}
+
+function newScene(name) {
+  ensureScenes();
+  const cur = sceneById(activeSceneId);
+  if (cur) cur.data = snapshotSceneData();   // 保存当前
+  const sc = { id: nextSceneId(), name: (name && name.trim()) || ('场景 ' + (scenes.length + 1)), data: emptySceneData() };
+  scenes.push(sc);
+  activeSceneId = sc.id;
+  applyCombatData(sc.data);
+  if (typeof renderSceneList === 'function') renderSceneList();
+  if (typeof updateEmptyState === 'function') updateEmptyState();
+  showToast('🎬 已新建场景「' + sc.name + '」');
+}
+
+function switchScene(id) {
+  ensureScenes();
+  if (id === activeSceneId) return;
+  const cur = sceneById(activeSceneId);
+  if (cur) cur.data = snapshotSceneData();   // 保存当前
+  const tgt = sceneById(id);
+  if (!tgt) return;
+  activeSceneId = id;
+  applyCombatData(tgt.data);
+  if (typeof renderSceneList === 'function') renderSceneList();
+  if (typeof updateEmptyState === 'function') updateEmptyState();
+  showToast('🎬 已切换场景「' + tgt.name + '」');
+}
+
+function renameScene(id, name) {
+  const s = sceneById(id);
+  if (!s) return;
+  s.name = (name && name.trim()) || s.name;
+  if (typeof renderSceneList === 'function') renderSceneList();
+}
+
+function duplicateScene(id) {
+  ensureScenes();
+  const src = sceneById(id);
+  if (!src) return;
+  const sc = { id: nextSceneId(), name: src.name + ' 副本', data: cloneSceneData(src.data) };
+  scenes.push(sc);
+  if (typeof renderSceneList === 'function') renderSceneList();
+  showToast('🧬 已「' + sc.name + '」复制场景');
+}
+
+function deleteScene(id) {
+  ensureScenes();
+  const idx = scenes.findIndex(s => s.id === id);
+  if (idx < 0) return;
+  const wasActive = activeSceneId === id;
+  scenes.splice(idx, 1);
+  if (wasActive) {
+    if (scenes.length) {
+      activeSceneId = scenes[0].id;
+      applyCombatData(scenes[0].data);
+    } else {
+      scenes.push({ id: nextSceneId(), name: '场景 1', data: emptySceneData() });
+      activeSceneId = scenes[0].id;
+      applyCombatData(scenes[0].data);
+    }
+    if (typeof updateEmptyState === 'function') updateEmptyState();
+  }
+  if (typeof renderSceneList === 'function') renderSceneList();
+  showToast('🗑️ 场景已删除');
 }
 
 // 从用户粘贴的文本里取出紧凑串：接受完整链接、纯串、带 #m=/compact: 前缀

@@ -9,10 +9,13 @@ function setTool(tool) {
   // 切换工具时清理未放置的拾取状态，避免"摆放过一次就卡在放置模式"
   if (tool !== 'unit') { _unitPending = null; _hoverUnit = null; }
   if (tool !== 'token') { _tokenPending = null; _hoverToken = null; }
+  if (tool !== 'measure') { _measure = null; }  // 离开测量工具清除测距叠加层
 
   selectedTool = tool;
   document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === tool));
   document.getElementById('erase-options').style.display = tool === 'erase' ? 'block' : 'none';
+  const fogOpts = document.getElementById('fog-options');
+  if (fogOpts) fogOpts.style.display = tool === 'fog' ? 'block' : 'none';
 
   const hint = document.getElementById('tool-hint');
   const coord = document.getElementById('coord-indicator');
@@ -76,8 +79,15 @@ function setTool(tool) {
       cnt.style.cursor = 'crosshair';
       break;
     case 'fog':
-      hint.innerHTML = '🌫️ 点击/拖拽 <b>遮住</b>格子，按住 <b>Alt</b> 或点击已遮格可以<b>揭示</b>；用「擦除→仅战雾」可批量清除';
-      coord.textContent = '🌫️ 战雾模式';
+      hint.innerHTML = fogMode === 'reveal'
+        ? '✨ 点击/拖拽 <b>揭示</b>已遮格子；切回「🌫️ 遮住」涂雾，按住 <b>Alt</b> 可临时揭示'
+        : '🌫️ 点击/拖拽 <b>遮住</b>格子；切到 <b>✨ 揭示</b> 揭开已遮格，按住 <b>Alt</b> 临时揭示；「擦除→仅战雾」可批量清除';
+      coord.textContent = fogMode === 'reveal' ? '✨ 揭示模式' : '🌫️ 遮住模式';
+      cnt.style.cursor = 'crosshair';
+      break;
+    case 'measure':
+      hint.innerHTML = '📏 在画布上<b>按住并拖拽</b>测距：显示距离(格/英尺)与沿线的慢速地形等效移动';
+      coord.textContent = '📏 测量模式';
       cnt.style.cursor = 'crosshair';
       break;
   }
@@ -87,6 +97,23 @@ function setTool(tool) {
 document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
   btn.addEventListener('click', () => setTool(btn.dataset.tool));
 });
+
+// ============================================================
+//  Fog Mode Switcher (🌫️ 遮住 / ✨ 揭示) — 明确替代隐蔽的 Alt 快捷键
+// ============================================================
+function setFogMode(mode) {
+  fogMode = (mode === 'reveal') ? 'reveal' : 'cover';
+  const cover = document.getElementById('fog-mode-cover');
+  const reveal = document.getElementById('fog-mode-reveal');
+  if (cover) cover.classList.toggle('active', fogMode === 'cover');
+  if (reveal) reveal.classList.toggle('active', fogMode === 'reveal');
+  if (selectedTool === 'fog') setTool('fog');  // 刷新提示/状态
+  else render();
+}
+const fogModeCover = document.getElementById('fog-mode-cover');
+if (fogModeCover) fogModeCover.addEventListener('click', () => setFogMode('cover'));
+const fogModeReveal = document.getElementById('fog-mode-reveal');
+if (fogModeReveal) fogModeReveal.addEventListener('click', () => setFogMode('reveal'));
 
 // ============================================================
 //  Terrain Palette
@@ -357,6 +384,7 @@ document.addEventListener('keydown', (e) => {
     }
     if (selectedToken) {
       pushUndoMeta();
+      if (viewSourceTokenId === selectedToken) viewSourceTokenId = null;
       tokens = tokens.filter(x => x.id !== selectedToken);
       clearInitiativeTokenRefs(selectedToken);
       selectedToken = null;
@@ -399,6 +427,18 @@ document.addEventListener('keydown', (e) => {
     render(); updateInfo();
     return;
   }
+  // Esc: 清除测距叠加层 / 恢复全部视角源
+  if (e.key === 'Escape' && _measure) {
+    _measure = null;
+    render();
+    return;
+  }
+  if (e.key === 'Escape' && viewSourceTokenId) {
+    viewSourceTokenId = null;
+    render();
+    showToast('👁️ 已恢复全部视野源');
+    return;
+  }
   // U：打开单位库（token 管理）
   if (e.key === 'u' || e.key === 'U') {
     e.preventDefault();
@@ -411,7 +451,7 @@ document.addEventListener('keydown', (e) => {
     }
     return;
   }
-  const km = { 'v':'select', 'b':'paint', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 'r':'rect', 't':'token', 'g':'line', 'y':'dm', 'f':'fog' };
+  const km = { 'v':'select', 'b':'paint', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 'r':'rect', 't':'token', 'g':'line', 'y':'dm', 'f':'fog', 'm':'measure' };
   if (km[e.key?.toLowerCase()]) { e.preventDefault(); setTool(km[e.key.toLowerCase()]); }
   // 分享弹窗：Esc 关闭
   if (e.key === 'Escape') {
@@ -446,10 +486,48 @@ document.getElementById('btn-load').addEventListener('click', () => loadJSON());
 document.getElementById('btn-clear').addEventListener('click', clearAll);
 document.getElementById('btn-undo').addEventListener('click', undo);
 document.getElementById('btn-redo').addEventListener('click', redo);
+
+// ============================================================
+//  Scenes UI (🎬 多场景切换)
+// ============================================================
+function renderSceneList() {
+  const list = document.getElementById('scene-list');
+  if (!list) return;
+  ensureScenes();
+  list.innerHTML = '';
+  scenes.forEach(s => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:3px;padding:4px 6px;margin:2px 0;border-radius:5px;cursor:pointer;font-size:12px;background:' + (s.id === activeSceneId ? 'rgba(122,74,158,0.35)' : '#1a1a2e') + ';border:1px solid ' + (s.id === activeSceneId ? '#b98ae0' : '#0f3460') + ';';
+    const name = document.createElement('span');
+    name.textContent = s.name || '未命名';
+    name.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:' + (s.id === activeSceneId ? '#fff' : '#ccc') + ';';
+    name.title = (s.data && Object.keys(s.data.combatData || {}).length ? Object.keys(s.data.combatData).length : 0) + ' 格';
+    row.addEventListener('click', () => switchScene(s.id));
+    const bits = [
+      ['✏️', () => { const n = prompt('重命名场景', s.name); if (n) renameScene(s.id, n); }],
+      ['🧬', () => duplicateScene(s.id)],
+      ['🗑️', () => { if (confirm('删除场景「' + (s.name || '') + '」？')) deleteScene(s.id); }]
+    ];
+    bits.forEach(([icon, fn]) => {
+      const b = document.createElement('button');
+      b.textContent = icon;
+      b.style.cssText = 'background:transparent;border:none;color:#aaa;cursor:pointer;font-size:11px;padding:0 3px;';
+      b.title = icon === '✏️' ? '重命名' : icon === '🧬' ? '复制' : '删除';
+      b.addEventListener('click', (e) => { e.stopPropagation(); fn(); });
+      row.appendChild(b);
+    });
+    list.appendChild(row);
+  });
+}
+
+document.getElementById('btn-scene-new').addEventListener('click', () => newScene());
+if (typeof ensureScenes === 'function') ensureScenes();
+if (typeof renderSceneList === 'function') renderSceneList();
 document.getElementById('chk-grid').addEventListener('change', (e) => { showGrid = e.target.checked; render(); });
 document.getElementById('chk-coords').addEventListener('change', (e) => { showCoords = e.target.checked; render(); });
 document.getElementById('chk-dm').addEventListener('change', (e) => { showDmLayer = e.target.checked; dmLayerPref = e.target.checked; render(); });
 document.getElementById('chk-fog').addEventListener('change', (e) => { showFogLayer = e.target.checked; render(); });
+document.getElementById('chk-vision').addEventListener('change', (e) => { visionMode = e.target.checked ? 'auto' : 'manual'; render(); });
 document.getElementById('chk-art-style').addEventListener('change', (e) => { setArtStyle(e.target.checked ? 'handdrawn' : 'classic'); });
 
 // ============================================================
@@ -550,6 +628,8 @@ function openUnitModal(token, mode) {
   document.getElementById('unit-notes').value = token?.notes ?? '';
   document.getElementById('unit-w').value = token?.w ?? 1;
   document.getElementById('unit-h').value = token?.h ?? 1;
+  document.getElementById('unit-sight').value = (typeof token?.sightRadius === 'number') ? token.sightRadius : 6;
+  document.getElementById('unit-vision').checked = token?.visionSource ?? (token?.kind === 'player' || token?.kind === 'ally');
   const imgPreview = document.getElementById('unit-img-preview');
   if (imgPreview && token?.imgData) { imgPreview.src = token.imgData; imgPreview.style.display = 'block'; }
   if (imgPreview && !token?.imgData) { imgPreview.removeAttribute('src'); imgPreview.style.display = 'none'; }
@@ -594,7 +674,9 @@ function saveUnitModal() {
     notes: document.getElementById('unit-notes').value.trim(),
     w: Math.max(0.2, parseInt(document.getElementById('unit-w').value) || 1),
     h: Math.max(0.2, parseInt(document.getElementById('unit-h').value) || 1),
-    status
+    status,
+    sightRadius: (() => { const v = parseFloat(document.getElementById('unit-sight').value); return isNaN(v) ? 6 : Math.max(0, v); })(),
+    visionSource: document.getElementById('unit-vision').checked
   };
   const imgInput = document.getElementById('unit-img-file');
   if (imgInput && imgInput.files && imgInput.files[0]) {
@@ -661,6 +743,7 @@ function deleteUnitConfirm() {
   }
   if (!id) return;
   pushUndoMeta();
+  if (viewSourceTokenId === id) viewSourceTokenId = null;
   tokens = tokens.filter(x => x.id !== id);
   clearInitiativeTokenRefs(id);
   if (selectedToken === id) selectedToken = null;
@@ -1453,11 +1536,21 @@ function finishBgAlignAfterApply() {
   render();
 }
 
-// 事件绑定：对齐模式 UI  [DISABLED v0.83] 随导入底图功能禁用
-// document.getElementById('btn-bg-align').addEventListener('click', startBgAlign);
-// document.getElementById('map-settings-begin-align').addEventListener('click', startBgAlign);
-// document.getElementById('bg-align-finish').addEventListener('click', finishBgAlign);
-// document.getElementById('bg-align-cancel').addEventListener('click', cancelBgAlign);
+// 事件绑定：对齐模式 UI
+document.getElementById('btn-bg-align').addEventListener('click', startBgAlign);
+document.getElementById('map-settings-begin-align').addEventListener('click', startBgAlign);
+document.getElementById('bg-align-finish').addEventListener('click', finishBgAlign);
+document.getElementById('bg-align-cancel').addEventListener('click', cancelBgAlign);
+document.getElementById('empty-import').addEventListener('click', importBackgroundMapFromFile);
+// 「点间格数」输入实时刷新标签 + 重渲染（预览按新值重算；不触碰参考点）
+{
+  const el = document.getElementById('bg-align-cells');
+  if (el) el.addEventListener('input', function() {
+    const v = document.getElementById('bg-align-cells-val');
+    if (v) v.textContent = this.value + ' 格';
+    render();
+  });
+}
 
 function applyBgAlignFromRefs(recordUndo) {
   if (!_bgAlignRefs || !backgroundMap) return;
@@ -1494,44 +1587,45 @@ function applyBgAlignFromRefs(recordUndo) {
   if (recordUndo !== false) pushUndoMeta();
   backgroundMap.cols = imgW / hPx;
   backgroundMap.rows = imgH / vPx;
-  // 基准点 I0 落到离点击处最近的工具网格线交点（格线交点 = 4 格共角，坐标为整数格）
-  const t0x = Math.round(p0.world.x / CS);
-  const t0y = Math.round(p0.world.y / CS);
+  // 基准点 I0 落到最近的工具格线交点。注意：工具格线在 (q+0.5)*48（半整数），
+  // 因此要吸附到半整数（round(x/CS - 0.5) + 0.5），不能直接 round(整数)否则偏半格导致“对不上”。
+  const t0x = Math.round(p0.world.x / CS - 0.5) + 0.5;
+  const t0y = Math.round(p0.world.y / CS - 0.5) + 0.5;
   backgroundMap.x = t0x - i0.x / hPx;
   backgroundMap.y = t0y - i0.y / vPx;
 }
 
 // Esc/右键离开对齐模式在交互层统一处理
-// 实时预览：修改设置后立即应用到画布，方便网格对齐  [DISABLED v0.83] 随导入底图功能禁用
-// ['bg-settings-x','bg-settings-y'].forEach(id => {
-//   document.getElementById(id).addEventListener('input', function() {
-//     if (!backgroundMap) return;
-//     backgroundMap.x = parseFloat(document.getElementById('bg-settings-x').value) || 0;
-//     backgroundMap.y = parseFloat(document.getElementById('bg-settings-y').value) || 0;
-//     render();
-//   });
-// });
-// ['bg-settings-cols','bg-settings-rows'].forEach(id => {
-//   document.getElementById(id).addEventListener('input', function() {
-//     if (!backgroundMap) return;
-//     backgroundMap.cols = Math.max(1, parseFloat(document.getElementById('bg-settings-cols').value) || 8);
-//     backgroundMap.rows = Math.max(1, parseFloat(document.getElementById('bg-settings-rows').value) || 8);
-//     render();
-//   });
-// });
-// document.getElementById('bg-settings-opacity').addEventListener('input', function() {
-//   setBackgroundOpacityDisplay();
-//   if (!backgroundMap) return;
-//   backgroundMap.opacity = Math.max(0, Math.min(1, (parseInt(this.value) || 85) / 100));
-//   render();
-// });
+// 实时预览：修改设置后立即应用到画布，方便网格对齐
+['bg-settings-x','bg-settings-y'].forEach(id => {
+  document.getElementById(id).addEventListener('input', function() {
+    if (!backgroundMap) return;
+    backgroundMap.x = parseFloat(document.getElementById('bg-settings-x').value) || 0;
+    backgroundMap.y = parseFloat(document.getElementById('bg-settings-y').value) || 0;
+    render();
+  });
+});
+['bg-settings-cols','bg-settings-rows'].forEach(id => {
+  document.getElementById(id).addEventListener('input', function() {
+    if (!backgroundMap) return;
+    backgroundMap.cols = Math.max(1, parseFloat(document.getElementById('bg-settings-cols').value) || 8);
+    backgroundMap.rows = Math.max(1, parseFloat(document.getElementById('bg-settings-rows').value) || 8);
+    render();
+  });
+});
+document.getElementById('bg-settings-opacity').addEventListener('input', function() {
+  setBackgroundOpacityDisplay();
+  if (!backgroundMap) return;
+  backgroundMap.opacity = Math.max(0, Math.min(1, (parseInt(this.value) || 85) / 100));
+  render();
+});
 
-// document.getElementById('btn-import-map').addEventListener('click', importBackgroundMapFromFile);
-// document.getElementById('btn-map-settings').addEventListener('click', openMapSettingsModal);
-// document.getElementById('map-settings-confirm').addEventListener('click', applyMapSettings);
-// document.getElementById('map-settings-remove').addEventListener('click', removeBackgroundMap);
-// document.getElementById('map-settings-close').addEventListener('click', () => { document.getElementById('map-settings-modal').style.display = 'none'; });
-// document.getElementById('map-settings-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) this.style.display = 'none'; });
+document.getElementById('btn-import-map').addEventListener('click', importBackgroundMapFromFile);
+document.getElementById('btn-map-settings').addEventListener('click', openMapSettingsModal);
+document.getElementById('map-settings-confirm').addEventListener('click', applyMapSettings);
+document.getElementById('map-settings-remove').addEventListener('click', removeBackgroundMap);
+document.getElementById('map-settings-close').addEventListener('click', () => { document.getElementById('map-settings-modal').style.display = 'none'; });
+document.getElementById('map-settings-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) this.style.display = 'none'; });
 
 // 对齐条「点间格数」实时重算（幂等：基于开始对齐时的映射快照；不产生撤销记录） [DISABLED v0.83]
 // document.getElementById('bg-align-cells').addEventListener('input', function() {
@@ -1556,6 +1650,23 @@ function setViewRole(role) {
   if (banner) banner.style.display = role === 'player' ? 'block' : 'none';
   document.body.classList.toggle('player-view', role === 'player');
   applyRoleViewUI();
+}
+
+// 以某单位作为玩家视角源（独立视角预览：玩家视图只看这个单位看得见的地方）
+function setViewSourceToken(id) {
+  const t = tokens.find(x => x.id === id);
+  if (!t) return;
+  viewSourceTokenId = id;
+  setViewRole('player');
+  const hint = document.getElementById('tool-hint');
+  if (hint) hint.innerHTML = '👁️ 当前视角源：<b>' + (t.name || '单位') + '</b> — 玩家视图只显示此单位视野；右键单位→恢复全部 / Esc 取消';
+  showToast('👁️ 已设为视角源：' + (t.name || '单位'));
+}
+function resetViewSourceToken() {
+  viewSourceTokenId = null;
+  render();
+  if (typeof updateEmptyState === 'function') updateEmptyState();
+  showToast('👁️ 已恢复全部视野源');
 }
 
 function applyRoleViewUI() {

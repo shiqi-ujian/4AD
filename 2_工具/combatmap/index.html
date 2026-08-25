@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>通用战斗地图生成器 v0.84</title>
+<title>通用战斗地图生成器 v0.90</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -37,6 +37,8 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; colo
 .tool-btn[data-tool] .label { font-size: 11px; white-space: nowrap; }
 .tool-btn[data-tool].dm-tool { border-color: rgba(122,74,158,0.55); }
 .tool-btn[data-tool].dm-tool.active { border-color: #e0b0ff; }
+.fog-mode-btn { border-radius: 4px; }
+.fog-mode-btn.active { border-color: #fff !important; color: #fff !important; background: rgba(122,74,158,0.4) !important; font-weight: bold; box-shadow: 0 0 8px rgba(255,255,255,0.35); }
 .tool-btn[data-terrain] {
   width: 34px; height: 30px; padding: 0; min-width: 34px; font-size: 14px; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.5);
 }
@@ -162,7 +164,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 <body>
 <div id="app">
   <div id="toolbar">
-    <h2>⚔️ 战斗地图 <span class="ver">v0.84</span></h2>
+    <h2>⚔️ 战斗地图 <span class="ver">v0.90</span></h2>
 
     <div id="role-switch">
       <button id="role-dm" class="role-btn dm-role active" title="DM 视图：显示全部工具（含 DM 层/战雾/先攻条等隐藏信息）">🎲 DM 视图</button>
@@ -192,10 +194,17 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
           <button class="tool-btn" data-tool="erase" title="擦除 (E)"><span class="icon">🧹</span><span class="label">擦除(E)</span></button>
           <button class="tool-btn" data-tool="rect" title="画矩形区域/灵气 (R) 拖拽绘制，半透明"><span class="icon">▭</span><span class="label">区域(R)</span></button>
           <button class="tool-btn" data-tool="line" title="画自由线段 (G) 任意角度墙/视线阻挡"><span class="icon">📏</span><span class="label">线段(G)</span></button>
+          <button class="tool-btn" data-tool="measure" title="测量距离 (M)：拖拽显示格/英尺与慢速地形等效移动"><span class="icon">📐</span><span class="label">测量(M)</span></button>
           <button class="tool-btn" data-tool="token" title="插入图片 token (T)"><span class="icon">🖼️</span><span class="label">图片(T)</span></button>
           <button class="tool-btn" data-tool="unit" title="放置单位 token：打开单位库选择预设，或新建 (U)"><span class="icon">🧝</span><span class="label">单位(U)</span></button>
           <button class="tool-btn dm-tool" data-tool="dm" title="画 DM 隐藏层：标记/信息只在 DM 本地显示 (Y)"><span class="icon">🕵️</span><span class="label">DM层(Y)</span></button>
           <button class="tool-btn dm-tool" data-tool="fog" title="涂战雾：遮住/揭示格子，跑团时逐步揭开 (F)"><span class="icon">🌫️</span><span class="label">战雾(F)</span></button>
+        </div>
+        <div id="fog-options" style="display:none;margin:4px 0 0 2px;font-size:11px;">
+          <div style="display:flex;gap:4px;">
+            <button id="fog-mode-cover" class="fog-mode-btn active" style="flex:1;background:#3a3a5e;color:#fff;border:1px solid #0f3460;border-radius:4px;padding:3px 0;cursor:pointer;" title="涂战雾：把格子遮住（拖拽连续遮）">🌫️ 遮住</button>
+            <button id="fog-mode-reveal" class="fog-mode-btn" style="flex:1;background:#3a3a5e;color:#888;border:1px solid #0f3460;border-radius:4px;padding:3px 0;cursor:pointer;" title="揭示战雾：把已遮格子揭开（拖拽连续揭）">✨ 揭示</button>
+          </div>
         </div>
         <div id="erase-options" style="display:none;margin:4px 0 0 2px;font-size:11px;">
           <select id="erase-mode" style="width:100%;padding:3px 6px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:11px;">
@@ -226,7 +235,6 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 
       <div class="panel-page" id="page-map">
         <div class="page-title">🗺️ 底图 <span class="tab-badge">DM</span></div>
-        <!-- [DISABLED v0.83] 导入底图/网格对齐 因网格对齐 bug 过大临时禁用，修复后恢复以下按钮
         <div style="display:flex;gap:4px;">
           <button id="btn-import-map" style="flex:1;padding:8px;background:#5a4a8a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;" title="导入地图图片作为底图，然后调整网格对齐">🖼️ 导入底图</button>
           <button id="btn-map-settings" style="flex:1;padding:8px;background:#4a5a7a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;" title="调整底图数值/透明度/移除">⚙️ 数值</button>
@@ -235,8 +243,6 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
           <button id="btn-bg-align" style="flex:1;padding:8px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:bold;" title="在地图上点 3 个格线交点让网格贴合底图（需先导入底图）">🎯 网格对齐</button>
         </div>
         <div class="page-hint">网格对不上？先「导入底图」，再点「网格对齐」：依次点图中 3 个格线交点（第 2/3 点可调「点间格数」）。</div>
-        -->
-        <div class="page-hint" style="color:#e94560;">🛠️ 底图导入 / 网格对齐 功能维护中，本版本暂不可用。</div>
         <div class="page-title" style="margin-top:8px;">📐 模板：一键生成</div>
         <div style="display:flex;gap:4px;flex-wrap:wrap;">
           <button id="btn-template-room" style="flex:1;min-width:60px;padding:5px;background:#3a7abd;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:11px;">🏠 房间</button>
@@ -248,6 +254,11 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
       </div>
 
       <div class="panel-page" id="page-data">
+        <div class="page-title">🎬 场景 <span style="font-weight:normal;font-size:10px;color:#888;">多张地图切换</span></div>
+        <div style="display:flex;gap:4px;margin-bottom:4px;">
+          <button id="btn-scene-new" style="flex:1;padding:5px;background:#7a4a9e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;font-weight:bold;" title="新建一张空白地图">➕ 新建场景</button>
+        </div>
+        <div id="scene-list" style="max-height:180px;overflow-y:auto;margin-bottom:6px;"></div>
         <div class="page-title">💾 保存 / 分享</div>
         <div style="display:flex;gap:4px;">
           <button id="btn-save" style="flex:1;padding:4px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;">💾 保存</button>
@@ -296,6 +307,9 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
         <label style="font-size:12px;display:block;margin:4px 0;padding:5px 8px;background:#1a1a2e;border:1px solid #0f3460;border-radius:6px;cursor:pointer;">
           <input type="checkbox" id="chk-fog" checked style="width:auto;"> 🌫️ 显示战雾
         </label>
+        <label style="font-size:12px;display:block;margin:4px 0;padding:5px 8px;background:#1a1a2e;border:1px solid #0f3460;border-radius:6px;cursor:pointer;" title="玩家可见地图由单位视野源自动揭示（圆形视野 + 墙体遮挡）；关闭则用手动战雾">
+          <input type="checkbox" id="chk-vision" checked style="width:auto;"> 🌐 动态视野
+        </label>
         <label style="font-size:12px;display:block;margin:4px 0;padding:5px 8px;background:#1a1a2e;border:1px solid #0f3460;border-radius:6px;cursor:pointer;">
           <input type="checkbox" id="chk-art-style" checked style="width:auto;"> ✏️ 手绘质感
         </label>
@@ -304,7 +318,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
     </div>
 
     <div style="margin-top:auto;font-size:10px;color:#555;text-align:center;padding-top:6px;">
-      通用跑团 · 战斗地图 v0.84<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>单位库 · Shift 连放 · DM/玩家视图
+      通用跑团 · 战斗地图 v0.90<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>单位库 · Shift 连放 · DM/玩家视图
     </div>
   </div>
 
@@ -317,11 +331,10 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
       <div style="font-size:15px;font-weight:bold;color:#fff;">开始一张新战斗地图</div>
       <div style="font-size:12px;color:#aaa;line-height:1.7;">三种方式任选：<br><!-- [DISABLED v0.83] 导入底图入口随功能一并禁用 <br>🖼️ <b>导入底图</b> — 用现成地图图片（之后可对齐网格） -->🖌️ <b>直接用笔刷</b> — 在格子上画地形<br>🏠 <b>模板生成</b> — 一键生成房间 / 洞窟 / 野外</div>
       <div style="display:flex;gap:8px;">
-        <!-- [DISABLED v0.83] <button id="empty-import" style="padding:6px 14px;background:#5a4a8a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:bold;">🖼️ 导入底图</button> -->
+        <button id="empty-import" style="padding:6px 14px;background:#5a4a8a;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:bold;">🖼️ 导入底图</button>
         <button id="empty-dismiss" style="padding:6px 14px;background:#3a3a5e;color:#ccc;border:1px solid #0f3460;border-radius:6px;cursor:pointer;font-size:13px;">知道了</button>
       </div>
     </div>
-    <!-- [DISABLED v0.83] 底图对齐状态条（随导入底图功能禁用）
     <div id="bg-align-bar" style="display:none;position:absolute;top:44px;left:50%;transform:translateX(-50%);z-index:20;background:rgba(22,33,62,0.95);border:1px solid #3a7abd;border-radius:8px;padding:6px 10px;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(0,0,0,0.4);font-size:12px;">
       <span id="bg-align-status">🎯 对齐模式：点击图中格线交点</span>
       <label style="display:flex;align-items:center;gap:3px;white-space:nowrap;font-size:11px;color:#ccc;" title="第 2/3 点相对第 1 点跨越的格数（图像上每格算 1 格）">点间
@@ -331,7 +344,6 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
       <button id="bg-align-finish" style="padding:4px 12px;background:#2d6a2e;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">✓ 完成</button>
       <button id="bg-align-cancel" style="padding:4px 10px;background:#3a3a5e;color:#ccc;border:1px solid #0f3460;border-radius:4px;cursor:pointer;">✕ 取消</button>
     </div>
-    -->
     <div id="info-panel"><div class="row"><span class="label">💡 选择工具 → 操作格子 → 导出 Excel</span></div></div>
   </div>
 </div>
@@ -549,6 +561,16 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
         <input type="number" id="unit-h" value="1" min="1" max="6">
       </div>
     </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <div style="flex:1;">
+        <label>👁️ 视野半径(格，0=无)</label>
+        <input type="number" id="unit-sight" value="6" min="0" max="60" step="0.5">
+      </div>
+      <div style="flex:1;display:flex;align-items:center;gap:4px;font-size:12px;">
+        <input type="checkbox" id="unit-vision" checked style="width:auto;">
+        <label for="unit-vision" style="margin:0;">作为玩家视野源</label>
+      </div>
+    </div>
     <label style="margin-top:4px;">头像图片（可选，圆形裁剪）</label>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px;">
       <img id="unit-img-preview" alt="预览" style="width:40px;height:40px;border-radius:50%;object-fit:cover;background:#1a1a2e;border:1px solid #0f3460;display:none;">
@@ -696,7 +718,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
   </div>
 </div>
 
-<!-- Map Settings Modal [DISABLED v0.83] 随导入底图功能禁用
+<!-- Map Settings Modal -->
 <div class="modal-overlay" id="map-settings-modal">
   <div class="modal-box" style="width:520px;">
     <h3>🖼️ 底图设置 <span style="font-size:11px;color:#888;font-weight:normal;">调整格子数量与偏移，让网格对齐图片</span></h3>
@@ -734,7 +756,6 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
     </div>
   </div>
 </div>
--->
 
 <!-- Share/Import Modal -->
 <div id="share-modal" style="display:none;position:fixed;z-index:100;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);backdrop-filter:blur(2px);">
