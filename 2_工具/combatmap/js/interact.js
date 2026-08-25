@@ -133,6 +133,26 @@ canvas.addEventListener('mousedown', (e) => {
         render(); updateInfo();
         return;
       }
+      // 底图：普通选择工具下，点在底图范围内的空白格上可直接拖动移动（无需进入对齐模式）
+      if (backgroundMap && !_bgAlignRefs) {
+        const bm = backgroundMap;
+        const bx0 = bm.x * CELL_SIZE, by0 = bm.y * CELL_SIZE;
+        const bx1 = (bm.x + bm.cols) * CELL_SIZE, by1 = (bm.y + bm.rows) * CELL_SIZE;
+        if (wx >= bx0 && wx <= bx1 && wy >= by0 && wy <= by1) {
+          const c2p = pixelToCell(wx, wy);
+          if (!getCell(c2p.q, c2p.r).terrain) {  // 空白格（底图穿透可见）才当作底图，避免抢走格子工具
+            selectedCell = null;
+            _bgDragMode = 'bg-move';
+            _dragOffX = wx - bx0; _dragOffY = wy - by0;
+            _dragMode = 'bg-move';
+            dragStartX = wx; dragStartY = wy;
+            isDragging = true;
+            pushUndoMeta();
+            render();
+            return;
+          }
+        }
+      }
       selectedShape = null; selectedLine = null;
     }
 
@@ -494,7 +514,7 @@ canvas.addEventListener('mousemove', (e) => {
     viewY = viewStartY + (my - dragStartY);
     render();
   } else if (_dragMode === 'bg-move') {
-    if (backgroundMap && _bgAlignRefs) {
+    if (backgroundMap) {
       backgroundMap.x = (wx - _dragOffX) / CELL_SIZE;
       backgroundMap.y = (wy - _dragOffY) / CELL_SIZE;
       render();

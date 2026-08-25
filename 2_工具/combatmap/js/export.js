@@ -646,6 +646,27 @@ function renderMapCanvas(exact) {
     expCtx.restore();
   }
 
+  // Pass 1.8: 格线叠加层（盖在地形/底图之上，清晰可见；与画布 drawGridOverlay 一致）
+  if (showGrid) {
+    const half = CELL_SIZE / 2;
+    const gx0 = minQ * CELL_SIZE - half, gx1 = maxQ * CELL_SIZE + half;
+    const gy0 = minR * CELL_SIZE - half, gy1 = maxR * CELL_SIZE + half;
+    expCtx.save();
+    expCtx.strokeStyle = 'rgba(20,20,30,0.55)';
+    expCtx.lineWidth = 2;
+    expCtx.beginPath();
+    for (let x = gx0; x <= gx1; x += CELL_SIZE) { expCtx.moveTo(x, gy0); expCtx.lineTo(x, gy1); }
+    for (let y = gy0; y <= gy1; y += CELL_SIZE) { expCtx.moveTo(gx0, y); expCtx.lineTo(gx1, y); }
+    expCtx.stroke();
+    expCtx.strokeStyle = 'rgba(255,255,255,0.5)';
+    expCtx.lineWidth = 1;
+    expCtx.beginPath();
+    for (let x = gx0; x <= gx1; x += CELL_SIZE) { expCtx.moveTo(x, gy0); expCtx.lineTo(x, gy1); }
+    for (let y = gy0; y <= gy1; y += CELL_SIZE) { expCtx.moveTo(gx0, y); expCtx.lineTo(gx1, y); }
+    expCtx.stroke();
+    expCtx.restore();
+  }
+
   // Pass 2: walls
   for (const key of keys) {
     const [q, r] = key.split(',').map(Number);
