@@ -14,6 +14,8 @@ function setTool(tool) {
   selectedTool = tool;
   document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.toggle('active', b.dataset.tool === tool));
   document.getElementById('erase-options').style.display = tool === 'erase' ? 'block' : 'none';
+  const brushOpts = document.getElementById('brush-options');
+  if (brushOpts) brushOpts.style.display = tool === 'brush' ? 'block' : 'none';
   const fogOpts = document.getElementById('fog-options');
   if (fogOpts) fogOpts.style.display = tool === 'fog' ? 'block' : 'none';
 
@@ -23,9 +25,14 @@ function setTool(tool) {
 
   switch (tool) {
     case 'select':
-      hint.innerHTML = '👆 点击格子查看信息；点击区域/线段/图片可拖动、缩放（8 手柄），双击或右键改属性，Delete 删除；Shift/Ctrl 点单位可多选，Ctrl+D 复制';
+      hint.innerHTML = '👆 点单位/图形/底图选中；<b>拖空白框选</b>多个单位，点击空白取消选中，<b>Esc</b> 清空；拖单位移动、8 手柄缩放；<b>空格+拖</b>或<b>中键拖</b>平移；Shift 点选=加选，Ctrl+D 复制';
       coord.textContent = '⚪ 选择模式';
       cnt.style.cursor = 'default';
+      break;
+    case 'brush':
+      hint.innerHTML = brushShapeName(brush.shape) + '：<b>拖拽</b>绘制' + brushShapeHint(brush.shape) + '；下方可切换形状 / 颜色 / 透明度 / 虚线';
+      coord.textContent = '🖌️ ' + brushShapeName(brush.shape);
+      cnt.style.cursor = 'crosshair';
       break;
     case 'paint':
       const t = getTerrain(selectedTerrain);
@@ -97,6 +104,68 @@ function setTool(tool) {
 document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
   btn.addEventListener('click', () => setTool(btn.dataset.tool));
 });
+
+// ============================================================
+//  Brush Tool（v0.97 合并区域/线段）：子模式 + 统一样式
+// ============================================================
+function brushShapeName(shape) {
+  return ({ line: '📏 线段', rect: '▭ 矩形', circle: '⭕ 圆形', cone: '📐 锥形' })[shape] || '画笔';
+}
+function brushShapeHint(shape) {
+  return ({
+    line: '（线段，可设颜色/线宽/虚线）',
+    rect: '（矩形区域，可设填充/透明度/描边）',
+    circle: '（圆形区域，拖出直径）',
+    cone: '（攻击锥，先点原点再拖出方向与长度）'
+  })[shape] || '';
+}
+function setBrushTool(shape) {
+  brush.shape = shape || brush.shape;
+  // 高亮画笔形状按钮
+  document.querySelectorAll('.brush-shape-btn').forEach(b => b.classList.toggle('active', b.dataset.shape === brush.shape));
+  updateBrushGroups();
+  if (selectedTool !== 'brush') setTool('brush');
+  else { const hint = document.getElementById('tool-hint'); if (hint) hint.innerHTML = brushShapeName(brush.shape) + '：<b>拖拽</b>绘制' + brushShapeHint(brush.shape); render(); }
+}
+// 按画笔子模式显隐样式分组
+function updateBrushGroups() {
+  const fill = document.getElementById('brush-fill-group');
+  const lin = document.getElementById('brush-line-group');
+  const cone = document.getElementById('brush-cone-group');
+  if (fill) fill.style.display = (brush.shape === 'line') ? 'none' : 'flex';
+  if (lin) lin.style.display = (brush.shape === 'line') ? 'flex' : 'none';
+  if (cone) cone.style.display = (brush.shape === 'cone') ? 'flex' : 'none';
+  const spv = document.getElementById('brush-spread-val');
+  if (spv) spv.textContent = Math.round(brush.spread * 180 / Math.PI) + '°';
+}
+function setBrushColor(field) {
+  return function (e) { brush[field] = e.target.value; if (selectedTool === 'brush') render(); };
+}
+function refreshBrushUI() {
+  document.querySelectorAll('.brush-shape-btn').forEach(b => b.classList.toggle('active', b.dataset.shape === brush.shape));
+  const fill = document.getElementById('brush-fill'); if (fill) fill.value = brush.fill;
+  const stroke = document.getElementById('brush-stroke'); if (stroke) stroke.value = brush.stroke;
+  const lineColor = document.getElementById('brush-line-color'); if (lineColor) lineColor.value = brush.lineColor;
+  const alpha = document.getElementById('brush-alpha'); if (alpha) { alpha.value = Math.round(brush.fillAlpha * 100); const av = document.getElementById('brush-alpha-val'); if (av) av.textContent = Math.round(brush.fillAlpha * 100) + '%'; }
+  const sw = document.getElementById('brush-sw'); if (sw) { sw.value = brush.strokeWidth; const sv = document.getElementById('brush-sw-val'); if (sv) sv.textContent = brush.strokeWidth + 'px'; }
+  const lw = document.getElementById('brush-lw'); if (lw) { lw.value = brush.lineWidth; const lv = document.getElementById('brush-lw-val'); if (lv) lv.textContent = brush.lineWidth + 'px'; }
+  const dash = document.getElementById('brush-dash'); if (dash) dash.checked = !!brush.dash;
+  const spread = document.getElementById('brush-spread'); if (spread) spread.value = Math.round(brush.spread * 180 / Math.PI);
+}
+function bindBrushUI() {
+  document.querySelectorAll('.brush-shape-btn').forEach(b => b.addEventListener('click', () => setBrushTool(b.dataset.shape)));
+  const h = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('input', fn); };
+  h('brush-fill', setBrushColor('fill'));
+  h('brush-stroke', setBrushColor('stroke'));
+  h('brush-line-color', setBrushColor('lineColor'));
+  h('brush-alpha', e => { brush.fillAlpha = parseInt(e.target.value) / 100; const v = document.getElementById('brush-alpha-val'); if (v) v.textContent = e.target.value + '%'; if (selectedTool === 'brush') render(); });
+  h('brush-sw', e => { brush.strokeWidth = parseInt(e.target.value) || 0; const v = document.getElementById('brush-sw-val'); if (v) v.textContent = e.target.value + 'px'; if (selectedTool === 'brush') render(); });
+  h('brush-lw', e => { brush.lineWidth = parseInt(e.target.value) || 1; const v = document.getElementById('brush-lw-val'); if (v) v.textContent = e.target.value + 'px'; if (selectedTool === 'brush') render(); });
+  h('brush-dash', e => { brush.dash = e.target.checked; if (selectedTool === 'brush') render(); });
+  h('brush-dash-line', e => { brush.dash = e.target.checked; if (selectedTool === 'brush') render(); });
+  h('brush-spread', e => { brush.spread = (parseInt(e.target.value) || 30) * Math.PI / 180; const v = document.getElementById('brush-spread-val'); if (v) v.textContent = e.target.value + '°'; if (selectedTool === 'brush') render(); });
+  updateBrushGroups();
+}
 
 // ============================================================
 //  Fog Mode Switcher (🌫️ 遮住 / ✨ 揭示) — 明确替代隐蔽的 Alt 快捷键
@@ -212,8 +281,11 @@ function openShapeModal(id) {
   if (!sh) return;
   document.getElementById('shape-id').value = id;
   document.getElementById('shape-name').value = sh.name || '';
-  document.getElementById('shape-rect-fields').style.display = sh.type === 'rect' ? 'block' : 'none';
-  if (sh.type === 'rect') {
+  const isFilled = (sh.type === 'rect' || sh.type === 'circle' || sh.type === 'cone');
+  document.getElementById('shape-rect-fields').style.display = isFilled ? 'block' : 'none';
+  document.getElementById('shape-cone-fields').style.display = sh.type === 'cone' ? 'block' : 'none';
+  document.getElementById('shape-wh-fields').style.display = sh.type === 'cone' ? 'none' : 'block';
+  if (isFilled) {
     document.getElementById('shape-fill').value = sh.fill || '#e94560';
     document.getElementById('shape-alpha').value = Math.round((sh.fillAlpha ?? 0.4) * 100);
     document.getElementById('shape-alpha-val').textContent = Math.round((sh.fillAlpha ?? 0.4) * 100) + '%';
@@ -222,8 +294,16 @@ function openShapeModal(id) {
     document.getElementById('shape-sw-val').textContent = (sh.strokeWidth ?? 2) + 'px';
     document.getElementById('shape-dash').checked = !!sh.dash;
   }
-  document.getElementById('shape-w').value = Math.round(sh.w * 10) / 10;
-  document.getElementById('shape-h').value = Math.round(sh.h * 10) / 10;
+  if (sh.type === 'cone') {
+    document.getElementById('shape-angle').value = Math.round((sh.angle || 0) * 180 / Math.PI);
+    document.getElementById('shape-angle-val').textContent = Math.round((sh.angle || 0) * 180 / Math.PI) + '°';
+    document.getElementById('shape-length').value = sh.length || 3;
+    document.getElementById('shape-spread').value = Math.round((sh.spread || 0.5) * 180 / Math.PI);
+    document.getElementById('shape-spread-val').textContent = Math.round((sh.spread || 0.5) * 180 / Math.PI) + '°';
+  } else {
+    document.getElementById('shape-w').value = Math.round(sh.w * 10) / 10;
+    document.getElementById('shape-h').value = Math.round(sh.h * 10) / 10;
+  }
   document.getElementById('shape-modal').style.display = 'block';
 }
 
@@ -233,18 +313,32 @@ function shapeApply() {
   if (!sh) return;
   pushUndoMeta();
   sh.name = document.getElementById('shape-name').value.trim();
-  sh.w = Math.max(0.2, parseFloat(document.getElementById('shape-w').value) || sh.w);
-  sh.h = Math.max(0.2, parseFloat(document.getElementById('shape-h').value) || sh.h);
-  if (sh.type === 'rect') {
+  const isFilled = (sh.type === 'rect' || sh.type === 'circle' || sh.type === 'cone');
+  if (isFilled) {
     sh.fill = document.getElementById('shape-fill').value;
     sh.fillAlpha = parseInt(document.getElementById('shape-alpha').value) / 100;
     sh.stroke = document.getElementById('shape-stroke').value;
     sh.strokeWidth = parseInt(document.getElementById('shape-sw').value);
     sh.dash = document.getElementById('shape-dash').checked;
   }
+  if (sh.type === 'cone') {
+    sh.angle = (parseFloat(document.getElementById('shape-angle').value) || 0) * Math.PI / 180;
+    sh.length = Math.max(0.5, parseFloat(document.getElementById('shape-length').value) || 3);
+    sh.spread = Math.max(0.05, (parseFloat(document.getElementById('shape-spread').value) || 30) * Math.PI / 180);
+  } else if (sh.type !== 'image') {
+    sh.w = Math.max(0.2, parseFloat(document.getElementById('shape-w').value) || sh.w);
+    sh.h = Math.max(0.2, parseFloat(document.getElementById('shape-h').value) || sh.h);
+  }
   document.getElementById('shape-modal').style.display = 'none';
   render(); updateInfo();
 }
+
+document.getElementById('shape-angle').addEventListener('input', function() {
+  document.getElementById('shape-angle-val').textContent = this.value + '°';
+});
+document.getElementById('shape-spread').addEventListener('input', function() {
+  document.getElementById('shape-spread-val').textContent = this.value + '°';
+});
 
 document.getElementById('shape-alpha').addEventListener('input', function() {
   document.getElementById('shape-alpha-val').textContent = this.value + '%';
@@ -312,6 +406,15 @@ document.getElementById('line-modal').addEventListener('click', function(e) { if
 // ============================================================
 function updateInfo() {
   const panel = document.getElementById('info-panel');
+  if (selectedBackground && backgroundMap) {
+    const locked = bgLocked();
+    panel.innerHTML = `<div class="row">
+      <span><span class="label">已选中:</span> <span class="val">🖼️ 底图</span></span>
+      <span><span class="label">网格:</span> <span class="val">${backgroundMap.cols}×${backgroundMap.rows} 格</span></span>
+      <span><span class="label">锁定:</span> <span class="val">${locked ? '🔒 已锁定（先解锁再移动）' : '🔓 未锁定（可拖动移动）'}</span></span>
+    </div>`;
+    return;
+  }
   if (!selectedCell) {
     panel.innerHTML = '<div class="row"><span class="label">💡 选择工具 → 操作格子 → 导出 Excel</span></div>';
     return;
@@ -365,7 +468,7 @@ function clearAll() {
   initiativeIndex = 0;
   endBatch();
   selectedCell = null;
-  selectedShape = null; selectedLine = null; selectedToken = null;
+  selectedShape = null; selectedLine = null; selectedToken = null; selectedBackground = false;
   _unitPending = null; _hoverUnit = null;
   _tokenPending = null; _hoverToken = null;
   render(); updateInfo();
@@ -462,6 +565,14 @@ document.addEventListener('keydown', (e) => {
     showToast('👁️ 已恢复全部视野源');
     return;
   }
+  // Esc：清空当前选择（选择工具）
+  if (e.key === 'Escape' && selectedTool === 'select') {
+    if (selectedToken || selectedTokens.size || selectedBackground) {
+      clearSelection();
+      render(); updateInfo();
+      return;
+    }
+  }
   // U：打开单位库（token 管理）
   if (e.key === 'u' || e.key === 'U') {
     e.preventDefault();
@@ -474,8 +585,14 @@ document.addEventListener('keydown', (e) => {
     }
     return;
   }
-  const km = { 'v':'select', 'b':'paint', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 'r':'rect', 't':'token', 'g':'line', 'y':'dm', 'f':'fog', 'm':'measure' };
-  if (km[e.key?.toLowerCase()]) { e.preventDefault(); setTool(km[e.key.toLowerCase()]); }
+  const km = { 'v':'select', 'b':'paint', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 't':'token', 'y':'dm', 'f':'fog', 'm':'measure' };
+  const k = e.key?.toLowerCase();
+  // 画笔子模式：r=矩形 g=线段 o=圆形 c=锥形
+  if (k === 'r') { e.preventDefault(); setBrushTool('rect'); return; }
+  if (k === 'g') { e.preventDefault(); setBrushTool('line'); return; }
+  if (k === 'o') { e.preventDefault(); setBrushTool('circle'); return; }
+  if (k === 'c') { e.preventDefault(); setBrushTool('cone'); return; }
+  if (km[k]) { e.preventDefault(); setTool(km[k]); }
   // 分享弹窗：Esc 关闭
   if (e.key === 'Escape') {
     const shareModal = document.getElementById('share-modal');
@@ -553,6 +670,52 @@ document.getElementById('chk-dm').addEventListener('change', (e) => { showDmLaye
 document.getElementById('chk-fog').addEventListener('change', (e) => { showFogLayer = e.target.checked; render(); });
 document.getElementById('chk-vision').addEventListener('change', (e) => { visionMode = e.target.checked ? 'auto' : 'manual'; render(); });
 document.getElementById('chk-art-style').addEventListener('change', (e) => { setArtStyle(e.target.checked ? 'handdrawn' : 'classic'); });
+
+// ============================================================
+//  图层系统（v0.97）：显隐 / 锁定面板 + 底图锁定
+// ============================================================
+const LAYER_TOGGLE_IDS = ['background','terrain','painting','line','mount','creature','item'];
+function renderLayerPanel() {
+  const list = document.getElementById('layer-list');
+  if (!list) return;
+  list.innerHTML = '';
+  LAYER_TOGGLE_IDS.forEach(id => {
+    const def = LAYER_DEFS[id];
+    const vis = layerVisibility[id] !== false;
+    // 背景层锁定沿用 backgroundMap.locked（防止底图误拖）；其余层用 layerLocks
+    const on = (id === 'background') ? bgLocked() : (layerLocks[id] === true);
+    const row = document.createElement('label');
+    row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:5px 8px;margin:3px 0;background:#1a1a2e;border:1px solid #0f3460;border-radius:6px;cursor:pointer;';
+    row.innerHTML = `<span style="flex:1;font-size:12px;">${def.icon} ${def.name}</span>
+      <span style="font-size:10px;color:#888;">显</span><input type="checkbox" data-layer-eye="${id}" ${vis?'checked':''} title="显示/隐藏该层" style="width:auto;">
+      <span style="font-size:10px;color:#888;">锁</span><input type="checkbox" data-layer-lock="${id}" ${on?'checked':''} title="${id==='background'?'锁定底图（禁止误拖）':'锁定该层（禁止误拖）'}" style="width:auto;">`;
+    list.appendChild(row);
+    row.querySelector('[data-layer-eye]').addEventListener('change', e => { layerVisibility[id] = e.target.checked; render(); });
+    const lockCb = row.querySelector('[data-layer-lock]');
+    lockCb.addEventListener('change', () => {
+      if (id === 'background') { toggleBgLock(); }
+      else { layerLocks[id] = lockCb.checked; render(); }
+    });
+  });
+  updateBgLockUI();
+}
+function updateBgLockUI() {
+  const btn = document.getElementById('btn-bg-lock');
+  if (!btn) return;
+  const has = !!backgroundMap;
+  btn.disabled = !has;
+  btn.style.opacity = has ? '1' : '0.4';
+  btn.textContent = has ? (bgLocked() ? '🔒 底图已锁定' : '🔓 底图未锁定') : '🔒 底图锁定';
+}
+function toggleBgLock() {
+  if (!backgroundMap) return;
+  pushUndoMeta();
+  backgroundMap.locked = bgLocked() ? false : true;
+  render();
+  updateBgLockUI();
+  showToast(backgroundMap.locked ? '🔒 底图已锁定，不可再被拖动' : '🔓 底图已解锁（选择底图后可拖动）');
+}
+document.getElementById('btn-bg-lock').addEventListener('click', toggleBgLock);
 
 // ============================================================
 
@@ -654,6 +817,8 @@ function openUnitModal(token, mode) {
   document.getElementById('unit-h').value = token?.h ?? 1;
   document.getElementById('unit-sight').value = (typeof token?.sightRadius === 'number') ? token.sightRadius : 6;
   document.getElementById('unit-vision').checked = token?.visionSource ?? (token?.kind === 'player' || token?.kind === 'ally');
+  const layerSel = document.getElementById('unit-layer');
+  if (layerSel) layerSel.value = token?.layer || 'creature';
   const imgPreview = document.getElementById('unit-img-preview');
   if (imgPreview && token?.imgData) { imgPreview.src = token.imgData; imgPreview.style.display = 'block'; }
   if (imgPreview && !token?.imgData) { imgPreview.removeAttribute('src'); imgPreview.style.display = 'none'; }
@@ -700,7 +865,8 @@ function saveUnitModal() {
     h: Math.max(0.2, parseInt(document.getElementById('unit-h').value) || 1),
     status,
     sightRadius: (() => { const v = parseFloat(document.getElementById('unit-sight').value); return isNaN(v) ? 6 : Math.max(0, v); })(),
-    visionSource: document.getElementById('unit-vision').checked
+    visionSource: document.getElementById('unit-vision').checked,
+    layer: document.getElementById('unit-layer').value || 'creature'
   };
   const imgInput = document.getElementById('unit-img-file');
   if (imgInput && imgInput.files && imgInput.files[0]) {

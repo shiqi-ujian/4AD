@@ -731,54 +731,90 @@ function renderMapCanvas(exact) {
     }
   }
 
-  // Pass 4: 自由线段（合成）
-  for (const ln of freeLines) {
-    const p1 = cellToPixel(ln.x1, ln.y1), p2 = cellToPixel(ln.x2, ln.y2);
-    expCtx.strokeStyle = ln.color || '#000';
-    expCtx.lineWidth = ln.width || 3;
-    expCtx.setLineDash(ln.dash ? [8, 5] : []);
-    expCtx.beginPath(); expCtx.moveTo(p1.x, p1.y); expCtx.lineTo(p2.x, p2.y); expCtx.stroke();
-    expCtx.setLineDash([]);
+  // Pass 4: 自由线段（线段层，合成）
+  if (layerVisible('line')) {
+    for (const ln of freeLines) {
+      if (layerOf(ln, 'line') !== 'line') continue;
+      const p1 = cellToPixel(ln.x1, ln.y1), p2 = cellToPixel(ln.x2, ln.y2);
+      expCtx.strokeStyle = ln.color || '#000';
+      expCtx.lineWidth = ln.width || 3;
+      expCtx.setLineDash(ln.dash ? [8, 5] : []);
+      expCtx.beginPath(); expCtx.moveTo(p1.x, p1.y); expCtx.lineTo(p2.x, p2.y); expCtx.stroke();
+      expCtx.setLineDash([]);
+    }
   }
 
-  // Pass 5: 图形图层（合成）
-  for (const sh of shapes) {
-    const p = cellToPixel(sh.x, sh.y);
-    const w = sh.w * CELL_SIZE, h = sh.h * CELL_SIZE;
-    if (sh.type === 'rect') {
-      expCtx.globalAlpha = Math.max(0, Math.min(1, sh.fillAlpha ?? 0.4));
-      expCtx.fillStyle = sh.fill || '#e94560';
-      expCtx.fillRect(p.x, p.y, w, h);
-      expCtx.globalAlpha = 1;
-      if (sh.strokeWidth > 0) {
-        expCtx.strokeStyle = sh.stroke || '#fff';
-        expCtx.lineWidth = sh.strokeWidth;
-        expCtx.setLineDash(sh.dash ? [6, 4] : []);
-        expCtx.strokeRect(p.x, p.y, w, h);
-        expCtx.setLineDash([]);
+  // Pass 5: 图形图层（绘画层：矩形/圆形/锥形/图片，合成）
+  if (layerVisible('painting')) {
+    for (const sh of shapes) {
+      if (layerOf(sh, 'painting') !== 'painting') continue;
+      const p = cellToPixel(sh.x, sh.y);
+      const w = (sh.w || 0) * CELL_SIZE, h = (sh.h || 0) * CELL_SIZE;
+      if (sh.type === 'rect') {
+        expCtx.globalAlpha = Math.max(0, Math.min(1, sh.fillAlpha ?? 0.4));
+        expCtx.fillStyle = sh.fill || '#e94560';
+        expCtx.fillRect(p.x, p.y, w, h);
+        expCtx.globalAlpha = 1;
+        if (sh.strokeWidth > 0) {
+          expCtx.strokeStyle = sh.stroke || '#fff';
+          expCtx.lineWidth = sh.strokeWidth;
+          expCtx.setLineDash(sh.dash ? [6, 4] : []);
+          expCtx.strokeRect(p.x, p.y, w, h);
+          expCtx.setLineDash([]);
+        }
+      } else if (sh.type === 'circle') {
+        const cx = p.x + w / 2, cy = p.y + h / 2, rx = w / 2, ry = h / 2;
+        expCtx.globalAlpha = Math.max(0, Math.min(1, sh.fillAlpha ?? 0.4));
+        expCtx.fillStyle = sh.fill || '#e94560';
+        expCtx.beginPath(); expCtx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); expCtx.fill();
+        expCtx.globalAlpha = 1;
+        if (sh.strokeWidth > 0) {
+          expCtx.strokeStyle = sh.stroke || '#fff'; expCtx.lineWidth = sh.strokeWidth;
+          expCtx.setLineDash(sh.dash ? [6, 4] : []);
+          expCtx.beginPath(); expCtx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); expCtx.stroke();
+          expCtx.setLineDash([]);
+        }
+      } else if (sh.type === 'cone') {
+        const len = (sh.length || 3) * CELL_SIZE, half = sh.spread || 0.5, a = sh.angle || 0;
+        expCtx.globalAlpha = Math.max(0, Math.min(1, sh.fillAlpha ?? 0.4));
+        expCtx.fillStyle = sh.fill || '#e94560';
+        expCtx.beginPath(); expCtx.moveTo(p.x, p.y); expCtx.arc(p.x, p.y, len, a - half, a + half); expCtx.closePath(); expCtx.fill();
+        expCtx.globalAlpha = 1;
+        if (sh.strokeWidth > 0) {
+          expCtx.strokeStyle = sh.stroke || '#fff'; expCtx.lineWidth = sh.strokeWidth;
+          expCtx.setLineDash(sh.dash ? [6, 4] : []);
+          expCtx.beginPath(); expCtx.moveTo(p.x, p.y); expCtx.arc(p.x, p.y, len, a - half, a + half); expCtx.closePath(); expCtx.stroke();
+          expCtx.setLineDash([]);
+        }
+      } else if (sh.type === 'image' && sh.img) {
+        expCtx.save();
+        expCtx.beginPath();
+        expCtx.rect(p.x, p.y, w, h);
+        expCtx.clip();
+        expCtx.drawImage(sh.img, p.x, p.y, w, h);
+        expCtx.restore();
+        if (sh.strokeWidth > 0) {
+          expCtx.strokeStyle = sh.stroke || '#fff'; expCtx.lineWidth = sh.strokeWidth;
+          expCtx.setLineDash(sh.dash ? [6, 4] : []);
+          expCtx.strokeRect(p.x, p.y, w, h);
+          expCtx.setLineDash([]);
+        }
       }
-    } else if (sh.type === 'image' && sh.img) {
-      expCtx.save();
-      expCtx.beginPath();
-      expCtx.rect(p.x, p.y, w, h);
-      expCtx.clip();
-      expCtx.drawImage(sh.img, p.x, p.y, w, h);
-      expCtx.restore();
-    }
-    if (sh.name) {
-      expCtx.fillStyle = 'rgba(0,0,0,0.65)';
-      expCtx.font = `bold 13px sans-serif`;
-      const tw = expCtx.measureText(sh.name).width;
-      const ty = Math.max(2, p.y - 4);
-      expCtx.fillRect(p.x, ty - 12, tw + 6, 14);
-      expCtx.fillStyle = '#ffd700';
-      expCtx.textAlign = 'left'; expCtx.textBaseline = 'middle';
-      expCtx.fillText(sh.name, p.x + 3, ty - 5);
+      if (sh.name) {
+        expCtx.fillStyle = 'rgba(0,0,0,0.65)';
+        expCtx.font = `bold 13px sans-serif`;
+        const tw = expCtx.measureText(sh.name).width;
+        const ty = Math.max(2, p.y - 4);
+        expCtx.fillRect(p.x, ty - 12, tw + 6, 14);
+        expCtx.fillStyle = '#ffd700';
+        expCtx.textAlign = 'left'; expCtx.textBaseline = 'middle';
+        expCtx.fillText(sh.name, p.x + 3, ty - 5);
+      }
     }
   }
 
-  // Pass 6: 单位层（合成）
-  for (const t of tokens) {
+  // Pass 6: 单位层（按图层拆分：骑乘 → 生物 → 道具，合成）
+  function drawExportToken(t) {
     const p = cellToPixel(t.x, t.y);
     const w = t.w * CELL_SIZE, h = t.h * CELL_SIZE;
     expCtx.beginPath();
@@ -853,6 +889,9 @@ function renderMapCanvas(exact) {
       expCtx.fillText(spTxt, p.x + 2 + twS / 2, p.y + h - 8.5);
     }
   }
+  if (layerVisible('mount')) for (const t of tokens) if (layerOf(t, 'creature') === 'mount') drawExportToken(t);
+  if (layerVisible('creature')) for (const t of tokens) if (layerOf(t, 'creature') === 'creature') drawExportToken(t);
+  if (layerVisible('item')) for (const t of tokens) if (layerOf(t, 'creature') === 'item') drawExportToken(t);
 
   // Pass 7: 战雾遮罩（导出玩家可见图时保留；DM 层不导出）
   if (showFogLayer) {

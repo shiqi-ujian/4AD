@@ -193,44 +193,52 @@ function render() {
   const qMin = Math.floor(topLeft.q) - 1, qMax = Math.ceil(botRight.q) + 1;
   const rMin = Math.floor(topLeft.r) - 1, rMax = Math.ceil(botRight.r) + 1;
 
-  // Pass 1: Cell fills + grid
-  for (let q = qMin; q <= qMax; q++) {
-    for (let r = rMin; r <= rMax; r++) {
-      drawCellBase(q, r);
+  // Pass 1: Cell fills + grid (地形层)
+  if (layerVisible('terrain')) {
+    for (let q = qMin; q <= qMax; q++) {
+      for (let r = rMin; r <= rMax; r++) {
+        drawCellBase(q, r);
+      }
     }
   }
 
-  // Pass 2: 底图（放在格子与地形之上，但保持半透明可调；贴合导入地图做网格对齐）
-  drawBackgroundMap();
+  // Pass 2: 底图（背景层，放在格子与地形之上，但保持半透明可调；贴合导入地图做网格对齐）
+  if (layerVisible('background')) drawBackgroundMap();
 
   // Pass 2.5: 格线叠加层（盖在底图/地形之上，清晰可见）
   drawGridOverlay();
 
-  // Pass 3: Wall boundaries (edges between cells)
-  for (let q = qMin; q <= qMax; q++) {
-    for (let r = rMin; r <= rMax; r++) {
-      drawWallEdges(q, r);
+  // Pass 3: Wall boundaries (edges between cells，归属地形层)
+  if (layerVisible('terrain')) {
+    for (let q = qMin; q <= qMax; q++) {
+      for (let r = rMin; r <= rMax; r++) {
+        drawWallEdges(q, r);
+      }
     }
   }
 
-  // Pass 4: Overlays (icons, labels)
-  for (let q = qMin; q <= qMax; q++) {
-    for (let r = rMin; r <= rMax; r++) {
-      drawCellOverlay(q, r);
+  // Pass 4: Overlays (icons, labels，归属地形层)
+  if (layerVisible('terrain')) {
+    for (let q = qMin; q <= qMax; q++) {
+      for (let r = rMin; r <= rMax; r++) {
+        drawCellOverlay(q, r);
+      }
     }
   }
 
   // Pass 4.5: Hand-drawn floor shadows / warm accents
   if (artStyle === 'handdrawn') drawCombatAccents();
 
-  // Pass 5: Free lines (任意角度线段)
-  drawFreeLines();
+  // Pass 5: Free lines (任意角度线段，线段层)
+  if (layerVisible('line')) drawFreeLines();
 
-  // Pass 6: Shapes (矩形/图片图层)
-  drawShapes();
+  // Pass 6: Shapes (矩形/圆形/锥形/图片，绘画层)
+  if (layerVisible('painting')) drawShapes();
 
-  // Pass 7: Units (token 层)
-  drawTokens();
+  // Pass 7: Units (单位层，按图层拆分：骑乘 → 生物 → 道具)
+  if (layerVisible('mount')) drawTokens('mount');
+  if (layerVisible('creature')) drawTokens('creature');
+  if (layerVisible('item')) drawTokens('item');
 
   // Pass 8: DM 隐藏层（本地/仅 DM 查看）
   if (showDmLayer) drawDmOverlay();
@@ -241,21 +249,46 @@ function render() {
   // Pass 10: Selection boxes and previews
   drawSelectionOverlay();
 
-  // 绘制预览（矩形/线段）
-  if (_rectPreview) {
+  // 绘制预览（画笔：矩形/圆形/锥形/线段）
+  if (_rectPreview && brush.shape !== 'cone') {
+    const px = _rectPreview.x * CELL_SIZE, py = _rectPreview.y * CELL_SIZE;
+    const pw = _rectPreview.w * CELL_SIZE, ph = _rectPreview.h * CELL_SIZE;
     ctx.globalAlpha = 0.4;
-    ctx.fillStyle = '#e94560';
-    ctx.fillRect(_rectPreview.x * CELL_SIZE, _rectPreview.y * CELL_SIZE, _rectPreview.w * CELL_SIZE, _rectPreview.h * CELL_SIZE);
+    ctx.fillStyle = brush.fill || '#e94560';
+    if (brush.shape === 'circle') {
+      ctx.beginPath(); ctx.ellipse(px + pw / 2, py + ph / 2, pw / 2, ph / 2, 0, 0, Math.PI * 2); ctx.fill();
+    } else {
+      ctx.fillRect(px, py, pw, ph);
+    }
     ctx.globalAlpha = 1;
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 2 / zoom;
-    ctx.setLineDash([4 / zoom, 4 / zoom]);
-    ctx.strokeRect(_rectPreview.x * CELL_SIZE, _rectPreview.y * CELL_SIZE, _rectPreview.w * CELL_SIZE, _rectPreview.h * CELL_SIZE);
+    ctx.strokeStyle = brush.stroke || '#fff';
+    ctx.lineWidth = (brush.strokeWidth || 2) / zoom;
+    ctx.setLineDash(brush.dash ? [4 / zoom, 4 / zoom] : []);
+    if (brush.shape === 'circle') {
+      ctx.beginPath(); ctx.ellipse(px + pw / 2, py + ph / 2, pw / 2, ph / 2, 0, 0, Math.PI * 2); ctx.stroke();
+    } else {
+      ctx.strokeRect(px, py, pw, ph);
+    }
+    ctx.setLineDash([]);
+  }
+  if (_conePreview) {
+    const len = (_conePreview.length || 3) * CELL_SIZE;
+    const half = _conePreview.spread || brush.spread || 0.5;
+    const a = _conePreview.angle || 0;
+    const opx = _conePreview.x * CELL_SIZE, opy = _conePreview.y * CELL_SIZE;
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = brush.fill || '#e94560';
+    ctx.beginPath(); ctx.moveTo(opx, opy); ctx.arc(opx, opy, len, a - half, a + half); ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = brush.stroke || '#fff';
+    ctx.lineWidth = (brush.strokeWidth || 2) / zoom;
+    ctx.setLineDash(brush.dash ? [4 / zoom, 4 / zoom] : []);
+    ctx.beginPath(); ctx.moveTo(opx, opy); ctx.arc(opx, opy, len, a - half, a + half); ctx.closePath(); ctx.stroke();
     ctx.setLineDash([]);
   }
   if (_linePreview) {
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 3 / zoom;
+    ctx.strokeStyle = brush.lineColor || '#000';
+    ctx.lineWidth = (brush.lineWidth || 3) / zoom;
     ctx.setLineDash([6 / zoom, 4 / zoom]);
     ctx.beginPath();
     ctx.moveTo(_linePreview.x1 * CELL_SIZE, _linePreview.y1 * CELL_SIZE);
@@ -412,23 +445,33 @@ function drawSelectionOverlay() {
     const sh = shapes.find(s => s.id === selectedShape);
     if (sh) {
       const p = cellToPixel(sh.x, sh.y);
-      const w = sh.w * CELL_SIZE, h = sh.h * CELL_SIZE;
+      const w = (sh.w || 0) * CELL_SIZE, h = (sh.h || 0) * CELL_SIZE;
       ctx.strokeStyle = '#fff';
       ctx.lineWidth = 2 / zoom;
       ctx.setLineDash([4 / zoom, 4 / zoom]);
-      ctx.strokeRect(p.x, p.y, w, h);
+      if (sh.type === 'circle') {
+        ctx.beginPath(); ctx.ellipse(p.x + w / 2, p.y + h / 2, w / 2, h / 2, 0, 0, Math.PI * 2); ctx.stroke();
+      } else if (sh.type === 'cone') {
+        const len = (sh.length || 3) * CELL_SIZE, half = sh.spread || 0.5, a = sh.angle || 0;
+        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.arc(p.x, p.y, len, a - half, a + half); ctx.closePath(); ctx.stroke();
+        ctx.fillStyle = '#fff'; ctx.fillRect(p.x - 4 / zoom, p.y - 4 / zoom, 8 / zoom, 8 / zoom); // 原点手柄
+      } else {
+        ctx.strokeRect(p.x, p.y, w, h);
+      }
       ctx.setLineDash([]);
-      // 8 个缩放手柄
-      const hs = 6 / zoom;
-      const handles = [
-        [p.x, p.y], [p.x + w / 2, p.y], [p.x + w, p.y],
-        [p.x, p.y + h / 2], [p.x + w, p.y + h / 2],
-        [p.x, p.y + h], [p.x + w / 2, p.y + h], [p.x + w, p.y + h]
-      ];
-      ctx.fillStyle = '#fff';
-      handles.forEach(([hx, hy]) => {
-        ctx.fillRect(hx - hs / 2, hy - hs / 2, hs, hs);
-      });
+      if (sh.type !== 'cone') {
+        // 8 个缩放手柄
+        const hs = 6 / zoom;
+        const handles = [
+          [p.x, p.y], [p.x + w / 2, p.y], [p.x + w, p.y],
+          [p.x, p.y + h / 2], [p.x + w, p.y + h / 2],
+          [p.x, p.y + h], [p.x + w / 2, p.y + h], [p.x + w, p.y + h]
+        ];
+        ctx.fillStyle = '#fff';
+        handles.forEach(([hx, hy]) => {
+          ctx.fillRect(hx - hs / 2, hy - hs / 2, hs, hs);
+        });
+      }
     }
   }
   if (selectedLine) {
@@ -446,64 +489,135 @@ function drawSelectionOverlay() {
       ctx.fillRect(p2.x - hs / 2, p2.y - hs / 2, hs, hs);
     }
   }
+  // 底图选中框 + 锁定提示
+  if (selectedBackground && backgroundMap) {
+    const bm = backgroundMap;
+    const bx = bm.x * CELL_SIZE, by = bm.y * CELL_SIZE;
+    const bw = bm.cols * CELL_SIZE, bh = bm.rows * CELL_SIZE;
+    const locked = bgLocked();
+    ctx.strokeStyle = locked ? '#ff9a3a' : '#4af';
+    ctx.lineWidth = 3 / zoom;
+    ctx.setLineDash([6 / zoom, 4 / zoom]);
+    ctx.strokeRect(bx, by, bw, bh);
+    ctx.setLineDash([]);
+    const label = locked ? '🔒 底图已锁定' : '底图（可拖动）';
+    ctx.font = `bold ${12 / zoom}px sans-serif`;
+    const tw = ctx.measureText(label).width + 12 / zoom;
+    ctx.fillStyle = 'rgba(10,20,40,0.92)';
+    ctx.fillRect(bx, by - 20 / zoom, tw, 16 / zoom);
+    ctx.fillStyle = locked ? '#ffb300' : '#8cf';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, bx + 6 / zoom, by - 12 / zoom);
+  }
+  // 框选预览（选择工具拖拽空白）
+  if (_marquee) {
+    const mx0 = _marquee.x * CELL_SIZE, my0 = _marquee.y * CELL_SIZE;
+    const mw = Math.max(1, _marquee.w * CELL_SIZE), mh = Math.max(1, _marquee.h * CELL_SIZE);
+    ctx.fillStyle = 'rgba(74,170,255,0.12)';
+    ctx.fillRect(mx0, my0, mw, mh);
+    ctx.strokeStyle = '#4af';
+    ctx.lineWidth = 1.5 / zoom;
+    ctx.setLineDash([4 / zoom, 3 / zoom]);
+    ctx.strokeRect(mx0, my0, mw, mh);
+    ctx.setLineDash([]);
+  }
 }
 
 function drawShapes() {
   for (const sh of shapes) {
-    const p = cellToPixel(sh.x, sh.y);
-    const w = sh.w * CELL_SIZE, h = sh.h * CELL_SIZE;
-    if (sh.type === 'rect') {
-      ctx.globalAlpha = Math.max(0, Math.min(1, sh.fillAlpha));
-      ctx.fillStyle = sh.fill || '#e94560';
-      ctx.fillRect(p.x, p.y, w, h);
-      ctx.globalAlpha = 1;
-      if (sh.strokeWidth > 0) {
-        ctx.strokeStyle = sh.stroke || '#fff';
-        ctx.lineWidth = sh.strokeWidth / zoom;
-        ctx.setLineDash(sh.dash ? [6 / zoom, 4 / zoom] : []);
-        ctx.strokeRect(p.x, p.y, w, h);
-        ctx.setLineDash([]);
-      }
-      if (sh.name) {
-        ctx.fillStyle = 'rgba(0,0,0,0.65)';
-        ctx.font = `bold ${Math.max(10, 13 / zoom)}px sans-serif`;
-        const tw = ctx.measureText(sh.name).width;
-        const ty = Math.max(2 / zoom, p.y - 4 / zoom);
-        ctx.fillRect(p.x, ty - 12 / zoom, tw + 6 / zoom, 14 / zoom);
-        ctx.fillStyle = '#ffd700';
-        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-        ctx.fillText(sh.name, p.x + 3 / zoom, ty - 5 / zoom);
-      }
-    } else if (sh.type === 'image' && sh.img) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(p.x, p.y, w, h);
-      ctx.clip();
-      ctx.drawImage(sh.img, p.x, p.y, w, h);
-      ctx.restore();
-      if (sh.strokeWidth > 0) {
-        ctx.strokeStyle = sh.stroke || '#fff';
-        ctx.lineWidth = sh.strokeWidth / zoom;
-        ctx.setLineDash(sh.dash ? [6 / zoom, 4 / zoom] : []);
-        ctx.strokeRect(p.x, p.y, w, h);
-        ctx.setLineDash([]);
-      }
-      if (sh.name) {
-        ctx.fillStyle = 'rgba(0,0,0,0.65)';
-        ctx.font = `bold ${Math.max(10, 13 / zoom)}px sans-serif`;
-        const tw = ctx.measureText(sh.name).width;
-        const ty = Math.max(2 / zoom, p.y - 4 / zoom);
-        ctx.fillRect(p.x, ty - 12 / zoom, tw + 6 / zoom, 14 / zoom);
-        ctx.fillStyle = '#ffd700';
-        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-        ctx.fillText(sh.name, p.x + 3 / zoom, ty - 5 / zoom);
-      }
-    }
+    if (layerOf(sh, 'painting') !== 'painting') continue;
+    drawShape(sh);
   }
+}
+
+function drawShape(sh) {
+  const p = cellToPixel(sh.x, sh.y);
+  const w = (sh.w || 0) * CELL_SIZE, h = (sh.h || 0) * CELL_SIZE;
+  if (sh.type === 'rect') {
+    ctx.globalAlpha = Math.max(0, Math.min(1, sh.fillAlpha));
+    ctx.fillStyle = sh.fill || '#e94560';
+    ctx.fillRect(p.x, p.y, w, h);
+    ctx.globalAlpha = 1;
+    if (sh.strokeWidth > 0) {
+      ctx.strokeStyle = sh.stroke || '#fff';
+      ctx.lineWidth = sh.strokeWidth / zoom;
+      ctx.setLineDash(sh.dash ? [6 / zoom, 4 / zoom] : []);
+      ctx.strokeRect(p.x, p.y, w, h);
+      ctx.setLineDash([]);
+    }
+    drawShapeName(sh, p.x, p.y);
+  } else if (sh.type === 'circle') {
+    const cx = p.x + w / 2, cy = p.y + h / 2, rx = w / 2, ry = h / 2;
+    ctx.globalAlpha = Math.max(0, Math.min(1, sh.fillAlpha));
+    ctx.fillStyle = sh.fill || '#e94560';
+    ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+    if (sh.strokeWidth > 0) {
+      ctx.strokeStyle = sh.stroke || '#fff';
+      ctx.lineWidth = sh.strokeWidth / zoom;
+      ctx.setLineDash(sh.dash ? [6 / zoom, 4 / zoom] : []);
+      ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    drawShapeName(sh, p.x, p.y);
+  } else if (sh.type === 'cone') {
+    const len = (sh.length || 3) * CELL_SIZE;
+    const half = sh.spread || 0.5;
+    const a = sh.angle || 0;
+    // 攻击锥（扇形）：原点在 p，向 angle 方向展开
+    ctx.globalAlpha = Math.max(0, Math.min(1, sh.fillAlpha));
+    ctx.fillStyle = sh.fill || '#e94560';
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    ctx.arc(p.x, p.y, len, a - half, a + half);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    if (sh.strokeWidth > 0) {
+      ctx.strokeStyle = sh.stroke || '#fff';
+      ctx.lineWidth = sh.strokeWidth / zoom;
+      ctx.setLineDash(sh.dash ? [6 / zoom, 4 / zoom] : []);
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.arc(p.x, p.y, len, a - half, a + half);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    drawShapeName(sh, p.x, p.y);
+  } else if (sh.type === 'image' && sh.img) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(p.x, p.y, w, h);
+    ctx.clip();
+    ctx.drawImage(sh.img, p.x, p.y, w, h);
+    ctx.restore();
+    if (sh.strokeWidth > 0) {
+      ctx.strokeStyle = sh.stroke || '#fff';
+      ctx.lineWidth = sh.strokeWidth / zoom;
+      ctx.setLineDash(sh.dash ? [6 / zoom, 4 / zoom] : []);
+      ctx.strokeRect(p.x, p.y, w, h);
+      ctx.setLineDash([]);
+    }
+    drawShapeName(sh, p.x, p.y);
+  }
+}
+
+function drawShapeName(sh, x, y) {
+  if (!sh.name) return;
+  ctx.fillStyle = 'rgba(0,0,0,0.65)';
+  ctx.font = `bold ${Math.max(10, 13 / zoom)}px sans-serif`;
+  const tw = ctx.measureText(sh.name).width;
+  const ty = Math.max(2 / zoom, y - 4 / zoom);
+  ctx.fillRect(x, ty - 12 / zoom, tw + 6 / zoom, 14 / zoom);
+  ctx.fillStyle = '#ffd700';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText(sh.name, x + 3 / zoom, ty - 5 / zoom);
 }
 
 function drawFreeLines() {
   for (const ln of freeLines) {
+    if (layerOf(ln, 'line') !== 'line') continue;
     const p1 = cellToPixel(ln.x1, ln.y1), p2 = cellToPixel(ln.x2, ln.y2);
     ctx.strokeStyle = ln.color || '#000';
     ctx.lineWidth = (ln.width || 3) / zoom;
@@ -513,8 +627,12 @@ function drawFreeLines() {
   }
 }
 
-function drawTokens() {
+function drawTokens(layerFilter) {
   for (const t of tokens) {
+    if (layerFilter) {
+      // 分层渲染：只画属于指定子层（骑乘/生物/道具）的单位
+      if (layerOf(t, 'creature') !== layerFilter) continue;
+    }
     const p = cellToPixel(t.x, t.y);
     const w = t.w * CELL_SIZE, h = t.h * CELL_SIZE;
     const cx = p.x + w / 2, cy = p.y + h / 2;
@@ -1049,22 +1167,43 @@ function worldPos(mx, my) {
 }
 
 // 命中 shape（顶层优先），返回 shape 或 null
+function shapeBox(sh) {
+  if (sh.type === 'cone') return coneBounds(sh);
+  return {
+    x0: sh.x * CELL_SIZE, y0: sh.y * CELL_SIZE,
+    x1: (sh.x + (sh.w || 0)) * CELL_SIZE, y1: (sh.y + (sh.h || 0)) * CELL_SIZE
+  };
+}
 function hitTestShape(wx, wy) {
   for (let i = shapes.length - 1; i >= 0; i--) {
     const sh = shapes[i];
-    if (wx >= sh.x * CELL_SIZE && wx <= (sh.x + sh.w) * CELL_SIZE &&
-        wy >= sh.y * CELL_SIZE && wy <= (sh.y + sh.h) * CELL_SIZE) return sh;
+    const b = shapeBox(sh);
+    if (wx >= b.x0 && wx <= b.x1 && wy >= b.y0 && wy <= b.y1) return sh;
   }
   return null;
 }
 
-// 命中 shape 缩放手柄（需已选中），返回 'nw','n','ne','e','se','s','sw','w' 或 null
+// 锥形包围盒（世界像素）：按 方向±半角 与 长度 求三个角的包围盒
+function coneBounds(sh) {
+  const len = (sh.length || 3) * CELL_SIZE, half = sh.spread || 0.5, a = sh.angle || 0;
+  const ox = sh.x * CELL_SIZE, oy = sh.y * CELL_SIZE;
+  let minX = ox, maxX = ox, minY = oy, maxY = oy;
+  for (const ang of [a - half, a, a + half]) {
+    const x = ox + Math.cos(ang) * len, y = oy + Math.sin(ang) * len;
+    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+    minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+  }
+  return { x0: minX, y0: minY, x1: maxX, y1: maxY };
+}
+
+// 命中 shape 缩放手柄（需已选中；锥形不支持手柄，右键改属性）
 const SHAPE_HANDLES = ['nw','n','ne','e','se','s','sw','w'];
 function shapeHandleAt(wx, wy) {
   const sh = shapes.find(s => s.id === selectedShape);
   if (!sh) return null;
-  const x0 = sh.x * CELL_SIZE, y0 = sh.y * CELL_SIZE;
-  const x1 = (sh.x + sh.w) * CELL_SIZE, y1 = (sh.y + sh.h) * CELL_SIZE;
+  if (sh.type === 'cone') return null;
+  const b = shapeBox(sh);
+  const x0 = b.x0, y0 = b.y0, x1 = b.x1, y1 = b.y1;
   const hs = 8 / zoom;
   const pts = {
     nw: [x0, y0], n: [(x0 + x1) / 2, y0], ne: [x1, y0],
@@ -1134,6 +1273,20 @@ function tokenHandleAt(wx, wy) {
     if (Math.abs(wx - hx) <= hs && Math.abs(wy - hy) <= hs) return h;
   }
   return null;
+}
+
+// 命中底图范围（世界坐标）
+function hitTestBackground(wx, wy) {
+  if (!backgroundMap) return false;
+  const bm = backgroundMap;
+  return wx >= bm.x * CELL_SIZE && wx <= (bm.x + bm.cols) * CELL_SIZE &&
+         wy >= bm.y * CELL_SIZE && wy <= (bm.y + bm.rows) * CELL_SIZE;
+}
+
+// 框选相交判定：token 包围盒（格单位）与框选盒（格单位）是否重叠
+function tokenRectOverlap(t, box) {
+  return t.x < box.x + box.w && t.x + t.w > box.x &&
+         t.y < box.y + box.h && t.y + t.h > box.y;
 }
 
 // ============================================================

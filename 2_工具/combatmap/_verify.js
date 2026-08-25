@@ -77,6 +77,14 @@ function reset() {
     initiativeOrder = []; initiativeIndex = 0; shapes = []; freeLines = [];
     customUnitStatuses = [];
     clearSelection(); groups = [];
+    backgroundMap = null; selectedBackground = false;
+    layerVisibility.background = true; layerVisibility.terrain = true; layerVisibility.painting = true; layerVisibility.line = true;
+    layerVisibility.mount = true; layerVisibility.creature = true; layerVisibility.item = true;
+    layerLocks.background = true; layerLocks.terrain = false; layerLocks.painting = false; layerLocks.line = false;
+    layerLocks.mount = false; layerLocks.creature = false; layerLocks.item = false;
+    brush.shape = 'rect';
+    _measure = null; _rectPreview = null; _linePreview = null; _conePreview = null;
+    _marquee = null; _marqueeStart = null; _tokenPending = null; _unitPending = null;
     // close any open modal overlay so it cannot intercept canvas clicks
     document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none');
     const om = document.getElementById('online-modal');
@@ -122,7 +130,7 @@ async function t_paintDrag() {
 async function t_token() {
   await reset();
   await dismissEmpty();
-  await clickSel('.tool-btn[data-tool="unit"]');       // open unit library preset mode
+  await c.eval('openTokenLibrarySection(); true');       // open unit library preset mode
   await sleep(120);
   await clickSel('#token-library-list .tlib-card');      // pick up first preset (战士)
   await sleep(80);
@@ -139,14 +147,14 @@ async function t_tokenMulti() {
   // place 2 tokens, then select tool and multi-select them via clicking cells? Simpler: place 2, verify.
   await reset();
   await dismissEmpty();
-  await clickSel('.tool-btn[data-tool="unit"]');
+  await c.eval('openTokenLibrarySection(); true');
   await sleep(100);
   await clickSel('#token-library-list .tlib-card');
   await sleep(60);
   await clickCell(6, 5);
   await sleep(60);
   // pick second preset (法师)
-  await clickSel('.tool-btn[data-tool="unit"]');
+  await c.eval('openTokenLibrarySection(); true');
   await sleep(60);
   await c.eval(`(()=>{const cards=document.querySelectorAll('#token-library-list .tlib-card'); if(cards[1])cards[1].click(); return true;})()`);
   await sleep(60);
@@ -191,10 +199,10 @@ async function t_initiative() {
   await reset();
   await dismissEmpty();
   // place 2 tokens via real clicks
-  await clickSel('.tool-btn[data-tool="unit"]'); await sleep(80);
+  await c.eval('openTokenLibrarySection(); true'); await sleep(80);
   await clickSel('#token-library-list .tlib-card'); await sleep(50); await clickCell(4, 4);
   await sleep(60);
-  await clickSel('.tool-btn[data-tool="unit"]'); await sleep(50);
+  await c.eval('openTokenLibrarySection(); true'); await sleep(50);
   await c.eval(`(()=>{const cards=document.querySelectorAll('#token-library-list .tlib-card'); if(cards[1])cards[1].click(); return true;})()`); await sleep(50);
   await clickCell(5, 4); await sleep(100);
   // import all into initiative via the app function the UI uses
@@ -380,6 +388,94 @@ async function t_viewsource() {
   record('P1 玩家独立视角(单源)', all.a && all.b && onlyA.a && !onlyA.b && resetOk, JSON.stringify({all:all.size,onlyA:onlyA.size,aInA:onlyA.a,bInA:onlyA.b}));
 }
 
+// ---------------- v0.97 新特性：框选 / 画笔 / 图层 / 底图锁定 ----------------
+async function t_marquee() {
+  await reset();
+  await c.eval(`(()=>{
+    tokens=[
+      {id:'tkM1',kind:'enemy',name:'A',x:2,y:3,w:1,h:1,icon:'👹',color:'#e53935',hp:8,maxHp:8,layer:'creature'},
+      {id:'tkM2',kind:'enemy',name:'B',x:4,y:3,w:1,h:1,icon:'👹',color:'#e53935',hp:8,maxHp:8,layer:'creature'},
+      {id:'tkM3',kind:'enemy',name:'C',x:6,y:3,w:1,h:1,icon:'👹',color:'#e53935',hp:8,maxHp:8,layer:'creature'}
+    ];
+    selectedTool='select'; render(); updateEmptyState();
+    if(document.getElementById('empty-dismiss')) document.getElementById('empty-dismiss').click();
+    return true;
+  })()`); await sleep(80);
+  await dragCells(1, 1, 7, 5);   // 拖空白框选覆盖 3 单位
+  await sleep(120);
+  const sel = await c.eval(`({ size: selectedTokens.size, bg: selectedBackground })`);
+  await shot('verify-marquee.png');
+  record('框选(拖空白覆盖3单位)', sel.size === 3 && !sel.bg, JSON.stringify(sel));
+  await clickCell(1, 1); await sleep(80);   // 点击空白取消选中
+  const sel2 = await c.eval(`selectedTokens.size`);
+  record('框选(点击空白取消选中)', sel2 === 0, `size=${sel2}`);
+}
+
+async function t_brush() {
+  await reset();
+  await dismissEmpty();
+  await c.eval(`setBrushTool('circle'); true`); await sleep(40);
+  await dragCells(2, 2, 5, 5); await sleep(100);
+  const circle = await c.eval(`shapes.filter(s=>s.type==='circle').length`);
+  await c.eval(`setBrushTool('cone'); true`); await sleep(40);
+  await dragCells(2, 2, 5, 2); await sleep(100);
+  const cone = await c.eval(`shapes.filter(s=>s.type==='cone').length`);
+  await c.eval(`setBrushTool('line'); true`); await sleep(40);
+  await dragCells(2, 7, 6, 8); await sleep(100);
+  const line = await c.eval(`freeLines.length`);
+  await c.eval(`setBrushTool('rect'); true`); await sleep(40);
+  await dragCells(8, 2, 10, 4); await sleep(100);
+  const rect = await c.eval(`shapes.filter(s=>s.type==='rect').length`);
+  const lay = await c.eval(`(()=>{ const s=shapes[0]; return s ? {lay:s.layer, type:s.type} : null; })()`);
+  await shot('verify-brush.png');
+  record('画笔(圆形/锥形/线段/矩形+图层)', circle === 1 && cone === 1 && line >= 1 && rect === 1 && lay && lay.lay === 'painting', `circle=${circle} cone=${cone} line=${line} rect=${rect} lay=${JSON.stringify(lay)}`);
+}
+
+async function t_layers() {
+  await reset();
+  await c.eval(`(()=>{
+    tokens=[
+      {id:'tkMount',kind:'npc',name:'坐骑',x:3,y:3,w:1,h:1,icon:'🐎',color:'#b98a3a',hp:10,maxHp:10,layer:'mount'},
+      {id:'tkCreature',kind:'enemy',name:'敌人',x:3,y:3,w:1,h:1,icon:'👹',color:'#e53935',hp:10,maxHp:10,layer:'creature'},
+      {id:'tkItem',kind:'npc',name:'宝箱',x:3,y:3,w:1,h:1,icon:'🧰',color:'#c9a84c',hp:10,maxHp:10,layer:'item'}
+    ];
+    render(); if(document.getElementById('empty-dismiss')) document.getElementById('empty-dismiss').click();
+    return true;
+  })()`); await sleep(60);
+  const lay = await c.eval(`({ m: tokens[0].layer, c: tokens[1].layer, i: tokens[2].layer, om: layerOf(tokens[0],'creature') })`);
+  const hideOk = await c.eval(`(()=>{ layerVisibility.creature=false; render(); return layerVisibility.creature===false; })()`);
+  const layerPanel = await c.eval(`(()=>{ if(typeof renderLayerPanel==='function') renderLayerPanel(); const list=document.getElementById('layer-list'); return list ? list.children.length : -1; })()`);
+  await shot('verify-layers.png');
+  record('图层(单位分层+显隐+面板)', lay.m==='mount' && lay.c==='creature' && lay.i==='item' && lay.om==='mount' && hideOk===true && layerPanel>=7, JSON.stringify({lay, hideOk, layerPanel}));
+  await c.eval(`layerVisibility.creature=true; true`);
+}
+
+async function t_bglock() {
+  await reset();
+  await c.eval(`(()=>{
+    const cv=document.createElement('canvas'); cv.width=480; cv.height=480; const g=cv.getContext('2d');
+    g.fillStyle='#ccc'; g.fillRect(0,0,480,480);
+    const img=new Image(); img.src=cv.toDataURL('image/png');
+    backgroundMap={id:'bgL',imgData:cv.toDataURL('image/png'),img,x:2,y:2,cols:6,rows:6,opacity:0.9};
+    render(); if(document.getElementById('empty-dismiss')) document.getElementById('empty-dismiss').click();
+    return true;
+  })()`); await sleep(60);
+  const lockedDefault = await c.eval(`bgLocked()`);
+  await c.eval(`selectedTool='select'; selectedBackground=true; render(); true`); await sleep(30);
+  const before = await c.eval(`backgroundMap.x`);
+  const a = await cellPage(3,3), b = await cellPage(5,5);
+  await c.drag(Math.round(a.x), Math.round(a.y), Math.round(b.x), Math.round(b.y)); await sleep(100);
+  const afterLocked = await c.eval(`backgroundMap.x`);
+  await c.eval(`toggleBgLock(); true`); await sleep(30);
+  const unlocked = await c.eval(`bgLocked()`);
+  await c.eval(`selectedTool='select'; selectedBackground=true; render(); true`); await sleep(30);
+  const a2 = await cellPage(3,3), b2 = await cellPage(5,5);
+  await c.drag(Math.round(a2.x), Math.round(a2.y), Math.round(b2.x), Math.round(b2.y)); await sleep(100);
+  const afterUnlocked = await c.eval(`backgroundMap.x`);
+  await shot('verify-bglock.png');
+  record('底图锁定(默认锁→锁不可拖→解锁可拖)', lockedDefault===true && Math.abs(afterLocked-before)<0.01 && unlocked===false && Math.abs(afterUnlocked-before)>0.1, JSON.stringify({lockedDefault,before,afterLocked,unlocked,afterUnlocked}));
+}
+
 async function main() {
   const file = 'file:///E:/yingren/4AD/2_%E5%B7%A5%E5%85%B7/combatmap.dist.html';
   const { proc, c: cdp } = await launch(9223, file);
@@ -405,6 +501,10 @@ async function main() {
     await t_measure();
     await t_scenes();
     await t_viewsource();
+    await t_marquee();
+    await t_brush();
+    await t_layers();
+    await t_bglock();
   } catch (e) {
     console.error('EXCEPTION:', e.message);
     try { await shot('verify-exception.png'); } catch {}

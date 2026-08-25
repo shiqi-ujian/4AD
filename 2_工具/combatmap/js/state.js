@@ -42,7 +42,7 @@ let _eraseDragLast = new Set();
 let _shapeSeq = 1;
 let _lineSeq = 1;
 let _tokenSeq = 1;
-let _dragMode = null;      // 'pan' | 'paint' | 'erase' | 'shape-move' | 'shape-resize' | 'line-move' | 'line-drag' | 'wall-drag' | 'rect-draw' | 'line-draw' | 'token-place' | 'token-move' | 'token-resize' | 'unit-place' | 'dm' | 'fog'
+let _dragMode = null;      // 'pan' | 'paint' | 'erase' | 'shape-move' | 'shape-resize' | 'line-move' | 'line-drag' | 'wall-drag' | 'rect-draw' | 'line-draw' | 'circle-draw' | 'cone-draw' | 'marquee' | 'token-place' | 'token-move' | 'token-resize' | 'unit-place' | 'dm' | 'fog'
 let _dragShapeId = null, _dragHandle = null, _dragLineId = null, _dragTokenId = null;
 let _selDragOff = new Map(); // 多选/编组拖动初始偏移: tokenId -> { offX, offY }
 let _dragOffX = 0, _dragOffY = 0;
@@ -59,6 +59,49 @@ let _hoverUnit = null;     // 单位放置预览位置
 let _fogPaintTarget = null; // 战雾拖拽目标值：true=遮住 false=揭示
 let _bgAlignRefs = null;   // 底图对齐参考点/参考线: { pts:[{world:{x,y}, snappedGrid:{q,r}, horizontal?}], mode }
 let _bgDragMode = null;    // 'bg-move' | 'bg-resize-w' | 'bg-resize-e' | 'bg-resize-n' | 'bg-resize-s' | 'bg-resize-corner' | 'bg-origin'
+
+// ---- 图层系统（v0.97）：每个数据层按序堆叠，可独立显隐 / 锁定（防止误拖） ----
+const LAYER_DEFS = {
+  background: { name: '背景层', icon: '🖼️' },
+  terrain:    { name: '地形层', icon: '🧱' },
+  painting:   { name: '绘画层', icon: '🎨' },   // 画笔(矩形/圆形/锥形) + 导入图片
+  line:       { name: '线段层', icon: '📏' },
+  mount:      { name: '骑乘层', icon: '🐎' },
+  creature:   { name: '生物层', icon: '🧝' },
+  item:       { name: '道具层', icon: '🎒' },
+  dm:         { name: 'DM层', icon: '🕵️' },
+  fog:        { name: '战雾层', icon: '🌫️' },
+};
+// 可显隐/锁定的图层开关（背景默认锁定，防止导入底图乱跑）
+const layerVisibility = { background: true, terrain: true, painting: true, line: true, mount: true, creature: true, item: true };
+const layerLocks = { background: true, terrain: false, painting: false, line: false, mount: false, creature: false, item: false };
+
+// 画笔工具（v0.97 合并区域/线段）：子模式 + 统一样式
+let brush = {
+  shape: 'rect',        // 'line' | 'rect' | 'circle' | 'cone'
+  fill: '#e94560', fillAlpha: 0.4,
+  stroke: '#ffffff', strokeWidth: 2, dash: true,
+  lineWidth: 3, lineColor: '#000000',
+  spread: 0.5          // 锥形半角（弧度，默认约 28.6°）
+};
+let selectedBackground = false;   // 选择工具下当前是否选中了底图
+let _marquee = null;              // 框选预览 {x,y,w,h,shift}
+let _marqueeStart = null;         // 框选起点 {wx,wy,shift}
+let _conePreview = null;          // 锥形画笔预览 {x,y,angle,length,spread}
+let _coneStart = null;            // 锥形起点 {wx,wy}
+
+// 图层辅助：取物件所属图层（兼容旧数据缺省 layer 字段）
+function layerOf(obj, def) { return (obj && obj.layer) || def || ''; }
+function layerVisible(id) {
+  if (id === 'grid') return !!showGrid;
+  if (id === 'coords') return !!showCoords;
+  if (id === 'dm') return !!showDmLayer;
+  if (id === 'fog') return !!showFogLayer;
+  return layerVisibility[id] !== false;
+}
+function layerLocked(id) { return layerLocks[id] === true; }
+// 底图是否处于锁定状态（旧数据缺省→视为锁定，防止误拖）
+function bgLocked() { return !!backgroundMap && backgroundMap.locked !== false; }
 
 // Undo/Redo
 const MAX_UNDO = 50;
@@ -107,7 +150,8 @@ function snapshotMeta() {
     groups: JSON.parse(JSON.stringify(groups)),
     customUnitStatuses: JSON.parse(JSON.stringify(customUnitStatuses)),
     selectedToken: selectedToken || null,
-    selectedTokens: Array.from(selectedTokens)
+    selectedTokens: Array.from(selectedTokens),
+    selectedBackground
   };
 }
 
@@ -143,6 +187,7 @@ function restoreMeta(before) {
   customUnitStatuses = before.customUnitStatuses || [];
   selectedToken = before.selectedToken ?? selectedToken;
   selectedTokens = new Set((before.selectedTokens || Array.from(selectedTokens)).filter(id => tokens.some(t => t.id === id)));
+  selectedBackground = before.selectedBackground ?? selectedBackground;
   if (selectedToken && !tokens.some(t => t.id === selectedToken)) selectedToken = null;
   if (selectedToken && !selectedTokens.has(selectedToken)) selectedTokens.add(selectedToken);
   // 撤销恢复底图（含 img 重建）
@@ -269,6 +314,8 @@ function normalizeToken(t) {
   if (!t) return t;
   if (t.sightRadius === undefined || t.sightRadius === null) t.sightRadius = 6;
   if (t.visionSource === undefined || t.visionSource === null) t.visionSource = (t.kind === 'player' || t.kind === 'ally');
+  // 图层：骑乘/生物/道具（缺省归入生物层）
+  if (!t.layer) t.layer = 'creature';
   return t;
 }
 function normalizeTokens(list) { return (list || []).map(normalizeToken); }
