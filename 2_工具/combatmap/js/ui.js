@@ -118,37 +118,60 @@ if (fogModeReveal) fogModeReveal.addEventListener('click', () => setFogMode('rev
 // ============================================================
 //  Terrain Palette
 // ============================================================
+// 常用地形（优先展示在色板顶部，其余收进「更多地形」，减少整屏色块扫读负担）
+const COMMON_TERRAIN_IDS = ['floor','wall_cell','difficult','water','elevated','cover_half','cover_full','hazard_fire','hazard_acid','hazard_spike','door_cell','pit'];
+
+function makeTerrainBtn(id) {
+  const t = getTerrain(id);
+  const btn = document.createElement('button');
+  btn.className = 'tool-btn' + (id === selectedTerrain ? ' active' : '');
+  btn.dataset.terrain = id;
+  btn.title = t.name + ' — ' + t.desc;
+  const tc = isLightColor(t.color) ? '#333' : '#fff';
+  btn.style.cssText = `background:${t.color};color:${tc};text-shadow:${tc === '#fff' ? '0 1px 3px rgba(0,0,0,0.5)' : 'none'}`;
+  btn.innerHTML = `<span class="icon">${t.icon}</span><span class="label">${t.name}</span>`;
+  btn.addEventListener('click', () => {
+    selectedTerrain = id;
+    document.querySelectorAll('.tool-btn[data-terrain]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (selectedTool !== 'paint') setTool('paint');
+    const ti = getTerrain(id);
+    document.getElementById('coord-indicator').textContent = `🖌️ ${ti.icon} ${ti.name}`;
+    const badge = document.getElementById('terrain-selected');
+    if (badge) { badge.textContent = `${ti.icon} ${ti.name}`; badge.title = ti.desc || ''; }
+  });
+  return btn;
+}
+
 function rebuildTerrainPalette() {
   const palette = document.getElementById('terrain-palette');
   if (!palette) return;
   palette.innerHTML = '';
-  getTerrainList().forEach(id => {
-    const t = getTerrain(id);
-    const btn = document.createElement('button');
-    btn.className = 'tool-btn' + (id === selectedTerrain ? ' active' : '');
-    btn.dataset.terrain = id;
-    btn.title = t.name + ' — ' + t.desc;
-    const tc = isLightColor(t.color) ? '#333' : '#fff';
-    btn.style.cssText = `background:${t.color};color:${tc};text-shadow:${tc === '#fff' ? '0 1px 3px rgba(0,0,0,0.5)' : 'none'}`;
-    btn.innerHTML = `<span class="icon">${t.icon}</span><span class="label">${t.name}</span>`;
-    btn.addEventListener('click', () => {
-      selectedTerrain = id;
-      document.querySelectorAll('.tool-btn[data-terrain]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      if (selectedTool !== 'paint') setTool('paint');
-      const ti = getTerrain(id);
-      document.getElementById('coord-indicator').textContent = `🖌️ ${ti.icon} ${ti.name}`;
-      const badge = document.getElementById('terrain-selected');
-      if (badge) { badge.textContent = `${ti.icon} ${ti.name}`; badge.title = ti.desc || ''; }
-    });
-    palette.appendChild(btn);
-  });
+  const list = getTerrainList();
+  const common = COMMON_TERRAIN_IDS.filter(id => list.includes(id));
+  const more = list.filter(id => !COMMON_TERRAIN_IDS.includes(id));
+  const toggle = document.getElementById('terrain-more-toggle');
+  const expanded = !!toggle && toggle.classList.contains('expanded');
+  common.forEach(id => palette.appendChild(makeTerrainBtn(id)));
+  if (expanded) more.forEach(id => palette.appendChild(makeTerrainBtn(id)));
+  if (toggle) {
+    toggle.classList.toggle('expanded', expanded);
+    const lbl = toggle.querySelector('.label');
+    if (lbl) lbl.textContent = (more.length ? `更多地形 (${more.length}) ` : '') + (expanded ? '▴' : '▾');
+    toggle.style.display = more.length ? '' : 'none';
+  }
   const badge = document.getElementById('terrain-selected');
   if (badge) {
     const ti = getTerrain(selectedTerrain);
     if (ti) { badge.textContent = `${ti.icon} ${ti.name}`; badge.title = ti.desc || ''; }
   }
 }
+
+const terrainMoreToggle = document.getElementById('terrain-more-toggle');
+if (terrainMoreToggle) terrainMoreToggle.addEventListener('click', () => {
+  terrainMoreToggle.classList.toggle('expanded');
+  rebuildTerrainPalette();
+});
 
 // ============================================================
 //  Label Dialog
@@ -524,8 +547,6 @@ function renderSceneList() {
 }
 
 document.getElementById('btn-scene-new').addEventListener('click', () => newScene());
-if (typeof ensureScenes === 'function') ensureScenes();
-if (typeof renderSceneList === 'function') renderSceneList();
 document.getElementById('chk-grid').addEventListener('change', (e) => { showGrid = e.target.checked; render(); });
 document.getElementById('chk-coords').addEventListener('change', (e) => { showCoords = e.target.checked; render(); });
 document.getElementById('chk-dm').addEventListener('change', (e) => { showDmLayer = e.target.checked; dmLayerPref = e.target.checked; render(); });
@@ -1751,5 +1772,55 @@ document.getElementById('empty-dismiss').addEventListener('click', () => {
   try { localStorage.setItem(LS_EMPTY_DISMISS_KEY, '1'); } catch (e) { /* ignore */ }
   document.getElementById('empty-hint').style.display = 'none';
 });
+
+// ============================================================
+//  v0.95: 可折叠左栏（窄停靠栏）+ ☰ 全局菜单
+// ============================================================
+const LS_TOOLBAR_KEY = 'combatmap_toolbar_collapsed_v1';
+let toolbarCollapsed = false;
+try { toolbarCollapsed = localStorage.getItem(LS_TOOLBAR_KEY) === '1'; } catch (e) { /* ignore */ }
+
+function applyToolbarState() {
+  const tb = document.getElementById('toolbar');
+  if (tb) tb.classList.toggle('collapsed', toolbarCollapsed);
+  const tg = document.getElementById('toolbar-toggle');
+  if (tg) { tg.textContent = toolbarCollapsed ? '≫' : '≪'; tg.title = toolbarCollapsed ? '展开工具栏' : '折叠左栏（最大化地图）'; }
+  const mb = document.getElementById('toolbar-menu-btn');
+  if (mb) mb.textContent = toolbarCollapsed ? '☰' : '☰ 菜单';
+}
+function toggleToolbar() {
+  toolbarCollapsed = !toolbarCollapsed;
+  try { localStorage.setItem(LS_TOOLBAR_KEY, toolbarCollapsed ? '1' : '0'); } catch (e) { /* ignore */ }
+  applyToolbarState();
+  // 折叠/展开改变左栏宽度 → canvas 容器尺寸变化，重设画布尺寸，避免四周留黑边
+  if (typeof resizeCanvas === 'function') resizeCanvas();
+}
+const toolbarToggle = document.getElementById('toolbar-toggle');
+if (toolbarToggle) toolbarToggle.addEventListener('click', toggleToolbar);
+
+// 折叠态点击页签 → 先展开再切换（让面板可见）
+document.querySelectorAll('.panel-tab').forEach(t => {
+  t.addEventListener('click', () => { if (toolbarCollapsed) toggleToolbar(); });
+});
+
+// ☰ 全局菜单：点击项触发对应按钮（复用现有按钮逻辑）
+const menuBtn = document.getElementById('toolbar-menu-btn');
+const menuBox = document.getElementById('toolbar-menu-box');
+if (menuBtn && menuBox) {
+  menuBtn.addEventListener('click', (e) => { e.stopPropagation(); menuBox.style.display = menuBox.style.display === 'block' ? 'none' : 'block'; });
+  menuBox.addEventListener('click', (e) => {
+    if (e.target === menuBox) { menuBox.style.display = 'none'; return; }
+    const item = e.target.closest('[data-click]');
+    if (item) {
+      const t = document.getElementById(item.dataset.click);
+      if (t) t.click();
+      menuBox.style.display = 'none';
+    }
+  });
+  document.addEventListener('click', (e) => {
+    if (menuBox.style.display === 'block' && !menuBox.contains(e.target) && e.target !== menuBtn) menuBox.style.display = 'none';
+  });
+}
+applyToolbarState();
 
 // ============================================================

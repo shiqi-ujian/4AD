@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>通用战斗地图生成器 v0.93</title>
+<title>通用战斗地图生成器 v0.96</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -15,8 +15,56 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; colo
   padding: 12px 10px 8px;
   display: flex; flex-direction: column; gap: 4px;
   overflow: hidden; border-right: 1px solid #0f3460;
-  z-index: 10;
+  z-index: 10; position: relative;
 }
+/* 折叠态（窄停靠栏）：只留高频图标，最大化地图 */
+#toolbar.collapsed { width: 58px; min-width: 58px; padding: 10px 6px; }
+#toolbar.collapsed h2, #toolbar.collapsed #role-switch, #toolbar.collapsed #player-banner,
+#toolbar.collapsed #cdn-warning, #toolbar.collapsed #panel-pages, #toolbar.collapsed .tool-group-title,
+#toolbar.collapsed .tool-btn .label, #toolbar.collapsed .tool-btn[data-tool] .label,
+#toolbar.collapsed .panel-tab .tab-label, #toolbar.collapsed .panel-tab .tab-badge,
+#toolbar.collapsed .toolbar-footer-text { display: none; }
+#toolbar.collapsed #core-tools { margin-top: 32px; }
+#toolbar.collapsed #core-tools .tool-group { flex-direction: column; gap: 4px; }
+#toolbar.collapsed .tool-btn[data-tool] { width: 40px; min-width: 40px; max-width: 40px; height: 38px; padding: 0; gap: 0; margin: 0 auto; }
+#toolbar.collapsed .tool-btn[data-tool] .icon { font-size: 20px; }
+#toolbar.collapsed #panel-tabs { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; }
+#toolbar.collapsed .panel-tab { width: 40px; min-width: 40px; max-width: 40px; height: 34px; padding: 0; margin: 0 auto; font-size: 18px; line-height: 34px; }
+/* 折叠/展开按钮 + ☰ 菜单按钮 */
+.toolbar-toggle { position: absolute; top: 6px; right: 6px; width: 24px; height: 22px; padding: 0; border: none; background: transparent; color: #888; font-size: 15px; cursor: pointer; line-height: 1; z-index: 12; }
+.toolbar-toggle:hover { color: #fff; }
+#toolbar h2 { padding-right: 28px; }
+#toolbar-footer { margin-top: auto; }
+#toolbar-menu-btn { width: 100%; padding: 5px 0; background: rgba(58,122,189,0.15); color: #ccc; border: 1px solid #0f3460; border-radius: 5px; cursor: pointer; font-size: 11px; }
+#toolbar-menu-btn:hover { color: #fff; background: rgba(58,122,189,0.3); }
+#toolbar.collapsed #toolbar-menu-btn { width: 40px; height: 36px; margin: 10px auto 0; font-size: 18px; padding: 0; }
+/* ☰ 菜单浮层 */
+#toolbar-menu-box { position: fixed; left: 12px; top: 60px; z-index: 300; background: #16213e; border: 1px solid #0f3460; border-radius: 8px; padding: 8px; width: 200px; box-shadow: 0 6px 20px rgba(0,0,0,0.5); }
+#toolbar-menu-box h3 { font-size: 13px; color: #e94560; margin: 0 0 6px; }
+#toolbar-menu-box button { display: block; width: 100%; text-align: left; padding: 6px 8px; background: transparent; color: #ddd; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; }
+#toolbar-menu-box button:hover { background: rgba(58,122,189,0.25); color: #fff; }
+/* 常驻可折叠玩家名册（画布左上，坐标指示下方） */
+#roster-panel {
+  position: absolute; top: 40px; left: 10px; z-index: 16;
+  background: rgba(22,33,62,0.9); border: 1px solid #0f3460; border-radius: 8px;
+  min-width: 158px; box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+}
+#roster-header {
+  width: 100%; display: flex; align-items: center; gap: 6px; padding: 5px 9px;
+  background: transparent; color: #ddd; border: none; cursor: pointer; font-size: 12px; text-align: left;
+}
+#roster-header:hover { color: #fff; }
+#roster-count { color: #888; font-size: 11px; }
+#roster-header .roster-caret { margin-left: auto; color: #888; font-size: 10px; transition: transform 0.15s; }
+#roster-header.expanded .roster-caret { transform: rotate(180deg); }
+#roster-body { padding: 0 6px 6px; max-height: 180px; overflow-y: auto; }
+/* 帮助按钮（画布右上，缩放下方） */
+#help-btn {
+  position: absolute; top: 44px; right: 10px; z-index: 16; width: 28px; height: 28px;
+  background: rgba(22,33,62,0.85); border: 1px solid #0f3460; border-radius: 6px;
+  color: #aaa; font-size: 15px; cursor: pointer; line-height: 1;
+}
+#help-btn:hover { color: #fff; background: rgba(58,122,189,0.3); }
 #toolbar h2 { font-size: 15px; text-align: center; color: #e94560; margin-bottom: 6px; border-bottom: 1px solid #0f3460; padding-bottom: 8px; letter-spacing: 1px; }
 #toolbar h2 .ver { font-size: 10px; color: #888; font-weight: normal; letter-spacing: 0; margin-left: 4px; }
 #toolbar h3 { font-size: 12px; color: #aaa; margin: 8px 0 3px; font-weight: 600; letter-spacing: 1px; }
@@ -45,8 +93,8 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; colo
 .tool-btn[data-terrain] .icon { font-size: 14px; }
 .tool-btn[data-terrain] .label { display: none; }
 
-/* 页签面板：每个子页独立滚动，不挤在一长列里 */
-#panel-tabs { display: flex; gap: 3px; margin-bottom: 6px; flex-wrap: wrap; }
+/* 页签面板：每个子页独立滚动，不挤在一长列里；3 列×2 行网格，避免「5+1」换行 */
+#panel-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; margin-bottom: 6px; }
 .panel-tab {
   flex: 1; min-width: 44px; padding: 5px 2px; font-size: 11px; text-align: center;
   border: 1px solid #0f3460; border-radius: 6px; background: #1a1a2e; color: #999; cursor: pointer;
@@ -63,6 +111,16 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; colo
 .panel-page .page-hint { font-size: 10px; color: #888; margin: 4px 0; line-height: 1.5; }
 .page-title { font-size: 11px; color: #aaa; margin: 2px 0 4px; font-weight: 600; letter-spacing: 0.5px; }
 .dm-locked { opacity: 0.35; filter: grayscale(0.7); pointer-events: none !important; }
+
+/* 工具分组标题（核心 / 绘图标注 / DM专属） */
+.tool-group-title { font-size: 10px; color: #888; margin: 8px 0 3px; font-weight: 600; letter-spacing: 0.5px; }
+.tool-group-title.dm { color: #b98ae0; }
+.terrain-more-toggle {
+  width: 100%; margin-top: 3px; height: 22px; font-size: 10px;
+  background: rgba(58,122,189,0.12); color: #aaa; border: 1px dashed #0f3460; border-radius: 4px;
+  cursor: pointer; transition: all 0.1s;
+}
+.terrain-more-toggle:hover { color: #fff; background: rgba(58,122,189,0.28); }
 
 /* 角色切换 */
 #role-switch { display: flex; gap: 4px; margin-bottom: 6px; }
@@ -119,9 +177,14 @@ canvas { display: block; }
 
 @media (max-width: 800px) {
   #toolbar { width: 48px; min-width: 48px; }
+  #toolbar.collapsed { width: 48px; min-width: 48px; }
+  #toolbar.collapsed .tool-btn[data-tool] { width: 36px; min-width: 36px; max-width: 36px; }
+  #toolbar.collapsed .panel-tab { width: 36px; min-width: 36px; max-width: 36px; }
+  #toolbar.collapsed #core-tools { margin-top: 26px; }
   #toolbar h2, .tool-btn .label, #tool-hint, #role-switch, #player-banner,
-  .panel-tab .tab-label, .panel-tab .tab-badge, .tlib-card .tlib-name, .page-title, .page-hint { display: none; }
-  #panel-tabs { flex-direction: column; }
+  .panel-tab .tab-label, .panel-tab .tab-badge, .tlib-card .tlib-name, .page-title, .page-hint,
+  .tool-group-title, .terrain-more-toggle { display: none; }
+  #panel-tabs { grid-template-columns: 1fr; }
   .panel-tab { min-width: 0; font-size: 15px; padding: 6px 0; }
   #token-library-list { grid-template-columns: repeat(1, 1fr); }
 }
@@ -164,7 +227,8 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 <body>
 <div id="app">
   <div id="toolbar">
-    <h2>⚔️ 战斗地图 <span class="ver">v0.93</span></h2>
+    <button id="toolbar-toggle" class="toolbar-toggle" title="折叠左栏（最大化地图）/ 展开工具栏" aria-label="折叠展开工具栏">≪</button>
+    <h2>⚔️ 战斗地图 <span class="ver">v0.96</span></h2>
 
     <div id="role-switch">
       <button id="role-dm" class="role-btn dm-role active" title="DM 视图：显示全部工具（含 DM 层/战雾/先攻条等隐藏信息）">🎲 DM 视图</button>
@@ -173,6 +237,16 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
     <div id="player-banner" style="display:none;margin-bottom:6px;padding:4px 8px;background:rgba(201,168,76,0.14);border:1px solid #c9a84c;border-radius:6px;font-size:11px;color:#e8d48a;">👁️ 玩家视图：仅玩家可见内容（DM 层 / 战雾绘制 / 先攻条已禁用）</div>
     <div id="cdn-warning" style="display:none;margin:2px 0 4px;padding:4px 6px;background:rgba(233,69,96,0.15);border:1px solid #e94560;border-radius:4px;font-size:10px;color:#e94560;">⚠️ 依赖未加载，部分导出功能不可用</div>
 
+    <div id="core-tools">
+      <div class="tool-group-title">🔧 核心</div>
+      <div class="tool-group">
+        <button class="tool-btn active" data-tool="select" title="选择/查看/移动图形 (V)"><span class="icon">👆</span><span class="label">选择(V)</span></button>
+        <button class="tool-btn" data-tool="paint" title="地形笔刷 (B)"><span class="icon">🖌️</span><span class="label">笔刷(B)</span></button>
+        <button class="tool-btn" data-tool="measure" title="测量距离 (M)：拖拽显示格/英尺与慢速地形等效移动"><span class="icon">📐</span><span class="label">测量(M)</span></button>
+      </div>
+    </div>
+
+    <div class="tool-group-title">🧩 功能区</div>
     <div id="panel-tabs">
       <button class="panel-tab active" data-panel="tools" title="绘图工具 + 地形">🔧<span class="tab-label"> 工具</span></button>
       <button class="panel-tab" data-panel="lib" title="单位库：可复用 token 预设">🧺<span class="tab-label"> 单位库</span></button>
@@ -184,19 +258,18 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
     <div id="panel-pages">
 
       <div class="panel-page active" id="page-tools">
-        <div class="page-title">🔧 绘图工具</div>
+        <div class="tool-group-title">📐 绘图 / 标注</div>
         <div class="tool-group">
-          <button class="tool-btn active" data-tool="select" title="选择/查看/移动图形 (V)"><span class="icon">👆</span><span class="label">选择(V)</span></button>
-          <button class="tool-btn" data-tool="paint" title="地形笔刷 (B)"><span class="icon">🖌️</span><span class="label">笔刷(B)</span></button>
           <button class="tool-btn" data-tool="wall" title="画墙壁边界 (W) 可拖拽"><span class="icon">🧱</span><span class="label">墙壁(W)</span></button>
           <button class="tool-btn" data-tool="door" title="放门 (D) 可拖拽"><span class="icon">🚪</span><span class="label">门(D)</span></button>
           <button class="tool-btn" data-tool="label" title="标文字 (L)"><span class="icon">🏷️</span><span class="label">标签(L)</span></button>
           <button class="tool-btn" data-tool="erase" title="擦除 (E)"><span class="icon">🧹</span><span class="label">擦除(E)</span></button>
           <button class="tool-btn" data-tool="rect" title="画矩形区域/灵气 (R) 拖拽绘制，半透明"><span class="icon">▭</span><span class="label">区域(R)</span></button>
           <button class="tool-btn" data-tool="line" title="画自由线段 (G) 任意角度墙/视线阻挡"><span class="icon">📏</span><span class="label">线段(G)</span></button>
-          <button class="tool-btn" data-tool="measure" title="测量距离 (M)：拖拽显示格/英尺与慢速地形等效移动"><span class="icon">📐</span><span class="label">测量(M)</span></button>
           <button class="tool-btn" data-tool="token" title="插入图片 token (T)"><span class="icon">🖼️</span><span class="label">图片(T)</span></button>
-          <button class="tool-btn" data-tool="unit" title="放置单位 token：打开单位库选择预设，或新建 (U)"><span class="icon">🧝</span><span class="label">单位(U)</span></button>
+        </div>
+        <div class="tool-group-title dm">🎲 DM 专属</div>
+        <div class="tool-group">
           <button class="tool-btn dm-tool" data-tool="dm" title="画 DM 隐藏层：标记/信息只在 DM 本地显示 (Y)"><span class="icon">🕵️</span><span class="label">DM层(Y)</span></button>
           <button class="tool-btn dm-tool" data-tool="fog" title="涂战雾：遮住/揭示格子，跑团时逐步揭开 (F)"><span class="icon">🌫️</span><span class="label">战雾(F)</span></button>
         </div>
@@ -220,6 +293,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
           <button id="btn-terrain-manage" style="float:right;background:#3a3a5e;color:#fff;border:none;border-radius:3px;padding:1px 8px;cursor:pointer;font-size:10px;">⚙️ 管理</button>
         </div>
         <div class="tool-group" id="terrain-palette"></div>
+        <button id="terrain-more-toggle" class="terrain-more-toggle" title="展开更多地形"><span class="label">更多地形 ▾</span></button>
         <div id="tool-hint" style="font-size:10px;color:#e94560;padding:2px 4px;background:rgba(233,69,96,0.1);border-radius:4px;min-height:16px;margin-top:6px;">👆 选择工具后操作格子</div>
       </div>
 
@@ -305,7 +379,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
           <input type="checkbox" id="chk-grid" checked style="width:auto;"> 显示网格
         </label>
         <label style="font-size:12px;display:block;margin:4px 0;padding:5px 8px;background:#1a1a2e;border:1px solid #0f3460;border-radius:6px;cursor:pointer;">
-          <input type="checkbox" id="chk-coords" checked style="width:auto;"> 显示坐标
+          <input type="checkbox" id="chk-coords" style="width:auto;"> 显示坐标
         </label>
         <label style="font-size:12px;display:block;margin:4px 0;padding:5px 8px;background:#1a1a2e;border:1px solid #0f3460;border-radius:6px;cursor:pointer;" title="DM 隐藏层标记（玩家视图下强制关闭）">
           <input type="checkbox" id="chk-dm" style="width:auto;"> 🕵️ 显示 DM 层
@@ -323,14 +397,22 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 
     </div>
 
-    <div style="margin-top:auto;font-size:10px;color:#555;text-align:center;padding-top:6px;">
-      通用跑团 · 战斗地图 v0.93<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>云端地图 · 多场景 · DM/玩家视图
+    <div id="toolbar-footer">
+      <button id="toolbar-menu-btn" title="☰ 菜单：保存/加载/导出/分享/云端等">☰ 菜单</button>
+      <div class="toolbar-footer-text" style="font-size:10px;color:#555;text-align:center;padding-top:6px;">
+        通用跑团 · 战斗地图 v0.96<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>云端地图 · 多场景 · DM/玩家视图
+      </div>
     </div>
   </div>
 
   <div id="canvas-container">
     <div id="coord-indicator">⚪ 选择模式</div>
     <div id="zoom-indicator">🔍 100%</div>
+    <div id="roster-panel">
+      <button id="roster-header"><span>👥 玩家</span><span id="roster-count"></span><span class="roster-caret">▾</span></button>
+      <div id="roster-body" style="display:none;"></div>
+    </div>
+    <button id="help-btn" title="帮助 / 快捷键速查" aria-label="帮助">❓</button>
     <canvas id="grid-canvas"></canvas>
     <div id="empty-hint" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:15;flex-direction:column;align-items:center;gap:10px;background:rgba(22,33,62,0.92);border:1px solid #0f3460;border-radius:12px;padding:22px 28px;box-shadow:0 8px 32px rgba(0,0,0,0.45);text-align:center;max-width:340px;">
       <div style="font-size:30px;">🗺️</div>
@@ -352,6 +434,29 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
     </div>
     <div id="info-panel"><div class="row"><span class="label">💡 选择工具 → 操作格子 → 导出 Excel</span></div></div>
   </div>
+</div>
+
+<!-- 帮助 / 快捷键速查 -->
+<div class="modal-overlay" id="help-modal">
+  <div class="modal-box" style="width:420px;">
+    <h3>❓ 帮助 / 快捷键</h3>
+    <div id="help-shortcuts" style="font-size:12px;line-height:1.7;color:#ddd;"></div>
+    <div class="btn-row">
+      <button id="help-close" style="background:#3a3a5e;color:#ccc;">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- ☰ 全局菜单 -->
+<div id="toolbar-menu-box" style="display:none;">
+  <h3>☰ 菜单</h3>
+  <button data-click="btn-save">💾 保存</button>
+  <button data-click="btn-load">📂 加载</button>
+  <button data-click="btn-share">🔗 分享 / 导入</button>
+  <button data-click="btn-cloud-save">☁️ 保存到云端</button>
+  <button data-click="btn-export-excel">📊 导出 Excel</button>
+  <button data-click="btn-export-img">🖼️ 导出 PNG</button>
+  <button data-click="btn-clear">🗑️ 清空地图</button>
 </div>
 
 <!-- Room Template Modal -->
@@ -789,6 +894,8 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
   <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);background:#16213e;border:1px solid #0f3460;border-radius:10px;padding:20px;width:460px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
     <h3 style="color:#e94560;margin:0 0 12px;font-size:17px;">🌐 在线房间</h3>
     <div id="online-status" style="min-height:16px;margin-bottom:8px;font-size:12px;color:#aaa;"></div>
+    <label>你的昵称（房间内显示，可留空用默认）</label>
+    <input type="text" id="online-name" value="" placeholder="输入你的昵称" maxlength="16" style="width:100%;padding:5px 8px;margin-bottom:8px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;">
     <label>房间名（字母/数字，分享给参与者）</label>
     <input type="text" id="online-room" value="" placeholder="如 dragon-cave-01" style="width:100%;padding:5px 8px;margin-bottom:8px;background:#1a1a2e;color:#fff;border:1px solid #0f3460;border-radius:4px;font-size:13px;">
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin:10px 0;">
@@ -829,7 +936,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 <script>
 //  Configuration
 // ============================================================
-const COMBATMAP_VERSION = 'v0.93';
+const COMBATMAP_VERSION = 'v0.96';
 
 // 云端持久化后端（combatmap 会 fetch 这里的 /api/map/<id> 保存/加载整张地图）。
 // 默认走 chmweb 主站后端；可通过 URL `?apibase=` 覆盖（本地调试）。
@@ -952,7 +1059,7 @@ function viewRoleIsPlayer() {
 let viewX = 0, viewY = 0;
 let zoom = 1;
 let isDragging = false, dragStartX, dragStartY, viewStartX, viewStartY;
-let showGrid = true, showCoords = true;
+let showGrid = true, showCoords = false;
 let artStyle = 'handdrawn';  // 美术风格：'handdrawn'（手绘质感）| 'classic'（原纯色块）
 let showDmLayer = false;   // 是否显示 DM 层（标记/说明）——当前有效显示状态（玩家视图下会被强制隐藏）
 let dmLayerPref = false;   // 用户期望的 DM 层开关（切到玩家视图时保留，切回 DM 视图时恢复）
@@ -2214,7 +2321,7 @@ function drawTokens() {
       ctx.font = `bold ${Math.max(9, 11 / zoom)}px sans-serif`;
       const tw = ctx.measureText(t.name).width + 10 / zoom;
       const nh = 15 / zoom;
-      const by = Math.max(2 / zoom, p.y - 13 / zoom);
+      const by = p.y - 13 / zoom;
       ctx.fillStyle = 'rgba(0,0,0,0.74)';
       ctx.beginPath();
       if (ctx.roundRect) ctx.roundRect(cx - tw / 2, by, tw, nh, 4 / zoom);
@@ -2367,7 +2474,7 @@ function drawCellOverlay(q, r) {
 
   // Coordinates
   if (showCoords) {
-    ctx.fillStyle = 'rgba(255,255,255,0.30)';
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
     ctx.font = `${Math.max(8, CELL_SIZE * 0.18)}px monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -3893,37 +4000,60 @@ if (fogModeReveal) fogModeReveal.addEventListener('click', () => setFogMode('rev
 // ============================================================
 //  Terrain Palette
 // ============================================================
+// 常用地形（优先展示在色板顶部，其余收进「更多地形」，减少整屏色块扫读负担）
+const COMMON_TERRAIN_IDS = ['floor','wall_cell','difficult','water','elevated','cover_half','cover_full','hazard_fire','hazard_acid','hazard_spike','door_cell','pit'];
+
+function makeTerrainBtn(id) {
+  const t = getTerrain(id);
+  const btn = document.createElement('button');
+  btn.className = 'tool-btn' + (id === selectedTerrain ? ' active' : '');
+  btn.dataset.terrain = id;
+  btn.title = t.name + ' — ' + t.desc;
+  const tc = isLightColor(t.color) ? '#333' : '#fff';
+  btn.style.cssText = `background:${t.color};color:${tc};text-shadow:${tc === '#fff' ? '0 1px 3px rgba(0,0,0,0.5)' : 'none'}`;
+  btn.innerHTML = `<span class="icon">${t.icon}</span><span class="label">${t.name}</span>`;
+  btn.addEventListener('click', () => {
+    selectedTerrain = id;
+    document.querySelectorAll('.tool-btn[data-terrain]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (selectedTool !== 'paint') setTool('paint');
+    const ti = getTerrain(id);
+    document.getElementById('coord-indicator').textContent = `🖌️ ${ti.icon} ${ti.name}`;
+    const badge = document.getElementById('terrain-selected');
+    if (badge) { badge.textContent = `${ti.icon} ${ti.name}`; badge.title = ti.desc || ''; }
+  });
+  return btn;
+}
+
 function rebuildTerrainPalette() {
   const palette = document.getElementById('terrain-palette');
   if (!palette) return;
   palette.innerHTML = '';
-  getTerrainList().forEach(id => {
-    const t = getTerrain(id);
-    const btn = document.createElement('button');
-    btn.className = 'tool-btn' + (id === selectedTerrain ? ' active' : '');
-    btn.dataset.terrain = id;
-    btn.title = t.name + ' — ' + t.desc;
-    const tc = isLightColor(t.color) ? '#333' : '#fff';
-    btn.style.cssText = `background:${t.color};color:${tc};text-shadow:${tc === '#fff' ? '0 1px 3px rgba(0,0,0,0.5)' : 'none'}`;
-    btn.innerHTML = `<span class="icon">${t.icon}</span><span class="label">${t.name}</span>`;
-    btn.addEventListener('click', () => {
-      selectedTerrain = id;
-      document.querySelectorAll('.tool-btn[data-terrain]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      if (selectedTool !== 'paint') setTool('paint');
-      const ti = getTerrain(id);
-      document.getElementById('coord-indicator').textContent = `🖌️ ${ti.icon} ${ti.name}`;
-      const badge = document.getElementById('terrain-selected');
-      if (badge) { badge.textContent = `${ti.icon} ${ti.name}`; badge.title = ti.desc || ''; }
-    });
-    palette.appendChild(btn);
-  });
+  const list = getTerrainList();
+  const common = COMMON_TERRAIN_IDS.filter(id => list.includes(id));
+  const more = list.filter(id => !COMMON_TERRAIN_IDS.includes(id));
+  const toggle = document.getElementById('terrain-more-toggle');
+  const expanded = !!toggle && toggle.classList.contains('expanded');
+  common.forEach(id => palette.appendChild(makeTerrainBtn(id)));
+  if (expanded) more.forEach(id => palette.appendChild(makeTerrainBtn(id)));
+  if (toggle) {
+    toggle.classList.toggle('expanded', expanded);
+    const lbl = toggle.querySelector('.label');
+    if (lbl) lbl.textContent = (more.length ? `更多地形 (${more.length}) ` : '') + (expanded ? '▴' : '▾');
+    toggle.style.display = more.length ? '' : 'none';
+  }
   const badge = document.getElementById('terrain-selected');
   if (badge) {
     const ti = getTerrain(selectedTerrain);
     if (ti) { badge.textContent = `${ti.icon} ${ti.name}`; badge.title = ti.desc || ''; }
   }
 }
+
+const terrainMoreToggle = document.getElementById('terrain-more-toggle');
+if (terrainMoreToggle) terrainMoreToggle.addEventListener('click', () => {
+  terrainMoreToggle.classList.toggle('expanded');
+  rebuildTerrainPalette();
+});
 
 // ============================================================
 //  Label Dialog
@@ -4299,8 +4429,6 @@ function renderSceneList() {
 }
 
 document.getElementById('btn-scene-new').addEventListener('click', () => newScene());
-if (typeof ensureScenes === 'function') ensureScenes();
-if (typeof renderSceneList === 'function') renderSceneList();
 document.getElementById('chk-grid').addEventListener('change', (e) => { showGrid = e.target.checked; render(); });
 document.getElementById('chk-coords').addEventListener('change', (e) => { showCoords = e.target.checked; render(); });
 document.getElementById('chk-dm').addEventListener('change', (e) => { showDmLayer = e.target.checked; dmLayerPref = e.target.checked; render(); });
@@ -5528,6 +5656,56 @@ document.getElementById('empty-dismiss').addEventListener('click', () => {
 });
 
 // ============================================================
+//  v0.95: 可折叠左栏（窄停靠栏）+ ☰ 全局菜单
+// ============================================================
+const LS_TOOLBAR_KEY = 'combatmap_toolbar_collapsed_v1';
+let toolbarCollapsed = false;
+try { toolbarCollapsed = localStorage.getItem(LS_TOOLBAR_KEY) === '1'; } catch (e) { /* ignore */ }
+
+function applyToolbarState() {
+  const tb = document.getElementById('toolbar');
+  if (tb) tb.classList.toggle('collapsed', toolbarCollapsed);
+  const tg = document.getElementById('toolbar-toggle');
+  if (tg) { tg.textContent = toolbarCollapsed ? '≫' : '≪'; tg.title = toolbarCollapsed ? '展开工具栏' : '折叠左栏（最大化地图）'; }
+  const mb = document.getElementById('toolbar-menu-btn');
+  if (mb) mb.textContent = toolbarCollapsed ? '☰' : '☰ 菜单';
+}
+function toggleToolbar() {
+  toolbarCollapsed = !toolbarCollapsed;
+  try { localStorage.setItem(LS_TOOLBAR_KEY, toolbarCollapsed ? '1' : '0'); } catch (e) { /* ignore */ }
+  applyToolbarState();
+  // 折叠/展开改变左栏宽度 → canvas 容器尺寸变化，重设画布尺寸，避免四周留黑边
+  if (typeof resizeCanvas === 'function') resizeCanvas();
+}
+const toolbarToggle = document.getElementById('toolbar-toggle');
+if (toolbarToggle) toolbarToggle.addEventListener('click', toggleToolbar);
+
+// 折叠态点击页签 → 先展开再切换（让面板可见）
+document.querySelectorAll('.panel-tab').forEach(t => {
+  t.addEventListener('click', () => { if (toolbarCollapsed) toggleToolbar(); });
+});
+
+// ☰ 全局菜单：点击项触发对应按钮（复用现有按钮逻辑）
+const menuBtn = document.getElementById('toolbar-menu-btn');
+const menuBox = document.getElementById('toolbar-menu-box');
+if (menuBtn && menuBox) {
+  menuBtn.addEventListener('click', (e) => { e.stopPropagation(); menuBox.style.display = menuBox.style.display === 'block' ? 'none' : 'block'; });
+  menuBox.addEventListener('click', (e) => {
+    if (e.target === menuBox) { menuBox.style.display = 'none'; return; }
+    const item = e.target.closest('[data-click]');
+    if (item) {
+      const t = document.getElementById(item.dataset.click);
+      if (t) t.click();
+      menuBox.style.display = 'none';
+    }
+  });
+  document.addEventListener('click', (e) => {
+    if (menuBox.style.display === 'block' && !menuBox.contains(e.target) && e.target !== menuBtn) menuBox.style.display = 'none';
+  });
+}
+applyToolbarState();
+
+// ============================================================
 
 // ============================================================
 //  Token Library (🧺 单位库) — 可复用的单位 token 预设管理
@@ -6374,6 +6552,9 @@ let onlineMseq = 0;
 let onlineApplyRemote = false;
 let onlineTimer = null;
 let onlineIsPlayer = false;   // true = 加入房间的玩家；false = 创建房间的 DM
+const LS_ONLINE_NAME_KEY = 'combatmap_online_name';
+let onlineUserName = '';      // 参与者在房间内显示的昵称
+let onlineRoster = [];        // 玩家端缓存的主机广播成员列表 [{id,name,role}]
 
 function payloadForRole(payload, role) {
   if (role !== 'player') return payload;
@@ -6408,12 +6589,25 @@ function setOnlineStatus(msg) {
     st.style.background = onlineSync ? (onlineIsPlayer ? '#3a7abd' : '#2d6a2e') : '#3a3a5e';
     st.style.color = onlinePeer ? '#fff' : '#aaa';
   }
+  if (typeof renderRoster === 'function') renderRoster();
 }
 
 function sanitizeRoom(s) {
   s = (s || '').trim().toLowerCase();
   s = s.replace(/[^a-z0-9-]/g, '');
   return s.slice(0, 48);
+}
+function onlineGetName() {
+  let n = (document.getElementById('online-name')?.value || '').trim();
+  if (!n) { try { n = localStorage.getItem(LS_ONLINE_NAME_KEY) || ''; } catch (e) { /* ignore */ } }
+  if (!n) n = onlineIsPlayer ? '玩家' : 'DM';
+  return n.slice(0, 16);
+}
+function onlineSetName() {
+  const n = onlineGetName();
+  onlineUserName = n;
+  try { localStorage.setItem(LS_ONLINE_NAME_KEY, n); } catch (e) { /* ignore */ }
+  return n;
 }
 
 function openOnlineModal() {
@@ -6425,6 +6619,10 @@ function openOnlineModal() {
   }
   const inp = document.getElementById('online-room');
   if (!inp.value) inp.value = 'dm-' + Date.now().toString(36).slice(-6);
+  const nameInp = document.getElementById('online-name');
+  if (nameInp && !nameInp.value) {
+    try { nameInp.value = localStorage.getItem(LS_ONLINE_NAME_KEY) || ''; } catch (e) { /* ignore */ }
+  }
   modal.style.display = 'block';
   setOnlineStatus(onlinePeer
     ? `已连接房间 ${onlineRoom}，${onlineConnections.length + 1} 人在线`
@@ -6503,14 +6701,22 @@ function handleOnlineData(conn, raw) {
     // 主机收到客户端快照后应用，并转播给其他连接
     if (onlineRoom && onlineConnections.length > 0) broadcastSnapshot(conn);
   } else if (msg.type === 'hello') {
-    // 新客户端请求首次快照；先按该连接声明的角色发送
+    // 新客户端请求首次快照；先按该连接声明的角色发送，并记录其昵称
     conn._combatRole = msg.role === 'dm' ? 'dm' : 'player';
+    conn._combatName = (msg.name || '').slice(0, 16) || (conn._combatRole === 'dm' ? 'DM' : '玩家');
     onlineSendSnapshotTo(conn);
-    setOnlineStatus(`🎭 ${msg.role === 'dm' ? 'DM' : '玩家'} 已连接，当前在线 ${onlineConnections.length + 1}`);
+    setOnlineStatus(`🎭 ${conn._combatName} 已连接，当前在线 ${onlineConnections.length + 1}`);
+    if (!onlineIsPlayer) broadcastRoster();
   } else if (msg.type === 'role') {
     conn._combatRole = msg.role === 'dm' ? 'dm' : 'player';
+    conn._combatName = (msg.name || '').slice(0, 16) || (conn._combatRole === 'dm' ? 'DM' : '玩家');
     onlineSendSnapshotTo(conn);
-    setOnlineStatus(`🎭 ${msg.role === 'dm' ? 'DM' : '玩家'} 已连接，当前在线 ${onlineConnections.length + 1}`);
+    setOnlineStatus(`🎭 ${conn._combatName} 已连接，当前在线 ${onlineConnections.length + 1}`);
+    if (!onlineIsPlayer) broadcastRoster();
+  } else if (msg.type === 'roster') {
+    // 玩家端接收主机广播的成员列表
+    onlineRoster = msg.members || [];
+    renderRoster();
   } else if (msg.type === 'ping') {
     sendTo(conn, { type: 'pong', ts: Date.now() });
   }
@@ -6520,12 +6726,15 @@ function onlineAddConn(conn) {
   if (onlineConnections.some(c => c === conn)) return;
   onlineConnections.push(conn);
   conn._combatRole = 'player'; // 默认玩家，先不给 DM 层；收到 hello/role 后更新
+  conn._combatName = '';
   conn.on('data', (raw) => handleOnlineData(conn, raw));
   conn.on('close', () => {
     onlineConnections = onlineConnections.filter(c => c !== conn);
     setOnlineStatus(`↗️ 有成员离开，当前在线 ${onlineConnections.length + 1}`);
+    if (!onlineIsPlayer) broadcastRoster();
   });
   setOnlineStatus(`🎉 新成员加入，当前在线 ${onlineConnections.length + 1}`);
+  if (!onlineIsPlayer) broadcastRoster();
   render();
 }
 
@@ -6534,6 +6743,8 @@ function onlineCreateRoom() {
   if (typeof Peer === 'undefined') { setOnlineStatus('⚠️ PeerJS 未加载'); return; }
   const roomId = sanitizeRoom(document.getElementById('online-room')?.value || '');
   if (!roomId) { setOnlineStatus('⚠️ 请输入房间名'); return; }
+  onlineSetName();
+  onlineRoster = [];
   onlineRoom = roomId;
   onlineSync = false;
   try {
@@ -6547,15 +6758,16 @@ function onlineCreateRoom() {
     onlineIsPlayer = false;
     viewRole = 'dm';
     applyOnlineRoleUI();
+    broadcastRoster();
     setOnlineStatus('✅ 房间已创建：' + roomId + ' · 分享邀请链接给玩家');
     closeOnlineModal();
-    showToast('🌐 房间已创建：' + roomId + '（DM）');
+    showToast('🌐 房间已创建：' + roomId + '（DM ' + onlineUserName + '）');
   });
   onlinePeer.on('connection', (conn) => {
     conn.on('open', () => {
       onlineAddConn(conn);
-      // 新连接默认按玩家视角给首次快照；如果对方声明自己是 DM，会在 hello 里更新
       onlineSendSnapshotTo(conn);
+      broadcastRoster();
     });
   });
   onlinePeer.on('error', (err) => {
@@ -6582,13 +6794,15 @@ function onlineJoinRoom(roomRaw) {
   conn.on('open', () => {
     onlineRoom = roomId;
     onlineIsPlayer = true;
+    onlineSetName();
+    onlineRoster = [];
     viewRole = 'player';
     applyOnlineRoleUI();
     // 先不发本地快照，等主机回传；声明自己为玩家，避免收到 DM 隐藏层
     setOnlineStatus('✅ 已加入 ' + roomId + '，正在接收主机地图…');
     closeOnlineModal();
-    showToast('🌐 已加入房间 ' + roomId + '（玩家视角）');
-    sendTo(conn, { type: 'hello', ts: Date.now(), role: 'player' });
+    showToast('🌐 已加入房间 ' + roomId + '（玩家 ' + onlineUserName + '）');
+    sendTo(conn, { type: 'hello', ts: Date.now(), role: 'player', name: onlineUserName });
   });
   conn.on('data', (raw) => handleOnlineData(conn, raw));
   conn.on('close', () => {
@@ -6626,6 +6840,7 @@ function onlineLeave() {
   onlineSync = false;
   onlineConnections = [];
   onlineIsPlayer = false;
+  onlineRoster = [];
   viewRole = 'dm';
   applyOnlineRoleUI();
   setOnlineStatus('已离开房间');
@@ -6663,6 +6878,103 @@ function initOnline() {
   }
 }
 initOnline();
+
+// ============================================================
+//  v0.96: 常驻可折叠玩家名册 + 帮助/快捷键速查入口
+// ============================================================
+function buildRosterPayload() {
+  const members = [{ id: 'me', name: onlineUserName || (onlineIsPlayer ? '玩家' : 'DM'), role: onlineIsPlayer ? 'player' : 'dm' }];
+  onlineConnections.forEach((c) => {
+    members.push({ id: c.peer, name: c._combatName || (c._combatRole === 'dm' ? 'DM' : '玩家'), role: c._combatRole || 'player' });
+  });
+  return members;
+}
+function broadcastRoster() {
+  if (!onlinePeer) return;
+  const members = buildRosterPayload();
+  onlineConnections.forEach((c) => sendTo(c, { type: 'roster', members }));
+  if (!onlineIsPlayer) onlineRoster = members; // 主机本地视角
+  renderRoster();
+}
+function rosterMembers() {
+  if (!onlinePeer || !onlineRoom) return [];
+  if (onlineIsPlayer) {
+    // 玩家：用主机广播的成员列表，标记自己
+    const selfId = onlinePeer && onlinePeer.id;
+    return (onlineRoster || []).map((m) => ({ ...m, me: m.id === selfId }));
+  }
+  // 主机：本地产物
+  return buildRosterPayload().map((m) => ({ ...m, me: m.id === 'me' }));
+}
+
+function renderRoster() {
+  const panel = document.getElementById('roster-panel');
+  if (!panel) return;
+  const body = document.getElementById('roster-body');
+  const count = document.getElementById('roster-count');
+  const members = rosterMembers();
+  if (count) count.textContent = members.length ? `(${members.length})` : '离线';
+  if (!body) return;
+  body.innerHTML = '';
+  if (members.length === 0) {
+    body.innerHTML = '<div style="padding:4px 6px;font-size:11px;color:#888;">🌐 未连接房间</div>';
+  } else {
+    members.forEach((m) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:6px;padding:3px 4px;margin:1px 0;border-radius:4px;background:rgba(255,255,255,0.04);';
+      const roleChip = document.createElement('span');
+      roleChip.textContent = m.role === 'dm' ? '🎲 DM' : '👤 玩家';
+      roleChip.style.cssText = 'font-size:10px;padding:1px 5px;border-radius:4px;color:#fff;flex-shrink:0;background:' + (m.role === 'dm' ? '#2d6a2e' : '#3a7abd') + ';';
+      const name = document.createElement('span');
+      name.textContent = m.name + (m.me ? ' (你)' : '');
+      name.style.cssText = 'flex:1;font-size:11px;color:#ddd;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+      row.appendChild(roleChip); row.appendChild(name);
+      body.appendChild(row);
+    });
+  }
+}
+
+function toggleRoster() {
+  const body = document.getElementById('roster-body');
+  if (!body) return;
+  const show = body.style.display !== 'block';
+  body.style.display = show ? 'block' : 'none';
+  const hdr = document.getElementById('roster-header');
+  if (hdr) hdr.classList.toggle('expanded', show);
+  renderRoster();
+}
+
+function openHelp() {
+  const m = document.getElementById('help-modal');
+  if (m) m.style.display = 'block';
+}
+function closeHelp() {
+  const m = document.getElementById('help-modal');
+  if (m) m.style.display = 'none';
+}
+
+const rosterHdr = document.getElementById('roster-header');
+if (rosterHdr) rosterHdr.addEventListener('click', toggleRoster);
+const helpBtn = document.getElementById('help-btn');
+if (helpBtn) helpBtn.addEventListener('click', openHelp);
+const helpCloseBtn = document.getElementById('help-close');
+if (helpCloseBtn) helpCloseBtn.addEventListener('click', closeHelp);
+const helpModal = document.getElementById('help-modal');
+if (helpModal) {
+  const sc = document.getElementById('help-shortcuts');
+  if (sc) {
+    sc.innerHTML = [
+      ['🎯 基础工具', 'V 选择 · B 笔刷 · W 墙壁 · D 门 · L 标签 · E 擦除 · R 区域 · G 线段 · T 图片 · M 测量'],
+      ['🧝 单位', 'U 打开单位库 · 点预设拿起 → 地图放置 · Shift 连放 · Esc 取消'],
+      ['🎲 DM / 战雾', 'Y DM层 · F 战雾 · Shift 点选多选单位'],
+      ['⬅️ 撤销 / 编辑', 'Ctrl+Z 撤销 · Ctrl+Y 重做 · Ctrl+D 复制选中 · Delete 删除'],
+      ['🔍 视角', '滚轮缩放 · 拖拽(空白)平移 · 右键菜单'],
+      ['🌐 在线', '「房间」页签创建/加入房间，玩家可看到在线成员名册'],
+    ].map(([k, v]) => `<div style="margin-bottom:7px;"><b style="color:#e8b46a;">${k}</b><br><span style="color:#ddd;">${v}</span></div>`).join('');
+  }
+  helpModal.addEventListener('click', (e) => { if (e.target === helpModal) closeHelp(); });
+}
+renderRoster();
 //  Export: Excel
 //  主格式 = .xlsx（标准 OOXML，Excel/WPS 都支持颜色与方正规格）
 //  降级   = .xls（HTML 表格，仅当 SheetJS 未加载时使用）
@@ -7839,6 +8151,8 @@ function init() {
   if (dmCheck) dmCheck.checked = showDmLayer;
   const fogCheck = document.getElementById('chk-fog');
   if (fogCheck) fogCheck.checked = showFogLayer;
+  const coordCheck = document.getElementById('chk-coords');
+  if (coordCheck) coordCheck.checked = showCoords;
   const visionCheck = document.getElementById('chk-vision');
   if (visionCheck) visionCheck.checked = (visionMode === 'auto');
   viewX = canvas.width / 2;
