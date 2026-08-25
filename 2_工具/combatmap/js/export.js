@@ -585,11 +585,11 @@ function renderMapCanvas(exact) {
   });
   if (!isFinite(minQ)) { minQ = -2; maxQ = 2; minR = -2; maxR = 2; }
 
-  // 导出范围包含底图区域  [DISABLED v0.83] 导入底图功能临时禁用
-  // if (backgroundMap) {
-  //   feed(Math.floor(backgroundMap.x), Math.floor(backgroundMap.y));
-  //   feed(Math.ceil(backgroundMap.x + backgroundMap.cols), Math.ceil(backgroundMap.y + backgroundMap.rows));
-  // }
+  // 导出范围包含底图区域
+  if (backgroundMap) {
+    feed(Math.floor(backgroundMap.x), Math.floor(backgroundMap.y));
+    feed(Math.ceil(backgroundMap.x + backgroundMap.cols), Math.ceil(backgroundMap.y + backgroundMap.rows));
+  }
 
   const half = CELL_SIZE / 2;
   const padding = CELL_SIZE * 2;
@@ -635,16 +635,16 @@ function renderMapCanvas(exact) {
     drawCombatCellBase(expCtx, q, r, combatData[key]);
   }
 
-  // Pass 1.5: 底图（导出包含背景，DM/玩家图均一致） [DISABLED v0.83] 导入底图功能临时禁用
-  // if (backgroundMap && backgroundMap.imgData) {
-  //   const bm = backgroundMap;
-  //   expCtx.save();
-  //   expCtx.globalAlpha = Math.max(0, Math.min(1, bm.opacity ?? 0.85));
-  //   if (bm.img && bm.img.complete) {
-  //     expCtx.drawImage(bm.img, bm.x * CELL_SIZE, bm.y * CELL_SIZE, bm.cols * CELL_SIZE, bm.rows * CELL_SIZE);
-  //   }
-  //   expCtx.restore();
-  // }
+  // Pass 1.5: 底图（导出包含背景，DM/玩家图均一致）
+  if (backgroundMap && backgroundMap.imgData) {
+    const bm = backgroundMap;
+    expCtx.save();
+    expCtx.globalAlpha = Math.max(0, Math.min(1, bm.opacity ?? 0.85));
+    if (bm.img && bm.img.complete) {
+      expCtx.drawImage(bm.img, bm.x * CELL_SIZE, bm.y * CELL_SIZE, bm.cols * CELL_SIZE, bm.rows * CELL_SIZE);
+    }
+    expCtx.restore();
+  }
 
   // Pass 2: walls
   for (const key of keys) {
@@ -835,10 +835,17 @@ function renderMapCanvas(exact) {
 
   // Pass 7: 战雾遮罩（导出玩家可见图时保留；DM 层不导出）
   if (showFogLayer) {
+    const hasVision = tokens.some(t => t.visionSource && (t.sightRadius || 0) > 0);
+    const autoMask = visionMode === 'auto' && viewRoleIsPlayer() && hasVision;
+    const vis = autoMask ? computeVisibleCells() : null;
     // 输出范围内逐格绘制雾
     for (let q = minQ; q <= maxQ; q++) {
       for (let r = minR; r <= maxR; r++) {
-        if (!isFogCell(q, r)) continue;
+        if (autoMask) {
+          if (vis.has(cellKey(q, r))) continue; // 玩家可见，不遮
+        } else {
+          if (!isFogCell(q, r)) continue;
+        }
         expCtx.fillStyle = 'rgba(12, 12, 20, 0.82)';
         expCtx.fillRect(q * CELL_SIZE - CELL_SIZE / 2, r * CELL_SIZE - CELL_SIZE / 2, CELL_SIZE, CELL_SIZE);
       }
@@ -966,8 +973,7 @@ function saveJSON() {
     combatData,
     dmData,
     fog,
-    // [DISABLED v0.83] 导入底图功能临时禁用：保存 JSON 不含底图
-    // backgroundMap: backgroundMap ? { ...backgroundMap, img: undefined } : null,
+    backgroundMap: backgroundMap ? { ...backgroundMap, img: undefined } : null,
     initiativeOrder,
     initiativeIndex,
     shapes: shapes.map(s => { const c = { ...s }; delete c.img; return c; }),
@@ -978,7 +984,12 @@ function saveJSON() {
     tokenPresets: (typeof tokenPresets !== 'undefined') ? tokenPresets : [],
     viewX, viewY, zoom
   };
-  const json = JSON.stringify(data);
+  // 多场景：把整个战役（场景列表 + 当前激活）一并保存
+  const campaign = {
+    scenes: (typeof scenes !== 'undefined') ? scenes.map(s => ({ id: s.id, name: s.name, data: cloneSceneData(s.data) })) : undefined,
+    activeSceneId: (typeof activeSceneId !== 'undefined') ? activeSceneId : undefined
+  };
+  const json = JSON.stringify({ ...data, ...campaign });
   const blob = new Blob([json], { type: 'application/json' });
   downloadBlob(blob, `combatmap_${new Date().toISOString().slice(0,10)}.json`);
   showToast(`💾 已保存 — ${Object.keys(combatData).length} 格 / ${shapes.length} 图形 / ${freeLines.length} 线段 / ${tokens.length} 单位`);
@@ -994,8 +1005,23 @@ function loadJSON() {
     reader.onload = (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
+        // 多场景战役文件：恢复场景列表 + 激活场景，再载入当前激活场景
+        if (data && Array.isArray(data.scenes) && data.scenes.length) {
+          if (typeof scenes !== 'undefined') {
+            scenes = data.scenes.map(s => ({ id: s.id || (typeof nextSceneId === 'function' ? nextSceneId() : 'sc'), name: s.name || '场景', data: s.data || {} }));
+            activeSceneId = data.activeSceneId || scenes[0].id;
+            if (!sceneById(activeSceneId)) activeSceneId = scenes[0].id;
+            applyCombatData(sceneById(activeSceneId).data);
+            if (typeof renderSceneList === 'function') renderSceneList();
+            showToast(`📂 已加载战役 — ${scenes.length} 个场景`);
+            return;
+          }
+        }
+        // 单场景（旧格式 / 直接分享导入）：载入当前地图并包成 1 个场景
         if (data && data.combatData !== undefined && data.tokens !== undefined) {
           const n = applyCombatData(data);
+          if (typeof ensureScenes === 'function') ensureScenes();
+          if (typeof renderSceneList === 'function') renderSceneList();
           showToast(`📂 已加载 — ${n} 格 / ${shapes.length} 图形 / ${freeLines.length} 线段 / ${tokens.length} 单位`);
           return;
         }

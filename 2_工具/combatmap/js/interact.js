@@ -13,47 +13,46 @@ canvas.addEventListener('mousedown', (e) => {
   if (e.button === 0) {
     const wx = (mx - viewX) / zoom, wy = (my - viewY) / zoom;
 
-    // [DISABLED v0.83] 导入底图功能临时禁用：底图对齐模式交互
     // --- 底图对齐模式：点击采集参考点 / 拖拽底图 / 缩放手柄 ---
-    // if (_bgAlignRefs) {
-    //   if (!backgroundMap) { _bgAlignRefs = null; render(); }
-    //   else {
-    //     const bm = backgroundMap;
-    //     const x0 = bm.x * CELL_SIZE, y0 = bm.y * CELL_SIZE;
-    //     const x1 = (bm.x + bm.cols) * CELL_SIZE, y1 = (bm.y + bm.rows) * CELL_SIZE;
-    //     const hs = 10 / zoom;
-    //     if (Math.abs(wx - x1) <= hs && Math.abs(wy - y1) <= hs) {
-    //       _bgDragMode = 'bg-resize-corner'; dragStartX = wx; dragStartY = wy; isDragging = true;
-    //       return;
-    //     }
-    //     if (Math.abs(wx - x0) <= hs && Math.abs(wy - y0) <= hs) {
-    //       _bgDragMode = 'bg-move'; _dragOffX = wx - x0; _dragOffY = wy - y0; isDragging = true;
-    //       return;
-    //     }
-    //     if (Math.abs(wx - x1) <= hs && Math.abs(wy - y0) <= hs) {
-    //       _bgDragMode = 'bg-resize-e'; dragStartX = wx; dragStartY = wy; isDragging = true;
-    //       return;
-    //     }
-    //     if (Math.abs(wx - x0) <= hs && Math.abs(wy - y1) <= hs) {
-    //       _bgDragMode = 'bg-resize-s'; dragStartX = wx; dragStartY = wy; isDragging = true;
-    //       return;
-    //     }
-    //     // 点击采集参考点
-    //     _bgAlignRefs.pts = _bgAlignRefs.pts || [];
-    //     if (_bgAlignRefs.pts.length < 3) {
-    //       _bgAlignRefs.pts.push({
-    //         world: { x: wx, y: wy },
-    //         snappedGrid: pixelToCell(wx, wy),
-    //         originX: e.clientX - rect.left,
-    //         originY: e.clientY - rect.top
-    //       });
-    //       render();
-    //       if (typeof updateBgAlignBar === 'function') updateBgAlignBar();
-    //       // 不再自动完成，等用户点“完成”
-    //     }
-    //     return;
-    //   }
-    // }
+    if (_bgAlignRefs) {
+      if (!backgroundMap) { _bgAlignRefs = null; render(); }
+      else {
+        const bm = backgroundMap;
+        const x0 = bm.x * CELL_SIZE, y0 = bm.y * CELL_SIZE;
+        const x1 = (bm.x + bm.cols) * CELL_SIZE, y1 = (bm.y + bm.rows) * CELL_SIZE;
+        const hs = 10 / zoom;
+        if (Math.abs(wx - x1) <= hs && Math.abs(wy - y1) <= hs) {
+          _bgDragMode = 'bg-resize-corner'; dragStartX = wx; dragStartY = wy; isDragging = true;
+          return;
+        }
+        if (Math.abs(wx - x0) <= hs && Math.abs(wy - y0) <= hs) {
+          _bgDragMode = 'bg-move'; _dragOffX = wx - x0; _dragOffY = wy - y0; isDragging = true;
+          return;
+        }
+        if (Math.abs(wx - x1) <= hs && Math.abs(wy - y0) <= hs) {
+          _bgDragMode = 'bg-resize-e'; dragStartX = wx; dragStartY = wy; isDragging = true;
+          return;
+        }
+        if (Math.abs(wx - x0) <= hs && Math.abs(wy - y1) <= hs) {
+          _bgDragMode = 'bg-resize-s'; dragStartX = wx; dragStartY = wy; isDragging = true;
+          return;
+        }
+        // 点击采集参考点
+        _bgAlignRefs.pts = _bgAlignRefs.pts || [];
+        if (_bgAlignRefs.pts.length < 3) {
+          _bgAlignRefs.pts.push({
+            world: { x: wx, y: wy },
+            snappedGrid: pixelToCell(wx, wy),
+            originX: e.clientX - rect.left,
+            originY: e.clientY - rect.top
+          });
+          render();
+          if (typeof updateBgAlignBar === 'function') updateBgAlignBar();
+          // 不再自动完成，等用户点“完成”
+        }
+        return;
+      }
+    }
 
     // --- 选择工具：单位/图形/线段优先 ---
     if (selectedTool === 'select') {
@@ -173,6 +172,14 @@ canvas.addEventListener('mousedown', (e) => {
       return;
     }
 
+    // --- 测量：拖拽画出测距线（持续显示距离/困难地形） ---
+    if (selectedTool === 'measure') {
+      _measure = { x1: wx / CELL_SIZE, y1: wy / CELL_SIZE, x2: wx / CELL_SIZE, y2: wy / CELL_SIZE };
+      _dragMode = 'measure-draw';
+      isDragging = true;
+      return;
+    }
+
     // --- 单位 token：点击放置 ---
     if (selectedTool === 'unit') {
       if (_unitPending) {
@@ -190,8 +197,10 @@ canvas.addEventListener('mousedown', (e) => {
           ac: _unitPending.ac || '', speed: _unitPending.speed || '', notes: _unitPending.notes || '',
           status: _unitPending.status || [],
           imgData: _unitPending.imgData || '', img: _unitPending.img || null,
+          sightRadius: _unitPending.sightRadius, visionSource: _unitPending.visionSource,
           ownerId: ''
         };
+        normalizeToken(t);
         pushUndoMeta();
         tokens.push(t);
         selectedToken = t.id; selectedShape = null; selectedLine = null; selectedCell = null;
@@ -247,7 +256,9 @@ canvas.addEventListener('mousedown', (e) => {
       const cell = cellAtPixel(mx, my);
       if (cell) {
         beginBatch();
-        _fogPaintTarget = !e.altKey ? !isFogCell(cell.q, cell.r) : isFogCell(cell.q, cell.r);
+        // 战雾：点击切换遮住/揭示，拖拽连续涂/擦
+        //  目标值 true=遮住 false=揭示；Alt 按住或处于「揭示」模式 → 强制揭示，与界面提示一致
+        _fogPaintTarget = !(e.altKey || fogMode === 'reveal');
         setFogCell(cell.q, cell.r, _fogPaintTarget);
         _dragMode = 'fog';
         _eraseDragLast = new Set([cellKey(cell.q, cell.r)]);
@@ -474,41 +485,43 @@ canvas.addEventListener('mousemove', (e) => {
       x2: wx / CELL_SIZE, y2: wy / CELL_SIZE
     };
     render();
+  } else if (_dragMode === 'measure-draw') {
+    _measure.x2 = wx / CELL_SIZE;
+    _measure.y2 = wy / CELL_SIZE;
+    render();
   } else if (_dragMode === 'pan') {
     viewX = viewStartX + (mx - dragStartX);
     viewY = viewStartY + (my - dragStartY);
     render();
+  } else if (_dragMode === 'bg-move') {
+    if (backgroundMap && _bgAlignRefs) {
+      backgroundMap.x = (wx - _dragOffX) / CELL_SIZE;
+      backgroundMap.y = (wy - _dragOffY) / CELL_SIZE;
+      render();
+    }
+  } else if (_dragMode === 'bg-resize-corner') {
+    if (backgroundMap && _bgAlignRefs) {
+      const bm = backgroundMap;
+      const x0 = bm.x * CELL_SIZE, y0 = bm.y * CELL_SIZE;
+      bm.cols = Math.max(0.5, (wx - x0) / CELL_SIZE);
+      bm.rows = Math.max(0.5, (wy - y0) / CELL_SIZE);
+      render();
+    }
+  } else if (_dragMode === 'bg-resize-e') {
+    if (backgroundMap && _bgAlignRefs) {
+      const bm = backgroundMap;
+      const x0 = bm.x * CELL_SIZE;
+      bm.cols = Math.max(0.5, (wx - x0) / CELL_SIZE);
+      render();
+    }
+  } else if (_dragMode === 'bg-resize-s') {
+    if (backgroundMap && _bgAlignRefs) {
+      const bm = backgroundMap;
+      const y0 = bm.y * CELL_SIZE;
+      bm.rows = Math.max(0.5, (wy - y0) / CELL_SIZE);
+      render();
+    }
   }
-  // [DISABLED v0.83] 导入底图功能临时禁用：底图拖拽/缩放手柄
-  // } else if (_dragMode === 'bg-move') {
-  //   if (backgroundMap && _bgAlignRefs) {
-  //     backgroundMap.x = (wx - _dragOffX) / CELL_SIZE;
-  //     backgroundMap.y = (wy - _dragOffY) / CELL_SIZE;
-  //     render();
-  //   }
-  // } else if (_dragMode === 'bg-resize-corner') {
-  //   if (backgroundMap && _bgAlignRefs) {
-  //     const bm = backgroundMap;
-  //     const x0 = bm.x * CELL_SIZE, y0 = bm.y * CELL_SIZE;
-  //     bm.cols = Math.max(0.5, (wx - x0) / CELL_SIZE);
-  //     bm.rows = Math.max(0.5, (wy - y0) / CELL_SIZE);
-  //     render();
-  //   }
-  // } else if (_dragMode === 'bg-resize-e') {
-  //   if (backgroundMap && _bgAlignRefs) {
-  //     const bm = backgroundMap;
-  //     const x0 = bm.x * CELL_SIZE;
-  //     bm.cols = Math.max(0.5, (wx - x0) / CELL_SIZE);
-  //     render();
-  //   }
-  // } else if (_dragMode === 'bg-resize-s') {
-  //   if (backgroundMap && _bgAlignRefs) {
-  //     const bm = backgroundMap;
-  //     const y0 = bm.y * CELL_SIZE;
-  //     bm.rows = Math.max(0.5, (wy - y0) / CELL_SIZE);
-  //     render();
-  //   }
-  // }
 });
 
 canvas.addEventListener('mouseup', () => {
@@ -606,8 +619,10 @@ canvas.addEventListener('touchstart', (e) => {
         ac: _unitPending.ac || '', speed: _unitPending.speed || '', notes: _unitPending.notes || '',
         status: _unitPending.status || [],
         imgData: _unitPending.imgData || '', img: _unitPending.img || null,
+        sightRadius: _unitPending.sightRadius, visionSource: _unitPending.visionSource,
         ownerId: ''
       };
+      normalizeToken(t);
       pushUndoMeta();
       tokens.push(t);
       selectedToken = t.id; selectedShape = null; selectedLine = null; selectedCell = null;
@@ -643,11 +658,11 @@ canvas.addEventListener('touchstart', (e) => {
       if (c) showDmModal(c.q, c.r);
       return;
     }
-    // 战雾（触摸，点击切换）
+    // 战雾（触摸：按当前模式 遮住/揭示）
     if (selectedTool === 'fog') {
       const c = cellAtPixel(mx, my);
       if (c) {
-        setFogCell(c.q, c.r, !isFogCell(c.q, c.r));
+        setFogCell(c.q, c.r, fogMode === 'reveal' ? false : true);
         render(); updateInfo();
         return;
       }
@@ -832,6 +847,8 @@ function showContextMenu(cx, cy, mx, my) {
     const main = tokens.find(x => x.id === selectedToken) || tkHit;
     addItem('🧝 编辑单位属性（主轴）', () => { openUnitModal(main); });
     addItem('📥 存入单位库（可复用预设）', () => { saveTokenToLibrary(main, false); });
+    addItem('👁️ 以该单位视角查看（玩家视图）', () => setViewSourceToken(main.id));
+    if (viewSourceTokenId) addItem('👁️ 恢复全部视野源', () => resetViewSourceToken());
     addItem('💥 受伤 -1', () => { changeTokenHp(main.id, -1); });
     addItem('💥 受伤 -5', () => { changeTokenHp(main.id, -5); });
     addItem('💥 受伤（自定义）…', () => {

@@ -56,7 +56,9 @@ function pickTokenPreset(id) {
     status: p.status || [],
     w: p.w || 1, h: p.h || 1,
     imgData: p.imgData || '',
-    img: null
+    img: null,
+    sightRadius: p.sightRadius,
+    visionSource: p.visionSource
   };
   if (_unitPending.imgData) {
     const im = new Image();
@@ -94,7 +96,9 @@ function presetFromToken(t) {
     status: t.status || [],
     w: t.w || 1, h: t.h || 1,
     imgData: t.imgData || '',
-    notes: t.notes || ''
+    notes: t.notes || '',
+    sightRadius: t.sightRadius,
+    visionSource: t.visionSource
   };
 }
 

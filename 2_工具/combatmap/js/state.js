@@ -29,6 +29,13 @@ let artStyle = 'handdrawn';  // 美术风格：'handdrawn'（手绘质感）| 'c
 let showDmLayer = false;   // 是否显示 DM 层（标记/说明）——当前有效显示状态（玩家视图下会被强制隐藏）
 let dmLayerPref = false;   // 用户期望的 DM 层开关（切到玩家视图时保留，切回 DM 视图时恢复）
 let showFogLayer = true;   // 是否显示战雾遮罩
+let fogMode = 'cover';     // 战雾工具当前模式: 'cover'(遮住) | 'reveal'(揭示)
+let visionMode = 'auto';   // 玩家可见性: 'auto'(单位视野自动揭示) | 'manual'(手动战雾)
+let viewSourceTokenId = null; // 玩家视角源 token id；null=全部视野源（DM 指定某单位单独查看）
+
+// 多场景：每个场景 = 一份完整地图快照 {id,name,data}；data 为地图状态对象（不含全局单位库/自定义地形）
+let scenes = [];           // [{ id, name, data }]
+let activeSceneId = null;  // 当前激活场景 id
 let initiativeOrder = [];  // 行动顺序条目: { id, tokenId?, name, icon, kind, hp, maxHp }
 let initiativeIndex = 0;
 let _eraseDragLast = new Set();
@@ -43,6 +50,7 @@ let _wallDragLast = null;  // 墙/门拖拽去重: "q,r,edge"
 let _drawStart = null;     // rect/line 绘制的起点(格坐标)
 let _rectPreview = null;   // 矩形绘制预览
 let _linePreview = null;   // 线段绘制预览
+let _measure = null;       // 测量: { x1,y1,x2,y2 }（格单位坐标）— 测距工具叠加层
 let _lineInit = null;      // 线段移动初始位置
 let _tokenPending = null;  // 待放置的图片 token { imgData, w, h, img }
 let _hoverToken = null;    // 放置预览位置（图片）
@@ -103,7 +111,7 @@ function snapshotMeta() {
 }
 
 function restoreTokens(list) {
-  tokens = (list || []).map(t => {
+  tokens = normalizeTokens((list || []).map(t => {
     if (t.imgData && !t.img) {
       const img = new Image();
       img.src = t.imgData;
@@ -111,7 +119,7 @@ function restoreTokens(list) {
       t.img = img;
     }
     return t;
-  });
+  }));
 }
 
 function restoreMeta(before) {
@@ -136,19 +144,18 @@ function restoreMeta(before) {
   selectedTokens = new Set((before.selectedTokens || Array.from(selectedTokens)).filter(id => tokens.some(t => t.id === id)));
   if (selectedToken && !tokens.some(t => t.id === selectedToken)) selectedToken = null;
   if (selectedToken && !selectedTokens.has(selectedToken)) selectedTokens.add(selectedToken);
-  // [DISABLED v0.83] 导入底图功能临时禁用：撤销恢复不再恢复底图
-  // if (before.backgroundMap) {
-  //   backgroundMap = before.backgroundMap;
-  //   if (backgroundMap.imgData && !backgroundMap.img) {
-  //     const img = new Image();
-  //     img.src = backgroundMap.imgData;
-  //     img.onload = () => render();
-  //     backgroundMap.img = img;
-  //   }
-  // } else {
-  //   backgroundMap = null;
-  // }
-  backgroundMap = null;
+  // 撤销恢复底图（含 img 重建）
+  if (before.backgroundMap) {
+    backgroundMap = before.backgroundMap;
+    if (backgroundMap.imgData && !backgroundMap.img) {
+      const img = new Image();
+      img.src = backgroundMap.imgData;
+      img.onload = () => render();
+      backgroundMap.img = img;
+    }
+  } else {
+    backgroundMap = null;
+  }
   if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
 }
 
@@ -254,6 +261,15 @@ function clearAllFog(recordUndo = true) {
   if (recordUndo) pushUndoMeta();
   fog = {};
 }
+
+// 默认视野：sightRadius(格) 默认 6；visionSource(是否作为玩家视野源) 默认 player/ally
+function normalizeToken(t) {
+  if (!t) return t;
+  if (t.sightRadius === undefined || t.sightRadius === null) t.sightRadius = 6;
+  if (t.visionSource === undefined || t.visionSource === null) t.visionSource = (t.kind === 'player' || t.kind === 'ally');
+  return t;
+}
+function normalizeTokens(list) { return (list || []).map(normalizeToken); }
 
 function initiativeSnapshot() {
   return JSON.parse(JSON.stringify({ initiativeOrder, initiativeIndex }));
@@ -437,6 +453,7 @@ function duplicateTokens(ids) {
     copy.img = src.imgData ? (() => { const im = new Image(); im.src = src.imgData; return im; })() : null;
     copy.x = (src.x || 0) + 0.5;
     copy.y = (src.y || 0) + 0.5;
+    normalizeToken(copy);
     tokens.push(copy);
     created.push(copy);
   }
