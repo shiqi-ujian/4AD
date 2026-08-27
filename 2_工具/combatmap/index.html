@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>通用战斗地图生成器 v0.97</title>
+<title>通用战斗地图生成器 v0.98</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -228,7 +228,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 <div id="app">
   <div id="toolbar">
     <button id="toolbar-toggle" class="toolbar-toggle" title="折叠左栏（最大化地图）/ 展开工具栏" aria-label="折叠展开工具栏">≪</button>
-    <h2>⚔️ 战斗地图 <span class="ver">v0.97</span></h2>
+    <h2>⚔️ 战斗地图 <span class="ver">v0.98</span></h2>
 
     <div id="role-switch">
       <button id="role-dm" class="role-btn dm-role active" title="DM 视图：显示全部工具（含 DM 层/战雾/先攻条等隐藏信息）">🎲 DM 视图</button>
@@ -240,8 +240,9 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
     <div id="core-tools">
       <div class="tool-group-title">🔧 核心</div>
       <div class="tool-group">
-        <button class="tool-btn active" data-tool="select" title="选择/查看/移动图形 (V)"><span class="icon">👆</span><span class="label">选择(V)</span></button>
+        <button class="tool-btn active" data-tool="select" title="选择/框选/移动单位与图形 (V)"><span class="icon">👆</span><span class="label">选择(V)</span></button>
         <button class="tool-btn" data-tool="paint" title="地形笔刷 (B)"><span class="icon">🖌️</span><span class="label">笔刷(B)</span></button>
+        <button class="tool-btn" data-tool="pan" title="移动/平移地图 (H)：按住拖拽即可移动整张地图"><span class="icon">✋</span><span class="label">移动(H)</span></button>
         <button class="tool-btn" data-tool="measure" title="测量距离 (M)：拖拽显示格/英尺与慢速地形等效移动"><span class="icon">📐</span><span class="label">测量(M)</span></button>
       </div>
     </div>
@@ -341,7 +342,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
         <div style="display:flex;gap:4px;margin-top:2px;">
           <button id="btn-bg-lock" style="flex:1;padding:8px;background:#4a5a3a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;" title="锁定底图防止误拖（解锁后选择底图可拖动移动）">🔒 底图锁定</button>
         </div>
-        <div class="page-hint">⚠️ 底图默认锁定防误拖：点「🔒 底图锁定」解锁后，才能在「选择」工具下点选并拖动底图。</div>
+        <div class="page-hint">⚠️ 底图默认锁定防误拖：点「🔒 底图锁定」解锁后，在「选择」工具下<b>点住底图直接拖拽</b>即可移动。</div>
         <div class="page-hint">网格对不上？先「导入底图」，再点「网格对齐」：依次点图中 3 个格线交点（第 2/3 点可调「点间格数」）。</div>
         <div class="page-title" style="margin-top:8px;">📐 模板：一键生成</div>
         <div style="display:flex;gap:4px;flex-wrap:wrap;">
@@ -428,7 +429,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
     <div id="toolbar-footer">
       <button id="toolbar-menu-btn" title="☰ 菜单：保存/加载/导出/分享/云端等">☰ 菜单</button>
       <div class="toolbar-footer-text" style="font-size:10px;color:#555;text-align:center;padding-top:6px;">
-        通用跑团 · 战斗地图 v0.97<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>云端地图 · 多场景 · DM/玩家视图
+        通用跑团 · 战斗地图 v0.98<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>云端地图 · 多场景 · DM/玩家视图
       </div>
     </div>
   </div>
@@ -960,8 +961,6 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"
         onerror="window.__combatmapCDN = window.__combatmapCDN || {}; window.__combatmapCDN.jszip = false;"></script>
 
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"
-        onerror="window.__combatmapCDN = window.__combatmapCDN || {}; window.__combatmapCDN.peerjs = false;"></script>
 <script src="js/config.js"></script>
 <script src="js/terrain.js"></script>
 <script src="js/state.js"></script>

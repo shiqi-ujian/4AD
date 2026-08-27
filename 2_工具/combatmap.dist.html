@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>通用战斗地图生成器 v0.97</title>
+<title>通用战斗地图生成器 v0.98</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -228,7 +228,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 <div id="app">
   <div id="toolbar">
     <button id="toolbar-toggle" class="toolbar-toggle" title="折叠左栏（最大化地图）/ 展开工具栏" aria-label="折叠展开工具栏">≪</button>
-    <h2>⚔️ 战斗地图 <span class="ver">v0.97</span></h2>
+    <h2>⚔️ 战斗地图 <span class="ver">v0.98</span></h2>
 
     <div id="role-switch">
       <button id="role-dm" class="role-btn dm-role active" title="DM 视图：显示全部工具（含 DM 层/战雾/先攻条等隐藏信息）">🎲 DM 视图</button>
@@ -240,8 +240,9 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
     <div id="core-tools">
       <div class="tool-group-title">🔧 核心</div>
       <div class="tool-group">
-        <button class="tool-btn active" data-tool="select" title="选择/查看/移动图形 (V)"><span class="icon">👆</span><span class="label">选择(V)</span></button>
+        <button class="tool-btn active" data-tool="select" title="选择/框选/移动单位与图形 (V)"><span class="icon">👆</span><span class="label">选择(V)</span></button>
         <button class="tool-btn" data-tool="paint" title="地形笔刷 (B)"><span class="icon">🖌️</span><span class="label">笔刷(B)</span></button>
+        <button class="tool-btn" data-tool="pan" title="移动/平移地图 (H)：按住拖拽即可移动整张地图"><span class="icon">✋</span><span class="label">移动(H)</span></button>
         <button class="tool-btn" data-tool="measure" title="测量距离 (M)：拖拽显示格/英尺与慢速地形等效移动"><span class="icon">📐</span><span class="label">测量(M)</span></button>
       </div>
     </div>
@@ -341,7 +342,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
         <div style="display:flex;gap:4px;margin-top:2px;">
           <button id="btn-bg-lock" style="flex:1;padding:8px;background:#4a5a3a;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:12px;" title="锁定底图防止误拖（解锁后选择底图可拖动移动）">🔒 底图锁定</button>
         </div>
-        <div class="page-hint">⚠️ 底图默认锁定防误拖：点「🔒 底图锁定」解锁后，才能在「选择」工具下点选并拖动底图。</div>
+        <div class="page-hint">⚠️ 底图默认锁定防误拖：点「🔒 底图锁定」解锁后，在「选择」工具下<b>点住底图直接拖拽</b>即可移动。</div>
         <div class="page-hint">网格对不上？先「导入底图」，再点「网格对齐」：依次点图中 3 个格线交点（第 2/3 点可调「点间格数」）。</div>
         <div class="page-title" style="margin-top:8px;">📐 模板：一键生成</div>
         <div style="display:flex;gap:4px;flex-wrap:wrap;">
@@ -428,7 +429,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
     <div id="toolbar-footer">
       <button id="toolbar-menu-btn" title="☰ 菜单：保存/加载/导出/分享/云端等">☰ 菜单</button>
       <div class="toolbar-footer-text" style="font-size:10px;color:#555;text-align:center;padding-top:6px;">
-        通用跑团 · 战斗地图 v0.97<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>云端地图 · 多场景 · DM/玩家视图
+        通用跑团 · 战斗地图 v0.98<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>云端地图 · 多场景 · DM/玩家视图
       </div>
     </div>
   </div>
@@ -960,8 +961,6 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"
         onerror="window.__combatmapCDN = window.__combatmapCDN || {}; window.__combatmapCDN.jszip = false;"></script>
 
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"
-        onerror="window.__combatmapCDN = window.__combatmapCDN || {}; window.__combatmapCDN.peerjs = false;"></script>
 
 
 
@@ -979,7 +978,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 <script>
 //  Configuration
 // ============================================================
-const COMBATMAP_VERSION = 'v0.97';
+const COMBATMAP_VERSION = 'v0.98';
 
 // 云端持久化后端（combatmap 会 fetch 这里的 /api/map/<id> 保存/加载整张地图）。
 // 默认走 chmweb 主站后端；可通过 URL `?apibase=` 覆盖（本地调试）。
@@ -1097,7 +1096,7 @@ let selectedTerrain = 'floor';
 let selectedCell = null;
 let viewRole = 'dm';        // 'dm' | 'player' — 手动视图切换：玩家视图预览玩家所见（DM 专属功能禁用）
 function viewRoleIsPlayer() {
-  return viewRole === 'player' || (typeof onlineIsPlayer === 'boolean' && onlineIsPlayer && !!onlinePeer);
+  return viewRole === 'player' || (typeof onlineIsPlayer === 'boolean' && onlineIsPlayer && !!onlineWS);
 }
 let viewX = 0, viewY = 0;
 let zoom = 1;
@@ -1271,6 +1270,7 @@ function restoreMeta(before) {
   // 撤销恢复底图（含 img 重建）
   if (before.backgroundMap) {
     backgroundMap = before.backgroundMap;
+    if (backgroundMap.opacity === 0.85) backgroundMap.opacity = 1;
     if (backgroundMap.imgData && !backgroundMap.img) {
       const img = new Image();
       img.src = backgroundMap.imgData;
@@ -1949,13 +1949,14 @@ function drawCombatCellBase(g, q, r, hCell) {
   const p = cellToPixel(q, r);
   if (!hCell) hCell = getCell(q, r);
   const half = CELL_SIZE / 2;
-  let fillColor = '#3a3a52';
-  if (hCell.terrain && getTerrain(hCell.terrain)) fillColor = getTerrain(hCell.terrain).color;
+  const hasTerrain = hCell.terrain && getTerrain(hCell.terrain);
+  // 空地恒透明（透出 #3a3a52 底色，或底图覆盖的区域）；只有地形格才填地形色
+  let fillColor = hasTerrain ? getTerrain(hCell.terrain).color : 'rgba(0,0,0,0)';
   g.beginPath();
   g.rect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
   g.fillStyle = fillColor;
   g.fill();
-  if (artStyle === 'handdrawn' && hCell.terrain && getTerrain(hCell.terrain)) {
+  if (artStyle === 'handdrawn' && hasTerrain) {
     drawCombatTexture(g, q, r, hCell.terrain, getTerrain(hCell.terrain).color);
   }
   // 格线改为单独叠加层 drawGridOverlay()（盖在底图之上），此处不再逐格画
@@ -2021,7 +2022,8 @@ function drawGridOverlay() {
 function render() {
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = artStyle === 'handdrawn' ? '#1d2117' : '#2d2d44';
+  // 画布底色恒定 #3a3a52（标准空格底色），无论是否有底图——保证底图外围空白区颜色一致
+  ctx.fillStyle = '#3a3a52';
   ctx.fillRect(0, 0, W, H);
 
   ctx.save();
@@ -2034,7 +2036,10 @@ function render() {
   const qMin = Math.floor(topLeft.q) - 1, qMax = Math.ceil(botRight.q) + 1;
   const rMin = Math.floor(topLeft.r) - 1, rMax = Math.ceil(botRight.r) + 1;
 
-  // Pass 1: Cell fills + grid (地形层)
+  // Pass 0: 底图（背景层——最底层，画在一切之前）
+  if (layerVisible('background')) drawBackgroundMap();
+
+  // Pass 1: Cell fills（地形层，画在底图之上；空地不填充→透出底图）
   if (layerVisible('terrain')) {
     for (let q = qMin; q <= qMax; q++) {
       for (let r = rMin; r <= rMax; r++) {
@@ -2042,9 +2047,6 @@ function render() {
       }
     }
   }
-
-  // Pass 2: 底图（背景层，放在格子与地形之上，但保持半透明可调；贴合导入地图做网格对齐）
-  if (layerVisible('background')) drawBackgroundMap();
 
   // Pass 2.5: 格线叠加层（盖在底图/地形之上，清晰可见）
   drawGridOverlay();
@@ -2183,6 +2185,8 @@ function render() {
   drawMeasure();
 
   ctx.restore();
+  // 刷新底图锁定按钮（导入/移除/加载底图后同步启用状态与文案）
+  if (typeof updateBgLockUI === 'function') updateBgLockUI();
 }
 
 function drawMeasure() {
@@ -2749,7 +2753,7 @@ function drawBackgroundMap() {
   const hPx = bm.rows * CELL_SIZE;
   ctx.save();
   // 对齐模式下以全不透明度显示，方便看清格线
-  ctx.globalAlpha = _bgAlignRefs ? 1 : Math.max(0, Math.min(1, bm.opacity ?? 0.85));
+  ctx.globalAlpha = _bgAlignRefs ? 1 : Math.max(0, Math.min(1, bm.opacity ?? 1));
   if (bm.img && bm.img.complete) {
     ctx.drawImage(bm.img, bm.x * CELL_SIZE, bm.y * CELL_SIZE, wPx, hPx);
   } else {
@@ -2772,7 +2776,7 @@ function drawBackgroundMap() {
     ctx.setLineDash([5 / zoom, 4 / zoom]);
     ctx.strokeRect(bm.x * CELL_SIZE, bm.y * CELL_SIZE, wPx, hPx);
     ctx.setLineDash([]);
-    ctx.globalAlpha = Math.max(0, Math.min(1, bm.opacity ?? 0.85));
+    ctx.globalAlpha = Math.max(0, Math.min(1, bm.opacity ?? 1));
   }
   // 底图对齐模式：绘制底图外框 + 手柄 + 参考点 + 对齐网格预览
   if (_bgAlignRefs) {
@@ -3203,6 +3207,15 @@ canvas.addEventListener('mousedown', (e) => {
       }
     }
 
+    // --- 移动/平移工具：左键拖拽即移动整张地图 ---
+    if (selectedTool === 'pan') {
+      _dragMode = 'pan';
+      dragStartX = mx; dragStartY = my;
+      viewStartX = viewX; viewStartY = viewY;
+      isDragging = true;
+      return;
+    }
+
     // --- 选择工具：单位/图形/线段/底图/框选优先 ---
     if (selectedTool === 'select') {
       // 单位缩放手柄
@@ -3284,9 +3297,11 @@ canvas.addEventListener('mousedown', (e) => {
         render(); updateInfo();
         return;
       }
-      // 底图：已选中底图且未锁定 → 拖动移动底图（防止误拖：需先点选底图）
+      // 底图：未锁定 → 直接在底图上拖拽即移动（一步到位，与 token 一致）；锁定时点击=选中、拖拽=框选
       const overBg = backgroundMap && !_bgAlignRefs && hitTestBackground(wx, wy);
-      if (overBg && selectedBackground && !bgLocked()) {
+      if (overBg && !bgLocked()) {
+        selectedBackground = true; selectedToken = null; selectedTokens = new Set();
+        selectedShape = null; selectedLine = null;
         _bgDragMode = 'bg-move';
         _dragOffX = wx - backgroundMap.x * CELL_SIZE;
         _dragOffY = wy - backgroundMap.y * CELL_SIZE;
@@ -4237,9 +4252,14 @@ function setTool(tool) {
 
   switch (tool) {
     case 'select':
-      hint.innerHTML = '👆 点单位/图形/底图选中；<b>拖空白框选</b>多个单位，点击空白取消选中，<b>Esc</b> 清空；拖单位移动、8 手柄缩放；<b>空格+拖</b>或<b>中键拖</b>平移；Shift 点选=加选，Ctrl+D 复制';
+      hint.innerHTML = '👆 点单位/图形/底图选中；<b>拖空白框选</b>多个单位，点击空白取消选中，<b>Esc</b> 清空；拖单位移动、8 手柄缩放；用 <b>✋ 移动(H)</b> 或<b>空格+拖</b>/<b>中键拖</b>平移地图；Shift 点选=加选，Ctrl+D 复制';
       coord.textContent = '⚪ 选择模式';
       cnt.style.cursor = 'default';
+      break;
+    case 'pan':
+      hint.innerHTML = '✋ <b>按住拖拽即可移动整张地图</b>；滚轮缩放。想移动单位/框选请切到「选择(V)」';
+      coord.textContent = '✋ 移动地图';
+      cnt.style.cursor = 'grab';
       break;
     case 'brush':
       hint.innerHTML = brushShapeName(brush.shape) + '：<b>拖拽</b>绘制' + brushShapeHint(brush.shape) + '；下方可切换形状 / 颜色 / 透明度 / 虚线';
@@ -4623,7 +4643,7 @@ function updateInfo() {
     panel.innerHTML = `<div class="row">
       <span><span class="label">已选中:</span> <span class="val">🖼️ 底图</span></span>
       <span><span class="label">网格:</span> <span class="val">${backgroundMap.cols}×${backgroundMap.rows} 格</span></span>
-      <span><span class="label">锁定:</span> <span class="val">${locked ? '🔒 已锁定（先解锁再移动）' : '🔓 未锁定（可拖动移动）'}</span></span>
+      <span><span class="label">锁定:</span> <span class="val">${locked ? '🔒 已锁定（先解锁再移动）' : '🔓 未锁定（点住底图拖拽可移动）'}</span></span>
     </div>`;
     return;
   }
@@ -4797,7 +4817,7 @@ document.addEventListener('keydown', (e) => {
     }
     return;
   }
-  const km = { 'v':'select', 'b':'paint', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 't':'token', 'y':'dm', 'f':'fog', 'm':'measure' };
+  const km = { 'v':'select', 'b':'paint', 'h':'pan', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 't':'token', 'y':'dm', 'f':'fog', 'm':'measure' };
   const k = e.key?.toLowerCase();
   // 画笔子模式：r=矩形 g=线段 o=圆形 c=锥形
   if (k === 'r') { e.preventDefault(); setBrushTool('rect'); return; }
@@ -4925,7 +4945,7 @@ function toggleBgLock() {
   backgroundMap.locked = bgLocked() ? false : true;
   render();
   updateBgLockUI();
-  showToast(backgroundMap.locked ? '🔒 底图已锁定，不可再被拖动' : '🔓 底图已解锁（选择底图后可拖动）');
+  showToast(backgroundMap.locked ? '🔒 底图已锁定，不可再被拖动' : '🔓 底图已解锁（选择工具下点住底图拖拽即可移动）');
 }
 document.getElementById('btn-bg-lock').addEventListener('click', toggleBgLock);
 
@@ -5786,7 +5806,7 @@ function importBackgroundMapFromFile() {
           x: 0, y: 0,
           cols: defCols,
           rows: defRows,
-          opacity: 0.85
+          opacity: 1        // 默认 100% 不透明，让导入的底图就是原始图片颜色
         };
         // 导入后不强制进入设置/对齐模式：仅在提示条给出下一步引导
         const hint = document.getElementById('tool-hint');
@@ -5813,8 +5833,8 @@ function openMapSettingsModal() {
   document.getElementById('bg-settings-y').value = backgroundMap.y;
   document.getElementById('bg-settings-cols').value = backgroundMap.cols;
   document.getElementById('bg-settings-rows').value = backgroundMap.rows;
-  document.getElementById('bg-settings-opacity').value = Math.round((backgroundMap.opacity ?? 0.85) * 100);
-  document.getElementById('map-settings-opacity-val').textContent = Math.round((backgroundMap.opacity ?? 0.85) * 100) + '%';
+  document.getElementById('bg-settings-opacity').value = Math.round((backgroundMap.opacity ?? 1) * 100);
+  document.getElementById('map-settings-opacity-val').textContent = Math.round((backgroundMap.opacity ?? 1) * 100) + '%';
   document.getElementById('map-settings-img').style.display = backgroundMap.imgData ? 'block' : 'none';
   document.getElementById('map-settings-img').src = backgroundMap.imgData || '';
   modal.style.display = 'block';
@@ -6727,6 +6747,11 @@ function applyCombatData(data) {
   fog = data.fog || {};
   // 恢复底图（含 img 重建）
   backgroundMap = data.backgroundMap ? { ...data.backgroundMap } : null;
+  if (backgroundMap) {
+    // 旧默认 0.85 视为 100%：避免导入的照片底图被暗底压暗导致颜色发灰
+    if (backgroundMap.opacity === 0.85) backgroundMap.opacity = 1;
+    if (backgroundMap.locked === undefined) backgroundMap.locked = true;
+  }
   if (backgroundMap && backgroundMap.imgData && !backgroundMap.img) {
     const img = new Image();
     img.src = backgroundMap.imgData;
@@ -7023,38 +7048,39 @@ function loadCombatMapFromUrlShare() {
   }).catch(err => showToast('⚠️ 分享地图导入失败: ' + ((err && err.message) || '数据无效')));
 }
 // ============================================================
-//  Online — PeerJS P2P 实时同步（星型：主机=房主，客户端直连主机）
+//  Online — WebSocket 服务器中继 hub（星型：所有成员连 chm-web /ws）
 //  依赖: state.js/core.js/render.js/share.js
-//  用法: 工具栏「🌐 在线」创建房间/加入房间；任一本地改动经过
-//  render() 自动节流广播完整快照。主机收到客户端快照后应用并转播。
-//  注意：DM 层/战雾/行动顺序随完整快照同步；若需要 DM 隐藏层
-//  不对玩家公开，应后续加角色权限过滤（当前为全量 P2P 同步）。
+//  用法: 工具栏「🌐 在线」创建房间/加入房间；DM 本地改动经过
+//  render() 节流广播完整快照，服务器转发给房间内其它成员。
+//  玩家只读（DM 权威）；DM 刷新后可重连恢复。服务器缓存 DM 权威快照，
+//  新加入/重连成员立即补发，房间不因单人刷新而散；
+//  成员名单由服务器统一广播，两端计数一致，不再出现「1 人 / 2 人」分裂。
 // ============================================================
 
-const PEER_CONFIG = {
-  host: '0.peerjs.com',
-  port: 443,
-  path: '/',
-  secure: true,
-  debug: 0,
-  config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
-};
+const WS_PATH = '/ws';
+const HEARTBEAT_MS = 5000;
+const HEARTBEAT_TIMEOUT_MS = 15000;
 
-let onlinePeer = null;
+let onlineWS = null;           // 到服务器的 WebSocket（每个成员一条）
 let onlineRoom = '';
-let onlineConnections = [];   // DataConnection 列表
+let onlineSelfId = '';         // 服务器分配的成员 id
+let onlineIsPlayer = false;    // true = 加入房间的玩家（只读）；false = 创建房间的 DM（权威）
 let onlineSync = false;
 let onlineMseq = 0;
 let onlineApplyRemote = false;
 let onlineTimer = null;
-let onlineIsPlayer = false;   // true = 加入房间的玩家；false = 创建房间的 DM
+let onlineHeartbeatTimer = null;
+let onlineReconnectTimer = null;
+let onlineLastPong = 0;
+let onlineRetryCount = 0;
+let onlineIntentionalLeave = false;
+let onlineRoster = [];         // 服务器广播的成员列表 [{id,name,role}]
 const LS_ONLINE_NAME_KEY = 'combatmap_online_name';
-let onlineUserName = '';      // 参与者在房间内显示的昵称
-let onlineRoster = [];        // 玩家端缓存的主机广播成员列表 [{id,name,role}]
+let onlineUserName = '';       // 参与者在房间内显示的昵称
 
 function payloadForRole(payload, role) {
   if (role !== 'player') return payload;
-  // 玩家只接收“玩家可见地图”：DM 隐藏层、战雾、行动顺序、DM 专用底图设置不下发
+  // 玩家只接收「玩家可见地图」：DM 隐藏层、战雾、行动顺序、DM 专用底图设置不下发
   const p = JSON.parse(JSON.stringify(payload || {}));
   delete p.dmData;
   delete p.fog;
@@ -7064,7 +7090,7 @@ function payloadForRole(payload, role) {
 }
 
 function applyOnlineRoleUI() {
-  const isPlayer = onlineIsPlayer && !!onlinePeer;
+  const isPlayer = onlineIsPlayer && !!onlineWS;
   if (isPlayer) {
     showDmLayer = false;
     const dmChk = document.getElementById('chk-dm');
@@ -7079,11 +7105,11 @@ function setOnlineStatus(msg) {
   if (el) el.textContent = msg || '';
   const st = document.getElementById('btn-online-status');
   if (st) {
-    st.textContent = onlinePeer ? (onlineSync ? (onlineIsPlayer ? '玩家' : 'DM') : '连接中…') : '未连接';
-    st.disabled = !onlinePeer;
-    st.style.opacity = onlinePeer ? '1' : '0.4';
+    st.textContent = onlineWS ? (onlineSync ? (onlineIsPlayer ? '玩家' : 'DM') : '连接中…') : '未连接';
+    st.disabled = !onlineWS;
+    st.style.opacity = onlineWS ? '1' : '0.4';
     st.style.background = onlineSync ? (onlineIsPlayer ? '#3a7abd' : '#2d6a2e') : '#3a3a5e';
-    st.style.color = onlinePeer ? '#fff' : '#aaa';
+    st.style.color = onlineWS ? '#fff' : '#aaa';
   }
   if (typeof renderRoster === 'function') renderRoster();
 }
@@ -7106,11 +7132,22 @@ function onlineSetName() {
   return n;
 }
 
+// —— WebSocket 地址 ——
+// 优先 localStorage.combatmap_ws_url（部署后可覆盖），否则取当前页面同源 /ws。
+function wsUrl() {
+  try {
+    const o = localStorage.getItem('combatmap_ws_url');
+    if (o && /^wss?:\/\//i.test(o)) return o;
+  } catch (e) { /* ignore */ }
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return proto + '//' + location.host + WS_PATH;
+}
+
 function openOnlineModal() {
   const modal = document.getElementById('online-modal');
   if (!modal) return;
-  if (typeof Peer === 'undefined' || (window.__combatmapCDN && window.__combatmapCDN.peerjs === false)) {
-    setOnlineStatus('⚠️ PeerJS 未加载：请联网后刷新（在线功能依赖 CDN）');
+  if (typeof WebSocket === 'undefined') {
+    setOnlineStatus('⚠️ 当前浏览器不支持 WebSocket');
     return;
   }
   const inp = document.getElementById('online-room');
@@ -7120,8 +7157,8 @@ function openOnlineModal() {
     try { nameInp.value = localStorage.getItem(LS_ONLINE_NAME_KEY) || ''; } catch (e) { /* ignore */ }
   }
   modal.style.display = 'block';
-  setOnlineStatus(onlinePeer
-    ? `已连接房间 ${onlineRoom}，${onlineConnections.length + 1} 人在线`
+  setOnlineStatus(onlineWS
+    ? `已连接房间 ${onlineRoom}，${onlineRoster.length} 人在线`
     : '创建房间或加入已有房间');
 }
 
@@ -7130,7 +7167,6 @@ function closeOnlineModal() {
   if (modal) modal.style.display = 'none';
 }
 
-// cleanMetaRefs 已并入 share.js buildCombatPayload
 function buildOnlineSnapshot() {
   return {
     type: 'snapshot',
@@ -7140,26 +7176,18 @@ function buildOnlineSnapshot() {
   };
 }
 
-function sendTo(conn, payload) {
-  if (!conn || !conn.open) return;
-  try { conn.send(JSON.stringify(payload)); } catch (e) { /* ignore */ }
+function onlineSend(payload) {
+  if (!onlineWS || onlineWS.readyState !== WebSocket.OPEN) return;
+  try { onlineWS.send(JSON.stringify(payload)); } catch (e) { /* ignore */ }
 }
 
-function broadcastSnapshot(excludeConn) {
-  if (!onlineSync) return;
-  const payload = buildOnlineSnapshot();
-  for (const conn of onlineConnections) {
-    if (conn === excludeConn) continue;
-    sendTo(conn, payloadForRole(payload, conn._combatRole || 'player'));
-  }
-}
-
-function onlineSendSnapshotTo(conn) {
-  sendTo(conn, payloadForRole(buildOnlineSnapshot(), conn._combatRole || 'player'));
+function broadcastSnapshot() {
+  if (!onlineSync || onlineIsPlayer) return; // 玩家只读，不广播
+  onlineSend(buildOnlineSnapshot());
 }
 
 function scheduleOnlineSnapshot() {
-  if (!onlineSync || onlineApplyRemote) return;
+  if (!onlineSync || onlineApplyRemote || onlineIsPlayer) return;
   clearTimeout(onlineTimer);
   onlineTimer = setTimeout(() => broadcastSnapshot(), 120);
 }
@@ -7171,14 +7199,13 @@ render = function () {
   scheduleOnlineSnapshot();
 };
 
-// 数据同步由 buildCombatPayload/applyCombatData 统一处理（已含 DM 层/战雾/行动顺序）
 function applyRemoteSnapshot(msg) {
   if (!msg || msg.type !== 'snapshot' || !msg.data) return;
-  // 新加入客户端收到主机首个快照后，才放开同步，避免空图盖掉全屋地图
-  if (onlinePeer && onlineRoom && !onlineSync) onlineSync = true;
+  if (!onlineSync) onlineSync = true;
   onlineApplyRemote = true;
   try {
-    const n = applyCombatData(msg.data);
+    const data = payloadForRole(msg.data, onlineIsPlayer ? 'player' : 'dm');
+    const n = applyCombatData(data);
     showToast(`🌐 已同步远端地图 ${n} 格 / ${tokens.length} 单位`);
   } catch (e) {
     console.error('远端同步失败', e);
@@ -7188,127 +7215,127 @@ function applyRemoteSnapshot(msg) {
   render();
 }
 
-function handleOnlineData(conn, raw) {
-  let msg;
-  try { msg = JSON.parse(raw); } catch (e) { return; }
+function handleOnlineMessage(msg) {
   if (!msg || !msg.type) return;
-  if (msg.type === 'snapshot') {
-    applyRemoteSnapshot(msg);
-    // 主机收到客户端快照后应用，并转播给其他连接
-    if (onlineRoom && onlineConnections.length > 0) broadcastSnapshot(conn);
-  } else if (msg.type === 'hello') {
-    // 新客户端请求首次快照；先按该连接声明的角色发送，并记录其昵称
-    conn._combatRole = msg.role === 'dm' ? 'dm' : 'player';
-    conn._combatName = (msg.name || '').slice(0, 16) || (conn._combatRole === 'dm' ? 'DM' : '玩家');
-    onlineSendSnapshotTo(conn);
-    setOnlineStatus(`🎭 ${conn._combatName} 已连接，当前在线 ${onlineConnections.length + 1}`);
-    if (!onlineIsPlayer) broadcastRoster();
-  } else if (msg.type === 'role') {
-    conn._combatRole = msg.role === 'dm' ? 'dm' : 'player';
-    conn._combatName = (msg.name || '').slice(0, 16) || (conn._combatRole === 'dm' ? 'DM' : '玩家');
-    onlineSendSnapshotTo(conn);
-    setOnlineStatus(`🎭 ${conn._combatName} 已连接，当前在线 ${onlineConnections.length + 1}`);
-    if (!onlineIsPlayer) broadcastRoster();
+  if (msg.type === 'joined') {
+    onlineSelfId = msg.id;
   } else if (msg.type === 'roster') {
-    // 玩家端接收主机广播的成员列表
     onlineRoster = msg.members || [];
     renderRoster();
-  } else if (msg.type === 'ping') {
-    sendTo(conn, { type: 'pong', ts: Date.now() });
+  } else if (msg.type === 'snapshot') {
+    applyRemoteSnapshot(msg);
+  } else if (msg.type === 'pong') {
+    onlineLastPong = Date.now();
+  } else if (msg.type === 'error') {
+    setOnlineStatus('⚠️ ' + (msg.error || '房间错误'));
   }
 }
 
-function onlineAddConn(conn) {
-  if (onlineConnections.some(c => c === conn)) return;
-  onlineConnections.push(conn);
-  conn._combatRole = 'player'; // 默认玩家，先不给 DM 层；收到 hello/role 后更新
-  conn._combatName = '';
-  conn.on('data', (raw) => handleOnlineData(conn, raw));
-  conn.on('close', () => {
-    onlineConnections = onlineConnections.filter(c => c !== conn);
-    setOnlineStatus(`↗️ 有成员离开，当前在线 ${onlineConnections.length + 1}`);
-    if (!onlineIsPlayer) broadcastRoster();
-  });
-  setOnlineStatus(`🎉 新成员加入，当前在线 ${onlineConnections.length + 1}`);
-  if (!onlineIsPlayer) broadcastRoster();
-  render();
+function onlineConnect(room, role) {
+  const url = wsUrl();
+  onlineIntentionalLeave = false;
+  onlineWS = new WebSocket(url);
+  onlineRoom = room;
+  onlineIsPlayer = role !== 'dm';
+  onlineSync = false;
+
+  onlineWS.onopen = () => {
+    onlineLastPong = Date.now();
+    onlineRetryCount = 0;
+    onlineSetName();
+    onlineRoster = [];
+    viewRole = onlineIsPlayer ? 'player' : 'dm';
+    applyOnlineRoleUI();
+    onlineSend({ type: 'join', room, role, name: onlineUserName });
+    onlineStartHeartbeat();
+    setOnlineStatus('✅ 已进入房间 ' + room + '，等待成员…');
+    // 主机（DM）就绪即广播一份权威快照，让在座/新加入者立刻有图
+    if (!onlineIsPlayer) { onlineSync = true; setTimeout(() => broadcastSnapshot(), 300); }
+  };
+  onlineWS.onmessage = (ev) => {
+    let msg;
+    try { msg = JSON.parse(ev.data); } catch (e) { return; }
+    handleOnlineMessage(msg);
+  };
+  onlineWS.onerror = () => {
+    setOnlineStatus('⚠️ 连接错误');
+  };
+  onlineWS.onclose = () => {
+    onlineStopHeartbeat();
+    onlineSync = false;
+    if (onlineIntentionalLeave || !onlineRoom) return;
+    setOnlineStatus('⚠️ 与服务器断开，尝试重连…');
+    onlineScheduleReconnect();
+  };
 }
 
 function onlineCreateRoom() {
-  if (onlinePeer) { setOnlineStatus('⚠️ 已在房间中，请先离开'); return; }
-  if (typeof Peer === 'undefined') { setOnlineStatus('⚠️ PeerJS 未加载'); return; }
+  if (onlineWS) { setOnlineStatus('⚠️ 已在房间中，请先离开'); return; }
   const roomId = sanitizeRoom(document.getElementById('online-room')?.value || '');
   if (!roomId) { setOnlineStatus('⚠️ 请输入房间名'); return; }
   onlineSetName();
-  onlineRoster = [];
-  onlineRoom = roomId;
-  onlineSync = false;
-  try {
-    onlinePeer = new Peer(roomId, PEER_CONFIG);
-  } catch (e) {
-    setOnlineStatus('⚠️ 创建失败: ' + e.message);
-    return;
-  }
-  onlinePeer.on('open', () => {
-    onlineSync = true;
-    onlineIsPlayer = false;
-    viewRole = 'dm';
-    applyOnlineRoleUI();
-    broadcastRoster();
-    setOnlineStatus('✅ 房间已创建：' + roomId + ' · 分享邀请链接给玩家');
-    closeOnlineModal();
-    showToast('🌐 房间已创建：' + roomId + '（DM ' + onlineUserName + '）');
-  });
-  onlinePeer.on('connection', (conn) => {
-    conn.on('open', () => {
-      onlineAddConn(conn);
-      onlineSendSnapshotTo(conn);
-      broadcastRoster();
-    });
-  });
-  onlinePeer.on('error', (err) => {
-    console.error(err);
-    setOnlineStatus('⚠️ 创建失败: ' + ((err && err.type) || '房间名可能被占用'));
-  });
+  onlineConnect(roomId, 'dm');
+  closeOnlineModal();
+  showToast('🌐 房间已创建：' + roomId + '（DM ' + onlineUserName + '）');
 }
 
 function onlineJoinRoom(roomRaw) {
-  if (onlinePeer) { setOnlineStatus('⚠️ 已在房间中，请先离开'); return; }
+  if (onlineWS) { setOnlineStatus('⚠️ 已在房间中，请先离开'); return; }
   const roomId = sanitizeRoom(roomRaw);
   if (!roomId) { setOnlineStatus('⚠️ 房间名不能为空'); return; }
-  if (typeof Peer === 'undefined') { setOnlineStatus('⚠️ PeerJS 未加载'); return; }
-  onlineSync = false;
-  try {
-    onlinePeer = new Peer(undefined, PEER_CONFIG);
-  } catch (e) {
-    setOnlineStatus('⚠️ 加入失败: ' + e.message);
-    return;
-  }
-  const conn = onlinePeer.connect(roomId, { reliable: true });
-  onlineConnections = [conn];
+  onlineSetName();
+  onlineConnect(roomId, 'player');
+  closeOnlineModal();
+  showToast('🌐 已加入房间 ' + roomId + '（玩家 ' + onlineUserName + '）');
+}
 
-  conn.on('open', () => {
-    onlineRoom = roomId;
-    onlineIsPlayer = true;
-    onlineSetName();
-    onlineRoster = [];
-    viewRole = 'player';
-    applyOnlineRoleUI();
-    // 先不发本地快照，等主机回传；声明自己为玩家，避免收到 DM 隐藏层
-    setOnlineStatus('✅ 已加入 ' + roomId + '，正在接收主机地图…');
-    closeOnlineModal();
-    showToast('🌐 已加入房间 ' + roomId + '（玩家 ' + onlineUserName + '）');
-    sendTo(conn, { type: 'hello', ts: Date.now(), role: 'player', name: onlineUserName });
-  });
-  conn.on('data', (raw) => handleOnlineData(conn, raw));
-  conn.on('close', () => {
-    onlineSync = false;
-    setOnlineStatus('⚠️ 与主机连接断开');
-  });
-  onlinePeer.on('error', (err) => {
-    console.error(err);
-    setOnlineStatus('⚠️ 加入失败: ' + ((err && err.type) || err.message || '房间不存在'));
-  });
+function onlineLeave() {
+  onlineIntentionalLeave = true;
+  if (onlineWS) {
+    try { onlineWS.send(JSON.stringify({ type: 'leave' })); } catch (e) { /* ignore */ }
+    try { onlineWS.close(); } catch (e) { /* ignore */ }
+  }
+  onlineStopHeartbeat();
+  clearTimeout(onlineReconnectTimer);
+  onlineWS = null;
+  onlineRoom = '';
+  onlineIsPlayer = false;
+  onlineSelfId = '';
+  onlineSync = false;
+  onlineRoster = [];
+  viewRole = 'dm';
+  applyOnlineRoleUI();
+  setOnlineStatus('已离开房间');
+  showToast('🚪 已离开在线房间');
+}
+
+function onlineStartHeartbeat() {
+  onlineStopHeartbeat();
+  onlineHeartbeatTimer = setInterval(onlineHeartbeatTick, HEARTBEAT_MS);
+}
+function onlineStopHeartbeat() {
+  if (onlineHeartbeatTimer) { clearInterval(onlineHeartbeatTimer); onlineHeartbeatTimer = null; }
+}
+function onlineHeartbeatTick() {
+  if (!onlineWS || onlineWS.readyState !== WebSocket.OPEN) return;
+  try { onlineWS.send(JSON.stringify({ type: 'ping', ts: Date.now() })); } catch (e) { /* ignore */ }
+  if (onlineLastPong && Date.now() - onlineLastPong > HEARTBEAT_TIMEOUT_MS) {
+    try { onlineWS.close(); } catch (e) { /* ignore */ } // 触发 onclose → 自动重连
+  }
+}
+
+function onlineScheduleReconnect() {
+  clearTimeout(onlineReconnectTimer);
+  if (!onlineRoom) return;
+  const room = onlineRoom;
+  const isP = onlineIsPlayer;
+  const delay = Math.min(1000 * Math.pow(2, Math.min(onlineRetryCount, 5)), 20000);
+  onlineRetryCount++;
+  setOnlineStatus(`⚠️ 连接断开，${Math.round(delay / 1000)}s 后自动重连…`);
+  onlineReconnectTimer = setTimeout(() => {
+    onlineLeave();
+    onlineConnect(room, isP ? 'player' : 'dm');
+  }, delay);
 }
 
 function onlineCopyInvite() {
@@ -7326,21 +7353,6 @@ function fallbackCopyOnline(text) {
   el.select();
   try { document.execCommand('copy'); setOnlineStatus('📋 邀请链接已复制'); } catch (e) { setOnlineStatus('请手动复制：' + text); }
   el.remove();
-}
-
-function onlineLeave() {
-  if (!onlinePeer) { setOnlineStatus('未连接'); return; }
-  try { onlinePeer.destroy(); } catch (e) { /* ignore */ }
-  onlinePeer = null;
-  onlineRoom = '';
-  onlineSync = false;
-  onlineConnections = [];
-  onlineIsPlayer = false;
-  onlineRoster = [];
-  viewRole = 'dm';
-  applyOnlineRoleUI();
-  setOnlineStatus('已离开房间');
-  showToast('🚪 已离开在线房间');
 }
 
 function initOnlineUI() {
@@ -7378,29 +7390,10 @@ initOnline();
 // ============================================================
 //  v0.96: 常驻可折叠玩家名册 + 帮助/快捷键速查入口
 // ============================================================
-function buildRosterPayload() {
-  const members = [{ id: 'me', name: onlineUserName || (onlineIsPlayer ? '玩家' : 'DM'), role: onlineIsPlayer ? 'player' : 'dm' }];
-  onlineConnections.forEach((c) => {
-    members.push({ id: c.peer, name: c._combatName || (c._combatRole === 'dm' ? 'DM' : '玩家'), role: c._combatRole || 'player' });
-  });
-  return members;
-}
-function broadcastRoster() {
-  if (!onlinePeer) return;
-  const members = buildRosterPayload();
-  onlineConnections.forEach((c) => sendTo(c, { type: 'roster', members }));
-  if (!onlineIsPlayer) onlineRoster = members; // 主机本地视角
-  renderRoster();
-}
 function rosterMembers() {
-  if (!onlinePeer || !onlineRoom) return [];
-  if (onlineIsPlayer) {
-    // 玩家：用主机广播的成员列表，标记自己
-    const selfId = onlinePeer && onlinePeer.id;
-    return (onlineRoster || []).map((m) => ({ ...m, me: m.id === selfId }));
-  }
-  // 主机：本地产物
-  return buildRosterPayload().map((m) => ({ ...m, me: m.id === 'me' }));
+  if (!onlineWS || !onlineRoom) return [];
+  // 名册以服务器广播为准，两端一致；按服务器分配的 id 标记自己
+  return (onlineRoster || []).map((m) => ({ ...m, me: m.id === onlineSelfId }));
 }
 
 function renderRoster() {
@@ -7471,6 +7464,7 @@ if (helpModal) {
   helpModal.addEventListener('click', (e) => { if (e.target === helpModal) closeHelp(); });
 }
 renderRoster();
+
 //  Export: Excel
 //  主格式 = .xlsx（标准 OOXML，Excel/WPS 都支持颜色与方正规格）
 //  降级   = .xls（HTML 表格，仅当 SheetJS 未加载时使用）
@@ -8088,7 +8082,7 @@ function renderMapCanvas(exact) {
     expCanvas.height = Math.max(h, 300);
   }
   const expCtx = expCanvas.getContext('2d');
-  expCtx.fillStyle = artStyle === 'handdrawn' ? '#1d2117' : '#2d2d44';
+  expCtx.fillStyle = '#3a3a52';
   expCtx.fillRect(0, 0, expCanvas.width, expCanvas.height);
 
   let offsetX, offsetY;
@@ -8102,14 +8096,8 @@ function renderMapCanvas(exact) {
   expCtx.save();
   expCtx.translate(offsetX, offsetY);
 
-  // Pass 1: fills + grid
-  for (const key of keys) {
-    const [q, r] = key.split(',').map(Number);
-    drawCombatCellBase(expCtx, q, r, combatData[key]);
-  }
-
-  // Pass 1.5: 底图（导出包含背景，DM/玩家图均一致）
-  if (backgroundMap && backgroundMap.imgData) {
+  // Pass 0: 底图（背景层，最底层）
+  if (layerVisible('background') && backgroundMap && backgroundMap.imgData) {
     const bm = backgroundMap;
     expCtx.save();
     expCtx.globalAlpha = Math.max(0, Math.min(1, bm.opacity ?? 0.85));
@@ -8117,6 +8105,12 @@ function renderMapCanvas(exact) {
       expCtx.drawImage(bm.img, bm.x * CELL_SIZE, bm.y * CELL_SIZE, bm.cols * CELL_SIZE, bm.rows * CELL_SIZE);
     }
     expCtx.restore();
+  }
+
+  // Pass 1: fills（地形层，画在底图之上；空地透明透出底图）
+  for (const key of keys) {
+    const [q, r] = key.split(',').map(Number);
+    drawCombatCellBase(expCtx, q, r, combatData[key]);
   }
 
   // Pass 1.8: 格线叠加层（盖在地形/底图之上，清晰可见；与画布 drawGridOverlay 一致）
@@ -8707,16 +8701,15 @@ function init() {
   const missing = [];
   if (cdn.xlsx === false) missing.push('SheetJS');
   if (cdn.jszip === false) missing.push('JSZip');
-  if (cdn.peerjs === false) missing.push('PeerJS');
   if (missing.length > 0) {
     const warn = document.getElementById('cdn-warning');
     if (warn) {
       warn.style.display = 'block';
-      warn.textContent = `⚠️ 依赖未加载（${missing.join(', ')}）— xlsx 导出降级 / 在线功能不可用，建议联网后刷新`;
+      warn.textContent = `⚠️ 依赖未加载（${missing.join(', ')}）— xlsx 导出降级，建议联网后刷新`;
     }
   }
   console.log(`⚔️ 通用战斗地图生成器 ${COMBATMAP_VERSION} 已就绪`);
-  console.log('快捷键: V=选择 B=笔刷 W=墙壁 D=门 L=标签 E=擦除 T=图片 M=测量 U=单位库 Y=DM层 F=战雾 R=画笔矩形 G=画笔线段 O=画笔圆形 C=画笔锥形 Delete=删除选中');
+  console.log('快捷键: V=选择 B=笔刷 H=移动地图 W=墙壁 D=门 L=标签 E=擦除 T=图片 M=测量 U=单位库 Y=DM层 F=战雾 R=画笔矩形 G=画笔线段 O=画笔圆形 C=画笔锥形 Delete=删除选中');
   console.log('v0.81: 页签面板 · 网格对齐重做 · DM/玩家视图 · 单位库 · 摆放后自动回选择(Shift连放)');
   if (typeof initCombatShareUI === 'function') initCombatShareUI();
   if (typeof ensureScenes === 'function') ensureScenes();
