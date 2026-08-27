@@ -38,6 +38,7 @@ function setCell(q, r, data) {
   } else {
     combatData[key] = merged;
   }
+  onlineMarkSync();
 }
 
 function setWall(q, r, edge, value) {
@@ -67,6 +68,7 @@ function setWall(q, r, edge, value) {
   if (!nCell.terrain && !nCell.label && nCell.walls.every(w => w === 0) && nExists) {
     delete combatData[nKey];
   }
+  onlineMarkSync();
 }
 
 function cleanData() {

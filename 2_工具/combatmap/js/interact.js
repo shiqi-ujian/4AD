@@ -69,11 +69,22 @@ canvas.addEventListener('mousedown', (e) => {
       }
     }
 
+    // --- 移动/平移工具：左键拖拽即移动整张地图 ---
+    if (selectedTool === 'pan') {
+      _dragMode = 'pan';
+      dragStartX = mx; dragStartY = my;
+      viewStartX = viewX; viewStartY = viewY;
+      isDragging = true;
+      return;
+    }
+
     // --- 选择工具：单位/图形/线段/底图/框选优先 ---
     if (selectedTool === 'select') {
       // 单位缩放手柄
       const th = tokenHandleAt(wx, wy);
       if (th) {
+        const tSel = tokens.find(x => x.id === selectedToken);
+        if (inOnlinePlayerMode() && tSel && !canEditToken(tSel)) return; // 非自己的 token 不可缩放
         _dragMode = 'token-resize'; _dragTokenId = selectedToken; _dragHandle = th;
         isDragging = true; dragStartX = wx; dragStartY = wy;
         pushUndoMeta();
@@ -97,6 +108,8 @@ canvas.addEventListener('mousedown', (e) => {
         }
         selectedToken = tk.id; selectedShape = null; selectedLine = null; selectedCell = null; selectedBackground = false;
         selectedTokens.add(tk.id);
+        // 玩家可视但只读：非自己 token 只选中、不进入拖动
+        if (inOnlinePlayerMode() && !canEditToken(tk)) { render(); updateInfo(); return; }
         const dragIds = tokenDragIds(tk.id);
         _selDragOff = new Map();
         for (const id of dragIds) {
@@ -150,9 +163,11 @@ canvas.addEventListener('mousedown', (e) => {
         render(); updateInfo();
         return;
       }
-      // 底图：已选中底图且未锁定 → 拖动移动底图（防止误拖：需先点选底图）
+      // 底图：未锁定 → 直接在底图上拖拽即移动（一步到位，与 token 一致）；锁定时点击=选中、拖拽=框选
       const overBg = backgroundMap && !_bgAlignRefs && hitTestBackground(wx, wy);
-      if (overBg && selectedBackground && !bgLocked()) {
+      if (overBg && !bgLocked()) {
+        selectedBackground = true; selectedToken = null; selectedTokens = new Set();
+        selectedShape = null; selectedLine = null;
         _bgDragMode = 'bg-move';
         _dragOffX = wx - backgroundMap.x * CELL_SIZE;
         _dragOffY = wy - backgroundMap.y * CELL_SIZE;
@@ -243,11 +258,12 @@ canvas.addEventListener('mousedown', (e) => {
           imgData: _unitPending.imgData || '', img: _unitPending.img || null,
           sightRadius: _unitPending.sightRadius, visionSource: _unitPending.visionSource,
           layer: _unitPending.layer || 'creature',
-          ownerId: ''
+          ownerId: inOnlinePlayerMode() ? onlineSelfId : ''
         };
         normalizeToken(t);
         pushUndoMeta();
         tokens.push(t);
+        if (inOnlinePlayerMode()) onlineSendTokenPlace(t);
         selectedToken = t.id; selectedShape = null; selectedLine = null; selectedCell = null;
         render(); updateInfo();
         if (e.shiftKey) {
@@ -594,10 +610,12 @@ canvas.addEventListener('mouseup', () => {
       w: Math.max(_rectPreview.w, 0.2), h: Math.max(_rectPreview.h, 0.2),
       fill: brush.fill, fillAlpha: brush.fillAlpha,
       stroke: brush.stroke, strokeWidth: brush.strokeWidth, dash: brush.dash, name: '',
-      layer: 'painting'
+      layer: 'painting',
+      author: onlineSelfId
     };
     pushUndoMeta();
     shapes.push(sh);
+    if (inOnlinePlayerMode()) onlineSendShapeDraw(sh);
     selectedShape = sh.id; selectedLine = null; selectedCell = null; selectedToken = null;
     showToast(type === 'circle' ? '⭕ 已创建圆形区域，可在"选择"工具下拖动/缩放，右键或双击改属性' : '▭ 已创建区域，可在"选择"工具下拖动/缩放，右键或双击改属性');
   }
@@ -611,10 +629,12 @@ canvas.addEventListener('mouseup', () => {
       length: Math.max(0.5, _conePreview.length), spread: Math.max(0.1, _conePreview.spread || brush.spread), angle: _conePreview.angle || 0,
       fill: brush.fill, fillAlpha: brush.fillAlpha,
       stroke: brush.stroke, strokeWidth: brush.strokeWidth, dash: brush.dash, name: '',
-      layer: 'painting'
+      layer: 'painting',
+      author: onlineSelfId
     };
     pushUndoMeta();
     shapes.push(sh);
+    if (inOnlinePlayerMode()) onlineSendShapeDraw(sh);
     selectedShape = sh.id; selectedLine = null; selectedCell = null; selectedToken = null;
     showToast('📐 已创建攻击锥，可在"选择"工具下点选，右键改角度/长度/颜色');
   }
@@ -629,10 +649,12 @@ canvas.addEventListener('mouseup', () => {
         x1: _linePreview.x1, y1: _linePreview.y1,
         x2: _linePreview.x2, y2: _linePreview.y2,
         color: brush.lineColor, width: brush.lineWidth, dash: brush.dash, name: '',
-        layer: 'line'
+        layer: 'line',
+        author: onlineSelfId
       };
       pushUndoMeta();
       freeLines.push(ln);
+      if (inOnlinePlayerMode()) onlineSendLineDraw(ln);
       selectedLine = ln.id; selectedShape = null; selectedCell = null; selectedToken = null;
       showToast('📏 已创建线段，右键改颜色/线宽/虚线');
     }
@@ -661,6 +683,22 @@ canvas.addEventListener('mouseup', () => {
       }
     }
     _marquee = null; _marqueeStart = null;
+  }
+
+  // 玩家移动/缩放了「自己的 token」→ 发增量（仅玩家身份；DM 走整图快照）
+  if (_dragMode === 'token-move' || _dragMode === 'token-resize') {
+    const ids = new Set();
+    if (_dragMode === 'token-move') {
+      try { tokenDragIds(_dragTokenId).forEach(id => ids.add(id)); } catch (e) { /* ignore */ }
+      if (_dragTokenId) ids.add(_dragTokenId);
+    } else if (_dragTokenId) {
+      ids.add(_dragTokenId);
+    }
+    for (const id of ids) {
+      const tt = tokens.find(x => x.id === id);
+      if (!tt || (inOnlinePlayerMode() && !canEditToken(tt))) continue;
+      onlineSendTokenEdit(id, { x: tt.x, y: tt.y, w: tt.w, h: tt.h });
+    }
   }
 
   isDragging = false;
@@ -732,6 +770,7 @@ canvas.addEventListener('touchstart', (e) => {
       normalizeToken(t);
       pushUndoMeta();
       tokens.push(t);
+      if (inOnlinePlayerMode()) onlineSendTokenPlace(t);
       selectedToken = t.id; selectedShape = null; selectedLine = null; selectedCell = null;
       render(); updateInfo();
       _unitPending = null; _hoverUnit = null;
@@ -824,7 +863,11 @@ canvas.addEventListener('dblclick', (e) => {
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
   const wx = (mx - viewX) / zoom, wy = (my - viewY) / zoom;
   const tk = hitTestToken(wx, wy);
-  if (tk) { openUnitModal(tk); return; }
+  if (tk) {
+    if (inOnlinePlayerMode() && !canEditToken(tk)) { showToast('👁️ 这是别人的单位，只能查看'); return; }
+    openUnitModal(tk);
+    return;
+  }
   const sh = hitTestShape(wx, wy);
   if (sh) { openShapeModal(sh.id); return; }
   const ln = hitTestLine(wx, wy);

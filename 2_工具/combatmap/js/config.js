@@ -1,6 +1,6 @@
 //  Configuration
 // ============================================================
-const COMBATMAP_VERSION = 'v0.98';
+const COMBATMAP_VERSION = 'v0.99';
 
 // 云端持久化后端（combatmap 会 fetch 这里的 /api/map/<id> 保存/加载整张地图）。
 // 默认走 chmweb 主站后端；可通过 URL `?apibase=` 覆盖（本地调试）。

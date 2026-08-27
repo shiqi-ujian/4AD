@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>通用战斗地图生成器 v0.98</title>
+<title>通用战斗地图生成器 v0.99</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -228,7 +228,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 <div id="app">
   <div id="toolbar">
     <button id="toolbar-toggle" class="toolbar-toggle" title="折叠左栏（最大化地图）/ 展开工具栏" aria-label="折叠展开工具栏">≪</button>
-    <h2>⚔️ 战斗地图 <span class="ver">v0.98</span></h2>
+    <h2>⚔️ 战斗地图 <span class="ver">v0.99</span></h2>
 
     <div id="role-switch">
       <button id="role-dm" class="role-btn dm-role active" title="DM 视图：显示全部工具（含 DM 层/战雾/先攻条等隐藏信息）">🎲 DM 视图</button>
@@ -429,7 +429,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
     <div id="toolbar-footer">
       <button id="toolbar-menu-btn" title="☰ 菜单：保存/加载/导出/分享/云端等">☰ 菜单</button>
       <div class="toolbar-footer-text" style="font-size:10px;color:#555;text-align:center;padding-top:6px;">
-        通用跑团 · 战斗地图 v0.98<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>云端地图 · 多场景 · DM/玩家视图
+        通用跑团 · 战斗地图 v0.99<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>云端地图 · 多场景 · DM/玩家视图
       </div>
     </div>
   </div>
@@ -978,7 +978,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 <script>
 //  Configuration
 // ============================================================
-const COMBATMAP_VERSION = 'v0.98';
+const COMBATMAP_VERSION = 'v0.99';
 
 // 云端持久化后端（combatmap 会 fetch 这里的 /api/map/<id> 保存/加载整张地图）。
 // 默认走 chmweb 主站后端；可通过 URL `?apibase=` 覆盖（本地调试）。
@@ -1359,6 +1359,7 @@ function setDmCell(q, r, data, recordUndo = true) {
   dmData[key] = { ...existing, ...data };
   const d = dmData[key];
   if (!d.mark && !d.label) delete dmData[key];
+  onlineMarkSync();
 }
 
 function removeDmCell(q, r, recordUndo = true) {
@@ -1376,6 +1377,7 @@ function setFogCell(q, r, hidden, recordUndo = true) {
   if (hidden) fog[key] = 1;
   else delete fog[key];
   if (Object.keys(fog).length === 0) fog = {};
+  onlineQueueFog(q, r, hidden); // 在线时以批量增量同步（防刷屏）
 }
 
 function toggleFogCell(q, r, recordUndo = true) {
@@ -1683,6 +1685,7 @@ function setCell(q, r, data) {
   } else {
     combatData[key] = merged;
   }
+  onlineMarkSync();
 }
 
 function setWall(q, r, edge, value) {
@@ -1712,6 +1715,7 @@ function setWall(q, r, edge, value) {
   if (!nCell.terrain && !nCell.label && nCell.walls.every(w => w === 0) && nExists) {
     delete combatData[nKey];
   }
+  onlineMarkSync();
 }
 
 function cleanData() {
@@ -2371,6 +2375,7 @@ function drawSelectionOverlay() {
 function drawShapes() {
   for (const sh of shapes) {
     if (layerOf(sh, 'painting') !== 'painting') continue;
+    if (typeof showPlayerDrawLayer === 'boolean' && !showPlayerDrawLayer && sh.author) continue; // 玩家绘制层
     drawShape(sh);
   }
 }
@@ -2463,6 +2468,7 @@ function drawShapeName(sh, x, y) {
 function drawFreeLines() {
   for (const ln of freeLines) {
     if (layerOf(ln, 'line') !== 'line') continue;
+    if (typeof showPlayerDrawLayer === 'boolean' && !showPlayerDrawLayer && ln.author) continue; // 玩家绘制层
     const p1 = cellToPixel(ln.x1, ln.y1), p2 = cellToPixel(ln.x2, ln.y2);
     ctx.strokeStyle = ln.color || '#000';
     ctx.lineWidth = (ln.width || 3) / zoom;
@@ -3221,6 +3227,8 @@ canvas.addEventListener('mousedown', (e) => {
       // 单位缩放手柄
       const th = tokenHandleAt(wx, wy);
       if (th) {
+        const tSel = tokens.find(x => x.id === selectedToken);
+        if (inOnlinePlayerMode() && tSel && !canEditToken(tSel)) return; // 非自己的 token 不可缩放
         _dragMode = 'token-resize'; _dragTokenId = selectedToken; _dragHandle = th;
         isDragging = true; dragStartX = wx; dragStartY = wy;
         pushUndoMeta();
@@ -3244,6 +3252,8 @@ canvas.addEventListener('mousedown', (e) => {
         }
         selectedToken = tk.id; selectedShape = null; selectedLine = null; selectedCell = null; selectedBackground = false;
         selectedTokens.add(tk.id);
+        // 玩家可视但只读：非自己 token 只选中、不进入拖动
+        if (inOnlinePlayerMode() && !canEditToken(tk)) { render(); updateInfo(); return; }
         const dragIds = tokenDragIds(tk.id);
         _selDragOff = new Map();
         for (const id of dragIds) {
@@ -3392,11 +3402,12 @@ canvas.addEventListener('mousedown', (e) => {
           imgData: _unitPending.imgData || '', img: _unitPending.img || null,
           sightRadius: _unitPending.sightRadius, visionSource: _unitPending.visionSource,
           layer: _unitPending.layer || 'creature',
-          ownerId: ''
+          ownerId: inOnlinePlayerMode() ? onlineSelfId : ''
         };
         normalizeToken(t);
         pushUndoMeta();
         tokens.push(t);
+        if (inOnlinePlayerMode()) onlineSendTokenPlace(t);
         selectedToken = t.id; selectedShape = null; selectedLine = null; selectedCell = null;
         render(); updateInfo();
         if (e.shiftKey) {
@@ -3743,10 +3754,12 @@ canvas.addEventListener('mouseup', () => {
       w: Math.max(_rectPreview.w, 0.2), h: Math.max(_rectPreview.h, 0.2),
       fill: brush.fill, fillAlpha: brush.fillAlpha,
       stroke: brush.stroke, strokeWidth: brush.strokeWidth, dash: brush.dash, name: '',
-      layer: 'painting'
+      layer: 'painting',
+      author: onlineSelfId
     };
     pushUndoMeta();
     shapes.push(sh);
+    if (inOnlinePlayerMode()) onlineSendShapeDraw(sh);
     selectedShape = sh.id; selectedLine = null; selectedCell = null; selectedToken = null;
     showToast(type === 'circle' ? '⭕ 已创建圆形区域，可在"选择"工具下拖动/缩放，右键或双击改属性' : '▭ 已创建区域，可在"选择"工具下拖动/缩放，右键或双击改属性');
   }
@@ -3760,10 +3773,12 @@ canvas.addEventListener('mouseup', () => {
       length: Math.max(0.5, _conePreview.length), spread: Math.max(0.1, _conePreview.spread || brush.spread), angle: _conePreview.angle || 0,
       fill: brush.fill, fillAlpha: brush.fillAlpha,
       stroke: brush.stroke, strokeWidth: brush.strokeWidth, dash: brush.dash, name: '',
-      layer: 'painting'
+      layer: 'painting',
+      author: onlineSelfId
     };
     pushUndoMeta();
     shapes.push(sh);
+    if (inOnlinePlayerMode()) onlineSendShapeDraw(sh);
     selectedShape = sh.id; selectedLine = null; selectedCell = null; selectedToken = null;
     showToast('📐 已创建攻击锥，可在"选择"工具下点选，右键改角度/长度/颜色');
   }
@@ -3778,10 +3793,12 @@ canvas.addEventListener('mouseup', () => {
         x1: _linePreview.x1, y1: _linePreview.y1,
         x2: _linePreview.x2, y2: _linePreview.y2,
         color: brush.lineColor, width: brush.lineWidth, dash: brush.dash, name: '',
-        layer: 'line'
+        layer: 'line',
+        author: onlineSelfId
       };
       pushUndoMeta();
       freeLines.push(ln);
+      if (inOnlinePlayerMode()) onlineSendLineDraw(ln);
       selectedLine = ln.id; selectedShape = null; selectedCell = null; selectedToken = null;
       showToast('📏 已创建线段，右键改颜色/线宽/虚线');
     }
@@ -3810,6 +3827,22 @@ canvas.addEventListener('mouseup', () => {
       }
     }
     _marquee = null; _marqueeStart = null;
+  }
+
+  // 玩家移动/缩放了「自己的 token」→ 发增量（仅玩家身份；DM 走整图快照）
+  if (_dragMode === 'token-move' || _dragMode === 'token-resize') {
+    const ids = new Set();
+    if (_dragMode === 'token-move') {
+      try { tokenDragIds(_dragTokenId).forEach(id => ids.add(id)); } catch (e) { /* ignore */ }
+      if (_dragTokenId) ids.add(_dragTokenId);
+    } else if (_dragTokenId) {
+      ids.add(_dragTokenId);
+    }
+    for (const id of ids) {
+      const tt = tokens.find(x => x.id === id);
+      if (!tt || (inOnlinePlayerMode() && !canEditToken(tt))) continue;
+      onlineSendTokenEdit(id, { x: tt.x, y: tt.y, w: tt.w, h: tt.h });
+    }
   }
 
   isDragging = false;
@@ -3881,6 +3914,7 @@ canvas.addEventListener('touchstart', (e) => {
       normalizeToken(t);
       pushUndoMeta();
       tokens.push(t);
+      if (inOnlinePlayerMode()) onlineSendTokenPlace(t);
       selectedToken = t.id; selectedShape = null; selectedLine = null; selectedCell = null;
       render(); updateInfo();
       _unitPending = null; _hoverUnit = null;
@@ -3973,7 +4007,11 @@ canvas.addEventListener('dblclick', (e) => {
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
   const wx = (mx - viewX) / zoom, wy = (my - viewY) / zoom;
   const tk = hitTestToken(wx, wy);
-  if (tk) { openUnitModal(tk); return; }
+  if (tk) {
+    if (inOnlinePlayerMode() && !canEditToken(tk)) { showToast('👁️ 这是别人的单位，只能查看'); return; }
+    openUnitModal(tk);
+    return;
+  }
   const sh = hitTestShape(wx, wy);
   if (sh) { openShapeModal(sh.id); return; }
   const ln = hitTestLine(wx, wy);
@@ -4231,6 +4269,11 @@ function setTool(tool) {
   // 玩家视图下禁止使用 DM 专属工具
   if ((tool === 'dm' || tool === 'fog') && viewRoleIsPlayer()) {
     showToast('👁️ 玩家视图下不可使用 DM 工具');
+    return;
+  }
+  // 在线玩家：地图级工具禁用，只能动自己的 token / 画自己的标记
+  if (inOnlinePlayerMode() && !PLAYER_TOOLS.has(tool)) {
+    showToast('👁️ 玩家在线时不能使用这个工具（只能编辑自己的单位/绘制标记）');
     return;
   }
   // 切换工具时清理未放置的拾取状态，避免"摆放过一次就卡在放置模式"
@@ -4563,6 +4606,7 @@ function shapeApply() {
   }
   document.getElementById('shape-modal').style.display = 'none';
   render(); updateInfo();
+  onlineMarkSync();
 }
 
 document.getElementById('shape-angle').addEventListener('input', function() {
@@ -4587,6 +4631,7 @@ document.getElementById('shape-delete').addEventListener('click', () => {
   if (selectedShape === id) selectedShape = null;
   document.getElementById('shape-modal').style.display = 'none';
   render(); updateInfo();
+  onlineMarkSync();
 });
 document.getElementById('shape-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
 
@@ -4616,6 +4661,7 @@ function lineApply() {
   ln.dash = document.getElementById('line-dash').checked;
   document.getElementById('line-modal').style.display = 'none';
   render(); updateInfo();
+  onlineMarkSync();
 }
 
 document.getElementById('line-w').addEventListener('input', function() {
@@ -4630,6 +4676,7 @@ document.getElementById('line-delete').addEventListener('click', () => {
   if (selectedLine === id) selectedLine = null;
   document.getElementById('line-modal').style.display = 'none';
   render(); updateInfo();
+  onlineMarkSync();
 });
 document.getElementById('line-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
 
@@ -4737,6 +4784,7 @@ document.addEventListener('keydown', (e) => {
         pruneGroups();
         render(); updateInfo();
         if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
+        onlineMarkSync();
         return;
       }
     }
@@ -4749,6 +4797,7 @@ document.addEventListener('keydown', (e) => {
       pruneGroups();
       render(); updateInfo();
       if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
+      onlineMarkSync();
       return;
     }
     if (selectedShape) {
@@ -4756,6 +4805,7 @@ document.addEventListener('keydown', (e) => {
       shapes = shapes.filter(s => s.id !== selectedShape);
       selectedShape = null;
       render(); updateInfo();
+      onlineMarkSync();
       return;
     }
     if (selectedLine) {
@@ -4763,6 +4813,7 @@ document.addEventListener('keydown', (e) => {
       freeLines = freeLines.filter(l => l.id !== selectedLine);
       selectedLine = null;
       render(); updateInfo();
+      onlineMarkSync();
       return;
     }
   }
@@ -5140,6 +5191,8 @@ function finishUnitSave(id, data) {
     if (t) {
       pushUndoMeta();
       Object.assign(t, data);
+      onlineSendTokenEdit(id, data); // 在线即发增量（DM/玩家；服务器校验归属）
+      onlineMarkSync();
       syncTokenInitiative(t);
       closeUnitModal();
       render(); updateInfo();
@@ -5164,6 +5217,8 @@ function deleteUnitConfirm() {
     return;
   }
   if (!id) return;
+  const ownerTok = tokens.find(x => x.id === id);
+  const owner = ownerTok ? ownerTok.ownerId : '';
   pushUndoMeta();
   if (viewSourceTokenId === id) viewSourceTokenId = null;
   tokens = tokens.filter(x => x.id !== id);
@@ -5174,6 +5229,8 @@ function deleteUnitConfirm() {
   closeUnitModal();
   render(); updateInfo();
   if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
+  onlineSendTokenDelete(id, owner); // 在线即发删除增量（服务器校验归属）
+  onlineMarkSync();
   showToast('🗑️ 已删除单位');
 }
 
@@ -7080,10 +7137,10 @@ let onlineUserName = '';       // 参与者在房间内显示的昵称
 
 function payloadForRole(payload, role) {
   if (role !== 'player') return payload;
-  // 玩家只接收「玩家可见地图」：DM 隐藏层、战雾、行动顺序、DM 专用底图设置不下发
+  // 玩家只接收「玩家可见地图」：剔除 DM 隐藏层/行动顺序，但**保留 fog**——
+  // fog 是玩家看到「已揭示区域」的依据，删掉就会整图“无迷雾/看不见揭示”。
   const p = JSON.parse(JSON.stringify(payload || {}));
   delete p.dmData;
-  delete p.fog;
   delete p.initiativeOrder;
   delete p.initiativeIndex;
   return p;
@@ -7132,6 +7189,36 @@ function onlineSetName() {
   return n;
 }
 
+// —— 稳定玩家身份 ——
+// 用于 token 归属（ownerId）：同一浏览器刷新后保持不变，刷新/重连不掉归属。
+function onlinePlayerId() {
+  let id = '';
+  try { id = localStorage.getItem('combatmap_player_id') || ''; } catch (e) { /* ignore */ }
+  if (!id || !/^[a-z0-9-]{1,32}$/.test(id)) {
+    id = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    try { localStorage.setItem('combatmap_player_id', id); } catch (e) { /* ignore */ }
+  }
+  return id;
+}
+
+// 当前是否处于「在线玩家」身份（真玩家；不含 DM 手动预览模式）
+function inOnlinePlayerMode() {
+  return onlineIsPlayer && !!onlineWS;
+}
+
+// 在线玩家允许使用的工具（枭熊式宽松：动自己 token + 画标记；地形/墙/门/战雾/DM层禁用）
+const PLAYER_TOOLS = new Set(['select', 'pan', 'measure', 'brush', 'unit']);
+
+// 玩家绘制层显隐（GM 可关）——渲染时据此过滤带 author 的 shapes/lines
+let showPlayerDrawLayer = true;
+function togglePlayerDrawLayer(v) { showPlayerDrawLayer = v ? true : false; render(); }
+
+// 该 token 是否可被当前用户编辑：DM 全权；玩家只能编辑自己（ownerId=自己）的
+function canEditToken(t) {
+  if (!inOnlinePlayerMode()) return true;
+  return !!t && !!t.ownerId && t.ownerId === onlineSelfId;
+}
+
 // —— WebSocket 地址 ——
 // 优先 localStorage.combatmap_ws_url（部署后可覆盖），否则取当前页面同源 /ws。
 function wsUrl() {
@@ -7167,13 +7254,8 @@ function closeOnlineModal() {
   if (modal) modal.style.display = 'none';
 }
 
-function buildOnlineSnapshot() {
-  return {
-    type: 'snapshot',
-    seq: ++onlineMseq,
-    ts: Date.now(),
-    data: buildCombatPayload()
-  };
+function buildOnlineSync() {
+  return { type: 'sync', data: buildCombatPayload() };
 }
 
 function onlineSend(payload) {
@@ -7181,32 +7263,58 @@ function onlineSend(payload) {
   try { onlineWS.send(JSON.stringify(payload)); } catch (e) { /* ignore */ }
 }
 
-function broadcastSnapshot() {
-  if (!onlineSync || onlineIsPlayer) return; // 玩家只读，不广播
-  onlineSend(buildOnlineSnapshot());
+// —— 服务器权威内容发布（DM 端）——
+// 地形/迷雾/DM层/底图/行动顺序等「内容」变更 → 标记 syncDirty，节流发布一次 sync（全量权威）。
+// 实时 token/绘制走增量（见 onlineSendTokenXxx），不在此列。
+let onlineSyncDirty = false;
+function onlineMarkSync() { onlineSyncDirty = true; }
+function onlinePublishSync() {
+  if (!onlineWS || !onlineSync || onlineIsPlayer) return;
+  onlineSyncDirty = false;
+  onlineSend(buildOnlineSync());
 }
-
-function scheduleOnlineSnapshot() {
-  if (!onlineSync || onlineApplyRemote || onlineIsPlayer) return;
+function scheduleOnlinePublish() {
+  if (!onlineWS || !onlineSync || onlineIsPlayer || !onlineSyncDirty) return;
   clearTimeout(onlineTimer);
-  onlineTimer = setTimeout(() => broadcastSnapshot(), 120);
+  onlineTimer = setTimeout(() => { if (onlineSyncDirty) { onlineSyncDirty = false; onlinePublishSync(); } }, 300);
 }
 
-// 包装 render：本地每次渲染后触发节流广播；远端应用期间不转播。
+// 包装 render：DM 端仅当「内容确实变更」才发布权威 sync，摄像头/选中变化不触发。
 const __combatmapOriginalRender = render;
 render = function () {
   __combatmapOriginalRender();
-  scheduleOnlineSnapshot();
+  scheduleOnlinePublish();
 };
 
-function applyRemoteSnapshot(msg) {
-  if (!msg || msg.type !== 'snapshot' || !msg.data) return;
+function applyRemoteState(msg) {
+  if (!msg || (msg.type !== 'model' && msg.type !== 'snapshot') || !msg.data) return;
   if (!onlineSync) onlineSync = true;
   onlineApplyRemote = true;
+  const d = msg.data || {};
+  // token 库是每用户本地的（不是地图数据），不随整图同步覆盖
+  delete d.tokenPresets;
+  // 保护「自己画的标记 / 自己拥有的单位」：陈旧同步可能还没带上它们，先记再回填
+  const mineShapes = shapes.filter(s => s.author === onlineSelfId);
+  const mineLines = freeLines.filter(l => l.author === onlineSelfId);
+  const mineTokens = tokens.filter(t => t.ownerId === onlineSelfId);
+  // 保留本地选中/撤销，避免整图同步反复清空（让玩家觉得“一直在重置”）
+  const sel = { selectedToken, selectedShape, selectedLine, selectedCell, selectedTokens: new Set(selectedTokens), selectedBackground };
+  const undo = undoStack.slice(), redo = redoStack.slice();
   try {
-    const data = payloadForRole(msg.data, onlineIsPlayer ? 'player' : 'dm');
+    const data = payloadForRole(d, onlineIsPlayer ? 'player' : 'dm');
+    // 保持本地视角：不让远端同步重置摄像机
+    data.viewX = viewX; data.viewY = viewY; data.zoom = zoom;
     const n = applyCombatData(data);
-    showToast(`🌐 已同步远端地图 ${n} 格 / ${tokens.length} 单位`);
+    // 回填自己画的/自己拥有的项（若被陈旧同步抹掉）
+    if (inOnlinePlayerMode()) {
+      for (const s of mineShapes) if (!shapes.some(x => x.id === s.id)) shapes.push(s);
+      for (const l of mineLines) if (!freeLines.some(x => x.id === l.id)) freeLines.push(l);
+      for (const t of mineTokens) if (!tokens.some(x => x.id === t.id)) tokens.push(t);
+    }
+    // 恢复本地选中/撤销
+    selectedToken = sel.selectedToken; selectedShape = sel.selectedShape; selectedLine = sel.selectedLine;
+    selectedCell = sel.selectedCell; selectedTokens = sel.selectedTokens; selectedBackground = sel.selectedBackground;
+    undoStack = undo; redoStack = redo; if (typeof updateUndoButtons === 'function') updateUndoButtons();
   } catch (e) {
     console.error('远端同步失败', e);
     showToast('⚠️ 远端同步失败: ' + (e && e.message));
@@ -7219,16 +7327,225 @@ function handleOnlineMessage(msg) {
   if (!msg || !msg.type) return;
   if (msg.type === 'joined') {
     onlineSelfId = msg.id;
+    // 记忆当前房间与身份，刷新后自动回房
+    try { localStorage.setItem('combatmap_room', onlineRoom); localStorage.setItem('combatmap_room_role', onlineIsPlayer ? 'player' : 'dm'); } catch (e) { /* ignore */ }
+    // DM 就绪即发布一次权威全量（让服务器持有并广播给成员）
+    if (!onlineIsPlayer) setTimeout(() => onlinePublishSync(), 300);
+  } else if (msg.type === 'model' || msg.type === 'snapshot') {
+    applyRemoteState(msg);
   } else if (msg.type === 'roster') {
     onlineRoster = msg.members || [];
     renderRoster();
-  } else if (msg.type === 'snapshot') {
-    applyRemoteSnapshot(msg);
+  } else if (msg.type === 'settings') {
+    applySettings(msg);
   } else if (msg.type === 'pong') {
     onlineLastPong = Date.now();
+  } else if (msg.type === 'tokenEdit') {
+    applyTokenEdit(msg);
+  } else if (msg.type === 'tokenPlace') {
+    applyTokenPlace(msg);
+  } else if (msg.type === 'tokenDelete') {
+    applyTokenDelete(msg);
+  } else if (msg.type === 'shapeDraw') {
+    applyShapeDraw(msg);
+  } else if (msg.type === 'shapeEdit') {
+    applyShapeEdit(msg);
+  } else if (msg.type === 'shapeDelete') {
+    applyShapeDelete(msg);
+  } else if (msg.type === 'lineDraw') {
+    applyLineDraw(msg);
+  } else if (msg.type === 'lineEdit') {
+    applyLineEdit(msg);
+  } else if (msg.type === 'lineDelete') {
+    applyLineDelete(msg);
+  } else if (msg.type === 'fogEdit') {
+    applyFogEdit(msg);
   } else if (msg.type === 'error') {
     setOnlineStatus('⚠️ ' + (msg.error || '房间错误'));
   }
+}
+
+// —— 玩家编辑增量：只同步「自己 token」的字段，避免覆盖 DM 隐藏层 ——
+const TOKEN_EDITABLE = new Set(['x','y','w','h','rotation','name','kind','icon','color','hp','maxHp','tempHp','ac','speed','notes','status','imgData','img','layer','sightRadius','visionSource','visible']);
+function applyTokenEdit(msg) {
+  if (!msg || msg.id == null || !msg.patch) return;
+  const t = tokens.find((x) => x.id === msg.id);
+  if (!t) return;
+  // 服务器已验证（玩家只能改自己的 token）；客户端直接应用增量
+  let touched = false;
+  for (const k in msg.patch) {
+    if (!TOKEN_EDITABLE.has(k)) continue;
+    t[k] = msg.patch[k];
+    touched = true;
+  }
+  if (touched) { render(); updateInfo(); }
+}
+function applyTokenPlace(msg) {
+  if (!msg || !msg.token || msg.token.id == null) return;
+  if (tokens.some((x) => x.id === msg.token.id)) return;
+  const t = msg.token;
+  if (typeof normalizeToken === 'function') normalizeToken(t);
+  t.ownerId = msg.owner || t.ownerId || '';
+  tokens.push(t);
+  render(); updateInfo();
+}
+// 发送「改名/移动/属性」增量：在线即发；玩家需权限且只能改自己的（服务器还会再校验）
+function onlineSendTokenEdit(id, patch) {
+  if (!onlineWS || !onlineSync) return;
+  const t = tokens.find(x => x.id === id);
+  if (!t) return;
+  if (inOnlinePlayerMode() && (!onlinePerm.canEdit || !canEditToken(t))) return;
+  onlineSend({ type: 'tokenEdit', id, owner: t.ownerId, patch });
+}
+function onlineSendTokenPlace(token) {
+  if (!onlineWS || !onlineSync) return;
+  if (inOnlinePlayerMode() && !onlinePerm.canPlace) return;
+  onlineSend({ type: 'tokenPlace', owner: (inOnlinePlayerMode() ? onlineSelfId : (token.ownerId || '')), token });
+}
+function onlineSendTokenDelete(id, owner) {
+  if (!onlineWS || !onlineSync) return;
+  const t = tokens.find(x => x.id === id);
+  const ow = owner != null ? owner : (t ? t.ownerId : '');
+  if (inOnlinePlayerMode()) {
+    if (!onlinePerm.canDelete) return;
+    if (!canEditToken({ id, ownerId: ow })) return;
+  }
+  onlineSend({ type: 'tokenDelete', id, owner: ow });
+}
+
+// —— 房间权限（DM 下发，默认全开=枭熊式宽松）——
+// 玩家可按 GM 开关做的事：移动/放置/编辑/删除自己 token、绘制/擦除。
+let onlinePerm = { canMove: true, canPlace: true, canEdit: true, canDelete: true, canDraw: true, canErase: true };
+
+// —— 玩家绘制：shapes/freeLines 带 author 标记，记录是谁画的 ——
+const SHAPE_EDITABLE = new Set(['x','y','w','h','length','spread','angle','fill','fillAlpha','stroke','strokeWidth','dash','name','layer']);
+const LINE_EDITABLE = new Set(['x1','y1','x2','y2','color','width','dash','name','layer']);
+function canEditShape(s) { if (!inOnlinePlayerMode()) return true; return !!s && !!s.author && s.author === onlineSelfId; }
+function canEditLine(l) { if (!inOnlinePlayerMode()) return true; return !!l && !!l.author && l.author === onlineSelfId; }
+
+function applyTokenDelete(msg) {
+  if (!msg || msg.id == null) return;
+  const t = tokens.find((x) => x.id === msg.id);
+  if (!t) return;
+  if (typeof clearInitiativeTokenRefs === 'function') clearInitiativeTokenRefs(t.id);
+  tokens = tokens.filter((x) => x.id !== t.id);
+  if (selectedToken === t.id) selectedToken = null;
+  selectedTokens.delete(t.id);
+  if (typeof pruneGroups === 'function') pruneGroups();
+  render(); updateInfo();
+}
+function applyShapeDraw(msg) {
+  if (!msg || !msg.shape || msg.shape.id == null) return;
+  if (shapes.some((s) => s.id === msg.shape.id)) return;
+  const s = msg.shape;
+  s.author = msg.author || s.author || '';
+  shapes.push(s);
+  render(); updateInfo();
+}
+function applyShapeEdit(msg) {
+  if (!msg || msg.id == null || !msg.patch) return;
+  const s = shapes.find((x) => x.id === msg.id);
+  if (!s) return;
+  for (const k in msg.patch) { if (SHAPE_EDITABLE.has(k)) s[k] = msg.patch[k]; }
+  render(); updateInfo();
+}
+function applyShapeDelete(msg) {
+  if (!msg || msg.id == null) return;
+  const s = shapes.find((x) => x.id === msg.id);
+  if (!s) return;
+  shapes = shapes.filter((x) => x.id !== s.id);
+  if (selectedShape === s.id) selectedShape = null;
+  render(); updateInfo();
+}
+function applyLineDraw(msg) {
+  if (!msg || !msg.line || msg.line.id == null) return;
+  if (freeLines.some((l) => l.id === msg.line.id)) return;
+  const l = msg.line;
+  l.author = msg.author || l.author || '';
+  freeLines.push(l);
+  render(); updateInfo();
+}
+function applyLineEdit(msg) {
+  if (!msg || msg.id == null || !msg.patch) return;
+  const l = freeLines.find((x) => x.id === msg.id);
+  if (!l) return;
+  for (const k in msg.patch) { if (LINE_EDITABLE.has(k)) l[k] = msg.patch[k]; }
+  render(); updateInfo();
+}
+function applyLineDelete(msg) {
+  if (!msg || msg.id == null) return;
+  const l = freeLines.find((x) => x.id === msg.id);
+  if (!l) return;
+  freeLines = freeLines.filter((x) => x.id !== l.id);
+  if (selectedLine === l.id) selectedLine = null;
+  render(); updateInfo();
+}
+function applySettings(msg) {
+  if (!msg || !msg.perms) return;
+  onlinePerm = Object.assign({ canMove: true, canPlace: true, canEdit: true, canDelete: true, canDraw: true, canErase: true }, msg.perms);
+}
+
+// —— 迷雾批量增量（仅 DM；拖拽/点涂时累积，防逐格刷屏）——
+let onlineFogPending = {};
+let onlineFogTimer = null;
+function onlineQueueFog(q, r, hidden) {
+  if (!onlineWS || !onlineSync || onlineIsPlayer) return;
+  onlineFogPending[cellKey(q, r)] = hidden ? 1 : 0;
+  clearTimeout(onlineFogTimer);
+  onlineFogTimer = setTimeout(() => {
+    const cells = onlineFogPending; onlineFogPending = {};
+    onlineSend({ type: 'fogEdit', cells });
+  }, 150);
+}
+function applyFogEdit(msg) {
+  if (!msg || !msg.cells) return;
+  for (const k in msg.cells) { if (msg.cells[k]) fog[k] = 1; else delete fog[k]; }
+  if (Object.keys(fog).length === 0) fog = {};
+  render(); updateInfo();
+}
+
+// —— 发送绘制/删除增量：在线即发；玩家需权限且只能动自己画的（服务器再校验）——
+function onlineSendShapeDraw(shape) {
+  if (!onlineWS || !onlineSync) return;
+  if (inOnlinePlayerMode() && !onlinePerm.canDraw) return;
+  onlineSend({ type: 'shapeDraw', author: shape.author || onlineSelfId, shape });
+}
+function onlineSendShapeEdit(id, patch) {
+  if (!onlineWS || !onlineSync) return;
+  const s = shapes.find((x) => x.id === id);
+  if (!s) return;
+  if (inOnlinePlayerMode() && (!onlinePerm.canEdit || !canEditShape(s))) return;
+  onlineSend({ type: 'shapeEdit', id, author: s.author, patch });
+}
+function onlineSendShapeDelete(id) {
+  if (!onlineWS || !onlineSync) return;
+  const s = shapes.find((x) => x.id === id);
+  if (!s) return;
+  if (inOnlinePlayerMode() && (!onlinePerm.canErase || !canEditShape(s))) return;
+  onlineSend({ type: 'shapeDelete', id, author: s.author });
+}
+function onlineSendLineDraw(line) {
+  if (!onlineWS || !onlineSync) return;
+  if (inOnlinePlayerMode() && !onlinePerm.canDraw) return;
+  onlineSend({ type: 'lineDraw', author: line.author || onlineSelfId, line });
+}
+function onlineSendLineEdit(id, patch) {
+  if (!onlineWS || !onlineSync) return;
+  const l = freeLines.find((x) => x.id === id);
+  if (!l) return;
+  if (inOnlinePlayerMode() && (!onlinePerm.canEdit || !canEditLine(l))) return;
+  onlineSend({ type: 'lineEdit', id, author: l.author, patch });
+}
+function onlineSendLineDelete(id) {
+  if (!onlineWS || !onlineSync) return;
+  const l = freeLines.find((x) => x.id === id);
+  if (!l) return;
+  if (inOnlinePlayerMode() && (!onlinePerm.canErase || !canEditLine(l))) return;
+  onlineSend({ type: 'lineDelete', id, author: l.author });
+}
+function onlineSendSettings(perms) {
+  if (!onlineWS || !onlineSync || inOnlinePlayerMode()) return; // 仅 DM 下发
+  onlineSend({ type: 'settings', perms });
 }
 
 function onlineConnect(room, role) {
@@ -7246,11 +7563,15 @@ function onlineConnect(room, role) {
     onlineRoster = [];
     viewRole = onlineIsPlayer ? 'player' : 'dm';
     applyOnlineRoleUI();
-    onlineSend({ type: 'join', room, role, name: onlineUserName });
+    onlineSend({ type: 'join', room, role, name: onlineUserName, id: onlinePlayerId() });
     onlineStartHeartbeat();
     setOnlineStatus('✅ 已进入房间 ' + room + '，等待成员…');
-    // 主机（DM）就绪即广播一份权威快照，让在座/新加入者立刻有图
-    if (!onlineIsPlayer) { onlineSync = true; setTimeout(() => broadcastSnapshot(), 300); }
+    // 主机（DM）就绪即广播一份权威快照，让在座/新加入者立刻有图 + 下发房间权限
+    if (!onlineIsPlayer) {
+      onlineSync = true;
+      setTimeout(() => broadcastSnapshot(), 300);
+      setTimeout(() => onlineSendSettings(onlinePerm), 350);
+    }
   };
   onlineWS.onmessage = (ev) => {
     let msg;
@@ -7304,6 +7625,7 @@ function onlineLeave() {
   onlineSync = false;
   onlineRoster = [];
   viewRole = 'dm';
+  try { localStorage.removeItem('combatmap_room'); localStorage.removeItem('combatmap_room_role'); } catch (e) { /* ignore */ }
   applyOnlineRoleUI();
   setOnlineStatus('已离开房间');
   showToast('🚪 已离开在线房间');
@@ -7364,16 +7686,25 @@ function initOnlineUI() {
   document.getElementById('online-btn-copy').addEventListener('click', onlineCopyInvite);
   document.getElementById('online-btn-leave').addEventListener('click', onlineLeave);
   document.getElementById('online-btn-close').addEventListener('click', closeOnlineModal);
-  modal.addEventListener('click', (e) => { if (e.target === modal) closeOnlineModal(); });
+  // 不再「点弹窗外部即退出」——创建/加入房间时误点容易打断，只允许用按钮关闭。
 
-  // 从 ?room= 自动加入（玩家）
+  // 自动加入：优先 ?room= 链接，否则用上次记忆的房间（刷新后自动回房）
   const params = new URLSearchParams(location.search);
   const room = params.get('room');
+  let autoRoom = '', autoRole = '';
   if (room && params.get('online') === '1') {
+    autoRoom = room; autoRole = 'player';
+  } else {
+    try {
+      autoRoom = localStorage.getItem('combatmap_room') || '';
+      autoRole = localStorage.getItem('combatmap_room_role') || 'player';
+    } catch (e) { /* ignore */ }
+  }
+  if (autoRoom) {
     setTimeout(() => {
       const inp = document.getElementById('online-room');
-      if (inp) inp.value = room;
-      onlineJoinRoom(room);
+      if (inp) inp.value = autoRoom;
+      if (autoRole === 'dm') onlineCreateRoom(); else onlineJoinRoom(autoRoom);
     }, 600);
   }
 }
