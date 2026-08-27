@@ -6,6 +6,11 @@ function setTool(tool) {
     showToast('👁️ 玩家视图下不可使用 DM 工具');
     return;
   }
+  // 在线玩家：地图级工具禁用，只能动自己的 token / 画自己的标记
+  if (inOnlinePlayerMode() && !PLAYER_TOOLS.has(tool)) {
+    showToast('👁️ 玩家在线时不能使用这个工具（只能编辑自己的单位/绘制标记）');
+    return;
+  }
   // 切换工具时清理未放置的拾取状态，避免"摆放过一次就卡在放置模式"
   if (tool !== 'unit') { _unitPending = null; _hoverUnit = null; }
   if (tool !== 'token') { _tokenPending = null; _hoverToken = null; }
@@ -25,9 +30,14 @@ function setTool(tool) {
 
   switch (tool) {
     case 'select':
-      hint.innerHTML = '👆 点单位/图形/底图选中；<b>拖空白框选</b>多个单位，点击空白取消选中，<b>Esc</b> 清空；拖单位移动、8 手柄缩放；<b>空格+拖</b>或<b>中键拖</b>平移；Shift 点选=加选，Ctrl+D 复制';
+      hint.innerHTML = '👆 点单位/图形/底图选中；<b>拖空白框选</b>多个单位，点击空白取消选中，<b>Esc</b> 清空；拖单位移动、8 手柄缩放；用 <b>✋ 移动(H)</b> 或<b>空格+拖</b>/<b>中键拖</b>平移地图；Shift 点选=加选，Ctrl+D 复制';
       coord.textContent = '⚪ 选择模式';
       cnt.style.cursor = 'default';
+      break;
+    case 'pan':
+      hint.innerHTML = '✋ <b>按住拖拽即可移动整张地图</b>；滚轮缩放。想移动单位/框选请切到「选择(V)」';
+      coord.textContent = '✋ 移动地图';
+      cnt.style.cursor = 'grab';
       break;
     case 'brush':
       hint.innerHTML = brushShapeName(brush.shape) + '：<b>拖拽</b>绘制' + brushShapeHint(brush.shape) + '；下方可切换形状 / 颜色 / 透明度 / 虚线';
@@ -331,6 +341,7 @@ function shapeApply() {
   }
   document.getElementById('shape-modal').style.display = 'none';
   render(); updateInfo();
+  onlineMarkSync();
 }
 
 document.getElementById('shape-angle').addEventListener('input', function() {
@@ -355,6 +366,7 @@ document.getElementById('shape-delete').addEventListener('click', () => {
   if (selectedShape === id) selectedShape = null;
   document.getElementById('shape-modal').style.display = 'none';
   render(); updateInfo();
+  onlineMarkSync();
 });
 document.getElementById('shape-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
 
@@ -384,6 +396,7 @@ function lineApply() {
   ln.dash = document.getElementById('line-dash').checked;
   document.getElementById('line-modal').style.display = 'none';
   render(); updateInfo();
+  onlineMarkSync();
 }
 
 document.getElementById('line-w').addEventListener('input', function() {
@@ -398,6 +411,7 @@ document.getElementById('line-delete').addEventListener('click', () => {
   if (selectedLine === id) selectedLine = null;
   document.getElementById('line-modal').style.display = 'none';
   render(); updateInfo();
+  onlineMarkSync();
 });
 document.getElementById('line-modal').addEventListener('click', function(e) { if (e.target === e.currentTarget) e.currentTarget.style.display = 'none'; });
 
@@ -411,7 +425,7 @@ function updateInfo() {
     panel.innerHTML = `<div class="row">
       <span><span class="label">已选中:</span> <span class="val">🖼️ 底图</span></span>
       <span><span class="label">网格:</span> <span class="val">${backgroundMap.cols}×${backgroundMap.rows} 格</span></span>
-      <span><span class="label">锁定:</span> <span class="val">${locked ? '🔒 已锁定（先解锁再移动）' : '🔓 未锁定（可拖动移动）'}</span></span>
+      <span><span class="label">锁定:</span> <span class="val">${locked ? '🔒 已锁定（先解锁再移动）' : '🔓 未锁定（点住底图拖拽可移动）'}</span></span>
     </div>`;
     return;
   }
@@ -505,6 +519,7 @@ document.addEventListener('keydown', (e) => {
         pruneGroups();
         render(); updateInfo();
         if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
+        onlineMarkSync();
         return;
       }
     }
@@ -517,6 +532,7 @@ document.addEventListener('keydown', (e) => {
       pruneGroups();
       render(); updateInfo();
       if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
+      onlineMarkSync();
       return;
     }
     if (selectedShape) {
@@ -524,6 +540,7 @@ document.addEventListener('keydown', (e) => {
       shapes = shapes.filter(s => s.id !== selectedShape);
       selectedShape = null;
       render(); updateInfo();
+      onlineMarkSync();
       return;
     }
     if (selectedLine) {
@@ -531,6 +548,7 @@ document.addEventListener('keydown', (e) => {
       freeLines = freeLines.filter(l => l.id !== selectedLine);
       selectedLine = null;
       render(); updateInfo();
+      onlineMarkSync();
       return;
     }
   }
@@ -585,7 +603,7 @@ document.addEventListener('keydown', (e) => {
     }
     return;
   }
-  const km = { 'v':'select', 'b':'paint', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 't':'token', 'y':'dm', 'f':'fog', 'm':'measure' };
+  const km = { 'v':'select', 'b':'paint', 'h':'pan', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 't':'token', 'y':'dm', 'f':'fog', 'm':'measure' };
   const k = e.key?.toLowerCase();
   // 画笔子模式：r=矩形 g=线段 o=圆形 c=锥形
   if (k === 'r') { e.preventDefault(); setBrushTool('rect'); return; }
@@ -713,7 +731,7 @@ function toggleBgLock() {
   backgroundMap.locked = bgLocked() ? false : true;
   render();
   updateBgLockUI();
-  showToast(backgroundMap.locked ? '🔒 底图已锁定，不可再被拖动' : '🔓 底图已解锁（选择底图后可拖动）');
+  showToast(backgroundMap.locked ? '🔒 底图已锁定，不可再被拖动' : '🔓 底图已解锁（选择工具下点住底图拖拽即可移动）');
 }
 document.getElementById('btn-bg-lock').addEventListener('click', toggleBgLock);
 
@@ -908,6 +926,8 @@ function finishUnitSave(id, data) {
     if (t) {
       pushUndoMeta();
       Object.assign(t, data);
+      onlineSendTokenEdit(id, data); // 在线即发增量（DM/玩家；服务器校验归属）
+      onlineMarkSync();
       syncTokenInitiative(t);
       closeUnitModal();
       render(); updateInfo();
@@ -932,6 +952,8 @@ function deleteUnitConfirm() {
     return;
   }
   if (!id) return;
+  const ownerTok = tokens.find(x => x.id === id);
+  const owner = ownerTok ? ownerTok.ownerId : '';
   pushUndoMeta();
   if (viewSourceTokenId === id) viewSourceTokenId = null;
   tokens = tokens.filter(x => x.id !== id);
@@ -942,6 +964,8 @@ function deleteUnitConfirm() {
   closeUnitModal();
   render(); updateInfo();
   if (typeof updateInitiativePanel === 'function') updateInitiativePanel();
+  onlineSendTokenDelete(id, owner); // 在线即发删除增量（服务器校验归属）
+  onlineMarkSync();
   showToast('🗑️ 已删除单位');
 }
 
@@ -1574,7 +1598,7 @@ function importBackgroundMapFromFile() {
           x: 0, y: 0,
           cols: defCols,
           rows: defRows,
-          opacity: 0.85
+          opacity: 1        // 默认 100% 不透明，让导入的底图就是原始图片颜色
         };
         // 导入后不强制进入设置/对齐模式：仅在提示条给出下一步引导
         const hint = document.getElementById('tool-hint');
@@ -1601,8 +1625,8 @@ function openMapSettingsModal() {
   document.getElementById('bg-settings-y').value = backgroundMap.y;
   document.getElementById('bg-settings-cols').value = backgroundMap.cols;
   document.getElementById('bg-settings-rows').value = backgroundMap.rows;
-  document.getElementById('bg-settings-opacity').value = Math.round((backgroundMap.opacity ?? 0.85) * 100);
-  document.getElementById('map-settings-opacity-val').textContent = Math.round((backgroundMap.opacity ?? 0.85) * 100) + '%';
+  document.getElementById('bg-settings-opacity').value = Math.round((backgroundMap.opacity ?? 1) * 100);
+  document.getElementById('map-settings-opacity-val').textContent = Math.round((backgroundMap.opacity ?? 1) * 100) + '%';
   document.getElementById('map-settings-img').style.display = backgroundMap.imgData ? 'block' : 'none';
   document.getElementById('map-settings-img').src = backgroundMap.imgData || '';
   modal.style.display = 'block';

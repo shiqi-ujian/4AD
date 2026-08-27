@@ -37,16 +37,15 @@ function init() {
   const missing = [];
   if (cdn.xlsx === false) missing.push('SheetJS');
   if (cdn.jszip === false) missing.push('JSZip');
-  if (cdn.peerjs === false) missing.push('PeerJS');
   if (missing.length > 0) {
     const warn = document.getElementById('cdn-warning');
     if (warn) {
       warn.style.display = 'block';
-      warn.textContent = `⚠️ 依赖未加载（${missing.join(', ')}）— xlsx 导出降级 / 在线功能不可用，建议联网后刷新`;
+      warn.textContent = `⚠️ 依赖未加载（${missing.join(', ')}）— xlsx 导出降级，建议联网后刷新`;
     }
   }
   console.log(`⚔️ 通用战斗地图生成器 ${COMBATMAP_VERSION} 已就绪`);
-  console.log('快捷键: V=选择 B=笔刷 W=墙壁 D=门 L=标签 E=擦除 T=图片 M=测量 U=单位库 Y=DM层 F=战雾 R=画笔矩形 G=画笔线段 O=画笔圆形 C=画笔锥形 Delete=删除选中');
+  console.log('快捷键: V=选择 B=笔刷 H=移动地图 W=墙壁 D=门 L=标签 E=擦除 T=图片 M=测量 U=单位库 Y=DM层 F=战雾 R=画笔矩形 G=画笔线段 O=画笔圆形 C=画笔锥形 Delete=删除选中');
   console.log('v0.81: 页签面板 · 网格对齐重做 · DM/玩家视图 · 单位库 · 摆放后自动回选择(Shift连放)');
   if (typeof initCombatShareUI === 'function') initCombatShareUI();
   if (typeof ensureScenes === 'function') ensureScenes();

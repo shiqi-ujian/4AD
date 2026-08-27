@@ -108,13 +108,14 @@ function drawCombatCellBase(g, q, r, hCell) {
   const p = cellToPixel(q, r);
   if (!hCell) hCell = getCell(q, r);
   const half = CELL_SIZE / 2;
-  let fillColor = '#3a3a52';
-  if (hCell.terrain && getTerrain(hCell.terrain)) fillColor = getTerrain(hCell.terrain).color;
+  const hasTerrain = hCell.terrain && getTerrain(hCell.terrain);
+  // 空地恒透明（透出 #3a3a52 底色，或底图覆盖的区域）；只有地形格才填地形色
+  let fillColor = hasTerrain ? getTerrain(hCell.terrain).color : 'rgba(0,0,0,0)';
   g.beginPath();
   g.rect(p.x - half, p.y - half, CELL_SIZE, CELL_SIZE);
   g.fillStyle = fillColor;
   g.fill();
-  if (artStyle === 'handdrawn' && hCell.terrain && getTerrain(hCell.terrain)) {
+  if (artStyle === 'handdrawn' && hasTerrain) {
     drawCombatTexture(g, q, r, hCell.terrain, getTerrain(hCell.terrain).color);
   }
   // 格线改为单独叠加层 drawGridOverlay()（盖在底图之上），此处不再逐格画
@@ -180,7 +181,8 @@ function drawGridOverlay() {
 function render() {
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = artStyle === 'handdrawn' ? '#1d2117' : '#2d2d44';
+  // 画布底色恒定 #3a3a52（标准空格底色），无论是否有底图——保证底图外围空白区颜色一致
+  ctx.fillStyle = '#3a3a52';
   ctx.fillRect(0, 0, W, H);
 
   ctx.save();
@@ -193,7 +195,10 @@ function render() {
   const qMin = Math.floor(topLeft.q) - 1, qMax = Math.ceil(botRight.q) + 1;
   const rMin = Math.floor(topLeft.r) - 1, rMax = Math.ceil(botRight.r) + 1;
 
-  // Pass 1: Cell fills + grid (地形层)
+  // Pass 0: 底图（背景层——最底层，画在一切之前）
+  if (layerVisible('background')) drawBackgroundMap();
+
+  // Pass 1: Cell fills（地形层，画在底图之上；空地不填充→透出底图）
   if (layerVisible('terrain')) {
     for (let q = qMin; q <= qMax; q++) {
       for (let r = rMin; r <= rMax; r++) {
@@ -201,9 +206,6 @@ function render() {
       }
     }
   }
-
-  // Pass 2: 底图（背景层，放在格子与地形之上，但保持半透明可调；贴合导入地图做网格对齐）
-  if (layerVisible('background')) drawBackgroundMap();
 
   // Pass 2.5: 格线叠加层（盖在底图/地形之上，清晰可见）
   drawGridOverlay();
@@ -342,6 +344,8 @@ function render() {
   drawMeasure();
 
   ctx.restore();
+  // 刷新底图锁定按钮（导入/移除/加载底图后同步启用状态与文案）
+  if (typeof updateBgLockUI === 'function') updateBgLockUI();
 }
 
 function drawMeasure() {
@@ -526,6 +530,7 @@ function drawSelectionOverlay() {
 function drawShapes() {
   for (const sh of shapes) {
     if (layerOf(sh, 'painting') !== 'painting') continue;
+    if (typeof showPlayerDrawLayer === 'boolean' && !showPlayerDrawLayer && sh.author) continue; // 玩家绘制层
     drawShape(sh);
   }
 }
@@ -618,6 +623,7 @@ function drawShapeName(sh, x, y) {
 function drawFreeLines() {
   for (const ln of freeLines) {
     if (layerOf(ln, 'line') !== 'line') continue;
+    if (typeof showPlayerDrawLayer === 'boolean' && !showPlayerDrawLayer && ln.author) continue; // 玩家绘制层
     const p1 = cellToPixel(ln.x1, ln.y1), p2 = cellToPixel(ln.x2, ln.y2);
     ctx.strokeStyle = ln.color || '#000';
     ctx.lineWidth = (ln.width || 3) / zoom;
@@ -908,7 +914,7 @@ function drawBackgroundMap() {
   const hPx = bm.rows * CELL_SIZE;
   ctx.save();
   // 对齐模式下以全不透明度显示，方便看清格线
-  ctx.globalAlpha = _bgAlignRefs ? 1 : Math.max(0, Math.min(1, bm.opacity ?? 0.85));
+  ctx.globalAlpha = _bgAlignRefs ? 1 : Math.max(0, Math.min(1, bm.opacity ?? 1));
   if (bm.img && bm.img.complete) {
     ctx.drawImage(bm.img, bm.x * CELL_SIZE, bm.y * CELL_SIZE, wPx, hPx);
   } else {
@@ -931,7 +937,7 @@ function drawBackgroundMap() {
     ctx.setLineDash([5 / zoom, 4 / zoom]);
     ctx.strokeRect(bm.x * CELL_SIZE, bm.y * CELL_SIZE, wPx, hPx);
     ctx.setLineDash([]);
-    ctx.globalAlpha = Math.max(0, Math.min(1, bm.opacity ?? 0.85));
+    ctx.globalAlpha = Math.max(0, Math.min(1, bm.opacity ?? 1));
   }
   // 底图对齐模式：绘制底图外框 + 手柄 + 参考点 + 对齐网格预览
   if (_bgAlignRefs) {

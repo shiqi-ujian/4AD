@@ -19,7 +19,7 @@ let selectedTerrain = 'floor';
 let selectedCell = null;
 let viewRole = 'dm';        // 'dm' | 'player' — 手动视图切换：玩家视图预览玩家所见（DM 专属功能禁用）
 function viewRoleIsPlayer() {
-  return viewRole === 'player' || (typeof onlineIsPlayer === 'boolean' && onlineIsPlayer && !!onlinePeer);
+  return viewRole === 'player' || (typeof onlineIsPlayer === 'boolean' && onlineIsPlayer && !!onlineWS);
 }
 let viewX = 0, viewY = 0;
 let zoom = 1;
@@ -193,6 +193,7 @@ function restoreMeta(before) {
   // 撤销恢复底图（含 img 重建）
   if (before.backgroundMap) {
     backgroundMap = before.backgroundMap;
+    if (backgroundMap.opacity === 0.85) backgroundMap.opacity = 1;
     if (backgroundMap.imgData && !backgroundMap.img) {
       const img = new Image();
       img.src = backgroundMap.imgData;
@@ -281,6 +282,7 @@ function setDmCell(q, r, data, recordUndo = true) {
   dmData[key] = { ...existing, ...data };
   const d = dmData[key];
   if (!d.mark && !d.label) delete dmData[key];
+  onlineMarkSync();
 }
 
 function removeDmCell(q, r, recordUndo = true) {
@@ -298,6 +300,7 @@ function setFogCell(q, r, hidden, recordUndo = true) {
   if (hidden) fog[key] = 1;
   else delete fog[key];
   if (Object.keys(fog).length === 0) fog = {};
+  onlineQueueFog(q, r, hidden); // 在线时以批量增量同步（防刷屏）
 }
 
 function toggleFogCell(q, r, recordUndo = true) {
