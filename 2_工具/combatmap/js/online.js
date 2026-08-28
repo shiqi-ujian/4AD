@@ -101,7 +101,7 @@ function inOnlinePlayerMode() {
 }
 
 // 在线玩家允许使用的工具（枭熊式宽松：动自己 token + 画标记；地形/墙/门/战雾/DM层禁用）
-const PLAYER_TOOLS = new Set(['select', 'pan', 'measure', 'brush', 'unit']);
+const PLAYER_TOOLS = new Set(['select', 'marquee', 'pan', 'measure', 'brush', 'unit']);
 
 // 玩家绘制层显隐（GM 可关）——渲染时据此过滤带 author 的 shapes/lines
 let showPlayerDrawLayer = true;
@@ -678,11 +678,11 @@ if (helpModal) {
   const sc = document.getElementById('help-shortcuts');
   if (sc) {
     sc.innerHTML = [
-      ['🎯 基础工具', 'V 选择 · B 笔刷 · W 墙壁 · D 门 · L 标签 · E 擦除 · R 区域 · G 线段 · T 图片 · M 测量'],
+      ['🎯 基础工具', 'V 选择(选中即拖 / 空白拖平移) · X 框选 · B 笔刷 · W 墙壁 · D 门 · L 标签 · E 擦除 · R 区域 · G 线段 · T 图片 · M 测量'],
       ['🧝 单位', 'U 打开单位库 · 点预设拿起 → 地图放置 · Shift 连放 · Esc 取消'],
       ['🎲 DM / 战雾', 'Y DM层 · F 战雾 · Shift 点选多选单位'],
       ['⬅️ 撤销 / 编辑', 'Ctrl+Z 撤销 · Ctrl+Y 重做 · Ctrl+D 复制选中 · Delete 删除'],
-      ['🔍 视角', '滚轮缩放 · 拖拽(空白)平移 · 右键菜单'],
+      ['🔍 视角', '滚轮缩放 · 选择工具空白拖拽平移 · 空格/中键拖平移 · 右键菜单'],
       ['🌐 在线', '「房间」页签创建/加入房间，玩家可看到在线成员名册'],
     ].map(([k, v]) => `<div style="margin-bottom:7px;"><b style="color:#e8b46a;">${k}</b><br><span style="color:#ddd;">${v}</span></div>`).join('');
   }

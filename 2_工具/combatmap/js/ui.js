@@ -30,12 +30,17 @@ function setTool(tool) {
 
   switch (tool) {
     case 'select':
-      hint.innerHTML = '👆 点单位/图形/底图选中；<b>拖空白框选</b>多个单位，点击空白取消选中，<b>Esc</b> 清空；拖单位移动、8 手柄缩放；用 <b>✋ 移动(H)</b> 或<b>空格+拖</b>/<b>中键拖</b>平移地图；Shift 点选=加选，Ctrl+D 复制';
+      hint.innerHTML = '👆 点单位/图形/底图<b>选中即拖</b>移动、8 手柄缩放；<b>空白拖拽=平移地图</b>，点空白取消选中，<b>Esc</b> 清空；框选多个单位用 <b>🔲 框选(X)</b>；Shift 点选=加选，Ctrl+D 复制；也可用<b>空格+拖</b>/<b>中键拖</b>平移';
       coord.textContent = '⚪ 选择模式';
       cnt.style.cursor = 'default';
       break;
+    case 'marquee':
+      hint.innerHTML = '🔲 <b>拖拽框选</b>多个单位（加 <b>Shift</b> 加选），点空白取消选中；框选后切到「选择(V)」可直接拖动任一选中单位';
+      coord.textContent = '🔲 框选模式';
+      cnt.style.cursor = 'crosshair';
+      break;
     case 'pan':
-      hint.innerHTML = '✋ <b>按住拖拽即可移动整张地图</b>；滚轮缩放。想移动单位/框选请切到「选择(V)」';
+      hint.innerHTML = '✋ <b>按住拖拽即可移动整张地图</b>；滚轮缩放。想移动单位/框选请切到「选择(V)」/「框选(X)」';
       coord.textContent = '✋ 移动地图';
       cnt.style.cursor = 'grab';
       break;
@@ -603,7 +608,7 @@ document.addEventListener('keydown', (e) => {
     }
     return;
   }
-  const km = { 'v':'select', 'b':'paint', 'h':'pan', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 't':'token', 'y':'dm', 'f':'fog', 'm':'measure' };
+  const km = { 'v':'select', 'x':'marquee', 'b':'paint', 'h':'pan', 'w':'wall', 'd':'door', 'l':'label', 'e':'erase', 't':'token', 'y':'dm', 'f':'fog', 'm':'measure' };
   const k = e.key?.toLowerCase();
   // 画笔子模式：r=矩形 g=线段 o=圆形 c=锥形
   if (k === 'r') { e.preventDefault(); setBrushTool('rect'); return; }
@@ -1970,6 +1975,10 @@ const LS_TOOLBAR_KEY = 'combatmap_toolbar_collapsed_v1';
 let toolbarCollapsed = false;
 try { toolbarCollapsed = localStorage.getItem(LS_TOOLBAR_KEY) === '1'; } catch (e) { /* ignore */ }
 
+// 移动端默认收起为底部图标条（最大化地图）；桌面端保持记忆的用户偏好
+const isMobileLayout = () => window.matchMedia('(max-width: 820px)').matches;
+if (isMobileLayout()) toolbarCollapsed = true;
+
 function applyToolbarState() {
   const tb = document.getElementById('toolbar');
   if (tb) tb.classList.toggle('collapsed', toolbarCollapsed);
@@ -1977,6 +1986,11 @@ function applyToolbarState() {
   if (tg) { tg.textContent = toolbarCollapsed ? '≫' : '≪'; tg.title = toolbarCollapsed ? '展开工具栏' : '折叠左栏（最大化地图）'; }
   const mb = document.getElementById('toolbar-menu-btn');
   if (mb) mb.textContent = toolbarCollapsed ? '☰' : '☰ 菜单';
+  const hd = document.getElementById('toolbar-handle');
+  if (hd) {
+    hd.style.display = isMobileLayout() ? '' : 'none';
+    hd.textContent = toolbarCollapsed ? '▲' : '▼ 收起工具栏';
+  }
 }
 function toggleToolbar() {
   toolbarCollapsed = !toolbarCollapsed;
@@ -1987,6 +2001,8 @@ function toggleToolbar() {
 }
 const toolbarToggle = document.getElementById('toolbar-toggle');
 if (toolbarToggle) toolbarToggle.addEventListener('click', toggleToolbar);
+const toolbarHandle = document.getElementById('toolbar-handle');
+if (toolbarHandle) toolbarHandle.addEventListener('click', toggleToolbar);
 
 // 折叠态点击页签 → 先展开再切换（让面板可见）
 document.querySelectorAll('.panel-tab').forEach(t => {

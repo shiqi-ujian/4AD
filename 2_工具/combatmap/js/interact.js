@@ -69,7 +69,7 @@ canvas.addEventListener('mousedown', (e) => {
       }
     }
 
-    // --- 移动/平移工具：左键拖拽即移动整张地图 ---
+    // --- 移动/平移工具：左键拖拽即移动整张地图（v0.101 按钮已并入「选择」，仅存 H 快捷键兜底） ---
     if (selectedTool === 'pan') {
       _dragMode = 'pan';
       dragStartX = mx; dragStartY = my;
@@ -78,7 +78,16 @@ canvas.addEventListener('mousedown', (e) => {
       return;
     }
 
-    // --- 选择工具：单位/图形/线段/底图/框选优先 ---
+    // --- 框选工具（v0.101 独立按钮，对齐六角格 select-rect）：拖拽框选多个单位 ---
+    if (selectedTool === 'marquee') {
+      const overBg = backgroundMap && !_bgAlignRefs && hitTestBackground(wx, wy);
+      _marqueeStart = { wx, wy, shift: !!(e.shiftKey || e.ctrlKey || e.metaKey), overBg };
+      _dragMode = 'marquee';
+      isDragging = true; dragStartX = mx; dragStartY = my;
+      return;
+    }
+
+    // --- 选择工具：单位/图形/线段/底图/平移优先（框选已独立为「框选」按钮） ---
     if (selectedTool === 'select') {
       // 单位缩放手柄
       const th = tokenHandleAt(wx, wy);
@@ -178,12 +187,13 @@ canvas.addEventListener('mousedown', (e) => {
         render(); updateInfo();
         return;
       }
-      // 其余：框选（marquee）。若最终是「点击」判定为：点到底图→选中底图；否则取消选中 + 显示格子信息
+      // 其余：空白处拖拽 = 平移地图（与六角格 select 一致：选中即拖 + 空白拖平移；框选改用「🔲 框选(X)」按钮）
       clearSelection();
       selectedBackground = false;
-      _marqueeStart = { wx, wy, shift: !!(e.shiftKey || e.ctrlKey || e.metaKey), overBg };
-      _dragMode = 'marquee';
-      isDragging = true; dragStartX = wx; dragStartY = wy;
+      _dragMode = 'pan';
+      dragStartX = mx; dragStartY = my;
+      viewStartX = viewX; viewStartY = viewY;
+      isDragging = true;
       const cell = cellAtPixel(mx, my);
       if (cell) handleCellClick(cell.q, cell.r, e);
       return;

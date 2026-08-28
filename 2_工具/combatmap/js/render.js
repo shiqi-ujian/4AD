@@ -513,7 +513,7 @@ function drawSelectionOverlay() {
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillText(label, bx + 6 / zoom, by - 12 / zoom);
   }
-  // 框选预览（选择工具拖拽空白）
+  // 框选预览（「框选」工具拖拽）
   if (_marquee) {
     const mx0 = _marquee.x * CELL_SIZE, my0 = _marquee.y * CELL_SIZE;
     const mw = Math.max(1, _marquee.w * CELL_SIZE), mh = Math.max(1, _marquee.h * CELL_SIZE);

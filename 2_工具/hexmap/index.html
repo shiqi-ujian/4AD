@@ -44,7 +44,7 @@ body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; colo
 
 #canvas-container { flex: 1; position: relative; overflow: hidden; background: #2d2d44; cursor: grab; }
 #canvas-container:active { cursor: grabbing; }
-canvas { display: block; }
+canvas { display: block; width: 100%; height: 100%; }
 
 /* Selection Info */
 #info-panel {
@@ -67,11 +67,43 @@ canvas { display: block; }
 #toolbar::-webkit-scrollbar { width: 4px; }
 #toolbar::-webkit-scrollbar-thumb { background: #0f3460; border-radius: 2px; }
 
-/* Responsive */
-@media (max-width: 800px) {
-  #toolbar { width: 48px; min-width: 48px; }
-  #toolbar h3 span { display: none; }
-  #toolbar h2, #toolbar h3, #toolbar label, .tool-btn .label, #tool-hint { display: none; }
+/* ============================================================
+   移动端：工具栏从左侧栏改为「底部抽屉」。
+   默认收起为底部一条图标条（最大化地图），点开弹出完整面板。
+   桌面端（>820px）样式不受影响。
+   ============================================================ */
+@media (max-width: 820px) {
+  /* 整体改为上下排布：画布在上铺满，工具栏在下 */
+  #app { flex-direction: column; }
+  #canvas-container { order: 0; flex: 1 1 auto; width: 100%; min-height: 0; }
+  #toolbar {
+    order: 1; width: 100% !important; min-width: 0 !important; flex: 0 0 auto;
+    border-right: none; border-top: 1px solid #0f3460;
+    position: relative; z-index: 30;
+  }
+
+  /* 收起态：一行 = 把手(chevron) + 核心工具图标(横向滚动) */
+  #toolbar.collapsed { display: flex; flex-direction: row; align-items: center; gap: 4px; padding: 5px 6px; height: 46px; overflow: hidden; }
+  #toolbar.collapsed > *:not(#toolbar-handle):not(#hex-core-tools) { display: none !important; }
+  #toolbar.collapsed #toolbar-handle { flex: 0 0 auto; width: 28px; height: 34px; padding: 0; font-size: 16px; border: 1px solid #0f3460; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+  /* #hex-core-tools 本身就是一个 .tool-group，所以直接作用在上面 */
+  #toolbar.collapsed #hex-core-tools { margin: 0; flex: 1 1 auto; min-width: 0; display: flex; flex-direction: row; flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; gap: 6px; align-items: center; }
+  #toolbar.collapsed #hex-core-tools::-webkit-scrollbar { height: 0; }
+  #toolbar.collapsed #hex-core-tools .tool-btn[data-tool] { width: auto; min-width: 56px; padding: 0 9px; height: 34px; }
+  #toolbar.collapsed #hex-core-tools .tool-btn[data-tool] .label { font-size: 11px; display: inline; }
+
+  /* 展开态：抽屉向上弹出，完整工具栏 */
+  #toolbar:not(.collapsed) { max-height: 62vh; overflow-y: auto; }
+  #toolbar-handle {
+    display: flex; align-items: center; justify-content: center; width: 100%;
+    padding: 7px 0 5px; background: transparent; border: none;
+    color: #888; font-size: 12px; letter-spacing: 2px; cursor: pointer;
+    border-bottom: 1px solid rgba(15,52,96,0.5);
+  }
+  #toolbar:not(.collapsed) #toolbar-handle { position: sticky; top: 0; z-index: 2; background: #16213e; }
+  #toolbar:not(.collapsed) h2 { text-align: center; }
+  #toolbar:not(.collapsed) .tool-btn .label { display: inline; }
+  #toolbar:not(.collapsed) #hex-core-tools { flex-wrap: wrap; }
 }
 
 /* Zoom indicator */
@@ -121,9 +153,10 @@ body.art-handdrawn #info-panel .val { color: #f0e6d3; }
 <div id="app">
   <div id="toolbar">
     <h2>🗺️ 六角格沙盒</h2>
+    <button id="toolbar-handle" title="展开 / 收起工具栏" aria-label="展开收起工具栏" style="display:none;">▲ 工具栏</button>
 
     <h3>🔧 工具 <span style="font-weight:normal;font-size:11px;color:#888;float:right;">(快捷键)</span></h3>
-    <div class="tool-group">
+    <div class="tool-group" id="hex-core-tools">
       <button class="tool-btn active" data-tool="select" title="选择/查看 (V)"><span class="icon">👆</span><span class="label">选择(V)</span></button>
       <button class="tool-btn" data-tool="select-rect" title="框选 (X)"><span class="icon">🔲</span><span class="label">框选(X)</span></button>
       <button class="tool-btn" data-tool="paint" title="地形笔刷 (B)"><span class="icon">🖌️</span><span class="label">地形(B)</span></button>

@@ -397,15 +397,15 @@ async function t_marquee() {
       {id:'tkM2',kind:'enemy',name:'B',x:4,y:3,w:1,h:1,icon:'👹',color:'#e53935',hp:8,maxHp:8,layer:'creature'},
       {id:'tkM3',kind:'enemy',name:'C',x:6,y:3,w:1,h:1,icon:'👹',color:'#e53935',hp:8,maxHp:8,layer:'creature'}
     ];
-    selectedTool='select'; render(); updateEmptyState();
+    selectedTool='marquee'; render(); updateEmptyState();
     if(document.getElementById('empty-dismiss')) document.getElementById('empty-dismiss').click();
     return true;
   })()`); await sleep(80);
-  await dragCells(1, 1, 7, 5);   // 拖空白框选覆盖 3 单位
+  await dragCells(1, 1, 7, 5);   // 框选工具拖框覆盖 3 单位
   await sleep(120);
   const sel = await c.eval(`({ size: selectedTokens.size, bg: selectedBackground })`);
   await shot('verify-marquee.png');
-  record('框选(拖空白覆盖3单位)', sel.size === 3 && !sel.bg, JSON.stringify(sel));
+  record('框选(框选工具拖框覆盖3单位)', sel.size === 3 && !sel.bg, JSON.stringify(sel));
   await clickCell(1, 1); await sleep(80);   // 点击空白取消选中
   const sel2 = await c.eval(`selectedTokens.size`);
   record('框选(点击空白取消选中)', sel2 === 0, `size=${sel2}`);
@@ -452,28 +452,134 @@ async function t_layers() {
 
 async function t_bglock() {
   await reset();
+  // 模拟「导入底图」：新建 backgroundMap（不含 locked → 默认锁定）
   await c.eval(`(()=>{
     const cv=document.createElement('canvas'); cv.width=480; cv.height=480; const g=cv.getContext('2d');
     g.fillStyle='#ccc'; g.fillRect(0,0,480,480);
     const img=new Image(); img.src=cv.toDataURL('image/png');
-    backgroundMap={id:'bgL',imgData:cv.toDataURL('image/png'),img,x:2,y:2,cols:6,rows:6,opacity:0.9};
+    backgroundMap={id:'bgL',imgData:cv.toDataURL('image/png'),img,x:2,y:2,cols:6,rows:6,opacity:0.85};
     render(); if(document.getElementById('empty-dismiss')) document.getElementById('empty-dismiss').click();
     return true;
   })()`); await sleep(60);
   const lockedDefault = await c.eval(`bgLocked()`);
-  await c.eval(`selectedTool='select'; selectedBackground=true; render(); true`); await sleep(30);
+  // 真实点击「底图锁定」按钮解锁
+  await c.eval(`document.getElementById('btn-bg-lock').click(); true`); await sleep(80);
+  const afterUnlock = await c.eval(`({ locked: bgLocked(), btn: document.getElementById('btn-bg-lock').textContent })`);
+  // 解锁后：选择工具下直接在底图上拖拽（无需先点选）应移动
+  await c.eval(`selectedTool='select'; render(); true`); await sleep(30);
   const before = await c.eval(`backgroundMap.x`);
   const a = await cellPage(3,3), b = await cellPage(5,5);
   await c.drag(Math.round(a.x), Math.round(a.y), Math.round(b.x), Math.round(b.y)); await sleep(100);
-  const afterLocked = await c.eval(`backgroundMap.x`);
-  await c.eval(`toggleBgLock(); true`); await sleep(30);
-  const unlocked = await c.eval(`bgLocked()`);
-  await c.eval(`selectedTool='select'; selectedBackground=true; render(); true`); await sleep(30);
+  const afterDrag = await c.eval(`backgroundMap.x`);
+  // 再点回去锁定 → 拖拽应不动
+  await c.eval(`document.getElementById('btn-bg-lock').click(); true`); await sleep(80);
+  const relocked = await c.eval(`bgLocked()`);
+  await c.eval(`selectedBackground=true; render(); true`); await sleep(30);
   const a2 = await cellPage(3,3), b2 = await cellPage(5,5);
   await c.drag(Math.round(a2.x), Math.round(a2.y), Math.round(b2.x), Math.round(b2.y)); await sleep(100);
-  const afterUnlocked = await c.eval(`backgroundMap.x`);
+  const afterLockedDrag = await c.eval(`backgroundMap.x`);
   await shot('verify-bglock.png');
-  record('底图锁定(默认锁→锁不可拖→解锁可拖)', lockedDefault===true && Math.abs(afterLocked-before)<0.01 && unlocked===false && Math.abs(afterUnlocked-before)>0.1, JSON.stringify({lockedDefault,before,afterLocked,unlocked,afterUnlocked}));
+  record('底图锁定(真实按钮解锁/锁定+一步拖拽)', lockedDefault===true && afterUnlock.locked===false && afterUnlock.btn.includes('未锁定') && Math.abs(afterDrag-before)>0.1 && relocked===true && Math.abs(afterLockedDrag-afterDrag)<0.01, JSON.stringify({lockedDefault,afterUnlock,before,afterDrag,relocked,afterLockedDrag}));
+}
+
+async function t_pan() {
+  await reset();
+  await dismissEmpty();
+  await c.eval(`setTool('pan'); true`); await sleep(30);
+  const v0 = await c.eval(`({ x: viewX, y: viewY })`);
+  const a = await cellPage(2, 2), b = await cellPage(6, 5);
+  await c.drag(Math.round(a.x), Math.round(a.y), Math.round(b.x), Math.round(b.y)); await sleep(80);
+  const v1 = await c.eval(`({ x: viewX, y: viewY })`);
+  const tool = await c.eval(`selectedTool`);
+  await shot('verify-pan.png');
+  record('移动工具(拖拽平移地图)', tool === 'pan' && Math.abs(v1.x - v0.x) > 20 && Math.abs(v1.y - v0.y) > 10, JSON.stringify({ tool, v0, v1 }));
+}
+
+async function t_bgLayerOrder() {
+  await reset();
+  await c.eval(`(async ()=>{
+    const cv=document.createElement('canvas'); cv.width=300; cv.height=300; const g=cv.getContext('2d');
+    g.fillStyle='#ff0000'; g.fillRect(0,0,300,300);
+    const img=new Image(); img.src=cv.toDataURL('image/png');
+    await new Promise(r=>{ img.onload=()=>r(); if(img.complete) r(); });
+    backgroundMap={id:'bgR',imgData:cv.toDataURL('image/png'),img,x:0,y:0,cols:6,rows:6,opacity:1};
+    combatData={'2,2':{terrain:'water',label:'',walls:[0,0,0,0]}};
+    artStyle='classic'; render(); if(document.getElementById('empty-dismiss')) document.getElementById('empty-dismiss').click();
+    return true;
+  })()`); await sleep(80);
+  const px = await c.eval(`(()=>{
+    const g=canvas.getContext('2d');
+    const read=(wx,wy)=>{const sx=Math.round(viewX+wx*zoom), sy=Math.round(viewY+wy*zoom); const d=g.getImageData(sx,sy,1,1).data; return [d[0],d[1],d[2]];};
+    return { terrain: read(2*48, 2*48), empty: read(3*48, 3*48) };
+  })()`);
+  await shot('verify-bg-layer.png');
+  // 地形格应偏蓝(water #4a90d9)，空地应偏红(底图透出)
+  const ok = px.terrain[2] > px.terrain[0] && px.empty[0] > 200 && px.empty[2] < 120;
+  await c.eval(`artStyle='handdrawn'; true`);
+  record('底图在底层(地形盖底图+空地透底图)', ok, JSON.stringify(px));
+}
+
+async function t_bgColorMatch() {
+  await reset();
+  await c.eval(`(async ()=>{
+    const cv=document.createElement('canvas'); cv.width=192; cv.height=192; const g=cv.getContext('2d');
+    // 渐变 + 网格色块，让源图颜色丰富可对比
+    for(let y=0;y<192;y++) for(let x=0;x<192;x++){ g.fillStyle='rgb('+((x*255/192)|0)+','+((y*255/192)|0)+',128)'; g.fillRect(x,y,1,1); }
+    const inter=[['#0aa','#a0a','#aa0','#a00'],['#00a','#0a0','#0aa','#aaa'],['#f00','#0f0','#00f','#ff0'],['#0ff','#f0f','#fff','#f80']];
+    for(let ry=0;ry<4;ry++) for(let rx=0;rx<4;rx++){ g.fillStyle=inter[ry][rx]; g.fillRect(rx*48,ry*48,48,48); }
+    const img=new Image(); img.src=cv.toDataURL('image/png');
+    await new Promise(r=>{ img.onload=()=>r(); if(img.complete) r(); });
+    backgroundMap={id:'bgC',imgData:cv.toDataURL('image/png'),img,x:0,y:0,cols:4,rows:4,opacity:1};
+    combatData={}; artStyle='classic'; showGrid=false; render();
+    if(document.getElementById('empty-dismiss')) document.getElementById('empty-dismiss').click();
+    return true;
+  })()`); await sleep(120);
+  const off = await c.eval(`(()=>{
+    const g=canvas.getContext('2d');
+    const sc=document.createElement('canvas'); sc.width=backgroundMap.img.naturalWidth; sc.height=backgroundMap.img.naturalHeight;
+    const sg=sc.getContext('2d'); sg.drawImage(backgroundMap.img,0,0);
+    const src=sg.getImageData(0,0,sc.width,sc.height).data;
+    let max=0, avg=0, n=0;
+    for(let wy=2; wy<188; wy+=6) for(let wx=2; wx<188; wx+=6){
+      const sx=Math.round(viewX+wx*zoom), sy=Math.round(viewY+wy*zoom);
+      const d=g.getImageData(sx,sy,1,1).data; const si=(wy*sc.width+wx)*4;
+      const df=Math.max(Math.abs(d[0]-src[si]),Math.abs(d[1]-src[si+1]),Math.abs(d[2]-src[si+2]));
+      if(df>max) max=df; avg+=df; n++;
+    }
+    return { max, avg: avg/n };
+  })()`);
+  // 开启「手绘」网格后再测一次（密集采样，量化格线对照片底图的染色）
+  await c.eval(`showGrid=true; artStyle='handdrawn'; render(); true`); await sleep(80);
+  const on = await c.eval(`(()=>{
+    const g=canvas.getContext('2d');
+    const sc=document.createElement('canvas'); sc.width=backgroundMap.img.naturalWidth; sc.height=backgroundMap.img.naturalHeight;
+    const sg=sc.getContext('2d'); sg.drawImage(backgroundMap.img,0,0);
+    const src=sg.getImageData(0,0,sc.width,sc.height).data;
+    let max=0, avg=0, n=0;
+    for(let wy=1; wy<190; wy+=3) for(let wx=1; wx<190; wx+=3){
+      const sx=Math.round(viewX+wx*zoom), sy=Math.round(viewY+wy*zoom);
+      const d=g.getImageData(sx,sy,1,1).data; const si=(wy*sc.width+wx)*4;
+      const df=Math.max(Math.abs(d[0]-src[si]),Math.abs(d[1]-src[si+1]),Math.abs(d[2]-src[si+2]));
+      if(df>max) max=df; avg+=df; n++;
+    }
+    return { max, avg: +(avg/n).toFixed(1) };
+  })()`);
+  await shot('verify-bg-color.png');
+  // 空白区一致性：底图外圈空白，有底图 vs 无底图颜色应一致（#3a3a52）
+  const empty = await c.eval(`(()=>{
+    const g=canvas.getContext('2d');
+    const read=(wx,wy)=>{const sx=Math.round(viewX+wx*zoom), sy=Math.round(viewY+wy*zoom); const d=g.getImageData(sx,sy,1,1).data; return [d[0],d[1],d[2]];};
+    const withBg = read(250, 30);           // 底图(0..192)外圈，有底图
+    const bgSave = backgroundMap; backgroundMap = null; render();
+    const noBg = read(250, 30);             // 同一位置，无底图
+    backgroundMap = bgSave; render();
+    const diff = Math.max(Math.abs(withBg[0]-noBg[0]), Math.abs(withBg[1]-noBg[1]), Math.abs(withBg[2]-noBg[2]));
+    return { withBg, noBg, diff };
+  })()`);
+  await c.eval(`showGrid=true; artStyle='handdrawn'; true`);
+  // 关网格应忠实还原(max≈0)；空白区有/无底图应一致(diff≈0)，且都接近 #3a3a52
+  const nearBase = Math.abs(empty.withBg[0]-58) < 12 && Math.abs(empty.withBg[1]-58) < 12;
+  record('底图颜色(关网格还原≈0 / 空白区有/无底图一致)', off.max <= 5 && on.avg <= 15 && empty.diff <= 2 && nearBase, `off=${JSON.stringify(off)} on=${JSON.stringify(on)} empty=${JSON.stringify(empty)}`);
 }
 
 async function main() {
@@ -505,6 +611,9 @@ async function main() {
     await t_brush();
     await t_layers();
     await t_bglock();
+    await t_pan();
+    await t_bgLayerOrder();
+    await t_bgColorMatch();
   } catch (e) {
     console.error('EXCEPTION:', e.message);
     try { await shot('verify-exception.png'); } catch {}
