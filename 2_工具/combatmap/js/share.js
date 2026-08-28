@@ -110,6 +110,11 @@ function applyCombatData(data) {
   fog = data.fog || {};
   // 恢复底图（含 img 重建）
   backgroundMap = data.backgroundMap ? { ...data.backgroundMap } : null;
+  if (backgroundMap) {
+    // 旧默认 0.85 视为 100%：避免导入的照片底图被暗底压暗导致颜色发灰
+    if (backgroundMap.opacity === 0.85) backgroundMap.opacity = 1;
+    if (backgroundMap.locked === undefined) backgroundMap.locked = true;
+  }
   if (backgroundMap && backgroundMap.imgData && !backgroundMap.img) {
     const img = new Image();
     img.src = backgroundMap.imgData;

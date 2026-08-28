@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>通用战斗地图生成器 v0.99</title>
+<title>通用战斗地图生成器 v0.101</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: 'Segoe UI', system-ui, sans-serif; background: #1a1a2e; color: #e0e0e0; overflow: hidden; height: 100vh; }
@@ -149,7 +149,7 @@ body.player-view .role-btn.player-role { border-color: #c9a84c; color: #fff; bac
 #canvas-container { flex: 1; position: relative; overflow: hidden; background: #2d2d44; cursor: crosshair; }
 #canvas-container.panning { cursor: grab; }
 #canvas-container.panning:active { cursor: grabbing; }
-canvas { display: block; }
+canvas { display: block; width: 100%; height: 100%; }
 
 #info-panel {
   position: absolute; bottom: 10px; left: 10px; right: 10px;
@@ -175,18 +175,55 @@ canvas { display: block; }
 #toolbar::-webkit-scrollbar { width: 4px; }
 #toolbar::-webkit-scrollbar-thumb { background: #0f3460; border-radius: 2px; }
 
-@media (max-width: 800px) {
-  #toolbar { width: 48px; min-width: 48px; }
-  #toolbar.collapsed { width: 48px; min-width: 48px; }
-  #toolbar.collapsed .tool-btn[data-tool] { width: 36px; min-width: 36px; max-width: 36px; }
-  #toolbar.collapsed .panel-tab { width: 36px; min-width: 36px; max-width: 36px; }
-  #toolbar.collapsed #core-tools { margin-top: 26px; }
-  #toolbar h2, .tool-btn .label, #tool-hint, #role-switch, #player-banner,
-  .panel-tab .tab-label, .panel-tab .tab-badge, .tlib-card .tlib-name, .page-title, .page-hint,
-  .tool-group-title, .terrain-more-toggle { display: none; }
-  #panel-tabs { grid-template-columns: 1fr; }
-  .panel-tab { min-width: 0; font-size: 15px; padding: 6px 0; }
-  #token-library-list { grid-template-columns: repeat(1, 1fr); }
+/* ============================================================
+   移动端：工具栏从左侧栏改为「底部抽屉」。
+   默认收起为底部一条图标条（最大化地图），点开弹出完整面板。
+   桌面端（>820px）样式不受影响。
+   ============================================================ */
+@media (max-width: 820px) {
+  /* 整体改为上下排布：画布在上铺满，工具栏在下 */
+  #app { flex-direction: column; }
+  #canvas-container { order: 0; flex: 1 1 auto; width: 100%; min-height: 0; }
+  #toolbar {
+    order: 1; width: 100%; min-width: 0; flex: 0 0 auto;
+    border-right: none; border-top: 1px solid #0f3460;
+    position: relative; z-index: 30;
+  }
+
+  /* 收起态：一行 = 把手(chevron) + 核心工具图标(横向滚动) */
+  #toolbar.collapsed { display: flex; flex-direction: row; align-items: center; gap: 4px; padding: 5px 6px; height: 46px; overflow: hidden; width: 100% !important; min-width: 0 !important; }
+  #toolbar.collapsed #toolbar-handle { flex: 0 0 auto; width: 28px; height: 34px; padding: 0; font-size: 16px; border: 1px solid #0f3460; border-radius: 6px; }
+  #toolbar.collapsed #core-tools { margin-top: 0; flex: 1 1 auto; min-width: 0; }
+  #toolbar.collapsed #core-tools .tool-group { flex-direction: row; flex-wrap: nowrap; overflow-x: auto; justify-content: flex-start; gap: 6px; }
+  #toolbar.collapsed #core-tools .tool-group::-webkit-scrollbar { height: 0; }
+  #toolbar.collapsed #core-tools .tool-btn[data-tool] { width: auto; min-width: 56px; padding: 0 9px; height: 34px; }
+  #toolbar.collapsed #core-tools .tool-btn[data-tool] .label { font-size: 11px; display: inline; }
+  #toolbar.collapsed h2, #toolbar.collapsed #role-switch, #toolbar.collapsed #player-banner,
+  #toolbar.collapsed #cdn-warning, #toolbar.collapsed .tool-group-title, #toolbar.collapsed #panel-tabs,
+  #toolbar.collapsed #panel-pages, #toolbar.collapsed #toolbar-footer, #toolbar.collapsed #toolbar-toggle { display: none; }
+
+  /* 展开态：抽屉向上弹出，完整工具栏 */
+  #toolbar:not(.collapsed) { max-height: 62vh; overflow-y: auto; }
+  #toolbar:not(.collapsed) #toolbar-toggle { display: none; }
+  #toolbar-handle {
+    display: flex; align-items: center; justify-content: center; width: 100%;
+    padding: 7px 0 5px; background: transparent; border: none;
+    color: #888; font-size: 12px; letter-spacing: 2px; cursor: pointer;
+    border-bottom: 1px solid rgba(15,52,96,0.5);
+  }
+  #toolbar:not(.collapsed) #toolbar-handle { position: sticky; top: 0; z-index: 2; background: #16213e; }
+
+  /* 展开的面板内容自适应窄屏 */
+  #panel-tabs { grid-template-columns: repeat(3, 1fr); }
+  .panel-tab { font-size: 12px; padding: 7px 2px; }
+  .panel-tab .tab-label, .panel-tab .tab-badge { display: inline; }
+  .tool-btn .label { display: inline; }
+  #token-library-list { grid-template-columns: repeat(4, 1fr); }
+  .tlib-card .tlib-name { display: block; }
+  #role-switch, #player-banner { display: flex; }
+  .role-btn { font-size: 12px; }
+  .page-title, .page-hint { display: block; }
+  .tool-group-title, .terrain-more-toggle { display: block; }
 }
 
 input[type="range"] { width: 100%; margin: 2px 0; cursor: pointer; }
@@ -228,7 +265,8 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
 <div id="app">
   <div id="toolbar">
     <button id="toolbar-toggle" class="toolbar-toggle" title="折叠左栏（最大化地图）/ 展开工具栏" aria-label="折叠展开工具栏">≪</button>
-    <h2>⚔️ 战斗地图 <span class="ver">v0.99</span></h2>
+    <button id="toolbar-handle" title="展开 / 收起工具栏" aria-label="展开收起工具栏" style="display:none;">▲ 工具栏</button>
+    <h2>⚔️ 战斗地图 <span class="ver">v0.101</span></h2>
 
     <div id="role-switch">
       <button id="role-dm" class="role-btn dm-role active" title="DM 视图：显示全部工具（含 DM 层/战雾/先攻条等隐藏信息）">🎲 DM 视图</button>
@@ -240,9 +278,9 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
     <div id="core-tools">
       <div class="tool-group-title">🔧 核心</div>
       <div class="tool-group">
-        <button class="tool-btn active" data-tool="select" title="选择/框选/移动单位与图形 (V)"><span class="icon">👆</span><span class="label">选择(V)</span></button>
+        <button class="tool-btn active" data-tool="select" title="选择/移动单位与图形 (V)：点单位选中即拖，空白拖拽平移地图"><span class="icon">👆</span><span class="label">选择(V)</span></button>
+        <button class="tool-btn" data-tool="marquee" title="框选 (X)：拖拽方框批量选中多个单位，Shift 加选"><span class="icon">🔲</span><span class="label">框选(X)</span></button>
         <button class="tool-btn" data-tool="paint" title="地形笔刷 (B)"><span class="icon">🖌️</span><span class="label">笔刷(B)</span></button>
-        <button class="tool-btn" data-tool="pan" title="移动/平移地图 (H)：按住拖拽即可移动整张地图"><span class="icon">✋</span><span class="label">移动(H)</span></button>
         <button class="tool-btn" data-tool="measure" title="测量距离 (M)：拖拽显示格/英尺与慢速地形等效移动"><span class="icon">📐</span><span class="label">测量(M)</span></button>
       </div>
     </div>
@@ -429,7 +467,7 @@ body.art-handdrawn select, body.art-handdrawn input[type="text"], body.art-handd
     <div id="toolbar-footer">
       <button id="toolbar-menu-btn" title="☰ 菜单：保存/加载/导出/分享/云端等">☰ 菜单</button>
       <div class="toolbar-footer-text" style="font-size:10px;color:#555;text-align:center;padding-top:6px;">
-        通用跑团 · 战斗地图 v0.99<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>云端地图 · 多场景 · DM/玩家视图
+        通用跑团 · 战斗地图 v0.101<br>滚轮缩放 · 拖拽平移 · 右键菜单<br>云端地图 · 多场景 · DM/玩家视图
       </div>
     </div>
   </div>

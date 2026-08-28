@@ -615,7 +615,7 @@ function renderMapCanvas(exact) {
     expCanvas.height = Math.max(h, 300);
   }
   const expCtx = expCanvas.getContext('2d');
-  expCtx.fillStyle = artStyle === 'handdrawn' ? '#1d2117' : '#2d2d44';
+  expCtx.fillStyle = '#3a3a52';
   expCtx.fillRect(0, 0, expCanvas.width, expCanvas.height);
 
   let offsetX, offsetY;
@@ -629,14 +629,8 @@ function renderMapCanvas(exact) {
   expCtx.save();
   expCtx.translate(offsetX, offsetY);
 
-  // Pass 1: fills + grid
-  for (const key of keys) {
-    const [q, r] = key.split(',').map(Number);
-    drawCombatCellBase(expCtx, q, r, combatData[key]);
-  }
-
-  // Pass 1.5: 底图（导出包含背景，DM/玩家图均一致）
-  if (backgroundMap && backgroundMap.imgData) {
+  // Pass 0: 底图（背景层，最底层）
+  if (layerVisible('background') && backgroundMap && backgroundMap.imgData) {
     const bm = backgroundMap;
     expCtx.save();
     expCtx.globalAlpha = Math.max(0, Math.min(1, bm.opacity ?? 0.85));
@@ -644,6 +638,12 @@ function renderMapCanvas(exact) {
       expCtx.drawImage(bm.img, bm.x * CELL_SIZE, bm.y * CELL_SIZE, bm.cols * CELL_SIZE, bm.rows * CELL_SIZE);
     }
     expCtx.restore();
+  }
+
+  // Pass 1: fills（地形层，画在底图之上；空地透明透出底图）
+  for (const key of keys) {
+    const [q, r] = key.split(',').map(Number);
+    drawCombatCellBase(expCtx, q, r, combatData[key]);
   }
 
   // Pass 1.8: 格线叠加层（盖在地形/底图之上，清晰可见；与画布 drawGridOverlay 一致）

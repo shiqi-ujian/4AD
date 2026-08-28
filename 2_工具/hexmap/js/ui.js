@@ -376,6 +376,34 @@ document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
   btn.addEventListener('click', () => setTool(btn.dataset.tool));
 });
 
+// ============================================================
+//  移动端底部抽屉：默认收起为底部图标条，点开弹出完整工具栏
+//  （桌面端不受影响，仅 <820px 生效）
+// ============================================================
+const LS_HEX_TOOLBAR_KEY = 'hexmap_toolbar_collapsed_v1';
+let hexToolbarCollapsed = false;
+const isHexMobileLayout = () => window.matchMedia('(max-width: 820px)').matches;
+if (isHexMobileLayout()) hexToolbarCollapsed = true;   // 移动端默认收起（最大化地图）
+
+function applyHexToolbarState() {
+  const tb = document.getElementById('toolbar');
+  if (tb) tb.classList.toggle('collapsed', hexToolbarCollapsed);
+  const hd = document.getElementById('toolbar-handle');
+  if (hd) {
+    hd.style.display = isHexMobileLayout() ? '' : 'none';
+    hd.textContent = hexToolbarCollapsed ? '▲' : '▼ 收起工具栏';
+  }
+}
+function toggleHexToolbar() {
+  hexToolbarCollapsed = !hexToolbarCollapsed;
+  if (!isHexMobileLayout()) { try { localStorage.setItem(LS_HEX_TOOLBAR_KEY, hexToolbarCollapsed ? '1' : '0'); } catch (e) {} }
+  applyHexToolbarState();
+  if (typeof resizeCanvas === 'function') resizeCanvas();
+}
+const hexToolbarHandle = document.getElementById('toolbar-handle');
+if (hexToolbarHandle) hexToolbarHandle.addEventListener('click', toggleHexToolbar);
+applyHexToolbarState();
+
 // ======== Terrain Editor ========
 function openTerrainEditor() {
   const modal = document.getElementById('terrain-editor-modal');

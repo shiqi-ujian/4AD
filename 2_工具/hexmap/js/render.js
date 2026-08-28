@@ -233,6 +233,14 @@ function resizeCanvas() {
   render();
 }
 
+// 画布必须始终撑满容器：容器宽度会随「工具栏折叠/展开」「断点翻转」变化，
+// 仅靠 window.resize 不够，用 ResizeObserver 监听容器，保证 canvas 不漏出黑边。
+if (typeof ResizeObserver === 'function') {
+  const ro = new ResizeObserver(() => { resizeCanvas(); });
+  ro.observe(container);
+  window.addEventListener('beforeunload', () => { try { ro.disconnect(); } catch(e) {} });
+}
+
 function render() {
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0, 0, W, H);
